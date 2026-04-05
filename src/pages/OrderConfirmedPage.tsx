@@ -3,62 +3,82 @@ import { fmt } from "@/lib/cart";
 
 export default function OrderConfirmedPage() {
   const { state } = useLocation();
-  const order = state as Record<string, unknown> | null;
+  const order = state as Record<string, any> | null;
 
-  const isBankTransfer = order?.paymentType === "bank_transfer";
-  const orderId = (order?.orderId as string) || "BM-2025-XXXX";
-  const email = (order?.email as string) || "your email";
+  const isBankTransfer = order?.paymentType === "transfer";
+  const orderId = (order?.orderId as string) || "ORD-XXXX";
+  const form = order?.form || {};
+  const payLabels: Record<string, string> = { card: "Card Payment via Paystack", transfer: "Bank Transfer", ussd: "USSD / Mobile Money" };
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="pt-20" style={{ background: "linear-gradient(135deg, #2D6A4F 0%, #1A4A33 100%)" }}>
-        <div className="container mx-auto px-4 py-16 text-center">
-          <div className="text-5xl mb-4 animate-fade-up">✅</div>
-          <h1 className="font-display font-black text-2xl md:text-4xl text-primary-foreground mb-2 animate-fade-up">Order Confirmed! 🎉</h1>
-          <p className="font-body text-primary-foreground/70 animate-fade-up">Order ID: <span className="font-bold">{orderId}</span></p>
-          <p className="font-body text-primary-foreground/50 text-sm animate-fade-up">We'll send your confirmation to {email}</p>
+      <div className="pt-20 relative overflow-hidden" style={{ background: "linear-gradient(135deg, #2D6A4F 0%, #1E5C44 100%)" }}>
+        <div className="absolute top-[-60px] left-[10%] w-[200px] h-[200px] rounded-full bg-coral/[0.07]" />
+        <div className="absolute bottom-[-40px] right-[8%] w-[160px] h-[160px] rounded-full bg-primary-foreground/[0.04]" />
+        <div className="max-w-[860px] mx-auto px-4 md:px-10 py-12 md:py-20 text-center">
+          <div className="w-[72px] h-[72px] bg-primary-foreground/[0.12] rounded-full flex items-center justify-center mx-auto mb-4 text-3xl animate-pulse-scale">✅</div>
+          <h1 className="pf text-3xl md:text-5xl text-primary-foreground mb-2.5">Order Confirmed! 🎉</h1>
+          <p className="text-primary-foreground/70 text-sm md:text-[17px] mb-1.5">Thank you, {form.firstName || ""}! Your bundle is on its way.</p>
+          <div className="inline-flex items-center gap-2 bg-coral/20 border border-coral/40 rounded-pill px-5 py-2 mt-2.5">
+            <span className="text-coral font-bold text-sm">Order #{orderId}</span>
+          </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-10 max-w-xl">
-        {isBankTransfer ? (
-          <div className="bg-[#FFF8E1] border border-[#FFD54F] rounded-card p-5 mb-6 animate-fade-up">
-            <h2 className="font-display font-bold text-lg mb-2">⏳ Awaiting Payment Confirmation</h2>
-            <div className="font-body text-sm space-y-1 mb-3">
-              <p><span className="text-muted-foreground">Bank:</span> GTBank</p>
-              <p><span className="text-muted-foreground">Account Name:</span> BundledMum Nigeria Ltd</p>
-              <p><span className="text-muted-foreground">Account Number:</span> 0123456789</p>
-              {order?.total && <p><span className="text-muted-foreground">Amount:</span> <span className="font-bold text-coral">{fmt(order.total as number)}</span></p>}
-            </div>
-            <p className="font-body text-xs text-muted-foreground">Once we confirm your transfer, we'll start packing your order</p>
-          </div>
-        ) : (
-          <div className="bg-mint border border-forest/20 rounded-card p-5 mb-6 animate-fade-up">
-            <h2 className="font-display font-bold text-lg text-forest">✅ Payment Confirmed</h2>
-            <p className="font-body text-sm text-forest/70">Your order is now being packed</p>
-          </div>
-        )}
-
-        <div className="bg-card rounded-card shadow-card p-6 mb-8 animate-fade-up">
-          <h3 className="font-display font-bold mb-4">Order Timeline</h3>
-          <div className="space-y-4">
+      <div className="max-w-[860px] mx-auto px-4 md:px-10 py-8 md:py-14">
+        {/* What Happens Next */}
+        <div className="bg-card rounded-card shadow-card p-5 md:p-8 mb-4">
+          <h3 className="pf text-lg md:text-xl text-forest mb-4">What Happens Next</h3>
+          <div className="flex flex-col">
             {[
-              { icon: "✅", label: "Order Received", active: true },
-              { icon: "⏳", label: "Packing (24 hours)", active: false },
-              { icon: "🚚", label: "Out for Delivery (48 hours — Lagos)", active: false },
-              { icon: "📦", label: "Delivered", active: false },
-            ].map((s, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <span className="text-xl">{s.icon}</span>
-                <span className={`font-body text-sm ${s.active ? "font-bold text-forest" : "text-muted-foreground"}`}>{s.label}</span>
+              { icon: "📧", title: "Confirmation Email Sent", desc: `We've sent order details to ${form.email || "your email"}`, done: true },
+              { icon: "🔍", title: "Order Being Processed", desc: "Our team is picking and packing your items", done: true },
+              { icon: "📦", title: "Dispatched for Delivery", desc: `To ${form.address || ""}, ${form.city || ""}, ${form.state || ""}`, done: false },
+              { icon: "🏠", title: "Delivered to Your Door", desc: "Lagos: 1–2 days · Other states: 2–4 days", done: false },
+            ].map((s, i, arr) => (
+              <div key={i} className="flex gap-3 pb-3">
+                <div className="flex flex-col items-center">
+                  <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center text-lg flex-shrink-0 ${s.done ? "bg-forest-light border-forest" : "bg-warm-cream border-border"}`}>{s.icon}</div>
+                  {i < arr.length - 1 && <div className={`w-0.5 h-4 my-0.5 ${s.done ? "bg-forest" : "bg-border"}`} />}
+                </div>
+                <div className="pb-3">
+                  <div className={`font-bold text-sm ${s.done ? "text-forest" : ""}`}>{s.title}</div>
+                  <div className="text-text-med text-[13px] mt-0.5">{s.desc}</div>
+                </div>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="flex gap-3 justify-center animate-fade-up">
-          <Link to="/" className="rounded-pill bg-forest px-6 py-3 font-display font-bold text-primary-foreground hover:bg-forest-deep interactive">
-            Continue Shopping
+        {/* Payment status */}
+        {isBankTransfer && (
+          <div className="bg-[#FFF8E1] border border-[#FFD54F] rounded-card p-5 mb-4">
+            <h3 className="font-bold text-base mb-2">⏳ Awaiting Payment</h3>
+            {[["Bank", "GTBank"], ["Account Name", "BundledMum Nigeria Ltd"], ["Account Number", "0123456789"]].map(([k, v]) => (
+              <div key={k} className="flex gap-2 mb-1 text-sm"><span className="text-text-light min-w-[120px]">{k}:</span><span className="font-semibold">{v}</span></div>
+            ))}
+            {order?.total && <div className="flex gap-2 mt-2 text-sm"><span className="text-text-light min-w-[120px]">Amount:</span><span className="font-bold text-coral">{fmt(order.total)}</span></div>}
+          </div>
+        )}
+
+        {/* WhatsApp CTA */}
+        <div className="bg-forest rounded-card p-5 md:p-8 flex flex-col md:flex-row justify-between items-center gap-3.5 mb-4 text-center md:text-left">
+          <div>
+            <h4 className="pf text-primary-foreground text-lg mb-1">💬 Questions About Your Order?</h4>
+            <p className="text-primary-foreground/65 text-[13px]">Chat with us on WhatsApp — we reply within minutes.</p>
+          </div>
+          <a href={`https://wa.me/2348012345678?text=Hi! My order number is ${orderId}`}
+            className="bg-[#25D366] text-primary-foreground px-5 py-3 rounded-pill font-semibold text-sm whitespace-nowrap w-full md:w-auto text-center">
+            Chat on WhatsApp 💬
+          </a>
+        </div>
+
+        <div className="flex gap-3 justify-center flex-col md:flex-row">
+          <Link to="/" className="rounded-pill bg-forest px-7 py-3.5 font-body font-semibold text-primary-foreground hover:bg-forest-deep interactive text-center text-[15px]">
+            Continue Shopping →
+          </Link>
+          <Link to="/quiz" className="rounded-pill border-2 border-forest text-forest px-7 py-3.5 font-body font-semibold hover:bg-forest/5 interactive text-center text-[15px]">
+            Build Another Bundle
           </Link>
         </div>
       </div>

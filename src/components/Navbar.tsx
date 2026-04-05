@@ -1,9 +1,11 @@
-import { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useState } from "react";
+import { Link } from "react-router-dom";
 import { ShoppingBag, Menu, X } from "lucide-react";
 import { useCart } from "@/lib/cart";
 import logoWhite from "@/assets/logos/BM-LOGO-WHITE.svg";
-import logoCoral from "@/assets/logos/BM-LOGO-CORAL.svg";
+import logoGreen from "@/assets/logos/BM-LOGO-GREEN.svg";
+import { useEffect } from "react";
+import { useLocation } from "react-router-dom";
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -14,81 +16,57 @@ export default function Navbar() {
   const isHome = location.pathname === "/";
 
   useEffect(() => {
-    const handler = () => setScrolled(window.scrollY > 60);
+    const handler = () => setScrolled(window.scrollY > 24);
     window.addEventListener("scroll", handler);
     return () => window.removeEventListener("scroll", handler);
   }, []);
 
   useEffect(() => setMenuOpen(false), [location]);
 
-  const showWhite = isHome && !scrolled;
+  const onLight = !isHome;
+  const dark = scrolled || onLight;
 
   const navLinks = [
-    { to: "/bundles", label: "Bundles" },
-    { to: "/shop?tab=baby", label: "Shop Baby" },
-    { to: "/shop?tab=mum", label: "Shop Mum" },
-    { to: "/quiz", label: "How It Works" },
+    { to: "/bundles", label: "Hospital Bags" },
+    { to: "/shop", label: "All Shop" },
+    { to: "/shop?tab=baby", label: "Baby Shop" },
+    { to: "/shop?tab=mum", label: "Mum Shop" },
+    { to: "/about", label: "Our Story" },
+    { to: "/contact", label: "Contact" },
   ];
 
   return (
     <>
-      <nav
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          scrolled || !isHome
-            ? "bg-card shadow-card"
-            : "bg-transparent"
-        }`}
-      >
-        <div className="container mx-auto flex items-center justify-between px-4 py-3 md:py-4">
+      <nav className={`fixed top-0 left-0 right-0 z-[1000] transition-all duration-300 ${dark ? "bg-warm-cream/95 backdrop-blur-sm border-b border-border" : "bg-transparent"}`}>
+        <div className="max-w-[1200px] mx-auto flex items-center justify-between h-[68px] px-5 md:px-10">
           <Link to="/" className="flex-shrink-0">
-            <img
-              src={showWhite ? logoWhite : logoCoral}
-              alt="BundledMum"
-              className="h-9 md:h-11"
-            />
+            <img src={dark ? logoGreen : logoWhite} alt="BundledMum" className="h-11 w-auto transition-all" />
           </Link>
 
-          <div className="hidden md:flex items-center gap-6">
+          <div className="hidden md:flex items-center gap-1.5">
+            <Link to="/quiz" className="rounded-pill bg-coral px-5 py-2 text-[13px] font-semibold text-primary-foreground hover:bg-coral-dark interactive font-body">Build My Bundle</Link>
             {navLinks.map(l => (
-              <Link
-                key={l.to}
-                to={l.to}
-                className={`text-sm font-body font-bold transition-colors ${
-                  showWhite ? "text-primary-foreground/80 hover:text-primary-foreground" : "text-foreground/70 hover:text-foreground"
-                }`}
-              >
+              <Link key={l.to} to={l.to} className={`rounded-pill px-3.5 py-2 text-[13px] font-semibold transition-colors font-body ${dark ? "text-foreground hover:bg-midnight/[0.07]" : "text-primary-foreground hover:bg-primary-foreground/10"}`}>
                 {l.label}
               </Link>
             ))}
+            <Link to="/cart" className="relative ml-1 p-1.5">
+              <span className="text-xl">🛍️</span>
+              {totalItems > 0 && (
+                <span className={`absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-coral text-[9px] font-bold text-primary-foreground ${justAdded ? "animate-pulse-badge" : ""}`}>{totalItems}</span>
+              )}
+            </Link>
           </div>
 
-          <div className="flex items-center gap-3">
-            <Link
-              to="/quiz"
-              className="hidden md:inline-flex items-center gap-1.5 rounded-pill bg-coral px-5 py-2.5 text-sm font-display font-bold text-primary-foreground hover:bg-coral-dark interactive"
-            >
-              Build My Bundle →
-            </Link>
-
-            <Link to="/cart" className="relative p-2">
-              <ShoppingBag className={`h-5 w-5 ${showWhite ? "text-primary-foreground" : "text-foreground"}`} />
+          <div className="flex items-center gap-1 md:hidden">
+            <Link to="/cart" className="relative p-1.5">
+              <span className="text-xl">🛍️</span>
               {totalItems > 0 && (
-                <span className={`absolute -top-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-coral text-[10px] font-bold text-primary-foreground ${justAdded ? "animate-pulse-badge" : ""}`}>
-                  {totalItems}
-                </span>
+                <span className={`absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-coral text-[9px] font-bold text-primary-foreground ${justAdded ? "animate-pulse-badge" : ""}`}>{totalItems}</span>
               )}
             </Link>
-
-            <button
-              className="md:hidden p-2"
-              onClick={() => setMenuOpen(!menuOpen)}
-              aria-label="Toggle menu"
-            >
-              {menuOpen ? (
-                <X className={`h-6 w-6 ${showWhite ? "text-primary-foreground" : "text-foreground"}`} />
-              ) : (
-                <Menu className={`h-6 w-6 ${showWhite ? "text-primary-foreground" : "text-foreground"}`} />
-              )}
+            <button onClick={() => setMenuOpen(true)} className="p-2 flex flex-col gap-[5px]">
+              {[0, 1, 2].map(i => <div key={i} className={`w-[22px] h-[2px] rounded-sm ${dark ? "bg-foreground" : "bg-primary-foreground"}`} />)}
             </button>
           </div>
         </div>
@@ -96,34 +74,23 @@ export default function Navbar() {
 
       {/* Mobile menu */}
       {menuOpen && (
-        <div className="fixed inset-0 z-40 md:hidden" onClick={() => setMenuOpen(false)}>
-          <div className="absolute inset-0 bg-midnight/40" />
-          <div
-            className="absolute top-0 right-0 w-72 h-full bg-card shadow-card-hover animate-fade-in flex flex-col"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="bg-forest p-5">
-              <img src={logoWhite} alt="BundledMum" className="h-8" />
+        <>
+          <div className="fixed inset-0 bg-midnight/50 z-[998] animate-fade-in" onClick={() => setMenuOpen(false)} />
+          <div className="fixed top-0 right-0 bottom-0 w-[280px] bg-card z-[999] p-6 overflow-y-auto animate-slide-down">
+            <div className="flex justify-between items-center mb-7">
+              <img src={logoGreen} alt="BundledMum" className="h-9 w-auto" />
+              <button onClick={() => setMenuOpen(false)} className="text-text-med text-xl leading-none">✕</button>
             </div>
-            <div className="p-5">
-              <Link
-                to="/quiz"
-                className="mb-5 flex items-center justify-center rounded-pill bg-coral px-5 py-3 text-sm font-display font-bold text-primary-foreground"
-              >
-                Build My Bundle →
-              </Link>
-              {navLinks.map(l => (
-                <Link
-                  key={l.to}
-                  to={l.to}
-                  className="block py-3 text-base font-body font-bold text-foreground/80 border-b border-border"
-                >
-                  {l.label}
-                </Link>
-              ))}
+            <Link to="/quiz" className="block w-full text-center rounded-pill bg-coral py-3.5 font-body font-semibold text-primary-foreground mb-5">Build My Bundle →</Link>
+            {navLinks.map(l => (
+              <Link key={l.to} to={l.to} className="block w-full text-left py-3.5 border-b border-border font-body font-semibold text-base">{l.label}</Link>
+            ))}
+            <div className="mt-7">
+              <div className="text-text-light text-xs mb-2">Contact us</div>
+              <div className="text-text-med text-sm">hello@bundledmum.ng</div>
             </div>
           </div>
-        </div>
+        </>
       )}
     </>
   );
