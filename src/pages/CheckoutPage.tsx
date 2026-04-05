@@ -21,7 +21,7 @@ async function logOrderToSheets(orderData: Record<string, unknown>) {
 }
 
 export default function CheckoutPage() {
-  const { cart, subtotal, clearCart } = useCart();
+  const { cart, subtotal, clearCart, totalItems } = useCart();
   const navigate = useNavigate();
   const [form, setForm] = useState<FormData>({ firstName: "", lastName: "", phone: "", email: "", address: "", city: "", state: "Lagos", notes: "" });
   const [payment, setPayment] = useState<"card" | "transfer" | "ussd">("card");
