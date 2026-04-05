@@ -89,6 +89,10 @@
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.2); }
 }
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(100%); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
 .animate-fade-up { animation: fadeUp 0.55s ease forwards; }
 .animate-fade-up-2 { animation: fadeUp 0.55s 0.12s ease forwards; opacity: 0; }
@@ -99,6 +103,7 @@
 .animate-pulse-badge { animation: pulse-badge 0.4s ease-out; }
 .animate-pulse-scale { animation: pulse-scale 2s ease-in-out infinite; }
 .animate-slide-down { animation: slideDown 0.3s ease forwards; }
+.animate-slide-up { animation: slideUp 0.3s ease forwards; }
 
 /* Custom scrollbar */
 ::-webkit-scrollbar { width: 5px; }
