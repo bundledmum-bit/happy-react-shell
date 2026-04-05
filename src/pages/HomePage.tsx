@@ -1,8 +1,10 @@
 import { Link } from "react-router-dom";
 import { useCart, fmt, getBrandForBudget } from "@/lib/cart";
 import { PRODUCTS, HERO_KIT, TESTIMONIALS } from "@/data/products";
+import { bundles } from "@/data/bundles";
 import { toast } from "sonner";
 import logoWhite from "@/assets/logos/BM-LOGO-WHITE.svg";
+import { useEffect, useState } from "react";
 
 function HeroSection() {
   const { addToCart } = useCart();
@@ -11,7 +13,7 @@ function HeroSection() {
     HERO_KIT.forEach(item => {
       addToCart({ ...item, brands: [{ id: "default", label: item.name, price: item.price, img: item.img, tier: 1 }], selectedBrand: { id: "default", label: item.name, price: item.price, img: item.img, tier: 1 } });
     });
-    toast.success("✓ Standard Kit added to cart!");
+    toast.success("✓ Standard Kit added to cart!", { description: "6 items added", action: { label: "View Cart →", onClick: () => window.location.href = "/cart" } });
   };
 
   const kitTotal = HERO_KIT.reduce((s, i) => s + i.price, 0);
@@ -36,8 +38,9 @@ function HeroSection() {
           </p>
           <div className="animate-fade-up-4 flex gap-3 flex-wrap">
             <Link to="/quiz" className="rounded-pill bg-coral px-7 py-3.5 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-sm md:text-[15px] w-full md:w-auto text-center">Build My Bundle →</Link>
-            <Link to="/shop" className="rounded-pill border-2 border-primary-foreground/50 px-7 py-3.5 font-body font-semibold text-primary-foreground hover:bg-primary-foreground/10 interactive w-full md:w-auto text-center">Browse All Products</Link>
+            <Link to="/shop" className="rounded-pill border-2 border-primary-foreground/30 px-7 py-3.5 font-body font-semibold text-primary-foreground/80 hover:bg-primary-foreground/10 interactive w-full md:w-auto text-center">Browse All Products</Link>
           </div>
+          <p className="animate-fade-up-4 text-primary-foreground/50 text-xs mt-3 font-body">⭐ 4.9/5 from 200+ mums</p>
           <div className="animate-fade-up-4 flex gap-6 md:gap-9 mt-8 md:mt-12 pt-6 md:pt-9 border-t border-primary-foreground/10">
             {[["200+", "Mums Served"], ["4.9★", "Average Rating"], ["48hr", "Lagos Delivery"]].map(([v, l]) => (
               <div key={l}><div className="pf text-xl md:text-[26px] font-bold text-coral">{v}</div><div className="text-primary-foreground/50 text-[11px]">{l}</div></div>
@@ -45,6 +48,7 @@ function HeroSection() {
           </div>
         </div>
 
+        {/* Desktop hero card */}
         <div className="hidden md:block">
           <div className="animate-float bg-primary-foreground/[0.07] backdrop-blur-lg border border-primary-foreground/[0.11] rounded-[24px] p-5 md:p-7 overflow-hidden">
             <div className="flex justify-between items-center mb-4">
@@ -52,7 +56,7 @@ function HeroSection() {
                 <div className="text-primary-foreground/50 text-[10px] uppercase tracking-widest mb-1">Ready to order</div>
                 <div className="pf text-primary-foreground text-[17px] font-semibold">Pre-Packed Hospital Bags</div>
               </div>
-              <span className="bg-coral/20 border border-coral/40 rounded-pill px-2.5 py-1 text-[10px] font-bold text-coral">10 Bundles</span>
+              <span className="bg-coral/20 border border-coral/40 rounded-pill px-2.5 py-1 text-[10px] font-bold text-coral">{bundles.length} Bundles</span>
             </div>
             <div className="grid grid-cols-2 gap-2.5 mb-4">
               {[
@@ -61,24 +65,41 @@ function HeroSection() {
                 { icon: "🏨", name: "Private Hospital", sub: "C-Section · Premium", price: "₦88,000", bg: "rgba(136,14,79,0.15)" },
                 { icon: "🎁", name: "Gift Bundle", sub: "Premium", price: "₦82,000", bg: "rgba(198,40,40,0.15)" },
               ].map(c => (
-                <div key={c.sub} className="rounded-xl p-3 text-center" style={{ background: c.bg }}>
+                <Link to="/bundles" key={c.sub} className="rounded-xl p-3 text-center hover:scale-105 transition-transform" style={{ background: c.bg }}>
                   <div className="text-2xl">{c.icon}</div>
                   <div className="text-primary-foreground text-[10px] font-semibold mt-1">{c.name}</div>
                   <div className="text-primary-foreground/50 text-[9px]">{c.sub}</div>
-                </div>
+                  <div className="text-coral font-bold text-[11px] mt-0.5">{c.price}</div>
+                </Link>
               ))}
             </div>
-            <div className="bg-primary-foreground/[0.06] rounded-xl p-3 mb-4">
-              <div className="text-primary-foreground/50 text-[10px] mb-2">Standard Starter Kit — {HERO_KIT.length} items</div>
-              <div className="flex flex-wrap gap-1.5">
-                {HERO_KIT.map(item => (
-                  <div key={item.id} className="w-8 h-8 bg-primary-foreground/10 rounded-lg flex items-center justify-center text-sm">{item.img}</div>
-                ))}
-              </div>
+            <div className="flex items-center gap-2 mb-4 justify-center">
+              {HERO_KIT.slice(0, 4).map(item => (
+                <div key={item.id} className="w-8 h-8 bg-primary-foreground/10 rounded-lg flex items-center justify-center text-sm">{item.img}</div>
+              ))}
+              <div className="text-primary-foreground/40 text-[10px] font-semibold">+{bundles.length - 4} more bundles</div>
             </div>
-            <button onClick={handleAddKit} className="w-full rounded-pill bg-coral py-2.5 font-body font-semibold text-sm text-primary-foreground hover:bg-coral-dark interactive">
-              Add Full Kit — {fmt(kitTotal)} 🛍️
-            </button>
+            <Link to="/bundles" className="block w-full rounded-pill bg-coral py-2.5 font-body font-semibold text-sm text-primary-foreground hover:bg-coral-dark interactive text-center">
+              Shop Pre-Packed Bags →
+            </Link>
+            <div className="text-primary-foreground/30 text-[10px] text-center mt-2">Public · Private · Vaginal · C-Section · Gift</div>
+          </div>
+        </div>
+
+        {/* Mobile bundle preview */}
+        <div className="md:hidden overflow-x-auto -mx-5 px-5">
+          <div className="flex gap-3" style={{ minWidth: "max-content" }}>
+            {[
+              { icon: "🏥", name: "Public · Vaginal", price: "₦42,500", bg: "rgba(21,101,192,0.15)" },
+              { icon: "🏨", name: "Private · C-Section", price: "₦88,000", bg: "rgba(136,14,79,0.15)" },
+              { icon: "🎁", name: "Gift Bundle", price: "₦82,000", bg: "rgba(198,40,40,0.15)" },
+            ].map(c => (
+              <Link to="/bundles" key={c.name} className="rounded-xl p-3 text-center min-w-[130px]" style={{ background: c.bg }}>
+                <div className="text-2xl">{c.icon}</div>
+                <div className="text-primary-foreground text-[10px] font-semibold mt-1">{c.name}</div>
+                <div className="text-coral font-bold text-[11px] mt-0.5">{c.price}</div>
+              </Link>
+            ))}
           </div>
         </div>
       </div>
@@ -86,25 +107,83 @@ function HeroSection() {
   );
 }
 
+function TrustBar() {
+  const items = [
+    "🌿 100% Curated for Nigeria",
+    "📦 Free Delivery over ₦30,000",
+    "⭐ 4.9/5 · 200+ Mums",
+    "💬 WhatsApp Support 7 Days",
+    "🔒 Secure Paystack Checkout",
+  ];
+  return (
+    <section className="bg-warm-cream border-y border-border py-4 overflow-x-auto">
+      <div className="flex gap-6 md:gap-10 justify-center items-center px-5 min-w-max mx-auto">
+        {items.map(item => (
+          <span key={item} className="text-text-med text-xs md:text-sm font-semibold font-body whitespace-nowrap">{item}</span>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function HowItWorks() {
   const steps = [
-    { icon: "🧩", title: "Take the Quiz", desc: "Answer 3 quick questions about your budget and your baby" },
-    { icon: "📦", title: "We Bundle It", desc: "We curate the exact brands and quantities you need" },
-    { icon: "🚚", title: "We Deliver", desc: "To your door in Lagos within 48 hours" },
+    { num: "01", icon: "🧩", title: "Take the Quiz", desc: "Answer 3 quick questions about your budget, hospital type, and baby's gender — takes 60 seconds." },
+    { num: "02", icon: "📦", title: "Get Your Bundle", desc: "We curate the exact brands and quantities matched to your answers — no guesswork." },
+    { num: "03", icon: "🚚", title: "Add & Order", desc: "Add individual items or the full kit, checkout securely, and we deliver within 48 hours in Lagos." },
   ];
   return (
     <section className="py-16 md:py-24 bg-card">
       <div className="max-w-[1200px] mx-auto px-5 md:px-10">
         <div className="text-center mb-10 md:mb-14">
-          <span className="text-coral text-xs font-semibold uppercase tracking-widest">How It Works</span>
-          <h2 className="pf text-2xl md:text-[42px] text-forest mt-2">Three Simple Steps</h2>
+          <span className="text-coral text-xs font-semibold uppercase tracking-widest">Simple Process</span>
+          <h2 className="pf text-2xl md:text-[42px] text-forest mt-2">How BundledMum Works</h2>
         </div>
-        <div className="grid gap-8 md:grid-cols-3">
-          {steps.map((s, i) => (
-            <div key={i} className="text-center">
-              <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-forest-light flex items-center justify-center text-3xl">{s.icon}</div>
-              <h3 className="font-bold text-lg mb-2">{s.title}</h3>
-              <p className="text-text-med text-sm leading-relaxed">{s.desc}</p>
+        <div className="grid gap-5 md:grid-cols-3">
+          {steps.map((s) => (
+            <div key={s.num} className="relative bg-card border border-border rounded-[20px] p-6 md:p-8 text-center">
+              <div className="absolute top-3 left-4 text-[56px] font-bold text-forest/[0.06] pf leading-none">{s.num}</div>
+              <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-forest-light flex items-center justify-center text-3xl relative z-10">{s.icon}</div>
+              <h3 className="font-bold text-lg mb-2 relative z-10">{s.title}</h3>
+              <p className="text-text-med text-sm leading-relaxed relative z-10">{s.desc}</p>
+            </div>
+          ))}
+        </div>
+        <div className="text-center mt-8">
+          <Link to="/quiz" className="rounded-pill bg-coral px-8 py-3.5 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-sm inline-block">Start the Quiz →</Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function BundleTiers() {
+  const tiers = [
+    { icon: "🌱", name: "Starter Kit", range: "₦15,000 – ₦35,000", tagline: "The must-haves, nothing wasted", items: "~8 items", popular: false },
+    { icon: "🌿", name: "Standard Kit", range: "₦35,000 – ₦70,000", tagline: "Comfortable and complete", items: "~14 items", popular: true },
+    { icon: "✨", name: "Premium Kit", range: "₦70,000+", tagline: "The full luxury experience", items: "~22 items", popular: false },
+  ];
+  return (
+    <section className="py-16 md:py-24" style={{ background: "linear-gradient(135deg, #2D6A4F 0%, #1E5C44 100%)" }}>
+      <div className="max-w-[1100px] mx-auto px-5 md:px-10">
+        <div className="text-center mb-10 md:mb-14">
+          <span className="text-coral text-xs font-semibold uppercase tracking-widest">Our Kits</span>
+          <h2 className="pf text-2xl md:text-[42px] text-primary-foreground mt-2">Choose Your Bundle Tier</h2>
+        </div>
+        <div className="grid gap-4 md:grid-cols-3 items-end">
+          {tiers.map(t => (
+            <div key={t.name} className={`rounded-[20px] p-6 md:p-8 text-center relative ${t.popular ? "bg-forest-light md:scale-105 md:-my-2 border-2 border-forest" : "bg-primary-foreground/[0.07] border border-primary-foreground/10"}`}>
+              {t.popular && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-coral text-primary-foreground text-[10px] font-bold px-3 py-1 rounded-pill">✦ Most Popular</div>
+              )}
+              <div className="text-4xl mb-3">{t.icon}</div>
+              <h3 className={`pf text-xl font-bold mb-1 ${t.popular ? "text-forest" : "text-primary-foreground"}`}>{t.name}</h3>
+              <div className={`text-2xl font-bold pf mb-2 ${t.popular ? "text-forest" : "text-coral"}`}>{t.range}</div>
+              <p className={`text-sm mb-1 ${t.popular ? "text-text-med" : "text-primary-foreground/60"}`}>{t.tagline}</p>
+              <p className={`text-xs mb-4 ${t.popular ? "text-text-light" : "text-primary-foreground/40"}`}>{t.items}</p>
+              <Link to="/quiz" className={`inline-block rounded-pill px-6 py-2.5 font-body font-semibold text-sm interactive ${t.popular ? "bg-forest text-primary-foreground hover:bg-forest-deep" : "bg-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/30"}`}>
+                Build This Bundle →
+              </Link>
             </div>
           ))}
         </div>
@@ -114,8 +193,15 @@ function HowItWorks() {
 }
 
 function FeaturedProducts() {
-  const { addToCart } = useCart();
+  const { addToCart, cart } = useCart();
   const featured = [PRODUCTS.baby[0], PRODUCTS.baby[2], PRODUCTS.baby[3], PRODUCTS.mum[0]];
+  const badges: Record<number, { label: string; color: string }> = {
+    1: { label: "BEST SELLER", color: "#2D6A4F" },
+    3: { label: "ESSENTIAL", color: "#F4845F" },
+    4: { label: "TOP PICK", color: "#E67E22" },
+    11: { label: "ESSENTIAL", color: "#F4845F" },
+  };
+
   return (
     <section className="py-16 md:py-24 bg-background">
       <div className="max-w-[1200px] mx-auto px-5 md:px-10">
@@ -129,22 +215,36 @@ function FeaturedProducts() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-5">
           {featured.map(p => {
             const brand = getBrandForBudget(p, "standard");
+            const isInCart = cart.some(c => c.id === p.id);
+            const badge = badges[p.id];
             return (
-              <div key={p.id} className="bg-card rounded-card shadow-card card-hover overflow-hidden">
-                <div className="h-[170px] flex items-center justify-center text-6xl" style={{ background: `linear-gradient(135deg, ${brand.color}, #fff)` }}>
-                  {p.badge && <div className="absolute top-2.5 left-2.5 bg-coral text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill uppercase">{p.badge}</div>}
+              <div key={p.id} className="bg-card rounded-card shadow-card card-hover overflow-hidden relative">
+                <div className="h-[170px] flex items-center justify-center text-6xl relative" style={{ background: `linear-gradient(135deg, ${brand.color}, #fff)` }}>
+                  {badge && (
+                    <div className="absolute top-2.5 left-2.5 text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill uppercase" style={{ background: badge.color }}>{badge.label}</div>
+                  )}
                   {brand.img}
                 </div>
                 <div className="p-4">
-                  <h4 className="text-[13px] font-semibold mb-2">{p.name}</h4>
+                  <h3 className="text-[13px] font-semibold mb-2 leading-tight min-h-[36px]">{p.name}</h3>
                   <div className="flex items-center gap-1.5 mb-3">
                     <span className="text-coral text-xs">⭐ {p.rating}</span>
                     <span className="text-text-light text-[11px]">({p.reviews})</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-forest font-bold text-[17px]">{fmt(brand.price)}</span>
-                    <button onClick={() => { addToCart({ ...p, selectedBrand: brand, price: brand.price, name: `${p.name} (${brand.label})` }); toast.success("Added to cart"); }}
-                      className="rounded-pill bg-forest px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-forest-deep font-body interactive">+ Add</button>
+                    <div>
+                      <span className="text-forest font-bold text-[17px]">{fmt(brand.price)}</span>
+                      {p.brands.length > 1 && <div className="text-text-light text-[10px]">from {fmt(Math.min(...p.brands.map(b => b.price)))}</div>}
+                    </div>
+                    {isInCart ? (
+                      <Link to="/cart" className="rounded-pill bg-forest-light border border-forest text-forest px-4 py-2 text-xs font-semibold font-body interactive">In Cart ✓</Link>
+                    ) : (
+                      <button onClick={() => {
+                        addToCart({ ...p, selectedBrand: brand, price: brand.price, name: `${p.name} (${brand.label})` });
+                        toast.success(`✓ ${p.name} added to cart`, { action: { label: "View Cart →", onClick: () => window.location.href = "/cart" } });
+                      }}
+                        className="rounded-pill bg-forest px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-forest-deep font-body interactive">+ Add</button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -198,14 +298,35 @@ function CTABanner() {
   );
 }
 
+function StickyMobileCTA() {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    const handler = () => setShow(window.scrollY > 600);
+    window.addEventListener("scroll", handler, { passive: true });
+    return () => window.removeEventListener("scroll", handler);
+  }, []);
+
+  if (!show) return null;
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-[800] bg-card border-t border-border p-3 md:hidden animate-slide-up">
+      <Link to="/quiz" className="block w-full rounded-pill bg-coral py-3.5 text-center font-body font-semibold text-primary-foreground text-sm">Build My Bundle →</Link>
+    </div>
+  );
+}
+
 export default function HomePage() {
+  useEffect(() => { document.title = "BundledMum — Nigeria's Hospital Bag Curator"; }, []);
+
   return (
     <>
       <HeroSection />
+      <TrustBar />
       <HowItWorks />
+      <BundleTiers />
       <FeaturedProducts />
       <TestimonialsSection />
       <CTABanner />
+      <StickyMobileCTA />
     </>
   );
 }

@@ -1,14 +1,29 @@
 import { Link, useLocation } from "react-router-dom";
 import { fmt } from "@/lib/cart";
+import { useEffect } from "react";
 
 export default function OrderConfirmedPage() {
   const { state } = useLocation();
   const order = state as Record<string, any> | null;
 
+  useEffect(() => { document.title = "Order Confirmed | BundledMum"; }, []);
+
   const isBankTransfer = order?.paymentType === "transfer";
   const orderId = (order?.orderId as string) || "ORD-XXXX";
   const form = order?.form || {};
+  const items = order?.items || [];
   const payLabels: Record<string, string> = { card: "Card Payment via Paystack", transfer: "Bank Transfer", ussd: "USSD / Mobile Money" };
+
+  const deliveryDate = () => {
+    const now = new Date();
+    const isLagos = (form.state || "").toLowerCase() === "lagos";
+    const min = isLagos ? 1 : 2;
+    const max = isLagos ? 2 : 4;
+    const from = new Date(now); from.setDate(from.getDate() + min);
+    const to = new Date(now); to.setDate(to.getDate() + max);
+    const fmt = (d: Date) => d.toLocaleDateString("en-NG", { weekday: "short", month: "short", day: "numeric" });
+    return `${fmt(from)} – ${fmt(to)}`;
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -26,15 +41,43 @@ export default function OrderConfirmedPage() {
       </div>
 
       <div className="max-w-[860px] mx-auto px-4 md:px-10 py-8 md:py-14">
+        {/* Order Summary */}
+        {items.length > 0 && (
+          <div className="bg-card rounded-card shadow-card p-5 md:p-8 mb-4">
+            <h3 className="pf text-lg md:text-xl text-forest mb-4">Order Summary</h3>
+            <div className="space-y-2.5 mb-4">
+              {items.map((item: any, i: number) => (
+                <div key={i} className="flex items-center justify-between gap-3 pb-2.5 border-b border-border/50 last:border-0">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 bg-warm-cream rounded-lg flex items-center justify-center text-lg flex-shrink-0">{item.img || item.baseImg}</div>
+                    <div>
+                      <div className="text-sm font-semibold">{item.name}</div>
+                      <div className="text-text-light text-xs">Qty: {item.qty}</div>
+                    </div>
+                  </div>
+                  <div className="text-sm font-bold flex-shrink-0">{fmt(item.price * item.qty)}</div>
+                </div>
+              ))}
+            </div>
+            <div className="space-y-1.5 text-sm font-body border-t border-border pt-3">
+              {order?.subtotal && <div className="flex justify-between"><span className="text-text-med">Subtotal</span><span>{fmt(order.subtotal)}</span></div>}
+              {order?.deliveryFee !== undefined && <div className="flex justify-between"><span className="text-text-med">Delivery</span><span className={order.deliveryFee === 0 ? "text-forest" : ""}>{order.deliveryFee === 0 ? "FREE" : fmt(order.deliveryFee)}</span></div>}
+              {order?.serviceFee && <div className="flex justify-between"><span className="text-text-med">Service & Packaging</span><span>{fmt(order.serviceFee)}</span></div>}
+              {order?.giftWrapFee > 0 && <div className="flex justify-between"><span className="text-text-med">Gift Wrapping</span><span>{fmt(order.giftWrapFee)}</span></div>}
+              {order?.total && <div className="flex justify-between pt-2 border-t border-border font-bold text-base"><span>Total</span><span className="text-forest">{fmt(order.total)}</span></div>}
+            </div>
+          </div>
+        )}
+
         {/* What Happens Next */}
         <div className="bg-card rounded-card shadow-card p-5 md:p-8 mb-4">
           <h3 className="pf text-lg md:text-xl text-forest mb-4">What Happens Next</h3>
           <div className="flex flex-col">
             {[
-              { icon: "📧", title: "Confirmation Email Sent", desc: `We've sent order details to ${form.email || "your email"}`, done: true },
+              { icon: "📧", title: "Confirmation Email Sent", desc: `We've sent order details to ${form.email || "your email"}. Check your spam folder if you don't see it.`, done: true },
               { icon: "🔍", title: "Order Being Processed", desc: "Our team is picking and packing your items", done: true },
               { icon: "📦", title: "Dispatched for Delivery", desc: `To ${form.address || ""}, ${form.city || ""}, ${form.state || ""}`, done: false },
-              { icon: "🏠", title: "Delivered to Your Door", desc: "Lagos: 1–2 days · Other states: 2–4 days", done: false },
+              { icon: "🏠", title: "Delivered to Your Door", desc: `Expected delivery: ${deliveryDate()}`, done: false },
             ].map((s, i, arr) => (
               <div key={i} className="flex gap-3 pb-3">
                 <div className="flex flex-col items-center">
@@ -47,6 +90,9 @@ export default function OrderConfirmedPage() {
                 </div>
               </div>
             ))}
+          </div>
+          <div className="bg-warm-cream rounded-lg p-3 mt-2 text-center">
+            <p className="text-text-med text-xs font-body">📲 We'll send tracking updates to {form.email || "your email"} and WhatsApp ({form.phone || "your phone"}).</p>
           </div>
         </div>
 
@@ -68,6 +114,7 @@ export default function OrderConfirmedPage() {
             <p className="text-primary-foreground/65 text-[13px]">Chat with us on WhatsApp — we reply within minutes.</p>
           </div>
           <a href={`https://wa.me/2348012345678?text=Hi! My order number is ${orderId}`}
+            target="_blank" rel="noopener noreferrer"
             className="bg-[#25D366] text-primary-foreground px-5 py-3 rounded-pill font-semibold text-sm whitespace-nowrap w-full md:w-auto text-center">
             Chat on WhatsApp 💬
           </a>

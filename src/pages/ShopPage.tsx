@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useSearchParams, Link } from "react-router-dom";
 import { PRODUCTS, ALL_PRODUCTS, type Product } from "@/data/products";
 import { useCart, fmt, getBrandForBudget } from "@/lib/cart";
 import { toast } from "sonner";
@@ -7,12 +7,11 @@ import { toast } from "sonner";
 function ProductCard({ product, defaultBudget = "standard", onAdd }: { product: Product; defaultBudget?: string; onAdd: (item: any) => void }) {
   const defaultBrand = getBrandForBudget(product, defaultBudget);
   const [selectedBrand, setSelectedBrand] = useState(defaultBrand);
-  const [added, setAdded] = useState(false);
+  const { cart } = useCart();
+  const isInCart = cart.some(c => c.id === product.id);
 
   const handleAdd = () => {
     onAdd({ ...product, selectedBrand, price: selectedBrand.price, name: `${product.name} (${selectedBrand.label})` });
-    setAdded(true);
-    setTimeout(() => setAdded(false), 1500);
   };
 
   return (
@@ -24,7 +23,7 @@ function ProductCard({ product, defaultBudget = "standard", onAdd }: { product: 
         {selectedBrand.img}
       </div>
       <div className="p-4">
-        <h4 className="text-[13px] font-semibold mb-2 leading-tight min-h-[36px]">{product.name}</h4>
+        <h3 className="text-[13px] font-semibold mb-2 leading-tight min-h-[36px]">{product.name}</h3>
         <div className="mb-3">
           <div className="text-[10px] font-semibold text-text-light uppercase tracking-widest mb-1.5">Brand</div>
           <div className="flex flex-wrap gap-1">
@@ -47,9 +46,11 @@ function ProductCard({ product, defaultBudget = "standard", onAdd }: { product: 
               <div className="text-text-light text-[10px] mt-0.5">from {fmt(Math.min(...product.brands.map(b => b.price)))}</div>
             )}
           </div>
-          <button onClick={handleAdd} className={`rounded-pill px-4 py-2 text-xs font-semibold text-primary-foreground transition-all font-body ${added ? "bg-green-600" : "bg-forest hover:bg-forest-deep"}`}>
-            {added ? "✓ Added" : "+ Add"}
-          </button>
+          {isInCart ? (
+            <Link to="/cart" className="rounded-pill bg-forest-light border border-forest text-forest px-4 py-2 text-xs font-semibold font-body interactive">In Cart ✓</Link>
+          ) : (
+            <button onClick={handleAdd} className="rounded-pill bg-forest px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-forest-deep font-body interactive">+ Add</button>
+          )}
         </div>
       </div>
     </div>
@@ -62,6 +63,11 @@ export default function ShopPage() {
   const [budgetF, setBudgetF] = useState("standard");
   const [search, setSearch] = useState("");
   const { addToCart } = useCart();
+
+  useEffect(() => {
+    const titles: Record<string, string> = { all: "All Products", baby: "Baby Shop", mum: "Mum Shop" };
+    document.title = `${titles[tab] || "All Products"} | BundledMum`;
+  }, [tab]);
 
   const raw = tab === "baby" ? PRODUCTS.baby : tab === "mum" ? PRODUCTS.mum : ALL_PRODUCTS;
 
@@ -126,14 +132,14 @@ export default function ShopPage() {
         {filtered.length === 0 ? (
           <div className="text-center py-16">
             <div className="text-4xl mb-4">🔍</div>
-            <h3 className="pf text-xl mb-2">No products found</h3>
+            <h2 className="pf text-xl mb-2">No products found</h2>
             <p className="text-text-med text-sm">Try adjusting your filters or search term.</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
             {filtered.map(p => (
               <ProductCard key={p.id} product={p} defaultBudget={budgetF === "all" ? "standard" : budgetF}
-                onAdd={item => { addToCart(item); toast.success("Added to cart"); }} />
+                onAdd={item => { addToCart(item); toast.success(`✓ ${item.name} added to cart`, { action: { label: "View Cart →", onClick: () => window.location.href = "/cart" } }); }} />
             ))}
           </div>
         )}

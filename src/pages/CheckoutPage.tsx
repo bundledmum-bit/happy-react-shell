@@ -1,8 +1,9 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { useCart, fmt, generateOrderId } from "@/lib/cart";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 const NIGERIAN_STATES = ["Lagos", "Abuja", "Rivers", "Ogun", "Oyo", "Kano", "Kaduna", "Anambra", "Enugu", "Delta", "Edo", "Imo", "Osun", "Kwara", "Benue"];
 const SERVICE_FEE = 1500;
@@ -29,6 +30,9 @@ export default function CheckoutPage() {
   const [giftWrap, setGiftWrap] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [errors, setErrors] = useState<Partial<FormData>>({});
+  const [mobileOrderOpen, setMobileOrderOpen] = useState(false);
+
+  useEffect(() => { document.title = "Secure Checkout | BundledMum"; }, []);
 
   const delivery = subtotal >= 30000 ? 0 : 2500;
   const giftWrapFee = giftWrap ? GIFT_WRAP_FEE : 0;
@@ -39,16 +43,35 @@ export default function CheckoutPage() {
     if (errors[key]) setErrors(p => ({ ...p, [key]: undefined }));
   };
 
+  const validateField = (key: keyof FormData): string | undefined => {
+    const val = form[key].trim();
+    if (key === "firstName" && !val) return "First name is required";
+    if (key === "lastName" && !val) return "Last name is required";
+    if (key === "phone") {
+      const digits = val.replace(/\D/g, "");
+      if (!digits || digits.length < 10) return "Valid phone required";
+      if (!/^0[789][01]\d{8}$/.test(digits) && digits.length < 10) return "Enter a valid Nigerian phone (e.g. 08012345678)";
+    }
+    if (key === "email") {
+      if (!val) return "Email is required";
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) return "Enter a valid email address";
+    }
+    if (key === "address" && !val) return "Street address is required";
+    if (key === "city" && !val) return "City is required";
+    return undefined;
+  };
+
+  const handleBlur = (key: keyof FormData) => {
+    const error = validateField(key);
+    setErrors(p => ({ ...p, [key]: error }));
+  };
+
   const validate = () => {
+    const fields: (keyof FormData)[] = ["firstName", "lastName", "phone", "email", "address", "city"];
     const e: Partial<FormData> = {};
-    if (!form.firstName.trim()) e.firstName = "Required";
-    if (!form.lastName.trim()) e.lastName = "Required";
-    if (!form.phone.trim() || form.phone.replace(/\D/g, "").length < 10) e.phone = "Valid phone required";
-    if (!form.email.trim() || !form.email.includes("@")) e.email = "Valid email required";
-    if (!form.address.trim()) e.address = "Required";
-    if (!form.city.trim()) e.city = "Required";
+    fields.forEach(key => { const err = validateField(key); if (err) e[key] = err; });
     setErrors(e);
-    if (Object.keys(e).length) toast.error("Please fill all required fields");
+    if (Object.keys(e).length) toast.error("Please fill all required fields correctly");
     return !Object.keys(e).length;
   };
 
@@ -90,7 +113,6 @@ export default function CheckoutPage() {
         ref: `BM-${Date.now()}`, firstname: form.firstName, lastname: form.lastName,
         channels: payment === "ussd" ? ["ussd"] : ["card", "bank_transfer", "ussd", "qr", "mobile_money", "bank"],
         onSuccess: async (transaction: { reference: string; status: string }) => {
-          // Verify payment server-side
           const { data: verification, error: verifyError } = await supabase.functions.invoke("verify-payment", {
             body: { reference: transaction.reference },
           });
@@ -132,8 +154,9 @@ export default function CheckoutPage() {
     <div className="min-h-screen bg-background">
       <div className="pt-20" style={{ background: "linear-gradient(135deg, #2D6A4F 0%, #1E5C44 100%)" }}>
         <div className="max-w-[1100px] mx-auto px-4 md:px-10 py-8 md:py-10">
-          <div className="text-primary-foreground/50 text-xs mb-2 cursor-pointer" onClick={() => window.history.back()}>← Back to Cart</div>
-          <h1 className="pf text-2xl md:text-4xl text-primary-foreground">🔒 Secure Checkout</h1>
+          <Link to="/cart" className="text-primary-foreground/50 text-xs hover:text-primary-foreground/70 transition-colors">← Back to Cart</Link>
+          <h1 className="pf text-2xl md:text-4xl text-primary-foreground mt-2">🔒 Secure Checkout</h1>
+          <p className="text-primary-foreground/50 text-xs mt-2 font-body">Guest Checkout — no account needed. We only use your details to deliver your order.</p>
           <div className="flex items-center gap-2 mt-3">
             {["Delivery Details", "Payment"].map((s, i) => (
               <div key={s} className="flex items-center gap-1.5">
@@ -147,23 +170,53 @@ export default function CheckoutPage() {
       </div>
 
       <div className="max-w-[1100px] mx-auto px-4 md:px-10 py-6 md:py-10">
+        {/* Mobile order summary toggle */}
+        <div className="lg:hidden mb-4">
+          <button onClick={() => setMobileOrderOpen(!mobileOrderOpen)} className="w-full bg-card rounded-card shadow-card p-4 flex justify-between items-center">
+            <span className="font-body font-semibold text-sm">{totalItems} items · {fmt(grand)}</span>
+            <span className="flex items-center gap-1 text-forest text-xs font-semibold">
+              {mobileOrderOpen ? "Hide" : "View details"} {mobileOrderOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            </span>
+          </button>
+          {mobileOrderOpen && (
+            <div className="bg-card rounded-b-card shadow-card p-4 -mt-1 animate-fade-in space-y-2">
+              {cart.map(item => (
+                <div key={item._key} className="flex items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{item.img || item.baseImg}</span>
+                    <span className="truncate max-w-[180px]">{item.name} ×{item.qty}</span>
+                  </div>
+                  <span className="font-bold">{fmt(item.price * item.qty)}</span>
+                </div>
+              ))}
+              <div className="border-t border-border pt-2 space-y-1 text-xs">
+                <div className="flex justify-between"><span className="text-text-med">Subtotal</span><span>{fmt(subtotal)}</span></div>
+                <div className="flex justify-between"><span className="text-text-med">Delivery</span><span>{delivery === 0 ? "FREE" : fmt(delivery)}</span></div>
+                <div className="flex justify-between"><span className="text-text-med">Service & Packaging</span><span>{fmt(SERVICE_FEE)}</span></div>
+                {giftWrap && <div className="flex justify-between"><span className="text-text-med">Gift Wrapping</span><span>{fmt(GIFT_WRAP_FEE)}</span></div>}
+                <div className="flex justify-between font-bold text-sm pt-1"><span>Total</span><span className="text-forest">{fmt(grand)}</span></div>
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
           <div className="space-y-4">
             {/* Delivery Details */}
             <div className="bg-card rounded-card shadow-card p-4 md:p-8">
-              <h3 className="pf text-lg mb-4">📍 Delivery Details</h3>
+              <h2 className="pf text-lg mb-4">📍 Delivery Details</h2>
               <div className="flex flex-col gap-3">
                 <div className="flex flex-col md:flex-row gap-3">
-                  <InputField label="First Name" value={form.firstName} onChange={v => update("firstName", v)} error={errors.firstName} />
-                  <InputField label="Last Name" value={form.lastName} onChange={v => update("lastName", v)} error={errors.lastName} />
+                  <InputField label="First Name" value={form.firstName} onChange={v => update("firstName", v)} onBlur={() => handleBlur("firstName")} error={errors.firstName} />
+                  <InputField label="Last Name" value={form.lastName} onChange={v => update("lastName", v)} onBlur={() => handleBlur("lastName")} error={errors.lastName} />
                 </div>
                 <div className="flex flex-col md:flex-row gap-3">
-                  <InputField label="Phone Number" value={form.phone} onChange={v => update("phone", v)} error={errors.phone} type="tel" />
-                  <InputField label="Email Address" value={form.email} onChange={v => update("email", v)} error={errors.email} type="email" />
+                  <InputField label="Phone Number" value={form.phone} onChange={v => update("phone", v)} onBlur={() => handleBlur("phone")} error={errors.phone} type="tel" placeholder="08012345678" />
+                  <InputField label="Email Address" value={form.email} onChange={v => update("email", v)} onBlur={() => handleBlur("email")} error={errors.email} type="email" placeholder="you@example.com" />
                 </div>
-                <InputField label="Street Address" value={form.address} onChange={v => update("address", v)} error={errors.address} />
+                <InputField label="Street Address" value={form.address} onChange={v => update("address", v)} onBlur={() => handleBlur("address")} error={errors.address} />
                 <div className="flex flex-col md:flex-row gap-3">
-                  <InputField label="City / Town" value={form.city} onChange={v => update("city", v)} error={errors.city} />
+                  <InputField label="City / Town" value={form.city} onChange={v => update("city", v)} onBlur={() => handleBlur("city")} error={errors.city} />
                   <div className="flex-1 flex flex-col gap-1">
                     <label className="text-xs font-semibold text-text-med uppercase tracking-wide">State</label>
                     <select value={form.state} onChange={e => update("state", e.target.value)} className="w-full rounded-[10px] border-[1.5px] border-border px-3 py-2.5 text-sm bg-card font-body focus:border-forest outline-none transition-colors">
@@ -195,7 +248,7 @@ export default function CheckoutPage() {
 
             {/* Payment Method */}
             <div className="bg-card rounded-card shadow-card p-4 md:p-8">
-              <h3 className="pf text-lg mb-4">💳 Payment Method</h3>
+              <h2 className="pf text-lg mb-4">💳 Payment Method</h2>
               <div className="flex flex-col gap-2.5">
                 {([
                   { id: "card" as const, icon: "💳", label: "Card Payment", sub: "Visa, Mastercard, Verve — instant" },
@@ -238,13 +291,13 @@ export default function CheckoutPage() {
             <button onClick={placeOrder} className="w-full rounded-pill bg-forest py-4 text-center font-body font-semibold text-primary-foreground hover:bg-forest-deep interactive text-base">
               Place Order — {fmt(grand)} 🔒
             </button>
-            <div className="text-center text-text-light text-[11px]">By placing your order, you agree to our Terms of Service and Privacy Policy</div>
+            <div className="text-center text-text-light text-[11px]">By placing your order, you agree to our <Link to="/terms" className="underline">Terms of Service</Link> and <Link to="/privacy" className="underline">Privacy Policy</Link></div>
           </div>
 
           {/* Order Summary Sidebar */}
           <div className="hidden lg:block">
             <div className="bg-card rounded-card shadow-card p-6 sticky top-24">
-              <h4 className="pf text-lg mb-4">Order Summary</h4>
+              <h2 className="pf text-lg mb-4">Order Summary</h2>
               <div className="max-h-[260px] overflow-y-auto mb-4 space-y-3">
                 {cart.map(item => (
                   <div key={item._key} className="flex items-center gap-3 pb-3 border-b border-border/50">
@@ -260,7 +313,7 @@ export default function CheckoutPage() {
               <div className="space-y-2 font-body text-[13px]">
                 <div className="flex justify-between"><span className="text-text-med">Subtotal ({totalItems} items)</span><span>{fmt(subtotal)}</span></div>
                 <div className="flex justify-between"><span className="text-text-med">Delivery</span><span className={delivery === 0 ? "text-forest" : ""}>{delivery === 0 ? "FREE 🎉" : fmt(delivery)}</span></div>
-                <div className="flex justify-between"><span className="text-text-med flex items-center gap-1">📦 Service & Packaging <span className="bg-forest-light text-forest text-[9px] px-1.5 py-0.5 rounded-[10px] font-bold">INCL.</span></span><span>{fmt(SERVICE_FEE)}</span></div>
+                <div className="flex justify-between"><span className="text-text-med flex items-center gap-1">📦 Service & Packaging</span><span>{fmt(SERVICE_FEE)}</span></div>
                 {giftWrap && <div className="flex justify-between"><span className="text-text-med">🎀 Gift Wrapping</span><span className="text-[#7B5E00]">{fmt(GIFT_WRAP_FEE)}</span></div>}
                 <div className="flex justify-between pt-2.5 border-t-2 border-border mt-0.5">
                   <span className="pf font-semibold">Total</span>
@@ -275,11 +328,11 @@ export default function CheckoutPage() {
   );
 }
 
-function InputField({ label, value, onChange, error, type = "text" }: { label: string; value: string; onChange: (v: string) => void; error?: string; type?: string }) {
+function InputField({ label, value, onChange, onBlur, error, type = "text", placeholder }: { label: string; value: string; onChange: (v: string) => void; onBlur?: () => void; error?: string; type?: string; placeholder?: string }) {
   return (
     <div className="flex-1 flex flex-col gap-1">
       <label className="text-xs font-semibold text-text-med uppercase tracking-wide">{label}</label>
-      <input type={type} value={value} onChange={e => onChange(e.target.value)}
+      <input type={type} value={value} onChange={e => onChange(e.target.value)} onBlur={onBlur} placeholder={placeholder}
         className={`w-full rounded-[10px] border-[1.5px] px-3 py-2.5 text-sm bg-card font-body outline-none transition-colors ${error ? "border-destructive" : "border-border focus:border-forest"}`} />
       {error && <p className="text-destructive text-[11px]">{error}</p>}
     </div>
