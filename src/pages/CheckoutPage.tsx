@@ -90,7 +90,18 @@ export default function CheckoutPage() {
         ref: `BM-${Date.now()}`, firstname: form.firstName, lastname: form.lastName,
         channels: payment === "ussd" ? ["ussd"] : ["card", "bank_transfer", "ussd", "qr", "mobile_money", "bank"],
         onSuccess: async (transaction: { reference: string; status: string }) => {
-          const orderData = buildOrderData(transaction.reference, transaction.status);
+          // Verify payment server-side
+          const { data: verification, error: verifyError } = await supabase.functions.invoke("verify-payment", {
+            body: { reference: transaction.reference },
+          });
+
+          if (verifyError || !verification?.verified) {
+            setProcessing(false);
+            toast.error("Payment verification failed. Please contact support.");
+            return;
+          }
+
+          const orderData = buildOrderData(transaction.reference, verification.status);
           await logOrderToSheets(orderData);
           clearCart();
           navigate("/order-confirmed", { state: { ...orderData, paymentType: "card", form } });
