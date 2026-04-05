@@ -1,0 +1,46 @@
+import { useState } from "react";
+import { FAQ } from "@/data/products";
+
+export default function ContactPage() {
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+  return (
+    <div className="min-h-screen pt-[68px]">
+      <div style={{ background: "linear-gradient(135deg, #2D6A4F, #1E5C44)" }} className="px-5 md:px-10 py-10 md:py-[72px]">
+        <div className="max-w-[680px] mx-auto text-center">
+          <h1 className="pf text-3xl md:text-[46px] text-primary-foreground mb-3">Help & Contact</h1>
+          <p className="text-primary-foreground/70 text-sm md:text-base">We're here for you — before, during, and after your order.</p>
+        </div>
+      </div>
+      <div className="max-w-[920px] mx-auto px-5 md:px-10 py-8 md:py-[72px]">
+        <div className="grid md:grid-cols-3 gap-3 md:gap-5 mb-10 md:mb-16">
+          {[
+            { icon: "💬", t: "WhatsApp Us", sub: "Fastest response", cta: "Chat Now", bg: "#E8F9F0", c: "#25D366" },
+            { icon: "📧", t: "Email Us", sub: "hello@bundledmum.ng", cta: "Send Email", bg: "hsl(145,33%,92%)", c: "#2D6A4F" },
+            { icon: "📍", t: "Lagos Office", sub: "By appointment only", cta: "Get Directions", bg: "#FFF0EA", c: "#F4845F" },
+          ].map(ct => (
+            <div key={ct.t} className="bg-card rounded-card shadow-card p-5 md:p-7 text-center">
+              <div className="w-[52px] h-[52px] rounded-full flex items-center justify-center text-2xl mx-auto mb-3" style={{ background: ct.bg }}>{ct.icon}</div>
+              <h3 className="font-bold text-[15px] mb-1">{ct.t}</h3>
+              <p className="text-text-med text-[13px] mb-3.5">{ct.sub}</p>
+              <button className="rounded-pill px-5 py-2.5 text-[13px] font-semibold text-primary-foreground font-body" style={{ background: ct.c }}>{ct.cta}</button>
+            </div>
+          ))}
+        </div>
+        <h2 className="pf text-xl md:text-[34px] text-forest mb-5 text-center">Frequently Asked Questions</h2>
+        <div className="flex flex-col gap-2.5">
+          {FAQ.map((item, i) => (
+            <div key={i} className="bg-card rounded-[14px] shadow-card overflow-hidden">
+              <button onClick={() => setOpenFaq(openFaq === i ? null : i)} className="w-full px-5 py-4 md:py-5 flex justify-between items-center text-left font-body font-semibold text-[13px] md:text-[15px] gap-2.5">
+                <span>{item.q}</span>
+                <span className={`text-lg text-forest flex-shrink-0 transition-transform ${openFaq === i ? "rotate-45" : ""}`}>+</span>
+              </button>
+              {openFaq === i && (
+                <div className="px-5 pb-4 md:pb-5 text-text-med text-sm leading-[1.8] animate-fade-in">{item.a}</div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,20 +1,21 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 
 export interface CartItem {
-  id: string;
+  id: string | number;
+  _key: string;
   name: string;
-  brand: string;
   price: number;
   qty: number;
-  emoji: string;
-  category: "baby" | "mum" | "bundle";
+  img?: string;
+  baseImg?: string;
+  brands?: any[];
+  selectedBrand?: any;
 }
 
 interface CartContextType {
   cart: CartItem[];
-  addToCart: (item: Omit<CartItem, "qty">) => void;
-  updateQty: (id: string, brand: string, qty: number) => void;
-  removeFromCart: (id: string, brand: string) => void;
+  addToCart: (item: any) => void;
+  setCart: React.Dispatch<React.SetStateAction<CartItem[]>>;
   clearCart: () => void;
   totalItems: number;
   subtotal: number;
@@ -36,29 +37,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("bm-cart", JSON.stringify(cart));
   }, [cart]);
 
-  const addToCart = useCallback((item: Omit<CartItem, "qty">) => {
+  const addToCart = useCallback((product: any) => {
     setCart(prev => {
-      const key = `${item.id}-${item.brand}`;
-      const existing = prev.find(i => `${i.id}-${i.brand}` === key);
-      if (existing) {
-        return prev.map(i => `${i.id}-${i.brand}` === key ? { ...i, qty: i.qty + 1 } : i);
-      }
-      return [...prev, { ...item, qty: 1 }];
+      const key = `${product.id}-${product.selectedBrand?.id || "default"}`;
+      const existing = prev.find(i => i._key === key);
+      if (existing) return prev.map(i => i._key === key ? { ...i, qty: i.qty + 1 } : i);
+      return [...prev, { ...product, _key: key, qty: 1 }];
     });
     setJustAdded(true);
     setTimeout(() => setJustAdded(false), 400);
-  }, []);
-
-  const updateQty = useCallback((id: string, brand: string, qty: number) => {
-    if (qty <= 0) {
-      setCart(prev => prev.filter(i => !(i.id === id && i.brand === brand)));
-    } else {
-      setCart(prev => prev.map(i => i.id === id && i.brand === brand ? { ...i, qty } : i));
-    }
-  }, []);
-
-  const removeFromCart = useCallback((id: string, brand: string) => {
-    setCart(prev => prev.filter(i => !(i.id === id && i.brand === brand)));
   }, []);
 
   const clearCart = useCallback(() => setCart([]), []);
@@ -67,7 +54,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const subtotal = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
 
   return (
-    <CartContext.Provider value={{ cart, addToCart, updateQty, removeFromCart, clearCart, totalItems, subtotal, justAdded }}>
+    <CartContext.Provider value={{ cart, addToCart, setCart, clearCart, totalItems, subtotal, justAdded }}>
       {children}
     </CartContext.Provider>
   );
@@ -79,5 +66,14 @@ export function useCart() {
   return ctx;
 }
 
-export const fmt = (n: number) => `₦${n.toLocaleString("en-NG")}`;
-export const generateOrderId = () => `BM-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`;
+export const fmt = (n: number) => `₦${n.toLocaleString()}`;
+export const generateOrderId = () => `ORD-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+
+const BRANDS_BY_BUDGET: Record<string, number> = { starter: 0, standard: 1, premium: 2 };
+
+export function getBrandForBudget(product: any, budget: string) {
+  const tierIdx = BRANDS_BY_BUDGET[budget] ?? 1;
+  const sorted = [...product.brands].sort((a: any, b: any) => a.tier - b.tier);
+  return sorted.find((b: any) => b.tier === tierIdx)
+    || sorted.reduce((best: any, b: any) => Math.abs(b.tier - tierIdx) < Math.abs(best.tier - tierIdx) ? b : best, sorted[0]);
+}

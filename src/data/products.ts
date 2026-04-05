@@ -1,135 +1,238 @@
-export interface BrandTier {
-  tier: number;
+export interface Brand {
+  id: string;
   label: string;
-  brand: string;
   price: number;
+  img: string;
+  tier: number;
+  color: string;
 }
 
 export interface Product {
-  id: string;
+  id: number;
   name: string;
-  category: "baby" | "mum";
-  emoji: string;
-  badge?: string;
+  baseImg: string;
   rating: number;
   reviews: number;
-  brands: BrandTier[];
+  tags: string[];
+  badge: string | null;
+  brands: Brand[];
 }
 
-export const babyProducts: Product[] = [
-  { id: "nappies", name: "Newborn Nappies", category: "baby", emoji: "🧷", rating: 4.9, reviews: 124, brands: [
-    { tier: 1, label: "Starter", brand: "Molfix", price: 3200 },
-    { tier: 2, label: "Standard", brand: "Huggies Pure", price: 4800 },
-    { tier: 3, label: "Premium", brand: "Pampers Premium", price: 6500 },
-  ]},
-  { id: "wipes", name: "Baby Wipes", category: "baby", emoji: "🧴", badge: "Essential", rating: 4.8, reviews: 98, brands: [
-    { tier: 1, label: "Starter", brand: "Local Wipes", price: 800 },
-    { tier: 2, label: "Standard", brand: "WaterWipes 60pcs", price: 2200 },
-    { tier: 3, label: "Premium", brand: "WaterWipes Pure", price: 3500 },
-  ]},
-  { id: "skincare", name: "Baby Skincare Set", category: "baby", emoji: "🧴", rating: 4.7, reviews: 87, brands: [
-    { tier: 1, label: "Starter", brand: "Purity", price: 2500 },
-    { tier: 2, label: "Standard", brand: "Johnson's Complete", price: 4200 },
-    { tier: 3, label: "Premium", brand: "Mustela Newborn Set", price: 12500 },
-  ]},
-  { id: "swaddle", name: "Muslin Swaddle", category: "baby", emoji: "👶", rating: 4.9, reviews: 76, brands: [
-    { tier: 1, label: "Starter", brand: "Local Premium 3-pack", price: 4500 },
-    { tier: 2, label: "Standard", brand: "Aden+Anais Classic", price: 7200 },
-    { tier: 3, label: "Premium", brand: "Aden+Anais Dream 4-pack", price: 14000 },
-  ]},
-  { id: "onesie", name: "Newborn Onesie Set (3pcs)", category: "baby", emoji: "👕", badge: "Bestseller", rating: 4.8, reviews: 112, brands: [
-    { tier: 1, label: "Starter", brand: "Local Brands", price: 3200 },
-    { tier: 2, label: "Standard", brand: "H&M Essentials", price: 6800 },
-    { tier: 3, label: "Premium", brand: "Carter's Essentials", price: 12000 },
-  ]},
-  { id: "going-home", name: "Going-Home Outfit", category: "baby", emoji: "👗", rating: 4.6, reviews: 64, brands: [
-    { tier: 2, label: "Standard", brand: "H&M Occasion", price: 4500 },
-    { tier: 3, label: "Premium", brand: "Carter's Special", price: 8500 },
-  ]},
-  { id: "cap-set", name: "Cap + Mittens + Booties", category: "baby", emoji: "🧤", rating: 4.7, reviews: 91, brands: [
-    { tier: 2, label: "Standard", brand: "Local Knitwear", price: 1800 },
-    { tier: 3, label: "Premium", brand: "Carter's Premium", price: 4200 },
-  ]},
-  { id: "thermometer", name: "Baby Thermometer", category: "baby", emoji: "🌡️", rating: 4.5, reviews: 53, brands: [
-    { tier: 2, label: "Standard", brand: "Basic Digital", price: 3500 },
-    { tier: 3, label: "Premium", brand: "Braun No-Touch", price: 18000 },
-  ]},
-  { id: "aspirator", name: "Nasal Aspirator", category: "baby", emoji: "👃", rating: 4.4, reviews: 42, brands: [
-    { tier: 2, label: "Standard", brand: "Bulb Syringe", price: 1200 },
-    { tier: 3, label: "Premium", brand: "Frida NoseFrida", price: 8500 },
-  ]},
-  { id: "nail-kit", name: "Baby Nail Kit", category: "baby", emoji: "✂️", rating: 4.3, reviews: 38, brands: [
-    { tier: 2, label: "Standard", brand: "Basic Set", price: 1500 },
-    { tier: 3, label: "Premium", brand: "Safety 1st Sleepy Baby", price: 4500 },
-  ]},
-  { id: "white-noise", name: "White Noise Machine", category: "baby", emoji: "🔊", badge: "New", rating: 4.6, reviews: 29, brands: [
-    { tier: 2, label: "Standard", brand: "Phone App / Speaker", price: 3000 },
-    { tier: 3, label: "Premium", brand: "Hatch Rest", price: 45000 },
-  ]},
-  { id: "carrier", name: "Baby Carrier", category: "baby", emoji: "🤱", rating: 4.8, reviews: 67, brands: [
-    { tier: 2, label: "Standard", brand: "Ring Sling Local", price: 8500 },
-    { tier: 3, label: "Premium", brand: "Ergobaby Embrace", price: 58000 },
-  ]},
+export const PRODUCTS: { baby: Product[]; mum: Product[] } = {
+  baby: [
+    {
+      id: 1, name: "Newborn Nappy Pack", baseImg: "🧷", rating: 4.9, reviews: 312,
+      tags: ["bundle:starter","bundle:standard","bundle:premium","gender:neutral","category:baby","type:toiletries","gift:yes"],
+      badge: "Bestseller",
+      brands: [
+        { id: "molfix", label: "Molfix", price: 3200, img: "🧷", tier: 0, color: "#E3F2FD" },
+        { id: "huggies", label: "Huggies Pure", price: 4800, img: "🧷", tier: 1, color: "#E8F5E9" },
+        { id: "pampers", label: "Pampers Premium", price: 6500, img: "🧷", tier: 2, color: "#FCE4EC" },
+      ]
+    },
+    {
+      id: 2, name: "Baby Wipes", baseImg: "🫧", rating: 4.8, reviews: 278,
+      tags: ["bundle:starter","bundle:standard","bundle:premium","gender:neutral","category:baby","type:toiletries","gift:yes"],
+      badge: "Essential",
+      brands: [
+        { id: "local_w", label: "Local Wipes", price: 800, img: "🫧", tier: 0, color: "#FFF8E1" },
+        { id: "waterwipes", label: "WaterWipes", price: 2200, img: "🫧", tier: 1, color: "#E8F5E9" },
+        { id: "waterwipes_p", label: "WaterWipes Pure", price: 3500, img: "🫧", tier: 2, color: "#E3F2FD" },
+      ]
+    },
+    {
+      id: 3, name: "Baby Skincare Set", baseImg: "🧴", rating: 4.7, reviews: 189,
+      tags: ["bundle:standard","bundle:premium","gender:neutral","category:baby","type:skincare","gift:yes"],
+      badge: null,
+      brands: [
+        { id: "purity", label: "Purity", price: 2500, img: "🧴", tier: 0, color: "#FFF8E1" },
+        { id: "johnsons", label: "Johnson's", price: 4200, img: "🧴", tier: 1, color: "#E8F5E9" },
+        { id: "mustela", label: "Mustela Set", price: 12500, img: "🧴", tier: 2, color: "#FCE4EC" },
+      ]
+    },
+    {
+      id: 4, name: "Muslin Swaddle", baseImg: "🌿", rating: 4.9, reviews: 165,
+      tags: ["bundle:standard","bundle:premium","gender:neutral","gender:boy","gender:girl","category:baby","type:comfort","gift:yes"],
+      badge: null,
+      brands: [
+        { id: "local_s", label: "Local Premium", price: 4500, img: "🌿", tier: 0, color: "#FFF8E1" },
+        { id: "adenanais", label: "Aden+Anais", price: 7200, img: "🌿", tier: 1, color: "#E8F5E9" },
+        { id: "adenanais_d", label: "Aden+Anais Dream", price: 14000, img: "🌿", tier: 2, color: "#FCE4EC" },
+      ]
+    },
+    {
+      id: 5, name: "Newborn Onesie Set (3pcs)", baseImg: "👶", rating: 4.8, reviews: 234,
+      tags: ["bundle:starter","bundle:standard","bundle:premium","gender:boy","gender:girl","gender:neutral","category:baby","type:clothing","gift:yes"],
+      badge: "Bestseller",
+      brands: [
+        { id: "local_o", label: "Local Brands", price: 3200, img: "👶", tier: 0, color: "#E3F2FD" },
+        { id: "hm", label: "H&M Essentials", price: 6800, img: "👶", tier: 1, color: "#E8F5E9" },
+        { id: "carters", label: "Carter's", price: 12000, img: "👶", tier: 2, color: "#FCE4EC" },
+      ]
+    },
+    {
+      id: 6, name: "Going-Home Outfit", baseImg: "🎀", rating: 4.6, reviews: 143,
+      tags: ["bundle:standard","bundle:premium","gender:boy","gender:girl","category:baby","type:clothing","gift:yes"],
+      badge: null,
+      brands: [
+        { id: "hm_o", label: "H&M Occasion", price: 4500, img: "🎀", tier: 1, color: "#E8F5E9" },
+        { id: "carters_s", label: "Carter's Special", price: 8500, img: "🎀", tier: 2, color: "#FCE4EC" },
+      ]
+    },
+    {
+      id: 7, name: "Cap + Mittens + Booties", baseImg: "🧤", rating: 4.7, reviews: 198,
+      tags: ["bundle:starter","bundle:standard","bundle:premium","gender:neutral","category:baby","type:clothing"],
+      badge: null,
+      brands: [
+        { id: "local_k", label: "Local Knitwear", price: 1800, img: "🧤", tier: 0, color: "#FFF8E1" },
+        { id: "carters_p", label: "Carter's Premium", price: 4200, img: "🧤", tier: 2, color: "#FCE4EC" },
+      ]
+    },
+    {
+      id: 8, name: "Baby Thermometer", baseImg: "🌡️", rating: 4.5, reviews: 89,
+      tags: ["bundle:premium","gender:neutral","category:baby","type:gear"],
+      badge: null,
+      brands: [
+        { id: "basic_t", label: "Basic Digital", price: 3500, img: "🌡️", tier: 1, color: "#E8F5E9" },
+        { id: "braun", label: "Braun No-Touch", price: 18000, img: "🌡️", tier: 2, color: "#FCE4EC" },
+      ]
+    },
+    {
+      id: 9, name: "Nasal Aspirator", baseImg: "👃", rating: 4.4, reviews: 76,
+      tags: ["bundle:standard","bundle:premium","gender:neutral","category:baby","type:gear"],
+      badge: null,
+      brands: [
+        { id: "bulb", label: "Bulb Syringe", price: 1200, img: "👃", tier: 0, color: "#FFF8E1" },
+        { id: "frida_n", label: "Frida NoseFrida", price: 8500, img: "👃", tier: 2, color: "#FCE4EC" },
+      ]
+    },
+    {
+      id: 10, name: "Baby Nail Kit", baseImg: "✂️", rating: 4.3, reviews: 65,
+      tags: ["bundle:standard","bundle:premium","gender:neutral","category:baby","type:gear"],
+      badge: null,
+      brands: [
+        { id: "basic_n", label: "Basic Set", price: 1500, img: "✂️", tier: 0, color: "#FFF8E1" },
+        { id: "safety1st", label: "Safety 1st", price: 4500, img: "✂️", tier: 2, color: "#FCE4EC" },
+      ]
+    },
+  ],
+  mum: [
+    {
+      id: 11, name: "Maternity Pads", baseImg: "💛", rating: 4.8, reviews: 287,
+      tags: ["bundle:starter","bundle:standard","bundle:premium","gender:neutral","category:mum","type:comfort","gift:yes"],
+      badge: "Essential",
+      brands: [
+        { id: "always_b", label: "Always Maxi Basic", price: 2200, img: "💛", tier: 0, color: "#FFF8E1" },
+        { id: "always_o", label: "Always Overnight ×3", price: 3800, img: "💛", tier: 1, color: "#E8F5E9" },
+        { id: "always_i", label: "Always Infinity ×3", price: 5500, img: "💛", tier: 2, color: "#FCE4EC" },
+      ]
+    },
+    {
+      id: 12, name: "Nursing Pads", baseImg: "🤱", rating: 4.6, reviews: 156,
+      tags: ["bundle:standard","bundle:premium","gender:neutral","category:mum","type:feeding","gift:yes"],
+      badge: null,
+      brands: [
+        { id: "lansinoh_np", label: "Lansinoh ×10", price: 3500, img: "🤱", tier: 1, color: "#E8F5E9" },
+        { id: "medela_np", label: "Medela ×30", price: 6800, img: "🤱", tier: 2, color: "#FCE4EC" },
+      ]
+    },
+    {
+      id: 13, name: "Nipple Cream", baseImg: "💊", rating: 4.9, reviews: 203,
+      tags: ["bundle:standard","bundle:premium","gender:neutral","category:mum","type:skincare","gift:yes"],
+      badge: null,
+      brands: [
+        { id: "lansinoh_10", label: "Lansinoh 10ml", price: 4200, img: "💊", tier: 1, color: "#E8F5E9" },
+        { id: "lansinoh_40", label: "Lansinoh 40ml", price: 8500, img: "💊", tier: 2, color: "#FCE4EC" },
+      ]
+    },
+    {
+      id: 14, name: "Postpartum Belly Band", baseImg: "🩺", rating: 4.5, reviews: 112,
+      tags: ["bundle:standard","bundle:premium","gender:neutral","category:mum","type:comfort"],
+      badge: null,
+      brands: [
+        { id: "carriwell", label: "Carriwell Seamless", price: 8500, img: "🩺", tier: 1, color: "#E8F5E9" },
+        { id: "bellybandit", label: "Belly Bandit", price: 22000, img: "🩺", tier: 2, color: "#FCE4EC" },
+      ]
+    },
+    {
+      id: 15, name: "Hospital Slippers", baseImg: "🩴", rating: 4.5, reviews: 134,
+      tags: ["bundle:starter","bundle:standard","bundle:premium","gender:neutral","category:mum","type:comfort"],
+      badge: null,
+      brands: [
+        { id: "eva", label: "Foam EVA Non-Slip", price: 2500, img: "🩴", tier: 0, color: "#FFF8E1" },
+        { id: "birkenstock", label: "Birkenstock EVA", price: 18000, img: "🩴", tier: 2, color: "#FCE4EC" },
+      ]
+    },
+    {
+      id: 16, name: "Labour Snack Pack", baseImg: "🍫", rating: 4.9, reviews: 245,
+      tags: ["bundle:starter","bundle:standard","bundle:premium","gender:neutral","category:mum","type:comfort","gift:yes"],
+      badge: "Bestseller",
+      brands: [
+        { id: "bm_snack", label: "BundledMum Curated", price: 4500, img: "🍫", tier: 1, color: "#E8F5E9" },
+        { id: "bm_snack_p", label: "BundledMum Premium", price: 12000, img: "🍫", tier: 2, color: "#FCE4EC" },
+      ]
+    },
+    {
+      id: 17, name: "Disposable Underwear", baseImg: "👙", rating: 4.7, reviews: 167,
+      tags: ["bundle:standard","bundle:premium","gender:neutral","category:mum","type:comfort"],
+      badge: null,
+      brands: [
+        { id: "always_d", label: "Always Discreet ×10", price: 4200, img: "👙", tier: 1, color: "#E8F5E9" },
+        { id: "frida_u", label: "Frida Mom ×12", price: 9500, img: "👙", tier: 2, color: "#FCE4EC" },
+      ]
+    },
+    {
+      id: 18, name: "Nursing Nightgown", baseImg: "👘", rating: 4.7, reviews: 98,
+      tags: ["bundle:standard","bundle:premium","gender:neutral","category:mum","type:clothing","gift:yes"],
+      badge: null,
+      brands: [
+        { id: "seraphine", label: "Seraphine", price: 12500, img: "👘", tier: 1, color: "#E8F5E9" },
+        { id: "cachecoeur", label: "Cache Coeur ×2", price: 28000, img: "👘", tier: 2, color: "#FCE4EC" },
+      ]
+    },
+    {
+      id: 19, name: "Antenatal Records Folder", baseImg: "📋", rating: 4.3, reviews: 67,
+      tags: ["bundle:starter","bundle:standard","bundle:premium","gender:neutral","category:mum","type:gear"],
+      badge: null,
+      brands: [
+        { id: "bm_folder", label: "BundledMum Organiser", price: 2200, img: "📋", tier: 1, color: "#E8F5E9" },
+        { id: "bm_folder_p", label: "BundledMum Premium", price: 4500, img: "📋", tier: 2, color: "#FCE4EC" },
+      ]
+    },
+    {
+      id: 20, name: "Compression Socks", baseImg: "🧦", rating: 4.4, reviews: 56,
+      tags: ["bundle:standard","bundle:premium","gender:neutral","category:mum","type:comfort"],
+      badge: null,
+      brands: [
+        { id: "scholl", label: "Scholl Flight", price: 3800, img: "🧦", tier: 1, color: "#E8F5E9" },
+        { id: "physix", label: "Physix Gear ×2", price: 7500, img: "🧦", tier: 2, color: "#FCE4EC" },
+      ]
+    },
+  ]
+};
+
+export const ALL_PRODUCTS = [...PRODUCTS.baby, ...PRODUCTS.mum];
+
+export const HERO_KIT = [
+  { id: "hk1", name: "Huggies Nappy Pack", img: "🧷", price: 9500 },
+  { id: "hk2", name: "Avent Bottle Set", img: "🍼", price: 18000 },
+  { id: "hk3", name: "Carter's Onesie Set", img: "👶", price: 14500 },
+  { id: "hk4", name: "Medela Nursing Pads", img: "💛", price: 8500 },
+  { id: "hk5", name: "Aden+Anais Swaddle", img: "🌿", price: 11000 },
+  { id: "hk6", name: "Lansinoh Nipple Cream", img: "🤱", price: 9500 },
 ];
 
-export const mumProducts: Product[] = [
-  { id: "mat-pads", name: "Maternity Pads", category: "mum", emoji: "🩹", badge: "Essential", rating: 4.8, reviews: 134, brands: [
-    { tier: 1, label: "Starter", brand: "Always Maxi Basic", price: 2200 },
-    { tier: 2, label: "Standard", brand: "Always Maxi Overnight ×3", price: 3800 },
-    { tier: 3, label: "Premium", brand: "Always Infinity FlexFoam ×3", price: 5500 },
-  ]},
-  { id: "disp-underwear", name: "Disposable Underwear", category: "mum", emoji: "🩲", rating: 4.7, reviews: 89, brands: [
-    { tier: 2, label: "Standard", brand: "Always Discreet ×10", price: 4200 },
-    { tier: 3, label: "Premium", brand: "Frida Mom ×12", price: 9500 },
-  ]},
-  { id: "nursing-pads", name: "Nursing Pads", category: "mum", emoji: "🤱", rating: 4.6, reviews: 78, brands: [
-    { tier: 2, label: "Standard", brand: "Lansinoh ×10", price: 3500 },
-    { tier: 3, label: "Premium", brand: "Medela ×30", price: 6800 },
-  ]},
-  { id: "nipple-cream", name: "Nipple Cream", category: "mum", emoji: "💧", rating: 4.9, reviews: 102, brands: [
-    { tier: 2, label: "Standard", brand: "Lansinoh 10ml", price: 4200 },
-    { tier: 3, label: "Premium", brand: "Lansinoh 40ml", price: 8500 },
-  ]},
-  { id: "belly-band", name: "Postpartum Belly Band", category: "mum", emoji: "🎗️", rating: 4.5, reviews: 56, brands: [
-    { tier: 2, label: "Standard", brand: "Carriwell Seamless", price: 8500 },
-    { tier: 3, label: "Premium", brand: "Belly Bandit Upsie", price: 22000 },
-  ]},
-  { id: "compression", name: "Compression Socks", category: "mum", emoji: "🧦", rating: 4.4, reviews: 34, brands: [
-    { tier: 2, label: "Standard", brand: "Scholl Flight Class 1", price: 3800 },
-    { tier: 3, label: "Premium", brand: "Physix Gear ×2", price: 7500 },
-  ]},
-  { id: "nightgown", name: "Nursing Nightgown", category: "mum", emoji: "👗", rating: 4.7, reviews: 67, brands: [
-    { tier: 2, label: "Standard", brand: "Seraphine High-Waist", price: 12500 },
-    { tier: 3, label: "Premium", brand: "Cache Coeur Kaftan ×2", price: 28000 },
-  ]},
-  { id: "robe", name: "Nursing Robe", category: "mum", emoji: "🧥", rating: 4.8, reviews: 45, brands: [
-    { tier: 2, label: "Standard", brand: "Basic Cotton", price: 8500 },
-    { tier: 3, label: "Premium", brand: "Cache Coeur Open-Front", price: 22000 },
-  ]},
-  { id: "sitz-bath", name: "Sitz Bath Soak", category: "mum", emoji: "🛁", rating: 4.5, reviews: 41, brands: [
-    { tier: 2, label: "Standard", brand: "Local Herbal", price: 2500 },
-    { tier: 3, label: "Premium", brand: "Frida Mom Sitz Bath", price: 9500 },
-  ]},
-  { id: "breast-pump", name: "Breast Pump", category: "mum", emoji: "🍼", rating: 4.6, reviews: 58, brands: [
-    { tier: 2, label: "Standard", brand: "Tommee Tippee Manual", price: 8500 },
-    { tier: 3, label: "Premium", brand: "Medela Swing Maxi", price: 85000 },
-  ]},
-  { id: "snack-pack", name: "Labour Snack Pack", category: "mum", emoji: "🍪", badge: "Bestseller", rating: 4.9, reviews: 143, brands: [
-    { tier: 2, label: "Standard", brand: "BundledMum Curated", price: 4500 },
-    { tier: 3, label: "Premium", brand: "BundledMum Premium Basket", price: 12000 },
-  ]},
-  { id: "records-folder", name: "Antenatal Records Folder", category: "mum", emoji: "📋", rating: 4.3, reviews: 32, brands: [
-    { tier: 2, label: "Standard", brand: "BundledMum Organiser", price: 2200 },
-    { tier: 3, label: "Premium", brand: "BundledMum Premium", price: 4500 },
-  ]},
-  { id: "slippers", name: "Hospital Slippers", category: "mum", emoji: "🩴", rating: 4.5, reviews: 78, brands: [
-    { tier: 2, label: "Standard", brand: "Foam EVA Non-Slip", price: 2500 },
-    { tier: 3, label: "Premium", brand: "Birkenstock EVA Arizona", price: 18000 },
-  ]},
-  { id: "hospital-bag", name: "Hospital Bag", category: "mum", emoji: "👜", rating: 4.7, reviews: 54, brands: [
-    { tier: 2, label: "Standard", brand: "Spacious Tote", price: 6500 },
-    { tier: 3, label: "Premium", brand: "Chicco Maternity Bag", price: 28000 },
-  ]},
+export const TESTIMONIALS = [
+  { name: "Adaeze O.", loc: "Lagos", stars: 5, text: "I was so overwhelmed before finding BundledMum. The quiz took 2 minutes and I had the perfect list. My Standard Boy Bundle arrived in 2 days — absolutely everything I needed!" },
+  { name: "Ngozi T.", loc: "Abuja", stars: 5, text: "As a first-time mum in Nigeria, I had no idea where to start. BundledMum made it so easy. The products are actually good quality, not cheap imports. 10/10 recommend." },
+  { name: "Kemi A.", loc: "Port Harcourt", stars: 5, text: "Bought the Premium Bundle as a baby shower gift. My friend cried when she saw everything. The presentation alone was worth it. Will always shop here for baby gifts." },
 ];
 
-export const allProducts = [...babyProducts, ...mumProducts];
+export const FAQ = [
+  { q: "How does the quiz work?", a: "Our 3-question quiz asks about who you're shopping for, your baby's gender, and your budget. We instantly recommend the perfect products — no overwhelm, no guesswork." },
+  { q: "Do you deliver across Nigeria?", a: "Yes! We deliver nationwide. Lagos orders arrive in 1–2 business days. Other states are 2–4 business days. Free delivery on orders over ₦30,000." },
+  { q: "Can I change my bundle?", a: "Absolutely. The quiz gives you a personalised starting point, but you can add or remove individual items before checkout. It's your bundle." },
+  { q: "Are the products safe for newborns?", a: "Every product on BundledMum is vetted for newborn safety. We stock only certified, skin-safe, and age-appropriate items." },
+  { q: "What payment methods do you accept?", a: "Card (Mastercard, Visa, Verve), bank transfers, and USSD payments via Paystack. All transactions are secure and encrypted." },
+  { q: "Can I return or exchange items?", a: "Yes — unused, sealed items can be returned within 7 days. Contact us on WhatsApp and we'll arrange a pickup." },
+];
