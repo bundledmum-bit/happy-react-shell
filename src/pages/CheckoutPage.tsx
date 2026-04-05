@@ -17,7 +17,7 @@ async function logOrderToSheets(orderData: Record<string, unknown>) {
   const url = import.meta.env.VITE_SHEETS_WEBHOOK_URL || "https://script.google.com/macros/s/AKfycby3mFQQ9oORQeiCKyd1hWaxx0m9n6T4mSQl3hb1DgyD--0UrKiUE_Qvnh0pV4Jp_janXw/exec";
   if (!url) return;
   try {
-    await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(orderData), mode: "no-cors" });
+    await fetch(url, { method: "POST", body: JSON.stringify(orderData) });
   } catch (err) { console.error("Sheet logging failed:", err); }
 }
 
