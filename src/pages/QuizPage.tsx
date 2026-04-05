@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart, fmt, getBrandForBudget } from "@/lib/cart";
-import { PRODUCTS, ALL_PRODUCTS } from "@/data/products";
+import { PRODUCTS } from "@/data/products";
 import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
 
@@ -79,6 +79,85 @@ function getNextQ(currentQ: string, answer: string): string | null {
   }
 }
 
+function ResultProductCard({ product, defaultBudget, onAdd }: { product: any; defaultBudget: string; onAdd: (product: any, brand: any) => void }) {
+  const defaultBrand = getBrandForBudget(product, defaultBudget);
+  const [selectedBrand, setSelectedBrand] = useState(defaultBrand);
+  const [added, setAdded] = useState(false);
+  const lowestPrice = Math.min(...product.brands.map((b: any) => b.price));
+
+  const handleAdd = () => {
+    onAdd(product, selectedBrand);
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1500);
+  };
+
+  return (
+    <div className="bg-card rounded-card shadow-card overflow-hidden hover:shadow-card-hover transition-all group">
+      {/* Image area */}
+      <div className="relative h-36 md:h-44 flex items-center justify-center" style={{ backgroundColor: selectedBrand.color || "#F0F7F4" }}>
+        {product.badge && (
+          <span className="absolute top-2.5 left-2.5 bg-coral text-primary-foreground text-[10px] font-bold px-2.5 py-1 rounded-pill uppercase tracking-wide">
+            {product.badge}
+          </span>
+        )}
+        <span className="text-5xl md:text-6xl group-hover:scale-110 transition-transform duration-300">{selectedBrand.img || product.baseImg}</span>
+      </div>
+
+      {/* Content */}
+      <div className="p-3.5 md:p-4">
+        <h3 className="pf text-sm md:text-[15px] font-bold leading-tight mb-2.5">{product.name}</h3>
+
+        {/* Brand selector */}
+        <div className="mb-2.5">
+          <p className="text-text-light text-[10px] font-semibold uppercase tracking-wider mb-1.5">Brand</p>
+          <div className="flex flex-wrap gap-1.5">
+            {product.brands.map((b: any) => (
+              <button
+                key={b.id}
+                onClick={() => setSelectedBrand(b)}
+                className={`px-2.5 py-1 rounded-pill text-[11px] font-semibold border transition-all ${
+                  selectedBrand.id === b.id
+                    ? "border-forest bg-forest-light text-forest"
+                    : "border-border bg-card text-text-med hover:border-forest/50"
+                }`}
+              >
+                {b.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Rating */}
+        <div className="flex items-center gap-1.5 mb-2">
+          <span className="text-coral text-xs">⭐</span>
+          <span className="text-coral text-xs font-semibold">{product.rating}</span>
+          <span className="text-text-light text-[11px]">({product.reviews})</span>
+        </div>
+
+        {/* Price + Add button */}
+        <div className="flex items-end justify-between">
+          <div>
+            <p className="pf text-lg md:text-xl font-bold text-foreground">{fmt(selectedBrand.price)}</p>
+            {product.brands.length > 1 && (
+              <p className="text-text-light text-[10px]">from {fmt(lowestPrice)}</p>
+            )}
+          </div>
+          <button
+            onClick={handleAdd}
+            className={`px-4 py-2 rounded-pill text-xs font-bold transition-all ${
+              added
+                ? "bg-forest-light text-forest border border-forest"
+                : "bg-forest text-primary-foreground hover:bg-forest-deep"
+            }`}
+          >
+            {added ? "✓ Added" : "+ Add"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function QuizPage() {
   const [answers, setAnswers] = useState<QuizAnswers>({});
   const [history, setHistory] = useState<string[]>([]);
@@ -132,6 +211,11 @@ export default function QuizPage() {
     return { baby: babyProducts, mum: mumProducts, budget, gender, giftFor, isGift };
   };
 
+  const handleAddProduct = (product: any, brand: any) => {
+    addToCart({ ...product, selectedBrand: brand, price: brand.price, name: `${product.name} (${brand.label})` });
+    toast.success(`✓ ${product.name} added to cart`);
+  };
+
   const handleAddAll = () => {
     const { baby, mum, budget } = getResults();
     [...baby, ...mum].forEach(p => {
@@ -159,27 +243,24 @@ export default function QuizPage() {
             </div>
             <h1 className="pf text-2xl md:text-[40px] text-primary-foreground mb-3">{isGift ? "Gift Bundle Curated" : "Your Perfect Hospital Bag"}</h1>
             <p className="text-primary-foreground/70 text-sm md:text-base mb-5">{[...baby, ...mum].length} items · {bLabel[budget]} Budget · Total value: {fmt(total)}</p>
-            <button onClick={handleAddAll} className="rounded-pill bg-coral px-8 py-3 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-[15px]">
-              Add Entire Kit to Cart 🛍️
-            </button>
+            <div className="flex flex-wrap gap-3 justify-center">
+              <button onClick={handleAddAll} className="rounded-pill bg-coral px-8 py-3 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-[15px]">
+                Add Entire Kit to Cart 🛍️
+              </button>
+              <button onClick={handleBack} className="rounded-pill border-2 border-primary-foreground/30 px-6 py-3 font-body font-semibold text-primary-foreground/80 hover:bg-primary-foreground/10 interactive text-[15px]">
+                ← Retake Quiz
+              </button>
+            </div>
           </div>
         </div>
-        <div className="max-w-[1000px] mx-auto px-4 md:px-10 py-10">
+        <div className="max-w-[1000px] mx-auto px-4 md:px-10 py-8 md:py-10">
           {sections.map(sec => (
             <div key={sec.label} className="mb-10">
               <h2 className="pf text-lg md:text-xl text-forest mb-4">{sec.label}</h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-5">
-                {sec.items.map((p: any) => {
-                  const brand = getBrandForBudget(p, budget);
-                  return (
-                    <div key={p.id} className="bg-card rounded-card shadow-card p-4">
-                      <div className="text-3xl mb-2">{brand.img}</div>
-                      <h3 className="font-semibold text-sm">{p.name}</h3>
-                      <p className="text-forest text-xs mt-0.5">{brand.label}</p>
-                      <p className="font-bold text-coral mt-1">{fmt(brand.price)}</p>
-                    </div>
-                  );
-                })}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
+                {sec.items.map((p: any) => (
+                  <ResultProductCard key={p.id} product={p} defaultBudget={budget} onAdd={handleAddProduct} />
+                ))}
               </div>
             </div>
           ))}
@@ -193,7 +274,6 @@ export default function QuizPage() {
 
   return (
     <div className="min-h-screen bg-background pt-[68px] flex flex-col items-center px-4 md:px-10 py-8 md:py-12">
-      {/* Progress bar */}
       <div className="w-full max-w-[660px] mb-8">
         <div className="w-full bg-border h-1 rounded-full overflow-hidden">
           <div className="bg-coral h-1 transition-all duration-500 rounded-full" style={{ width: `${progress}%` }} />
