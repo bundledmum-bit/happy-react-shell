@@ -84,7 +84,7 @@ export default function CheckoutPage() {
       const PaystackPop = (await import("@paystack/inline-js")).default;
       const popup = new PaystackPop();
       popup.newTransaction({
-        key: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || "pk_test_xxxxx",
+        key: "pk_test_0386076a090eb41da40767c1eb8e845fcef932f6",
         email: form.email, amount: grand * 100, currency: "NGN",
         ref: `BM-${Date.now()}`, firstname: form.firstName, lastname: form.lastName,
         channels: payment === "ussd" ? ["ussd"] : ["card", "bank_transfer", "ussd", "qr", "mobile_money", "bank"],
