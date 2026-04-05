@@ -235,4 +235,10 @@ export const FAQ = [
   { q: "Are the products safe for newborns?", a: "Every product on BundledMum is vetted for newborn safety. We stock only certified, skin-safe, and age-appropriate items." },
   { q: "What payment methods do you accept?", a: "Card (Mastercard, Visa, Verve), bank transfers, and USSD payments via Paystack. All transactions are secure and encrypted." },
   { q: "Can I return or exchange items?", a: "Yes — unused, sealed items can be returned within 7 days. Contact us on WhatsApp and we'll arrange a pickup." },
+  { q: "How long does delivery take?", a: "Lagos: 1–2 business days. Abuja: 2–3 business days. Other states: 2–4 business days. You'll receive tracking updates via WhatsApp and email." },
+  { q: "Can I pay on delivery?", a: "We currently don't offer pay-on-delivery. We accept card payments, bank transfers, and USSD via Paystack — all secure and instant." },
+  { q: "What happens if an item is out of stock?", a: "We'll contact you immediately via WhatsApp and offer a suitable replacement of equal or higher value at no extra cost." },
+  { q: "Do you deliver to my state?", a: "We deliver to all 36 states and the FCT. Lagos and Abuja get the fastest delivery. Enter your state at checkout for an estimated delivery date." },
+  { q: "Can I track my order?", a: "Yes! Once dispatched, we'll send tracking updates to your email and WhatsApp with your courier's details." },
+  { q: "What brands do you use?", a: "We stock trusted brands like Pampers, Huggies, Carter's, Aden+Anais, Mustela, Lansinoh, and more. Each tier (Starter, Standard, Premium) uses different brand levels." },
 ];

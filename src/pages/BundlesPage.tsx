@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { bundles } from "@/data/bundles";
 import { useCart, fmt } from "@/lib/cart";
@@ -9,6 +9,8 @@ export default function BundlesPage() {
   const [hospitalF, setHospitalF] = useState("all");
   const [deliveryF, setDeliveryF] = useState("all");
   const [tierF, setTierF] = useState("all");
+
+  useEffect(() => { document.title = "Pre-Packed Hospital Bags | BundledMum"; }, []);
 
   const filtered = bundles.filter(b => {
     if (hospitalF !== "all" && b.hospitalType !== hospitalF) return false;
@@ -26,7 +28,7 @@ export default function BundlesPage() {
             Every item researched, sourced, and packed for the Nigerian delivery experience. Choose your hospital type, delivery method, and budget.
           </p>
           <div className="flex gap-5 mt-5 flex-wrap">
-            {[["10", "Bundles"], ["100+", "Products inside"], ["2", "Hospital types"]].map(([v, l]) => (
+            {[[String(bundles.length), "Bundles"], ["100+", "Products inside"], ["2", "Hospital types"]].map(([v, l]) => (
               <div key={l}><div className="pf text-coral text-xl font-bold">{v}</div><div className="text-primary-foreground/50 text-[11px]">{l}</div></div>
             ))}
           </div>
@@ -64,15 +66,13 @@ export default function BundlesPage() {
 
 function BundleCard({ bundle: b }: { bundle: typeof bundles[0] }) {
   const [expanded, setExpanded] = useState(false);
-  const { addToCart } = useCart();
-  const [added, setAdded] = useState(false);
+  const { addToCart, cart } = useCart();
+  const isInCart = cart.some(c => c.id === b.id);
   const totalItems = b.babyItems.length + b.mumItems.length;
 
   const handleAdd = () => {
     addToCart({ id: b.id, name: `${b.name} — ${b.tier}`, price: b.price, img: b.icon, baseImg: b.icon, brands: [{ id: "default", label: b.tier, price: b.price, img: b.icon, tier: 1 }], selectedBrand: { id: "default", label: b.tier, price: b.price, img: b.icon, tier: 1 } });
-    setAdded(true);
-    toast.success(`✓ ${b.name} added to cart!`);
-    setTimeout(() => setAdded(false), 2000);
+    toast.success(`✓ ${b.name} added to cart!`, { action: { label: "View Cart →", onClick: () => window.location.href = "/cart" } });
   };
 
   return (
@@ -134,9 +134,11 @@ function BundleCard({ bundle: b }: { bundle: typeof bundles[0] }) {
 
         <div className="flex justify-between items-center gap-2">
           <div className="pf font-bold text-lg" style={{ color: b.color }}>{fmt(b.price)}</div>
-          <button onClick={handleAdd} className={`rounded-pill px-3.5 py-2 text-[11px] font-semibold text-primary-foreground font-body flex-shrink-0 ${added ? "bg-green-600" : "bg-forest hover:bg-forest-deep"} interactive`}>
-            {added ? "✓ Added" : "+ Add to Cart"}
-          </button>
+          {isInCart ? (
+            <Link to="/cart" className="rounded-pill bg-forest-light border border-forest text-forest px-3.5 py-2 text-[11px] font-semibold font-body interactive flex-shrink-0">In Cart ✓</Link>
+          ) : (
+            <button onClick={handleAdd} className="rounded-pill px-3.5 py-2 text-[11px] font-semibold text-primary-foreground font-body flex-shrink-0 bg-forest hover:bg-forest-deep interactive">+ Add to Cart</button>
+          )}
         </div>
       </div>
     </div>

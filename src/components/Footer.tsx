@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import logoWhite from "@/assets/logos/BM-LOGO-WHITE.svg";
+import { Facebook, Instagram, MessageCircle } from "lucide-react";
 
 export default function Footer() {
   return (
@@ -10,19 +11,30 @@ export default function Footer() {
             <img src={logoWhite} alt="BundledMum" className="h-11 w-auto mb-3.5" />
             <p className="text-primary-foreground/45 text-[13px] leading-[1.8] max-w-[260px]">Nigeria's most trusted hospital bag curator. Everything you need, nothing you don't.</p>
             <div className="flex gap-2.5 mt-4">
-              {["📘", "📷"].map(i => <div key={i} className="w-8 h-8 bg-primary-foreground/[0.08] rounded-full flex items-center justify-center cursor-pointer">{i}</div>)}
-              <div className="w-8 h-8 bg-[#25D366] rounded-full flex items-center justify-center cursor-pointer">💬</div>
+              <a href="https://facebook.com/bundledmum" target="_blank" rel="noopener noreferrer" aria-label="Follow us on Facebook" className="w-8 h-8 bg-primary-foreground/[0.08] rounded-full flex items-center justify-center cursor-pointer hover:bg-primary-foreground/20 transition-colors">
+                <Facebook className="w-4 h-4 text-primary-foreground/60" />
+              </a>
+              <a href="https://instagram.com/bundledmum" target="_blank" rel="noopener noreferrer" aria-label="Follow us on Instagram" className="w-8 h-8 bg-primary-foreground/[0.08] rounded-full flex items-center justify-center cursor-pointer hover:bg-primary-foreground/20 transition-colors">
+                <Instagram className="w-4 h-4 text-primary-foreground/60" />
+              </a>
+              <a href="https://wa.me/2348012345678" target="_blank" rel="noopener noreferrer" aria-label="Chat with us on WhatsApp" className="w-8 h-8 bg-[#25D366] rounded-full flex items-center justify-center cursor-pointer hover:bg-[#20bd5a] transition-colors">
+                <MessageCircle className="w-4 h-4 text-primary-foreground" />
+              </a>
             </div>
           </div>
           {[
-            { title: "Shop", links: [{ label: "Baby Items", to: "/shop?tab=baby" }, { label: "Mum Items", to: "/shop?tab=mum" }, { label: "Bundle Kits", to: "/bundles" }] },
-            { title: "Help", links: [{ label: "FAQs", to: "/contact" }, { label: "WhatsApp Us", to: "#" }] },
-            { title: "Company", links: [{ label: "Our Story", to: "/about" }, { label: "Contact", to: "/contact" }] },
+            { title: "Shop", links: [{ label: "Baby Items", to: "/shop?tab=baby" }, { label: "Mum Items", to: "/shop?tab=mum" }, { label: "Bundle Kits", to: "/bundles" }, { label: "Gift Ideas", to: "/bundles?hospital=gift" }] },
+            { title: "Help", links: [{ label: "FAQs", to: "/contact#faqs" }, { label: "WhatsApp Us", to: "https://wa.me/2348012345678?text=Hi%20BundledMum!%20I%20have%20a%20question.", external: true }, { label: "Track Order", to: "/contact" }, { label: "Returns", to: "/terms" }] },
+            { title: "Company", links: [{ label: "Our Story", to: "/about" }, { label: "Contact", to: "/contact" }, { label: "Blog", to: "/contact" }, { label: "Press", to: "/contact" }] },
           ].map(col => (
             <div key={col.title}>
               <div className="text-primary-foreground font-semibold text-[13px] mb-3.5">{col.title}</div>
               {col.links.map(l => (
-                <Link key={l.label} to={l.to} className="block text-primary-foreground/40 text-xs mb-2 cursor-pointer hover:text-primary-foreground/70 transition-colors">{l.label}</Link>
+                'external' in l && l.external ? (
+                  <a key={l.label} href={l.to} target="_blank" rel="noopener noreferrer" className="block text-primary-foreground/40 text-xs mb-2 cursor-pointer hover:text-primary-foreground/70 transition-colors">{l.label}</a>
+                ) : (
+                  <Link key={l.label} to={l.to} className="block text-primary-foreground/40 text-xs mb-2 cursor-pointer hover:text-primary-foreground/70 transition-colors">{l.label}</Link>
+                )
               ))}
             </div>
           ))}
@@ -30,7 +42,9 @@ export default function Footer() {
         <div className="border-t border-primary-foreground/[0.07] pt-5 flex flex-col md:flex-row justify-between items-center gap-2 text-xs text-primary-foreground/30">
           <p>© 2026 BundledMum. All rights reserved.</p>
           <div className="flex gap-4">
-            {["Privacy", "Terms", "Cookies"].map(l => <span key={l} className="cursor-pointer">{l}</span>)}
+            <Link to="/privacy" className="hover:text-primary-foreground/60 transition-colors">Privacy</Link>
+            <Link to="/terms" className="hover:text-primary-foreground/60 transition-colors">Terms</Link>
+            <Link to="/cookies" className="hover:text-primary-foreground/60 transition-colors">Cookies</Link>
           </div>
         </div>
       </div>

@@ -1,8 +1,23 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { FAQ } from "@/data/products";
 
 export default function ContactPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const location = useLocation();
+
+  useEffect(() => {
+    document.title = "Help & Contact | BundledMum";
+  }, []);
+
+  useEffect(() => {
+    if (location.hash === "#faqs") {
+      setTimeout(() => {
+        document.getElementById("faqs")?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
+    }
+  }, [location]);
+
   return (
     <div className="min-h-screen pt-[68px]">
       <div style={{ background: "linear-gradient(135deg, #2D6A4F, #1E5C44)" }} className="px-5 md:px-10 py-10 md:py-[72px]">
@@ -14,19 +29,19 @@ export default function ContactPage() {
       <div className="max-w-[920px] mx-auto px-5 md:px-10 py-8 md:py-[72px]">
         <div className="grid md:grid-cols-3 gap-3 md:gap-5 mb-10 md:mb-16">
           {[
-            { icon: "💬", t: "WhatsApp Us", sub: "Fastest response", cta: "Chat Now", bg: "#E8F9F0", c: "#25D366" },
-            { icon: "📧", t: "Email Us", sub: "hello@bundledmum.ng", cta: "Send Email", bg: "hsl(145,33%,92%)", c: "#2D6A4F" },
-            { icon: "📍", t: "Lagos Office", sub: "By appointment only", cta: "Get Directions", bg: "#FFF0EA", c: "#F4845F" },
+            { icon: "💬", t: "WhatsApp Us", sub: "Fastest response", cta: "Chat Now", bg: "#E8F9F0", c: "#25D366", href: "https://wa.me/2348012345678?text=Hi%20BundledMum!%20I%20have%20a%20question." },
+            { icon: "📧", t: "Email Us", sub: "hello@bundledmum.ng", cta: "Send Email", bg: "hsl(145,33%,92%)", c: "#2D6A4F", href: "mailto:hello@bundledmum.ng" },
+            { icon: "📍", t: "Lagos Office", sub: "By appointment only", cta: "Get Directions", bg: "#FFF0EA", c: "#F4845F", href: "https://maps.google.com/?q=Lagos+Nigeria" },
           ].map(ct => (
             <div key={ct.t} className="bg-card rounded-card shadow-card p-5 md:p-7 text-center">
               <div className="w-[52px] h-[52px] rounded-full flex items-center justify-center text-2xl mx-auto mb-3" style={{ background: ct.bg }}>{ct.icon}</div>
               <h3 className="font-bold text-[15px] mb-1">{ct.t}</h3>
               <p className="text-text-med text-[13px] mb-3.5">{ct.sub}</p>
-              <button className="rounded-pill px-5 py-2.5 text-[13px] font-semibold text-primary-foreground font-body" style={{ background: ct.c }}>{ct.cta}</button>
+              <a href={ct.href} target="_blank" rel="noopener noreferrer" className="inline-block rounded-pill px-5 py-2.5 text-[13px] font-semibold text-primary-foreground font-body" style={{ background: ct.c }}>{ct.cta}</a>
             </div>
           ))}
         </div>
-        <h2 className="pf text-xl md:text-[34px] text-forest mb-5 text-center">Frequently Asked Questions</h2>
+        <h2 id="faqs" className="pf text-xl md:text-[34px] text-forest mb-5 text-center scroll-mt-24">Frequently Asked Questions</h2>
         <div className="flex flex-col gap-2.5">
           {FAQ.map((item, i) => (
             <div key={i} className="bg-card rounded-[14px] shadow-card overflow-hidden">

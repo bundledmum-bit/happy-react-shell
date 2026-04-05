@@ -1,12 +1,17 @@
 import { Link } from "react-router-dom";
 import { useCart, fmt } from "@/lib/cart";
-import { Minus, Plus, X, ShoppingBag } from "lucide-react";
+import { Minus, Plus, X, ShoppingBag, ArrowLeft } from "lucide-react";
+import { useEffect } from "react";
+
+const SERVICE_FEE = 1500;
 
 export default function CartPage() {
   const { cart, setCart, subtotal, totalItems } = useCart();
 
+  useEffect(() => { document.title = `Your Cart (${totalItems}) | BundledMum`; }, [totalItems]);
+
   const delivery = subtotal >= 30000 ? 0 : 2500;
-  const total = subtotal + delivery;
+  const total = subtotal + delivery + SERVICE_FEE;
 
   const updateQty = (key: string, newQty: number) => {
     if (newQty <= 0) {
@@ -38,6 +43,9 @@ export default function CartPage() {
   return (
     <div className="min-h-screen bg-background pt-24">
       <div className="max-w-[1200px] mx-auto px-4 md:px-10 py-8">
+        <Link to="/shop" className="inline-flex items-center gap-1.5 text-forest text-sm font-semibold font-body mb-4 hover:underline">
+          <ArrowLeft className="h-4 w-4" /> Continue Shopping
+        </Link>
         <h1 className="pf text-2xl md:text-3xl mb-8">Your Cart ({totalItems})</h1>
 
         <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
@@ -66,7 +74,7 @@ export default function CartPage() {
                     <Plus className="h-3 w-3" />
                   </button>
                 </div>
-                <p className="font-body font-bold text-sm w-20 text-right">{fmt(item.price * item.qty)}</p>
+                <p className="font-body font-bold text-sm w-20 text-right hidden sm:block">{fmt(item.price * item.qty)}</p>
                 <button onClick={() => removeItem(item._key)} className="text-text-light hover:text-destructive interactive p-1">
                   <X className="h-4 w-4" />
                 </button>
@@ -83,11 +91,20 @@ export default function CartPage() {
                   <span className="text-text-med">Delivery</span>
                   <span className={delivery === 0 ? "text-forest font-bold" : ""}>{delivery === 0 ? "FREE 🎉" : fmt(delivery)}</span>
                 </div>
+                <div className="flex justify-between">
+                  <span className="text-text-med flex items-center gap-1">📦 Service & Packaging</span>
+                  <span>{fmt(SERVICE_FEE)}</span>
+                </div>
                 <div className="border-t border-border pt-3 flex justify-between pf font-semibold text-lg">
                   <span>Total</span>
                   <span className="text-forest">{fmt(total)}</span>
                 </div>
               </div>
+              {subtotal < 30000 && (
+                <div className="mt-3 bg-warm-cream rounded-lg p-2.5 text-center">
+                  <p className="text-text-med text-xs font-body">Add {fmt(30000 - subtotal)} more for <span className="font-bold text-forest">FREE delivery</span></p>
+                </div>
+              )}
               <Link
                 to="/checkout"
                 className="mt-5 block w-full rounded-pill bg-forest py-3 text-center font-body font-semibold text-primary-foreground hover:bg-forest-deep interactive"
