@@ -31,6 +31,7 @@ const App = () => (
       <CartProvider>
         <Sonner />
         <BrowserRouter>
+          <ScrollToTop />
           <SkipNav />
           <Navbar />
           <main id="main-content">
