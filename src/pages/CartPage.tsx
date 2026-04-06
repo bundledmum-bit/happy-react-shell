@@ -74,34 +74,40 @@ export default function CartPage() {
               </div>
             )}
             {cart.map(item => (
-              <div key={item._key} className="bg-card rounded-card shadow-card p-4 flex items-center gap-4">
-                <div className="w-14 h-14 rounded-lg bg-warm-cream flex items-center justify-center text-2xl flex-shrink-0">
-                  {item.img || item.baseImg}
+              <div key={item._key} className="bg-card rounded-card shadow-card p-3 sm:p-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-warm-cream flex items-center justify-center text-xl sm:text-2xl flex-shrink-0">
+                    {item.img || item.baseImg}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-body font-semibold text-[13px] sm:text-sm leading-tight line-clamp-2">{item.name}</h3>
+                    <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
+                      {item.selectedBrand && <span className="font-body text-[11px] text-forest">{item.selectedBrand.label}</span>}
+                      {item.selectedSize && <span className="font-body text-[11px] text-text-light">Size: {item.selectedSize}</span>}
+                      {item.selectedColor && <span className="font-body text-[11px] text-text-light">Color: {item.selectedColor}</span>}
+                    </div>
+                    <p className="font-body font-bold text-coral text-sm mt-1">{fmt(item.price)}</p>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <button onClick={() => saveForLater(item._key)} className="text-text-light hover:text-forest interactive p-1" title="Save for later">
+                      <Bookmark className="h-4 w-4" />
+                    </button>
+                    <button onClick={() => removeItem(item._key)} className="text-text-light hover:text-destructive interactive p-1">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-body font-semibold text-sm truncate">{item.name}</h3>
-                  {item.selectedBrand && <span className="font-body text-xs text-forest">{item.selectedBrand.label}</span>}
-                  {item.selectedSize && <span className="font-body text-xs text-text-light ml-2">Size: {item.selectedSize}</span>}
-                  {item.selectedColor && <span className="font-body text-xs text-text-light ml-2">Color: {item.selectedColor}</span>}
-                  <p className="font-body font-bold text-coral text-sm mt-1">{fmt(item.price)}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => updateQty(item._key, item.qty - 1)} className="h-8 w-8 rounded-full bg-warm-cream flex items-center justify-center interactive">
-                    <Minus className="h-3 w-3" />
-                  </button>
-                  <span className="font-body font-bold text-sm w-6 text-center">{item.qty}</span>
-                  <button onClick={() => updateQty(item._key, item.qty + 1)} className="h-8 w-8 rounded-full bg-warm-cream flex items-center justify-center interactive">
-                    <Plus className="h-3 w-3" />
-                  </button>
-                </div>
-                <p className="font-body font-bold text-sm w-20 text-right hidden sm:block">{fmt(item.price * item.qty)}</p>
-                <div className="flex flex-col gap-1">
-                  <button onClick={() => saveForLater(item._key)} className="text-text-light hover:text-forest interactive p-1" title="Save for later">
-                    <Bookmark className="h-4 w-4" />
-                  </button>
-                  <button onClick={() => removeItem(item._key)} className="text-text-light hover:text-destructive interactive p-1">
-                    <X className="h-4 w-4" />
-                  </button>
+                <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50">
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => updateQty(item._key, item.qty - 1)} className="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-warm-cream flex items-center justify-center interactive">
+                      <Minus className="h-3 w-3" />
+                    </button>
+                    <span className="font-body font-bold text-sm w-6 text-center">{item.qty}</span>
+                    <button onClick={() => updateQty(item._key, item.qty + 1)} className="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-warm-cream flex items-center justify-center interactive">
+                      <Plus className="h-3 w-3" />
+                    </button>
+                  </div>
+                  <p className="font-body font-bold text-sm">{fmt(item.price * item.qty)}</p>
                 </div>
               </div>
             ))}

@@ -550,11 +550,11 @@ export default function QuizPage() {
               {multiples > 1 && <><span>·</span><span>👶👶 Quantities adjusted for your {multiples === 2 ? "twins" : "triplets"}!</span></>}
             </div>
 
-            <div className="flex flex-wrap gap-3 justify-center">
-              <button onClick={handleAddAll} className="rounded-pill bg-coral px-8 py-3 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-[15px]">
-                {isGift ? "🎁 Get This Gift Bundle" : "Get My Complete Bundle"} — {fmt(totalValue)} →
+            <div className="flex flex-col sm:flex-row gap-3 justify-center px-4 sm:px-0">
+              <button onClick={handleAddAll} className="rounded-pill bg-coral px-6 sm:px-8 py-3 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-sm sm:text-[15px] w-full sm:w-auto">
+                {isGift ? "🎁 Get Gift Bundle" : "Get Complete Bundle"} — {fmt(totalValue)} →
               </button>
-              <button onClick={handleBack} className="rounded-pill border-2 border-primary-foreground/30 px-6 py-3 font-body font-semibold text-primary-foreground/80 hover:bg-primary-foreground/10 interactive text-[15px]">
+              <button onClick={handleBack} className="rounded-pill border-2 border-primary-foreground/30 px-6 py-3 font-body font-semibold text-primary-foreground/80 hover:bg-primary-foreground/10 interactive text-sm sm:text-[15px] w-full sm:w-auto">
                 ← Retake Quiz
               </button>
             </div>
