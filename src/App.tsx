@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CartProvider } from "@/lib/cart";
+import ScrollToTop from "@/components/ScrollToTop";
 import SkipNav from "@/components/SkipNav";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -31,6 +32,7 @@ const App = () => (
       <CartProvider>
         <Sonner />
         <BrowserRouter>
+          <ScrollToTop />
           <SkipNav />
           <Navbar />
           <main id="main-content">

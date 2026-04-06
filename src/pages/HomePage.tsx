@@ -3,7 +3,6 @@ import { useCart, fmt, getBrandForBudget } from "@/lib/cart";
 import { PRODUCTS, HERO_KIT, TESTIMONIALS } from "@/data/products";
 import { bundles } from "@/data/bundles";
 import { toast } from "sonner";
-import logoWhite from "@/assets/logos/BM-LOGO-WHITE.svg";
 import { useEffect, useState } from "react";
 
 function HeroSection() {
@@ -28,9 +27,8 @@ function HeroSection() {
           <div className="animate-fade-up inline-flex items-center gap-2 bg-coral/[0.18] border border-coral/40 rounded-pill px-4 py-1.5 mb-5">
             <span className="text-coral text-xs font-semibold">🎉 Nigeria's #1 Hospital Bag Curator</span>
           </div>
-          <img src={logoWhite} alt="BundledMum" className="h-[54px] md:h-[70px] w-auto mb-3.5 block" />
           <h1 className="pf animate-fade-up-2 text-[32px] md:text-[50px] font-bold text-primary-foreground leading-[1.15] mb-4">
-            Everything You Need for Baby,<br />
+            Everything You Need for Baby & Mum,<br />
             <span className="text-coral italic">Perfectly Bundled.</span>
           </h1>
           <p className="animate-fade-up-3 text-primary-foreground/70 text-[15px] md:text-[17px] leading-[1.75] mb-7 max-w-[480px] font-body">
