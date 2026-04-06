@@ -3,7 +3,7 @@ import { useCart, fmt, getBrandForBudget } from "@/lib/cart";
 import { PRODUCTS, HERO_KIT, TESTIMONIALS } from "@/data/products";
 import { bundles } from "@/data/bundles";
 import { toast } from "sonner";
-import logoWhite from "@/assets/logos/BM-LOGO-WHITE.svg";
+import { useEffect, useState } from "react";
 import { useEffect, useState } from "react";
 
 function HeroSection() {
