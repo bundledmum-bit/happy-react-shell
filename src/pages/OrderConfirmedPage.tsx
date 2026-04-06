@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { fmt } from "@/lib/cart";
 import { useEffect } from "react";
+import { toast } from "sonner";
 
 export default function OrderConfirmedPage() {
   const { state } = useLocation();
@@ -17,12 +18,47 @@ export default function OrderConfirmedPage() {
   const deliveryDate = () => {
     const now = new Date();
     const isLagos = (form.state || "").toLowerCase() === "lagos";
-    const min = isLagos ? 1 : 2;
-    const max = isLagos ? 2 : 4;
+    const min = isLagos ? 1 : 3;
+    const max = isLagos ? 2 : 5;
     const from = new Date(now); from.setDate(from.getDate() + min);
     const to = new Date(now); to.setDate(to.getDate() + max);
-    const fmt = (d: Date) => d.toLocaleDateString("en-NG", { weekday: "short", month: "short", day: "numeric" });
-    return `${fmt(from)} – ${fmt(to)}`;
+    const f = (d: Date) => d.toLocaleDateString("en-NG", { weekday: "short", month: "short", day: "numeric" });
+    return `${f(from)} – ${f(to)}`;
+  };
+
+  const handleDownload = () => {
+    const lines = [
+      `BundledMum Order Summary`,
+      `Order #${orderId}`,
+      `Date: ${new Date().toLocaleDateString("en-NG")}`,
+      ``,
+      `Customer: ${form.firstName || ""} ${form.lastName || ""}`,
+      `Email: ${form.email || ""}`,
+      `Phone: ${form.phone || ""}`,
+      `Address: ${form.address || ""}, ${form.city || ""}, ${form.state || ""}`,
+      ``,
+      `Items:`,
+      ...items.map((i: any) => `  ${i.name} × ${i.qty} — ${fmt(i.price * i.qty)}${i.selectedBrand ? ` (${i.selectedBrand.label})` : ""}${i.selectedSize ? ` Size: ${i.selectedSize}` : ""}`),
+      ``,
+      `Subtotal: ${order?.subtotal ? fmt(order.subtotal) : ""}`,
+      `Delivery: ${order?.deliveryFee === 0 ? "FREE" : order?.deliveryFee ? fmt(order.deliveryFee) : ""}`,
+      `Service & Packaging: ${order?.serviceFee ? fmt(order.serviceFee) : ""}`,
+      order?.giftWrapFee > 0 ? `Gift Wrapping: ${fmt(order.giftWrapFee)}` : "",
+      `Total: ${order?.total ? fmt(order.total) : ""}`,
+      ``,
+      `Payment: ${payLabels[order?.paymentMethod] || ""}`,
+    ].filter(Boolean);
+
+    const blob = new Blob([lines.join("\n")], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `BundledMum-${orderId}.txt`;
+    a.click(); URL.revokeObjectURL(url);
+  };
+
+  const handleWhatsAppShare = () => {
+    const text = `My BundledMum Order #${orderId}\n${items.map((i: any) => `${i.name} ×${i.qty}`).join("\n")}\nTotal: ${order?.total ? fmt(order.total) : ""}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
   };
 
   return (
@@ -41,10 +77,24 @@ export default function OrderConfirmedPage() {
       </div>
 
       <div className="max-w-[860px] mx-auto px-4 md:px-10 py-8 md:py-14">
-        {/* Order Summary */}
+        {/* Your Details */}
+        {(form.firstName || form.email) && (
+          <div className="bg-card rounded-card shadow-card p-5 md:p-8 mb-4">
+            <h3 className="pf text-lg md:text-xl text-forest mb-4">📋 Your Details</h3>
+            <div className="grid md:grid-cols-2 gap-3 text-sm font-body">
+              <div><span className="text-text-light">Name:</span> <span className="font-semibold">{form.firstName} {form.lastName}</span></div>
+              <div><span className="text-text-light">Email:</span> <span className="font-semibold">{form.email}</span></div>
+              <div><span className="text-text-light">Phone:</span> <span className="font-semibold">{form.phone}</span></div>
+              <div><span className="text-text-light">Payment:</span> <span className="font-semibold">{payLabels[order?.paymentMethod] || ""}</span></div>
+              <div className="md:col-span-2"><span className="text-text-light">Address:</span> <span className="font-semibold">{form.address}, {form.city}, {form.state}</span></div>
+            </div>
+          </div>
+        )}
+
+        {/* Order Summary with full details */}
         {items.length > 0 && (
           <div className="bg-card rounded-card shadow-card p-5 md:p-8 mb-4">
-            <h3 className="pf text-lg md:text-xl text-forest mb-4">Order Summary</h3>
+            <h3 className="pf text-lg md:text-xl text-forest mb-4">🛒 Your Order</h3>
             <div className="space-y-2.5 mb-4">
               {items.map((item: any, i: number) => (
                 <div key={i} className="flex items-center justify-between gap-3 pb-2.5 border-b border-border/50 last:border-0">
@@ -52,7 +102,12 @@ export default function OrderConfirmedPage() {
                     <div className="w-9 h-9 bg-warm-cream rounded-lg flex items-center justify-center text-lg flex-shrink-0">{item.img || item.baseImg}</div>
                     <div>
                       <div className="text-sm font-semibold">{item.name}</div>
-                      <div className="text-text-light text-xs">Qty: {item.qty}</div>
+                      <div className="text-text-light text-xs flex flex-wrap gap-2">
+                        {item.selectedBrand && <span>Brand: {item.selectedBrand.label}</span>}
+                        {item.selectedSize && <span>Size: {item.selectedSize}</span>}
+                        <span>Qty: {item.qty}</span>
+                        <span>@ {fmt(item.price)} each</span>
+                      </div>
                     </div>
                   </div>
                   <div className="text-sm font-bold flex-shrink-0">{fmt(item.price * item.qty)}</div>
@@ -68,6 +123,16 @@ export default function OrderConfirmedPage() {
             </div>
           </div>
         )}
+
+        {/* Download / Share */}
+        <div className="flex gap-3 flex-wrap mb-4">
+          <button onClick={handleDownload} className="rounded-pill border-2 border-forest text-forest px-5 py-2.5 font-body font-semibold text-sm hover:bg-forest/5 interactive">
+            📥 Download Order Summary
+          </button>
+          <button onClick={handleWhatsAppShare} className="rounded-pill bg-[#25D366] text-primary-foreground px-5 py-2.5 font-body font-semibold text-sm interactive">
+            📱 Share via WhatsApp
+          </button>
+        </div>
 
         {/* What Happens Next */}
         <div className="bg-card rounded-card shadow-card p-5 md:p-8 mb-4">
@@ -94,6 +159,7 @@ export default function OrderConfirmedPage() {
           <div className="bg-warm-cream rounded-lg p-3 mt-2 text-center">
             <p className="text-text-med text-xs font-body">📲 We'll send tracking updates to {form.email || "your email"} and WhatsApp ({form.phone || "your phone"}).</p>
           </div>
+          <p className="text-text-light text-xs mt-2 text-center">Didn't get a confirmation email? Check your spam folder or <a href={`https://wa.me/2348012345678?text=Hi! My order number is ${orderId}`} target="_blank" className="text-forest underline">contact us on WhatsApp</a>.</p>
         </div>
 
         {/* Payment status */}
@@ -113,8 +179,7 @@ export default function OrderConfirmedPage() {
             <h4 className="pf text-primary-foreground text-lg mb-1">💬 Questions About Your Order?</h4>
             <p className="text-primary-foreground/65 text-[13px]">Chat with us on WhatsApp — we reply within minutes.</p>
           </div>
-          <a href={`https://wa.me/2348012345678?text=Hi! My order number is ${orderId}`}
-            target="_blank" rel="noopener noreferrer"
+          <a href={`https://wa.me/2348012345678?text=Hi! My order number is ${orderId}`} target="_blank" rel="noopener noreferrer"
             className="bg-[#25D366] text-primary-foreground px-5 py-3 rounded-pill font-semibold text-sm whitespace-nowrap w-full md:w-auto text-center">
             Chat on WhatsApp 💬
           </a>

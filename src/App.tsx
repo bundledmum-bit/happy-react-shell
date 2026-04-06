@@ -9,6 +9,7 @@ import Footer from "@/components/Footer";
 import FloatingWhatsApp from "@/components/FloatingWhatsApp";
 import HomePage from "@/pages/HomePage";
 import BundlesPage from "@/pages/BundlesPage";
+import BundleDetailPage from "@/pages/BundleDetailPage";
 import ShopPage from "@/pages/ShopPage";
 import QuizPage from "@/pages/QuizPage";
 import CartPage from "@/pages/CartPage";
@@ -36,6 +37,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/bundles" element={<BundlesPage />} />
+              <Route path="/bundles/:bundleId" element={<BundleDetailPage />} />
               <Route path="/shop" element={<ShopPage />} />
               <Route path="/quiz" element={<QuizPage />} />
               <Route path="/cart" element={<CartPage />} />
