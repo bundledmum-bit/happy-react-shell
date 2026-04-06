@@ -7,7 +7,7 @@ import ScrollToTop from "@/components/ScrollToTop";
 import SkipNav from "@/components/SkipNav";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import FloatingWhatsApp from "@/components/FloatingWhatsApp";
+import FloatingScrollToTop from "@/components/FloatingWhatsApp";
 import HomePage from "@/pages/HomePage";
 import BundlesPage from "@/pages/BundlesPage";
 import BundleDetailPage from "@/pages/BundleDetailPage";
@@ -55,7 +55,7 @@ const App = () => (
             </Routes>
           </main>
           <Footer />
-          <FloatingWhatsApp />
+          <FloatingScrollToTop />
         </BrowserRouter>
       </CartProvider>
     </TooltipProvider>
