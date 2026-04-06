@@ -149,9 +149,10 @@ export default function CheckoutPage() {
 
     if (payment === "transfer") {
       const orderData = buildOrderData();
+      const dbOrderNumber = await saveOrderToDb(orderData);
       await logOrderToSheets(orderData);
       clearCart();
-      navigate("/order-confirmed", { state: { ...orderData, paymentType: "transfer", form } });
+      navigate("/order-confirmed", { state: { ...orderData, orderId: dbOrderNumber, paymentType: "transfer", form } });
       return;
     }
 
@@ -175,17 +176,19 @@ export default function CheckoutPage() {
           }
 
           const orderData = buildOrderData(transaction.reference, verification.status);
+          const dbOrderNumber = await saveOrderToDb(orderData);
           await logOrderToSheets(orderData);
           clearCart();
-          navigate("/order-confirmed", { state: { ...orderData, paymentType: "card", form } });
+          navigate("/order-confirmed", { state: { ...orderData, orderId: dbOrderNumber, paymentType: "card", form } });
         },
         onCancel: () => { setProcessing(false); toast.error("Payment cancelled"); },
       });
     } catch {
       const orderData = buildOrderData("DEMO-" + Date.now(), "success");
+      const dbOrderNumber = await saveOrderToDb(orderData);
       await logOrderToSheets(orderData);
       clearCart();
-      navigate("/order-confirmed", { state: { ...orderData, paymentType: "card", form } });
+      navigate("/order-confirmed", { state: { ...orderData, orderId: dbOrderNumber, paymentType: "card", form } });
     }
   };
 
