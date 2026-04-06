@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { adaptProducts, adaptBundles, adaptBundle, getBrowserId, getSessionId, type Product, type Bundle } from "@/lib/supabaseAdapters";
 
 const STALE_5MIN = 5 * 60 * 1000;
 
@@ -19,7 +20,23 @@ export function useProducts(category?: string) {
 
       const { data, error } = await query;
       if (error) throw error;
-      return data;
+      return adaptProducts(data);
+    },
+    staleTime: STALE_5MIN,
+  });
+}
+
+export function useAllProducts() {
+  return useQuery({
+    queryKey: ["products", "all"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("*, brands(*), product_sizes(*), product_colors(*), product_tags(*)")
+        .eq("is_active", true)
+        .order("display_order");
+      if (error) throw error;
+      return adaptProducts(data);
     },
     staleTime: STALE_5MIN,
   });
@@ -35,7 +52,7 @@ export function useBundles() {
         .eq("is_active", true)
         .order("display_order");
       if (error) throw error;
-      return data;
+      return adaptBundles(data);
     },
     staleTime: STALE_5MIN,
   });
@@ -45,14 +62,28 @@ export function useBundle(slug: string) {
   return useQuery({
     queryKey: ["bundle", slug],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Try slug first, then id
+      let { data, error } = await supabase
         .from("bundles")
         .select("*, bundle_items(*, products(*, brands(*), product_sizes(*), product_colors(*)), brands(*))")
         .eq("slug", slug)
         .eq("is_active", true)
-        .single();
+        .maybeSingle();
+
+      if (!data) {
+        const res = await supabase
+          .from("bundles")
+          .select("*, bundle_items(*, products(*, brands(*), product_sizes(*), product_colors(*)), brands(*))")
+          .eq("id", slug)
+          .eq("is_active", true)
+          .maybeSingle();
+        data = res.data;
+        error = res.error;
+      }
+
       if (error) throw error;
-      return data;
+      if (!data) return null;
+      return adaptBundle(data);
     },
     staleTime: STALE_5MIN,
     enabled: !!slug,
@@ -175,11 +206,5 @@ export async function trackEvent(eventType: string, eventData?: Record<string, a
   }
 }
 
-function getSessionId(): string {
-  let sid = sessionStorage.getItem("bm-session-id");
-  if (!sid) {
-    sid = crypto.randomUUID();
-    sessionStorage.setItem("bm-session-id", sid);
-  }
-  return sid;
-}
+// Re-export types for convenience
+export type { Product, Bundle };

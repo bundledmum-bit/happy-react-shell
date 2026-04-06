@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
-import { PRODUCTS, ALL_PRODUCTS, type Product } from "@/data/products";
 import { useCart, fmt, getBrandForBudget } from "@/lib/cart";
 import { toast } from "sonner";
 import ProductDetailModal from "@/components/ProductDetailModal";
+import { useAllProducts } from "@/hooks/useSupabaseData";
+import type { Product } from "@/lib/supabaseAdapters";
 
 const COLOR_SWATCHES: Record<string, { hex: string; label: string }[]> = {
   "blue/white": [{ hex: "#4A90D9", label: "Blue/White" }],
@@ -23,13 +24,11 @@ function ProductCard({ product, defaultBudget = "standard", onAdd, onViewDetail 
   const [selectedColor, setSelectedColor] = useState("");
   const { cart, setCart } = useCart();
 
-  // #10 Persistent Added state - check cart for matching product+brand+size
   const cartKey = `${product.id}-${selectedBrand.id}-${selectedSize}`;
   const isInCart = cart.some(c => c._key === cartKey || c.id === product.id);
   const stockLabel = product.stock === 0 ? "out" : product.stock && product.stock <= 5 ? "low" : "in";
   const isOutOfStock = stockLabel === "out";
 
-  // #22 Badges
   const extraBadge = !product.badge && product.rating >= 4.8 ? "💚 Mum Pick" : null;
 
   useEffect(() => { setSelectedBrand(defaultBrand); }, [defaultBudget]);
@@ -57,13 +56,12 @@ function ProductCard({ product, defaultBudget = "standard", onAdd, onViewDetail 
   const trackView = () => {
     try {
       const rv = JSON.parse(localStorage.getItem("bm-recently-viewed") || "[]");
-      const filtered = rv.filter((id: number) => id !== product.id);
+      const filtered = rv.filter((id: string) => id !== product.id);
       filtered.unshift(product.id);
       localStorage.setItem("bm-recently-viewed", JSON.stringify(filtered.slice(0, 8)));
     } catch {}
   };
 
-  // #7 Brand overflow
   const showAllBrands = product.brands.length <= 3;
   const visibleBrands = showAllBrands ? product.brands : product.brands.slice(0, 2);
   const hiddenCount = product.brands.length - visibleBrands.length;
@@ -93,7 +91,6 @@ function ProductCard({ product, defaultBudget = "standard", onAdd, onViewDetail 
 
         {product.packInfo && <p className="text-text-light text-[10px] mb-1">📦 {product.packInfo}</p>}
 
-        {/* #6 Color swatches */}
         {product.genderRelevant && product.genderColors && (
           <div className="mb-2">
             <div className="flex items-center gap-1.5">
@@ -111,7 +108,6 @@ function ProductCard({ product, defaultBudget = "standard", onAdd, onViewDetail 
           </div>
         )}
 
-        {/* Brand selector */}
         <div className="mb-2">
           <div className="text-[10px] font-semibold text-text-light uppercase tracking-widest mb-1">Brand</div>
           <div className="flex flex-wrap gap-1">
@@ -131,7 +127,6 @@ function ProductCard({ product, defaultBudget = "standard", onAdd, onViewDetail 
           </div>
         </div>
 
-        {/* #6 Size selector */}
         {product.sizes && product.sizes.length > 0 && (
           <div className="mb-2">
             <div className="text-[10px] font-semibold text-text-light uppercase tracking-widest mb-1">Size</div>
@@ -150,7 +145,6 @@ function ProductCard({ product, defaultBudget = "standard", onAdd, onViewDetail 
           <span className="text-coral text-xs">⭐ {product.rating}</span>
           <span className="text-text-light text-[11px]">({product.reviews})</span>
         </div>
-        {/* #27 Delivery estimate */}
         <p className="text-text-light text-[9px] mb-2">🚚 Lagos: 1-2 days · Others: 3-5 days</p>
 
         <div className="flex justify-between items-center">
@@ -188,29 +182,32 @@ export default function ShopPage() {
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const { addToCart } = useCart();
 
+  const { data: allProducts, isLoading } = useAllProducts();
+
   useEffect(() => {
     const titles: Record<string, string> = { all: "All Products", baby: "Baby Shop", mum: "Mum Shop" };
     document.title = `${titles[tab] || "All Products"} | BundledMum`;
   }, [tab]);
 
-  const raw = tab === "baby" ? PRODUCTS.baby : tab === "mum" ? PRODUCTS.mum : ALL_PRODUCTS;
+  const raw = tab === "baby"
+    ? (allProducts || []).filter(p => p.category === "baby")
+    : tab === "mum"
+    ? (allProducts || []).filter(p => p.category === "mum")
+    : (allProducts || []);
 
   let filtered = raw.filter(p => {
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
 
-  // #1: Budget filter ONLY pre-selects brands — NEVER hides or reduces opacity
-  // Sort
-  if (sortBy === "price-low") filtered.sort((a, b) => Math.min(...a.brands.map(br => br.price)) - Math.min(...b.brands.map(br => br.price)));
-  if (sortBy === "price-high") filtered.sort((a, b) => Math.min(...b.brands.map(br => br.price)) - Math.min(...a.brands.map(br => br.price)));
-  if (sortBy === "rating") filtered.sort((a, b) => b.rating - a.rating);
+  if (sortBy === "price-low") filtered = [...filtered].sort((a, b) => Math.min(...a.brands.map(br => br.price)) - Math.min(...b.brands.map(br => br.price)));
+  if (sortBy === "price-high") filtered = [...filtered].sort((a, b) => Math.min(...b.brands.map(br => br.price)) - Math.min(...a.brands.map(br => br.price)));
+  if (sortBy === "rating") filtered = [...filtered].sort((a, b) => b.rating - a.rating);
 
-  // Recently viewed
-  const recentlyViewedIds: number[] = (() => {
+  const recentlyViewedIds: string[] = (() => {
     try { return JSON.parse(localStorage.getItem("bm-recently-viewed") || "[]"); } catch { return []; }
   })();
-  const recentlyViewed = recentlyViewedIds.map(id => ALL_PRODUCTS.find(p => p.id === id)).filter(Boolean).slice(0, 5) as Product[];
+  const recentlyViewed = recentlyViewedIds.map(id => (allProducts || []).find(p => p.id === id)).filter(Boolean).slice(0, 5) as Product[];
 
   const isBaby = tab === "baby";
   const isMum = tab === "mum";
@@ -273,7 +270,13 @@ export default function ShopPage() {
       </div>
 
       <div className="max-w-[1200px] mx-auto px-4 md:px-10 py-6 md:py-10">
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+              <div key={i} className="bg-card rounded-card shadow-card h-[380px] animate-pulse" />
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="text-center py-16">
             <div className="text-4xl mb-4">🔍</div>
             <h2 className="pf text-xl mb-2">No products found</h2>
@@ -293,7 +296,6 @@ export default function ShopPage() {
           </div>
         )}
 
-        {/* #12 Recently viewed */}
         {recentlyViewed.length >= 2 && (
           <div className="mt-12">
             <h3 className="pf text-lg text-forest mb-4">👀 Recently Viewed</h3>

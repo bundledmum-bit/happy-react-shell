@@ -1,10 +1,22 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { FAQ } from "@/data/products";
+import { useFaqItems } from "@/hooks/useSupabaseData";
+
+const FALLBACK_FAQ = [
+  { q: "How does the quiz work?", a: "Our quiz asks about who you're shopping for, your baby's gender, hospital type, delivery method, and your budget. We instantly recommend the perfect products — no overwhelm, no guesswork." },
+  { q: "Do you deliver across Nigeria?", a: "Yes! We deliver nationwide. Lagos orders arrive in 1–2 business days. Other states are 2–4 business days. Free delivery on orders over ₦30,000." },
+  { q: "Can I change my bundle?", a: "Absolutely. The quiz gives you a personalised starting point, but you can add or remove individual items before checkout. It's your bundle." },
+  { q: "What payment methods do you accept?", a: "Card (Mastercard, Visa, Verve), bank transfers, and USSD payments via Paystack. All transactions are secure and encrypted." },
+];
 
 export default function ContactPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const location = useLocation();
+  const { data: faqData } = useFaqItems();
+
+  const faqItems = faqData && faqData.length > 0
+    ? faqData.map(f => ({ q: f.question, a: f.answer }))
+    : FALLBACK_FAQ;
 
   useEffect(() => {
     document.title = "Help & Contact | BundledMum";
@@ -43,7 +55,7 @@ export default function ContactPage() {
         </div>
         <h2 id="faqs" className="pf text-xl md:text-[34px] text-forest mb-5 text-center scroll-mt-24">Frequently Asked Questions</h2>
         <div className="flex flex-col gap-2.5">
-          {FAQ.map((item, i) => (
+          {faqItems.map((item, i) => (
             <div key={i} className="bg-card rounded-[14px] shadow-card overflow-hidden">
               <button onClick={() => setOpenFaq(openFaq === i ? null : i)} className="w-full px-5 py-4 md:py-5 flex justify-between items-center text-left font-body font-semibold text-[13px] md:text-[15px] gap-2.5">
                 <span>{item.q}</span>

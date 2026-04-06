@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { useCart, fmt, getBrandForBudget } from "@/lib/cart";
-import { PRODUCTS, ALL_PRODUCTS, type Product } from "@/data/products";
+import { useAllProducts } from "@/hooks/useSupabaseData";
+import type { Product } from "@/lib/supabaseAdapters";
 import { toast } from "sonner";
 import { ArrowLeft, Check, Share2, ClipboardCopy } from "lucide-react";
 import ShareModal from "@/components/ShareModal";
@@ -427,7 +428,6 @@ function ResultProductCard({ item, onAdd, onRemove, isInCart }: { item: Recommen
 export default function QuizPage() {
   const [searchParams] = useSearchParams();
   const [answers, setAnswers] = useState<Answers>(() => {
-    // Pre-fill from calculator carry-over
     const initial: Answers = {};
     const scope = searchParams.get("scope");
     const multiples = searchParams.get("multiples");
@@ -443,6 +443,8 @@ export default function QuizPage() {
   const [showShareModal, setShowShareModal] = useState(false);
   const navigate = useNavigate();
   const { addToCart, cart, setCart } = useCart();
+  const { data: supabaseProducts } = useAllProducts();
+  const ALL_PRODUCTS_DATA = supabaseProducts || [];
 
   useEffect(() => { document.title = "Build My Bundle | BundledMum"; }, []);
 

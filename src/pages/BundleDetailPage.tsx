@@ -1,18 +1,28 @@
 import { useParams, Link } from "react-router-dom";
-import { bundles, type Bundle, type BundleItem } from "@/data/bundles";
 import { useCart, fmt } from "@/lib/cart";
 import { toast } from "sonner";
 import { ArrowLeft, Share2 } from "lucide-react";
 import { useEffect } from "react";
+import { useBundle, useBundles } from "@/hooks/useSupabaseData";
+import type { BundleItem } from "@/lib/supabaseAdapters";
 
 export default function BundleDetailPage() {
   const { bundleId } = useParams();
-  const bundle = bundles.find(b => b.id === bundleId);
+  const { data: bundle, isLoading } = useBundle(bundleId || "");
+  const { data: allBundles } = useBundles();
   const { addToCart, cart } = useCart();
 
   useEffect(() => {
     if (bundle) document.title = `${bundle.name} | BundledMum`;
   }, [bundle]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background pt-24 flex items-center justify-center">
+        <div className="h-10 w-10 border-4 border-border border-t-forest rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   if (!bundle) {
     return (
@@ -26,11 +36,10 @@ export default function BundleDetailPage() {
   const isInCart = cart.some(c => c.id === bundle.id);
   const totalItems = bundle.babyItems.length + bundle.mumItems.length;
   const savings = bundle.separateTotal - bundle.price;
-  const savingsPercent = Math.round((savings / bundle.separateTotal) * 100);
+  const savingsPercent = bundle.separateTotal > 0 ? Math.round((savings / bundle.separateTotal) * 100) : 0;
 
-  // Find upgrade bundle
-  const upgradable = bundle.tier === "Basic"
-    ? bundles.find(b => b.hospitalType === bundle.hospitalType && b.deliveryType === bundle.deliveryType && b.tier === "Premium")
+  const upgradable = bundle.tier === "Basic" && allBundles
+    ? allBundles.find(b => b.hospitalType === bundle.hospitalType && b.deliveryType === bundle.deliveryType && b.tier === "Premium")
     : null;
 
   const handleAdd = () => {
@@ -69,14 +78,12 @@ export default function BundleDetailPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Hero */}
       <div className="pt-20" style={{ background: `linear-gradient(135deg, ${bundle.color}CC, ${bundle.color}88)` }}>
         <div className="max-w-[900px] mx-auto px-4 md:px-10 py-8 md:py-14">
           <Link to="/bundles" className="text-primary-foreground/60 text-xs hover:text-primary-foreground/80 mb-3 inline-flex items-center gap-1">
             <ArrowLeft className="h-3 w-3" /> All Bundles
           </Link>
 
-          {/* Breadcrumb */}
           <nav className="text-primary-foreground/40 text-[11px] mb-4" aria-label="Breadcrumb">
             <ol className="flex flex-wrap gap-1" itemScope itemType="https://schema.org/BreadcrumbList">
               <li itemProp="itemListElement" itemScope itemType="https://schema.org/ListItem">
@@ -123,10 +130,14 @@ export default function BundleDetailPage() {
 
           <div className="flex items-end gap-3 flex-wrap">
             <span className="pf text-3xl font-bold text-primary-foreground">{fmt(bundle.price)}</span>
-            <span className="text-primary-foreground/50 line-through text-sm">{fmt(bundle.separateTotal)}</span>
-            <span className="bg-coral text-primary-foreground text-[11px] font-bold px-2.5 py-1 rounded-pill">
-              Save {fmt(savings)} ({savingsPercent}%)
-            </span>
+            {savings > 0 && (
+              <>
+                <span className="text-primary-foreground/50 line-through text-sm">{fmt(bundle.separateTotal)}</span>
+                <span className="bg-coral text-primary-foreground text-[11px] font-bold px-2.5 py-1 rounded-pill">
+                  Save {fmt(savings)} ({savingsPercent}%)
+                </span>
+              </>
+            )}
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 mt-5">
@@ -146,33 +157,29 @@ export default function BundleDetailPage() {
         </div>
       </div>
 
-      {/* Content */}
       <div className="max-w-[900px] mx-auto px-4 md:px-10 py-8 md:py-12">
         <div className="grid gap-6 md:grid-cols-2">
-          {/* Baby items */}
           <div className="bg-card rounded-card shadow-card p-5 md:p-6">
             <h3 className="pf text-lg text-forest mb-4">👶 For Baby ({bundle.babyItems.length} items)</h3>
             {bundle.babyItems.map(renderItemRow)}
           </div>
-
-          {/* Mum items */}
           <div className="bg-card rounded-card shadow-card p-5 md:p-6">
             <h3 className="pf text-lg text-forest mb-4">💛 For Mum ({bundle.mumItems.length} items)</h3>
             {bundle.mumItems.map(renderItemRow)}
           </div>
         </div>
 
-        {/* Bundle totals */}
         <div className="bg-forest-light rounded-card p-5 mt-6 text-center">
           <p className="text-forest text-sm font-semibold">
             Bundle price: <span className="text-lg font-bold">{fmt(bundle.price)}</span>
-            <span className="text-text-med text-xs ml-2">
-              (Items separately: {fmt(bundle.separateTotal)} — You save <span className="text-forest font-bold">{fmt(savings)}</span>)
-            </span>
+            {savings > 0 && (
+              <span className="text-text-med text-xs ml-2">
+                (Items separately: {fmt(bundle.separateTotal)} — You save <span className="text-forest font-bold">{fmt(savings)}</span>)
+              </span>
+            )}
           </p>
         </div>
 
-        {/* Upgrade */}
         {upgradable && (
           <div className="bg-warm-cream border-2 border-coral/30 rounded-card p-5 mt-6">
             <h3 className="pf text-lg text-coral mb-2">✨ Upgrade to Premium?</h3>
@@ -185,7 +192,6 @@ export default function BundleDetailPage() {
           </div>
         )}
 
-        {/* Add to cart CTA bottom */}
         <div className="mt-8 text-center">
           {isInCart ? (
             <Link to="/cart" className="rounded-pill bg-forest px-10 py-4 font-body font-semibold text-primary-foreground text-[15px] interactive inline-block">

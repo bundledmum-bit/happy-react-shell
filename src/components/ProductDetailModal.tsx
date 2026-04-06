@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { X, Star, ShoppingBag } from "lucide-react";
-import { type Product } from "@/data/products";
 import { useCart, fmt, getBrandForBudget } from "@/lib/cart";
-import { bundles } from "@/data/bundles";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
+import { useBundles } from "@/hooks/useSupabaseData";
+import type { Product } from "@/lib/supabaseAdapters";
 
 interface Props {
   product: Product;
@@ -18,8 +18,9 @@ export default function ProductDetailModal({ product, defaultBudget = "standard"
   const [selectedSize, setSelectedSize] = useState(product.sizes?.[0] || "");
   const { cart, addToCart } = useCart();
   const isInCart = cart.some(c => c.id === product.id);
+  const { data: allBundles } = useBundles();
 
-  const relatedBundles = bundles.filter(b =>
+  const relatedBundles = (allBundles || []).filter(b =>
     [...b.babyItems, ...b.mumItems].some(i => i.name.toLowerCase().includes(product.name.toLowerCase().split(" ")[0]))
   );
 
@@ -55,7 +56,6 @@ export default function ProductDetailModal({ product, defaultBudget = "standard"
           <X className="h-4 w-4" />
         </button>
 
-        {/* Hero */}
         <div className="h-48 md:h-56 flex items-center justify-center relative" style={{ backgroundColor: selectedBrand.color || "#F0F7F4" }}>
           {product.badge && (
             <span className="absolute top-3 left-3 bg-coral text-primary-foreground text-[10px] font-bold px-2.5 py-1 rounded-pill uppercase">{product.badge}</span>
@@ -67,7 +67,6 @@ export default function ProductDetailModal({ product, defaultBudget = "standard"
           <h2 className="pf text-xl md:text-2xl font-bold mb-1">{product.name}</h2>
           <p className="text-text-med text-sm leading-relaxed mb-3">{product.description}</p>
 
-          {/* Rating */}
           <div className="flex items-center gap-2 mb-4">
             <div className="flex">
               {[1, 2, 3, 4, 5].map(s => (
@@ -78,7 +77,6 @@ export default function ProductDetailModal({ product, defaultBudget = "standard"
             <span className="text-text-light text-xs">({product.reviews} reviews)</span>
           </div>
 
-          {/* Pack info / Material / Contents */}
           <div className="space-y-2 mb-4">
             {product.packInfo && (
               <div className="bg-warm-cream rounded-lg px-3 py-2 text-xs"><span className="font-semibold">📦 </span>{product.packInfo}</div>
@@ -104,7 +102,6 @@ export default function ProductDetailModal({ product, defaultBudget = "standard"
             )}
           </div>
 
-          {/* Brand selector */}
           <div className="mb-4">
             <p className="text-[11px] font-semibold text-text-light uppercase tracking-wider mb-2">Choose Brand</p>
             <div className="flex flex-wrap gap-2">
@@ -118,7 +115,6 @@ export default function ProductDetailModal({ product, defaultBudget = "standard"
             </div>
           </div>
 
-          {/* Size selector */}
           {product.sizes && product.sizes.length > 0 && (
             <div className="mb-4">
               <p className="text-[11px] font-semibold text-text-light uppercase tracking-wider mb-2">Select Size</p>
@@ -133,12 +129,10 @@ export default function ProductDetailModal({ product, defaultBudget = "standard"
             </div>
           )}
 
-          {/* Stock */}
           {stockLabel === "low" && (
             <p className="text-[#E65100] text-xs font-semibold mb-3">🔥 Only {product.stock} left!</p>
           )}
 
-          {/* Price + Add */}
           <div className="flex items-center justify-between gap-4 mb-4 pt-3 border-t border-border">
             <div>
               <p className="pf text-2xl font-bold text-forest">{fmt(selectedBrand.price)}</p>
@@ -159,12 +153,10 @@ export default function ProductDetailModal({ product, defaultBudget = "standard"
             )}
           </div>
 
-          {/* Why included */}
           <div className="bg-forest-light rounded-lg p-3 text-xs text-forest mb-4">
             <span className="font-semibold">💡 Why mums love this: </span>{getWhyText()}
           </div>
 
-          {/* Related bundles */}
           {relatedBundles.length > 0 && (
             <div>
               <p className="text-[11px] font-semibold text-text-light uppercase tracking-wider mb-2">Also included in these bundles</p>

@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { bundles } from "@/data/bundles";
 import { useCart, fmt } from "@/lib/cart";
 import { toast } from "sonner";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { useBundles } from "@/hooks/useSupabaseData";
+import type { Bundle } from "@/lib/supabaseAdapters";
 
 export default function BundlesPage() {
   const [hospitalF, setHospitalF] = useState("all");
@@ -12,9 +13,12 @@ export default function BundlesPage() {
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [showCompare, setShowCompare] = useState(false);
 
+  const { data: bundles, isLoading } = useBundles();
+  const allBundles = bundles || [];
+
   useEffect(() => { document.title = "Pre-Packed Hospital Bags | BundledMum"; }, []);
 
-  const filtered = bundles.filter(b => {
+  const filtered = allBundles.filter(b => {
     if (hospitalF !== "all" && b.hospitalType !== hospitalF) return false;
     if (deliveryF !== "all" && b.deliveryType !== deliveryF) return false;
     if (tierF !== "all" && b.tier.toLowerCase() !== tierF) return false;
@@ -25,7 +29,7 @@ export default function BundlesPage() {
     setCompareIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : prev.length < 3 ? [...prev, id] : prev);
   };
 
-  const compareBundles = compareIds.map(id => bundles.find(b => b.id === id)!).filter(Boolean);
+  const compareBundles = compareIds.map(id => allBundles.find(b => b.id === id)!).filter(Boolean);
 
   return (
     <div className="min-h-screen bg-background">
@@ -36,7 +40,7 @@ export default function BundlesPage() {
             Every item researched, sourced, and packed for the Nigerian delivery experience. Choose your hospital type, delivery method, and budget.
           </p>
           <div className="flex gap-5 mt-5 flex-wrap">
-            {[[String(bundles.length), "Bundles"], ["100+", "Products inside"], ["2", "Hospital types"]].map(([v, l]) => (
+            {[[String(allBundles.length), "Bundles"], ["100+", "Products inside"], ["2", "Hospital types"]].map(([v, l]) => (
               <div key={l}><div className="pf text-coral text-xl font-bold">{v}</div><div className="text-primary-foreground/50 text-[11px]">{l}</div></div>
             ))}
           </div>
@@ -72,14 +76,19 @@ export default function BundlesPage() {
       </div>
 
       <div className="max-w-[1200px] mx-auto px-4 md:px-10 py-8 md:py-12">
-        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-          {filtered.map(b => (
-            <BundleCard key={b.id} bundle={b} compareSelected={compareIds.includes(b.id)} onToggleCompare={() => toggleCompare(b.id)} />
-          ))}
-        </div>
+        {isLoading ? (
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3].map(i => <div key={i} className="bg-card rounded-card shadow-card h-[400px] animate-pulse" />)}
+          </div>
+        ) : (
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {filtered.map(b => (
+              <BundleCard key={b.id} bundle={b} compareSelected={compareIds.includes(b.id)} onToggleCompare={() => toggleCompare(b.id)} />
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Compare modal */}
       {showCompare && compareBundles.length >= 2 && (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-4" onClick={() => setShowCompare(false)}>
           <div className="absolute inset-0 bg-foreground/50 backdrop-blur-sm" />
@@ -118,13 +127,13 @@ export default function BundlesPage() {
   );
 }
 
-function BundleCard({ bundle: b, compareSelected, onToggleCompare }: { bundle: typeof bundles[0]; compareSelected: boolean; onToggleCompare: () => void }) {
+function BundleCard({ bundle: b, compareSelected, onToggleCompare }: { bundle: Bundle; compareSelected: boolean; onToggleCompare: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const { addToCart, cart } = useCart();
   const isInCart = cart.some(c => c.id === b.id);
   const totalItems = b.babyItems.length + b.mumItems.length;
   const savings = b.separateTotal - b.price;
-  const savingsPercent = Math.round((savings / b.separateTotal) * 100);
+  const savingsPercent = b.separateTotal > 0 ? Math.round((savings / b.separateTotal) * 100) : 0;
 
   const handleAdd = () => {
     addToCart({ id: b.id, name: `${b.name} — ${b.tier}`, price: b.price, img: b.icon, baseImg: b.icon, brands: [{ id: "default", label: b.tier, price: b.price, img: b.icon, tier: 1 }], selectedBrand: { id: "default", label: b.tier, price: b.price, img: b.icon, tier: 1 } });
@@ -186,11 +195,13 @@ function BundleCard({ bundle: b, compareSelected, onToggleCompare }: { bundle: t
                 ))}
               </div>
             ))}
-            <div className="pt-1.5 border-t border-border">
-              <p className="text-forest font-bold text-[11px]">
-                Bundle: {fmt(b.price)} · Save {fmt(savings)} ({savingsPercent}%) vs buying separately
-              </p>
-            </div>
+            {savings > 0 && (
+              <div className="pt-1.5 border-t border-border">
+                <p className="text-forest font-bold text-[11px]">
+                  Bundle: {fmt(b.price)} · Save {fmt(savings)} ({savingsPercent}%) vs buying separately
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -203,7 +214,7 @@ function BundleCard({ bundle: b, compareSelected, onToggleCompare }: { bundle: t
         <div className="flex justify-between items-center gap-2 mb-2">
           <div>
             <div className="pf font-bold text-lg" style={{ color: b.color }}>{fmt(b.price)}</div>
-            <div className="text-text-light line-through text-[10px]">{fmt(b.separateTotal)}</div>
+            {b.separateTotal > b.price && <div className="text-text-light line-through text-[10px]">{fmt(b.separateTotal)}</div>}
           </div>
           {isInCart ? (
             <Link to="/cart" className="rounded-pill bg-forest-light border border-forest text-forest px-3.5 py-2 text-[11px] font-semibold font-body interactive flex-shrink-0">In Cart ✓</Link>
@@ -212,7 +223,6 @@ function BundleCard({ bundle: b, compareSelected, onToggleCompare }: { bundle: t
           )}
         </div>
 
-        {/* Compare toggle */}
         <button onClick={onToggleCompare} className={`w-full text-center text-[10px] font-semibold font-body py-1 rounded-pill border transition-all ${compareSelected ? "border-coral bg-coral/10 text-coral" : "border-border text-text-light hover:text-forest hover:border-forest"}`}>
           {compareSelected ? "✓ Selected for compare" : "Compare"}
         </button>

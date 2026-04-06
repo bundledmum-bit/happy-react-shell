@@ -1,51 +1,15 @@
 import { Link } from "react-router-dom";
 import { useCart, fmt, getBrandForBudget } from "@/lib/cart";
-import { PRODUCTS, HERO_KIT, TESTIMONIALS } from "@/data/products";
-import { bundles } from "@/data/bundles";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import BudgetCalculator from "@/components/BudgetCalculator";
-
-
-// #19 Check for saved bundle
-function SavedBundleBanner() {
-  const [saved, setSaved] = useState<any>(null);
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem("bm-saved-bundle");
-      if (raw) {
-        const data = JSON.parse(raw);
-        if (Date.now() - data.timestamp < 30 * 24 * 60 * 60 * 1000) {
-          setSaved(data);
-        } else {
-          localStorage.removeItem("bm-saved-bundle");
-        }
-      }
-    } catch {}
-  }, []);
-
-  if (!saved) return null;
-
-  const budget = saved.answers?.budget || "standard";
-  const label = budget === "starter" ? "Starter" : budget === "premium" ? "Premium" : "Standard";
-  const gender = saved.answers?.gender;
-  const genderLabel = gender === "boy" ? "Boy" : gender === "girl" ? "Girl" : "Neutral";
-
-  return (
-    <div className="bg-forest-light border-b border-forest/20">
-      <div className="max-w-[1200px] mx-auto px-5 md:px-10 py-3 flex flex-col sm:flex-row items-center justify-between gap-2">
-        <p className="text-forest text-sm font-semibold">
-          Welcome back! 👋 Your saved {label} {genderLabel} bundle is waiting
-        </p>
-        <Link to="/quiz" className="rounded-pill bg-forest px-5 py-2 text-xs font-semibold text-primary-foreground hover:bg-forest-deep interactive">
-          View Bundle →
-        </Link>
-      </div>
-    </div>
-  );
-}
+import { useAllProducts, useTestimonials, useSiteSettings, useBundles } from "@/hooks/useSupabaseData";
+import type { Product } from "@/lib/supabaseAdapters";
 
 function HeroSection() {
+  const { data: bundles } = useBundles();
+  const topBundles = (bundles || []).slice(0, 3);
+
   return (
     <section className="min-h-screen flex items-center relative overflow-hidden" style={{ background: "linear-gradient(135deg, #2D6A4F 0%, #1E5C44 55%, #163D2E 100%)" }}>
       <div className="absolute w-[700px] h-[700px] rounded-full bg-primary-foreground/[0.025] -top-[250px] -right-[250px]" />
@@ -67,7 +31,6 @@ function HeroSection() {
             <Link to="/quiz" className="rounded-pill bg-coral px-7 py-3.5 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-sm md:text-[15px] w-full md:w-auto text-center">Build My Bundle →</Link>
             <Link to="/shop" className="rounded-pill border-2 border-primary-foreground/30 px-7 py-3.5 font-body font-semibold text-primary-foreground/80 hover:bg-primary-foreground/10 interactive w-full md:w-auto text-center">Browse All Products</Link>
           </div>
-          {/* #9 Dynamic social proof */}
           <p className="animate-fade-up-4 text-primary-foreground/50 text-xs mt-3 font-body">⭐ 4.9/5 from 347+ mums this month</p>
           <div className="animate-fade-up-4 flex gap-6 md:gap-9 mt-8 md:mt-12 pt-6 md:pt-9 border-t border-primary-foreground/10">
             {[["347+", "Mums This Month"], ["4.9★", "Average Rating"], ["48hr", "Lagos Delivery"]].map(([v, l]) => (
@@ -76,7 +39,7 @@ function HeroSection() {
           </div>
         </div>
 
-        {/* Desktop: Budget Calculator (#3) */}
+        {/* Desktop: Budget Calculator */}
         <div className="hidden md:block">
           <BudgetCalculator />
         </div>
@@ -84,17 +47,25 @@ function HeroSection() {
         {/* Mobile bundle preview */}
         <div className="md:hidden overflow-x-auto -mx-5 px-5">
           <div className="flex gap-3" style={{ minWidth: "max-content" }}>
-            {[
-              { icon: "🏥", name: "Public · Vaginal", price: "₦42,500", bg: "rgba(21,101,192,0.15)" },
-              { icon: "🏨", name: "Private · C-Section", price: "₦88,000", bg: "rgba(136,14,79,0.15)" },
-              { icon: "🎁", name: "Gift Bundle", price: "₦82,000", bg: "rgba(198,40,40,0.15)" },
-            ].map(c => (
-              <Link to="/bundles" key={c.name} className="rounded-xl p-3 text-center min-w-[130px]" style={{ background: c.bg }}>
-                <div className="text-2xl">{c.icon}</div>
-                <div className="text-primary-foreground text-[10px] font-semibold mt-1">{c.name}</div>
-                <div className="text-coral font-bold text-[11px] mt-0.5">{c.price}</div>
-              </Link>
-            ))}
+            {topBundles.length > 0
+              ? topBundles.map(c => (
+                  <Link to="/bundles" key={c.id} className="rounded-xl p-3 text-center min-w-[130px]" style={{ background: `${c.color}26` }}>
+                    <div className="text-2xl">{c.icon}</div>
+                    <div className="text-primary-foreground text-[10px] font-semibold mt-1">{c.name.split("·").slice(0, 2).join("·").trim()}</div>
+                    <div className="text-coral font-bold text-[11px] mt-0.5">{fmt(c.price)}</div>
+                  </Link>
+                ))
+              : [
+                  { icon: "🏥", name: "Public · Vaginal", price: "₦42,500", bg: "rgba(21,101,192,0.15)" },
+                  { icon: "🏨", name: "Private · C-Section", price: "₦88,000", bg: "rgba(136,14,79,0.15)" },
+                  { icon: "🎁", name: "Gift Bundle", price: "₦82,000", bg: "rgba(198,40,40,0.15)" },
+                ].map(c => (
+                  <Link to="/bundles" key={c.name} className="rounded-xl p-3 text-center min-w-[130px]" style={{ background: c.bg }}>
+                    <div className="text-2xl">{c.icon}</div>
+                    <div className="text-primary-foreground text-[10px] font-semibold mt-1">{c.name}</div>
+                    <div className="text-coral font-bold text-[11px] mt-0.5">{c.price}</div>
+                  </Link>
+                ))}
           </div>
         </div>
       </div>
@@ -189,13 +160,27 @@ function BundleTiers() {
 
 function FeaturedProducts() {
   const { addToCart, cart, setCart } = useCart();
-  const featured = [PRODUCTS.baby[0], PRODUCTS.baby[2], PRODUCTS.baby[3], PRODUCTS.mum[0]];
-  const badges: Record<number, { label: string; color: string }> = {
-    1: { label: "BEST SELLER", color: "#2D6A4F" },
-    3: { label: "ESSENTIAL", color: "#F4845F" },
-    4: { label: "TOP PICK", color: "#E67E22" },
-    11: { label: "ESSENTIAL", color: "#F4845F" },
-  };
+  const { data: allProducts, isLoading } = useAllProducts();
+
+  const featured = (allProducts || []).filter(p => p.badge || p.rating >= 4.8).slice(0, 4);
+
+  if (isLoading || featured.length === 0) {
+    return (
+      <section className="py-16 md:py-24 bg-background">
+        <div className="max-w-[1200px] mx-auto px-5 md:px-10">
+          <div className="text-center mb-10">
+            <span className="text-coral text-xs font-semibold uppercase tracking-widest">Shop</span>
+            <h2 className="pf text-2xl md:text-[42px] text-forest mt-2">Our Most Loved Items</h2>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-5">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="bg-card rounded-card shadow-card h-[320px] animate-pulse" />
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="py-16 md:py-24 bg-background">
@@ -210,14 +195,13 @@ function FeaturedProducts() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-5">
           {featured.map(p => {
             const brand = getBrandForBudget(p, "standard");
-            const cartKey = `${p.id}-${brand.id}-`;
+            if (!brand) return null;
             const isInCart = cart.some(c => c.id === p.id);
-            const badge = badges[p.id];
             return (
               <div key={p.id} className="bg-card rounded-card shadow-card card-hover overflow-hidden relative">
                 <div className="h-[170px] flex items-center justify-center text-6xl relative" style={{ background: `linear-gradient(135deg, ${brand.color}, #fff)` }}>
-                  {badge && (
-                    <div className="absolute top-2.5 left-2.5 text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill uppercase" style={{ background: badge.color }}>{badge.label}</div>
+                  {p.badge && (
+                    <div className="absolute top-2.5 left-2.5 text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill uppercase bg-coral">{p.badge}</div>
                   )}
                   {brand.img}
                 </div>
@@ -227,7 +211,6 @@ function FeaturedProducts() {
                     <span className="text-coral text-xs">⭐ {p.rating}</span>
                     <span className="text-text-light text-[11px]">({p.reviews})</span>
                   </div>
-                  {/* #27 Delivery estimate */}
                   <p className="text-text-light text-[9px] mb-2">🚚 Lagos: 1-2 days · Others: 3-5 days</p>
                   <div className="flex justify-between items-center">
                     <div>
@@ -258,6 +241,15 @@ function FeaturedProducts() {
 }
 
 function TestimonialsSection() {
+  const { data: testimonials } = useTestimonials(true);
+  const items = testimonials && testimonials.length > 0
+    ? testimonials.map(t => ({ name: t.customer_name, loc: t.customer_city.replace(", Nigeria", ""), stars: t.rating || 5, text: t.quote }))
+    : [
+        { name: "Adaeze O.", loc: "Lagos", stars: 5, text: "I was so overwhelmed before finding BundledMum. The quiz took 2 minutes and I had the perfect list. My Standard Boy Bundle arrived in 2 days — absolutely everything I needed!" },
+        { name: "Ngozi T.", loc: "Abuja", stars: 5, text: "As a first-time mum in Nigeria, I had no idea where to start. BundledMum made it so easy. The products are actually good quality, not cheap imports. 10/10 recommend." },
+        { name: "Kemi A.", loc: "Port Harcourt", stars: 5, text: "Bought the Premium Bundle as a baby shower gift. My friend cried when she saw everything. The presentation alone was worth it. Will always shop here for baby gifts." },
+      ];
+
   return (
     <section className="py-16 md:py-24" style={{ background: "#2D6A4F" }}>
       <div className="max-w-[1100px] mx-auto px-5 md:px-10">
@@ -266,7 +258,7 @@ function TestimonialsSection() {
           <h2 className="pf text-2xl md:text-[42px] text-primary-foreground mt-2">Mums Who Bundled With Us</h2>
         </div>
         <div className="grid md:grid-cols-3 gap-3.5 md:gap-6">
-          {TESTIMONIALS.map((t, i) => (
+          {items.map((t, i) => (
             <div key={i} className="bg-primary-foreground/[0.09] border border-primary-foreground/[0.11] rounded-[20px] p-5 md:p-8">
               <div className="text-coral text-base mb-3">{"⭐".repeat(t.stars)}</div>
               <p className="text-primary-foreground/80 leading-[1.8] text-sm mb-4 italic">"{t.text}"</p>
@@ -280,7 +272,6 @@ function TestimonialsSection() {
             </div>
           ))}
         </div>
-        {/* #23 Virality enhancement */}
         <div className="text-center mt-8 space-y-3">
           <p className="text-primary-foreground/50 text-sm">Know someone expecting? Tell them about BundledMum</p>
           <div className="flex gap-3 justify-center flex-wrap">
@@ -334,7 +325,6 @@ function StickyMobileCTA() {
 export default function HomePage() {
   useEffect(() => { document.title = "BundledMum — Nigeria's Hospital Bag Curator"; }, []);
 
-  // Handle referral code from URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const ref = params.get("ref");
@@ -345,7 +335,6 @@ export default function HomePage() {
 
   return (
     <>
-      <SavedBundleBanner />
       <HeroSection />
       <TrustBar />
       <HowItWorks />
