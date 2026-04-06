@@ -551,6 +551,9 @@ export default function QuizPage() {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center px-4 sm:px-0">
+              <button onClick={() => document.getElementById("quiz-results-items")?.scrollIntoView({ behavior: "smooth" })} className="rounded-pill bg-primary-foreground/20 border border-primary-foreground/30 px-6 py-3 font-body font-semibold text-primary-foreground hover:bg-primary-foreground/30 interactive text-sm w-full sm:hidden">
+                👇 See Your Items Below
+              </button>
               <button onClick={handleAddAll} className="rounded-pill bg-coral px-6 sm:px-8 py-3 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-sm sm:text-[15px] w-full sm:w-auto">
                 {isGift ? "🎁 Get Gift Bundle" : "Get Complete Bundle"} — {fmt(totalValue)} →
               </button>
@@ -570,7 +573,7 @@ export default function QuizPage() {
           </div>
         </div>
 
-        <div className="max-w-[1000px] mx-auto px-4 md:px-10 py-8 md:py-10">
+        <div id="quiz-results-items" className="max-w-[1000px] mx-auto px-4 md:px-10 py-8 md:py-10">
           {babyItems.length > 0 && (
             <div className="mb-10">
               <h2 className="pf text-lg md:text-xl text-forest mb-4">{isGift ? "🎁 Gift for Baby" : "👶 For Baby"}</h2>

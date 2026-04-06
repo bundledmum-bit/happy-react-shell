@@ -1,15 +1,24 @@
-import { MessageCircle } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowUp } from "lucide-react";
 
-export default function FloatingWhatsApp() {
+export default function FloatingScrollToTop() {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setVisible(window.scrollY > 400);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  if (!visible) return null;
+
   return (
-    <a
-      href="https://wa.me/2348012345678?text=Hi%20BundledMum!%20I%20have%20a%20question."
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label="Chat with us on WhatsApp"
-      className="fixed bottom-5 right-5 z-[900] w-14 h-14 bg-[#25D366] rounded-full flex items-center justify-center shadow-lg hover:bg-[#20bd5a] transition-all hover:scale-110"
+    <button
+      onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+      aria-label="Scroll to top"
+      className="fixed bottom-5 right-5 z-[900] w-12 h-12 bg-forest rounded-full flex items-center justify-center shadow-lg hover:bg-forest-deep transition-all hover:scale-110"
     >
-      <MessageCircle className="w-7 h-7 text-primary-foreground" />
-    </a>
+      <ArrowUp className="w-5 h-5 text-primary-foreground" />
+    </button>
   );
 }
