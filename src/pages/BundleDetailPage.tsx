@@ -113,11 +113,11 @@ export default function BundleDetailPage() {
             </span>
           </div>
 
-          <div className="flex items-center gap-4 mb-3">
-            <span className="text-5xl">{bundle.icon}</span>
-            <div>
-              <h1 className="pf text-2xl md:text-4xl text-primary-foreground">{bundle.name}</h1>
-              <p className="text-primary-foreground/70 text-sm mt-1">{bundle.tagline}</p>
+          <div className="flex items-start gap-3 sm:gap-4 mb-3">
+            <span className="text-4xl sm:text-5xl flex-shrink-0">{bundle.icon}</span>
+            <div className="min-w-0">
+              <h1 className="pf text-xl sm:text-2xl md:text-4xl text-primary-foreground leading-tight">{bundle.name}</h1>
+              <p className="text-primary-foreground/70 text-xs sm:text-sm mt-1">{bundle.tagline}</p>
             </div>
           </div>
 
@@ -129,17 +129,17 @@ export default function BundleDetailPage() {
             </span>
           </div>
 
-          <div className="flex gap-3 mt-5 flex-wrap">
+          <div className="flex flex-col sm:flex-row gap-3 mt-5">
             {isInCart ? (
-              <Link to="/cart" className="rounded-pill bg-primary-foreground text-forest px-8 py-3 font-body font-semibold text-sm interactive">
+              <Link to="/cart" className="rounded-pill bg-primary-foreground text-forest px-8 py-3 font-body font-semibold text-sm interactive text-center">
                 In Cart ✓ — View Cart
               </Link>
             ) : (
-              <button onClick={handleAdd} className="rounded-pill bg-coral px-8 py-3 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-sm">
-                Add Full Bundle to Cart — {fmt(bundle.price)}
+              <button onClick={handleAdd} className="rounded-pill bg-coral px-6 sm:px-8 py-3 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-sm text-center">
+                Add Full Bundle — {fmt(bundle.price)}
               </button>
             )}
-            <button onClick={handleShare} className="rounded-pill border-2 border-primary-foreground/30 px-5 py-3 text-primary-foreground/80 font-body font-semibold text-sm hover:bg-primary-foreground/10 interactive flex items-center gap-2">
+            <button onClick={handleShare} className="rounded-pill border-2 border-primary-foreground/30 px-5 py-3 text-primary-foreground/80 font-body font-semibold text-sm hover:bg-primary-foreground/10 interactive flex items-center justify-center gap-2">
               <Share2 className="h-4 w-4" /> Share
             </button>
           </div>

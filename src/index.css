@@ -161,3 +161,12 @@
 .pf {
   font-family: 'Playfair Display', serif;
 }
+
+/* Hide scrollbar for filter bars */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

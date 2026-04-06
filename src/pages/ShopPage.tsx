@@ -177,30 +177,32 @@ export default function ShopPage() {
 
       <div className="bg-card border-b border-border py-3 px-4 md:px-10 sticky top-[68px] z-50">
         <div className="max-w-[1200px] mx-auto">
-          <div className="flex gap-2 flex-wrap items-center">
-            <span className="text-text-med text-[13px] font-semibold mr-1">Shop:</span>
-            {[{ key: "all", label: "All" }, { key: "baby", label: "👶 Baby" }, { key: "mum", label: "💛 Mum" }].map(t => (
-              <button key={t.key} onClick={() => setSearchParams({ tab: t.key })}
-                className={`rounded-pill px-3 py-1.5 text-xs font-semibold border-[1.5px] transition-all font-body ${tab === t.key ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-text-med"}`}>
-                {t.label}
-              </button>
-            ))}
-            <div className="w-px h-5 bg-border mx-1" />
-            <span className="text-text-med text-[13px] font-semibold mr-1">Budget:</span>
-            {[["all", "All"], ["starter", "🌱 Starter"], ["standard", "🌿 Standard"], ["premium", "✨ Premium"]].map(([v, l]) => (
-              <button key={v} onClick={() => setBudgetF(v)}
-                className={`rounded-pill px-3 py-1.5 text-xs font-semibold border-[1.5px] transition-all font-body whitespace-nowrap ${budgetF === v ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-text-med"}`}>
-                {l}
-              </button>
-            ))}
-            <div className="w-px h-5 bg-border mx-1" />
-            <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="rounded-pill border-[1.5px] border-border px-3 py-1.5 text-xs font-semibold font-body bg-card text-text-med outline-none">
-              <option value="popular">Sort: Popular</option>
-              <option value="price-low">Price: Low → High</option>
-              <option value="price-high">Price: High → Low</option>
-              <option value="rating">Top Rated</option>
-            </select>
-            <span className="ml-auto text-text-light text-xs">{filtered.length} items</span>
+          <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide">
+            <div className="flex gap-2 items-center min-w-max">
+              <span className="text-text-med text-[13px] font-semibold mr-1">Shop:</span>
+              {[{ key: "all", label: "All" }, { key: "baby", label: "👶 Baby" }, { key: "mum", label: "💛 Mum" }].map(t => (
+                <button key={t.key} onClick={() => setSearchParams({ tab: t.key })}
+                  className={`rounded-pill px-3 py-1.5 text-xs font-semibold border-[1.5px] transition-all font-body whitespace-nowrap ${tab === t.key ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-text-med"}`}>
+                  {t.label}
+                </button>
+              ))}
+              <div className="w-px h-5 bg-border mx-1 flex-shrink-0" />
+              <span className="text-text-med text-[13px] font-semibold mr-1 whitespace-nowrap">Budget:</span>
+              {[["all", "All"], ["starter", "🌱 Starter"], ["standard", "🌿 Standard"], ["premium", "✨ Premium"]].map(([v, l]) => (
+                <button key={v} onClick={() => setBudgetF(v)}
+                  className={`rounded-pill px-3 py-1.5 text-xs font-semibold border-[1.5px] transition-all font-body whitespace-nowrap ${budgetF === v ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-text-med"}`}>
+                  {l}
+                </button>
+              ))}
+              <div className="w-px h-5 bg-border mx-1 flex-shrink-0" />
+              <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="rounded-pill border-[1.5px] border-border px-3 py-1.5 text-xs font-semibold font-body bg-card text-text-med outline-none whitespace-nowrap flex-shrink-0">
+                <option value="popular">Sort: Popular</option>
+                <option value="price-low">Price: Low → High</option>
+                <option value="price-high">Price: High → Low</option>
+                <option value="rating">Top Rated</option>
+              </select>
+              <span className="text-text-light text-xs whitespace-nowrap flex-shrink-0">{filtered.length} items</span>
+            </div>
           </div>
           {budgetF !== "all" && (
             <div className="mt-1.5">

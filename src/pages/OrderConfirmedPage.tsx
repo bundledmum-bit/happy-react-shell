@@ -125,11 +125,11 @@ export default function OrderConfirmedPage() {
         )}
 
         {/* Download / Share */}
-        <div className="flex gap-3 flex-wrap mb-4">
-          <button onClick={handleDownload} className="rounded-pill border-2 border-forest text-forest px-5 py-2.5 font-body font-semibold text-sm hover:bg-forest/5 interactive">
+        <div className="flex gap-3 flex-col sm:flex-row mb-4">
+          <button onClick={handleDownload} className="rounded-pill border-2 border-forest text-forest px-5 py-2.5 font-body font-semibold text-sm hover:bg-forest/5 interactive w-full sm:w-auto text-center">
             📥 Download Order Summary
           </button>
-          <button onClick={handleWhatsAppShare} className="rounded-pill bg-[#25D366] text-primary-foreground px-5 py-2.5 font-body font-semibold text-sm interactive">
+          <button onClick={handleWhatsAppShare} className="rounded-pill bg-[#25D366] text-primary-foreground px-5 py-2.5 font-body font-semibold text-sm interactive w-full sm:w-auto text-center">
             📱 Share via WhatsApp
           </button>
         </div>

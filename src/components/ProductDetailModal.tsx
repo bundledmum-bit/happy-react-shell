@@ -48,9 +48,9 @@ export default function ProductDetailModal({ product, defaultBudget = "standard"
   const stockLabel = product.stock === 0 ? "out" : product.stock && product.stock <= 5 ? "low" : "in";
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-foreground/50 backdrop-blur-sm" />
-      <div className="relative bg-card rounded-[20px] shadow-2xl max-w-[680px] w-full max-h-[90vh] overflow-y-auto animate-fade-in" onClick={e => e.stopPropagation()}>
+      <div className="relative bg-card rounded-t-[20px] sm:rounded-[20px] shadow-2xl max-w-[680px] w-full max-h-[92vh] sm:max-h-[90vh] overflow-y-auto animate-fade-in" onClick={e => e.stopPropagation()}>
         <button onClick={onClose} className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-foreground/10 flex items-center justify-center hover:bg-foreground/20 transition-colors">
           <X className="h-4 w-4" />
         </button>
