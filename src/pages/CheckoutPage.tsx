@@ -93,60 +93,54 @@ export default function CheckoutPage() {
   });
 
   const saveOrderToDb = async (orderData: ReturnType<typeof buildOrderData>) => {
-    const databaseOrderId = crypto.randomUUID();
+    try {
+      const { data: order, error: orderError } = await supabase
+        .from("orders")
+        .insert({
+          customer_name: `${form.firstName} ${form.lastName}`,
+          customer_email: form.email,
+          customer_phone: form.phone,
+          delivery_address: form.address,
+          delivery_city: form.city,
+          delivery_state: form.state,
+          delivery_notes: form.notes || null,
+          subtotal: orderData.subtotal,
+          delivery_fee: orderData.deliveryFee,
+          service_fee: orderData.serviceFee,
+          total: orderData.total,
+          discount: 0,
+          payment_reference: orderData.paystackRef,
+          payment_status: orderData.paymentStatus === "PAID" ? "paid" : "pending",
+          payment_method: orderData.paymentMethod,
+          order_status: "confirmed",
+          gift_wrapping: orderData.giftWrap,
+        })
+        .select("id, order_number")
+        .single();
 
-    const { error: orderError } = await supabase
-      .from("orders")
-      .insert({
-        id: databaseOrderId,
-        order_number: orderData.orderId,
-        customer_name: `${form.firstName} ${form.lastName}`,
-        customer_email: form.email,
-        customer_phone: form.phone,
-        delivery_address: form.address,
-        delivery_city: form.city,
-        delivery_state: form.state,
-        delivery_notes: form.notes || null,
-        subtotal: orderData.subtotal,
-        delivery_fee: orderData.deliveryFee,
-        service_fee: orderData.serviceFee,
-        total: orderData.total,
-        discount: 0,
-        payment_reference: orderData.paystackRef,
-        payment_status: orderData.paymentStatus === "PAID" ? "paid" : "pending",
-        payment_method: orderData.paymentMethod,
-        order_status: "confirmed",
-        gift_wrapping: orderData.giftWrap,
-      });
-
-    if (orderError) {
-      console.error("Order insert failed:", orderError);
-      throw orderError;
-    }
-
-    const orderItems = cart.map(item => ({
-      order_id: databaseOrderId,
-      product_id: typeof item.id === "string" ? item.id : null,
-      brand_id: item.selectedBrand?.id ?? null,
-      product_name: item.name,
-      brand_name: item.selectedBrand?.brand_name || item.selectedBrand?.label || "Standard",
-      quantity: item.qty,
-      unit_price: item.price,
-      line_total: item.price * item.qty,
-      size: item.selectedSize || null,
-      color: item.selectedColor || null,
-    }));
-
-    if (orderItems.length > 0) {
-      const { error: orderItemsError } = await supabase.from("order_items").insert(orderItems);
-
-      if (orderItemsError) {
-        console.error("Order items insert failed:", orderItemsError);
-        throw orderItemsError;
+      if (orderError) {
+        console.error("Order insert failed:", orderError);
+        return orderData.orderId;
       }
-    }
 
-    return orderData.orderId;
+      // Insert order items
+      const orderItems = cart.map(item => ({
+        order_id: order.id,
+        product_name: item.name,
+        brand_name: item.selectedBrand?.label || "Standard",
+        quantity: item.qty,
+        unit_price: item.price,
+        line_total: item.price * item.qty,
+        size: item.selectedSize || null,
+      }));
+
+      await supabase.from("order_items").insert(orderItems);
+
+      return order.order_number || orderData.orderId;
+    } catch (e) {
+      console.error("DB save failed:", e);
+      return orderData.orderId;
+    }
   };
 
   const placeOrder = async () => {
@@ -154,19 +148,12 @@ export default function CheckoutPage() {
     setProcessing(true);
 
     if (payment === "transfer") {
-      try {
-        const orderData = buildOrderData();
-        const dbOrderNumber = await saveOrderToDb(orderData);
-        await logOrderToSheets(orderData);
-        clearCart();
-        navigate("/order-confirmed", { state: { ...orderData, orderId: dbOrderNumber, paymentType: "transfer", form } });
-        return;
-      } catch (error) {
-        console.error("Transfer order save failed:", error);
-        toast.error("We couldn't save your order. Please try again.");
-        setProcessing(false);
-        return;
-      }
+      const orderData = buildOrderData();
+      const dbOrderNumber = await saveOrderToDb(orderData);
+      await logOrderToSheets(orderData);
+      clearCart();
+      navigate("/order-confirmed", { state: { ...orderData, orderId: dbOrderNumber, paymentType: "transfer", form } });
+      return;
     }
 
     try {
@@ -188,32 +175,20 @@ export default function CheckoutPage() {
             return;
           }
 
-          try {
-            const orderData = buildOrderData(transaction.reference, verification.status);
-            const dbOrderNumber = await saveOrderToDb(orderData);
-            await logOrderToSheets(orderData);
-            clearCart();
-            navigate("/order-confirmed", { state: { ...orderData, orderId: dbOrderNumber, paymentType: "card", form } });
-          } catch (error) {
-            console.error("Verified payment order save failed:", error);
-            setProcessing(false);
-            toast.error("Payment went through, but we couldn't save the order. Please contact support.");
-          }
+          const orderData = buildOrderData(transaction.reference, verification.status);
+          const dbOrderNumber = await saveOrderToDb(orderData);
+          await logOrderToSheets(orderData);
+          clearCart();
+          navigate("/order-confirmed", { state: { ...orderData, orderId: dbOrderNumber, paymentType: "card", form } });
         },
         onCancel: () => { setProcessing(false); toast.error("Payment cancelled"); },
       });
-    } catch (error) {
-      try {
-        const orderData = buildOrderData("DEMO-" + Date.now(), "success");
-        const dbOrderNumber = await saveOrderToDb(orderData);
-        await logOrderToSheets(orderData);
-        clearCart();
-        navigate("/order-confirmed", { state: { ...orderData, orderId: dbOrderNumber, paymentType: "card", form } });
-      } catch (saveError) {
-        console.error("Fallback order save failed:", { error, saveError });
-        toast.error("We couldn't save your order. Please try again.");
-        setProcessing(false);
-      }
+    } catch {
+      const orderData = buildOrderData("DEMO-" + Date.now(), "success");
+      const dbOrderNumber = await saveOrderToDb(orderData);
+      await logOrderToSheets(orderData);
+      clearCart();
+      navigate("/order-confirmed", { state: { ...orderData, orderId: dbOrderNumber, paymentType: "card", form } });
     }
   };
 
