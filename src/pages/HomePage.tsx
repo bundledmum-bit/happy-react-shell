@@ -5,7 +5,7 @@ import { bundles } from "@/data/bundles";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import BudgetCalculator from "@/components/BudgetCalculator";
-import FOMOToast from "@/components/FOMOToast";
+
 
 // #19 Check for saved bundle
 function SavedBundleBanner() {
@@ -354,8 +354,6 @@ export default function HomePage() {
       <TestimonialsSection />
       <CTABanner />
       <StickyMobileCTA />
-      {/* #9 FOMO toasts - only on homepage */}
-      <FOMOToast />
     </>
   );
 }
