@@ -9,7 +9,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import FloatingScrollToTop from "@/components/FloatingWhatsApp";
 import FloatingCartBar from "@/components/FloatingCartBar";
-import FloatingWhatsAppButton from "@/components/FloatingWhatsAppButton";
+
 import MobileBottomNav from "@/components/MobileBottomNav";
 import HomePage from "@/pages/HomePage";
 import BundlesPage from "@/pages/BundlesPage";
@@ -64,7 +64,7 @@ const App = () => (
           <Footer />
           <FloatingScrollToTop />
           <FloatingCartBar />
-          <FloatingWhatsAppButton />
+          
           <MobileBottomNav />
         </BrowserRouter>
       </CartProvider>
