@@ -223,7 +223,7 @@ interface RecommendedItem {
   whyIncluded: string;
 }
 
-function runRecommendationEngine(answers: Answers): RecommendedItem[] {
+function runRecommendationEngine(answers: Answers, ALL_PRODUCTS: Product[]): RecommendedItem[] {
   const budget = answers.budget || "standard";
   const scope = answers.scope || "hospital-bag+general";
   const stageVal = answers.stage || answers.giftAge || "expecting";
@@ -249,31 +249,31 @@ function runRecommendationEngine(answers: Answers): RecommendedItem[] {
 
   if (hospitalType === "public" || hospitalType === "both") {
     candidates = candidates.map(p => {
-      if ([16, 19].includes(p.id) && !allowedPriorities.includes(p.priority)) return { ...p, priority: "recommended" as const };
+      if (["disposable-underwear", "compression-socks"].includes(p.slug || "") && !allowedPriorities.includes(p.priority)) return { ...p, priority: "recommended" as const };
       return p;
     });
   }
   if (hospitalType === "private" || hospitalType === "both") {
     candidates = candidates.map(p => {
-      if (p.id === 18 && !allowedPriorities.includes(p.priority)) return { ...p, priority: "recommended" as const };
+      if (p.slug === "antenatal-records-folder" && !allowedPriorities.includes(p.priority)) return { ...p, priority: "recommended" as const };
       return p;
     });
   }
 
   if (delivery === "csection" || delivery === "both") {
     candidates = candidates.map(p => {
-      if ([14, 17, 20].includes(p.id)) return { ...p, priority: "essential" as const };
+      if (["postpartum-belly-band", "nursing-nightgown", "baby-thermometer"].includes(p.slug || "")) return { ...p, priority: "essential" as const };
       return p;
     });
     const ids = new Set(candidates.map(p => p.id));
-    ALL_PRODUCTS.filter(p => [14, 17, 20].includes(p.id) && !ids.has(p.id) && p.stage.includes(stageVal))
+    ALL_PRODUCTS.filter(p => ["postpartum-belly-band", "nursing-nightgown", "baby-thermometer"].includes(p.slug || "") && !ids.has(p.id) && p.stage.includes(stageVal))
       .forEach(p => candidates.push({ ...p, priority: "essential" as const }));
   }
 
   candidates = candidates.filter(p => p.hospitalType.includes(hospitalType) || p.hospitalType.includes("both"));
   candidates = candidates.filter(p => p.deliveryMethod.includes(delivery) || p.deliveryMethod.includes("both"));
 
-  const seen = new Set<number>();
+  const seen = new Set<string>();
   candidates = candidates.filter(p => { if (seen.has(p.id)) return false; seen.add(p.id); return true; });
 
   if (firstBaby === true) {
@@ -490,7 +490,7 @@ export default function QuizPage() {
   // ========= RESULTS =========
 
   if (showResults) {
-    const results = runRecommendationEngine(answers);
+    const results = runRecommendationEngine(answers, ALL_PRODUCTS_DATA);
     const babyItems = results.filter(r => r.product.category === "baby");
     const mumItems = results.filter(r => r.product.category === "mum");
     const totalValue = results.reduce((s, r) => s + r.brand.price * r.quantity, 0);
