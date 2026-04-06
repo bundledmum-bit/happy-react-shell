@@ -19,6 +19,7 @@ import ContactPage from "@/pages/ContactPage";
 import PrivacyPage from "@/pages/PrivacyPage";
 import TermsPage from "@/pages/TermsPage";
 import CookiesPage from "@/pages/CookiesPage";
+import ReturnsPage from "@/pages/ReturnsPage";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -45,6 +46,7 @@ const App = () => (
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/terms" element={<TermsPage />} />
               <Route path="/cookies" element={<CookiesPage />} />
+              <Route path="/returns" element={<ReturnsPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>

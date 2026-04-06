@@ -10,6 +10,8 @@ export interface CartItem {
   baseImg?: string;
   brands?: any[];
   selectedBrand?: any;
+  selectedSize?: string;
+  selectedColor?: string;
 }
 
 interface CartContextType {
@@ -20,6 +22,10 @@ interface CartContextType {
   totalItems: number;
   subtotal: number;
   justAdded: boolean;
+  savedItems: CartItem[];
+  saveForLater: (key: string) => void;
+  moveToCart: (key: string) => void;
+  removeSaved: (key: string) => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -31,15 +37,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       return saved ? JSON.parse(saved) : [];
     } catch { return []; }
   });
+  const [savedItems, setSavedItems] = useState<CartItem[]>(() => {
+    try {
+      const saved = localStorage.getItem("bm-saved");
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
   const [justAdded, setJustAdded] = useState(false);
 
-  useEffect(() => {
-    localStorage.setItem("bm-cart", JSON.stringify(cart));
-  }, [cart]);
+  useEffect(() => { localStorage.setItem("bm-cart", JSON.stringify(cart)); }, [cart]);
+  useEffect(() => { localStorage.setItem("bm-saved", JSON.stringify(savedItems)); }, [savedItems]);
 
   const addToCart = useCallback((product: any) => {
     setCart(prev => {
-      const key = `${product.id}-${product.selectedBrand?.id || "default"}`;
+      const key = `${product.id}-${product.selectedBrand?.id || "default"}-${product.selectedSize || ""}`;
       const existing = prev.find(i => i._key === key);
       if (existing) return prev.map(i => i._key === key ? { ...i, qty: i.qty + 1 } : i);
       return [...prev, { ...product, _key: key, qty: 1 }];
@@ -50,11 +61,31 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const clearCart = useCallback(() => setCart([]), []);
 
+  const saveForLater = useCallback((key: string) => {
+    setCart(prev => {
+      const item = prev.find(i => i._key === key);
+      if (item) setSavedItems(s => [...s, item]);
+      return prev.filter(i => i._key !== key);
+    });
+  }, []);
+
+  const moveToCart = useCallback((key: string) => {
+    setSavedItems(prev => {
+      const item = prev.find(i => i._key === key);
+      if (item) setCart(c => [...c, item]);
+      return prev.filter(i => i._key !== key);
+    });
+  }, []);
+
+  const removeSaved = useCallback((key: string) => {
+    setSavedItems(prev => prev.filter(i => i._key !== key));
+  }, []);
+
   const totalItems = cart.reduce((sum, i) => sum + i.qty, 0);
   const subtotal = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
 
   return (
-    <CartContext.Provider value={{ cart, addToCart, setCart, clearCart, totalItems, subtotal, justAdded }}>
+    <CartContext.Provider value={{ cart, addToCart, setCart, clearCart, totalItems, subtotal, justAdded, savedItems, saveForLater, moveToCart, removeSaved }}>
       {children}
     </CartContext.Provider>
   );
