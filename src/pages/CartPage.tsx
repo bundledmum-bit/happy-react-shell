@@ -1,31 +1,49 @@
 import { Link } from "react-router-dom";
 import { useCart, fmt } from "@/lib/cart";
-import { Minus, Plus, X, ShoppingBag, ArrowLeft } from "lucide-react";
-import { useEffect } from "react";
+import { ALL_PRODUCTS } from "@/data/products";
+import { Minus, Plus, X, ShoppingBag, ArrowLeft, Bookmark } from "lucide-react";
+import { useEffect, useState } from "react";
 
 const SERVICE_FEE = 1500;
 
+function getDeliveryEstimate(state?: string) {
+  const isLagos = (state || "Lagos").toLowerCase() === "lagos";
+  const now = new Date();
+  const min = isLagos ? 1 : 3;
+  const max = isLagos ? 2 : 5;
+  const from = new Date(now); from.setDate(from.getDate() + min);
+  const to = new Date(now); to.setDate(to.getDate() + max);
+  const f = (d: Date) => d.toLocaleDateString("en-NG", { weekday: "short", month: "short", day: "numeric" });
+  return { text: `${f(from)} – ${f(to)}`, days: `${min}-${max} business days`, isLagos };
+}
+
 export default function CartPage() {
-  const { cart, setCart, subtotal, totalItems } = useCart();
+  const { cart, setCart, subtotal, totalItems, savedItems, saveForLater, moveToCart, removeSaved } = useCart();
+  const [deliveryState] = useState("Lagos");
 
   useEffect(() => { document.title = `Your Cart (${totalItems}) | BundledMum`; }, [totalItems]);
 
   const delivery = subtotal >= 30000 ? 0 : 2500;
   const total = subtotal + delivery + SERVICE_FEE;
+  const estimate = getDeliveryEstimate(deliveryState);
 
   const updateQty = (key: string, newQty: number) => {
-    if (newQty <= 0) {
-      setCart(prev => prev.filter(i => i._key !== key));
-    } else {
-      setCart(prev => prev.map(i => i._key === key ? { ...i, qty: newQty } : i));
-    }
+    if (newQty <= 0) setCart(prev => prev.filter(i => i._key !== key));
+    else setCart(prev => prev.map(i => i._key === key ? { ...i, qty: newQty } : i));
   };
 
-  const removeItem = (key: string) => {
-    setCart(prev => prev.filter(i => i._key !== key));
-  };
+  const removeItem = (key: string) => setCart(prev => prev.filter(i => i._key !== key));
 
-  if (!totalItems) {
+  // Cross-sell suggestions based on cart contents
+  const cartIds = new Set(cart.map(i => i.id));
+  const hasBaby = cart.some(i => ALL_PRODUCTS.find(p => p.id === i.id)?.category === "baby");
+  const hasMum = cart.some(i => ALL_PRODUCTS.find(p => p.id === i.id)?.category === "mum");
+  const crossSell = ALL_PRODUCTS
+    .filter(p => !cartIds.has(p.id) && p.priority !== "nice-to-have")
+    .filter(p => (hasBaby && p.category === "mum") || (hasMum && p.category === "baby") || (!hasBaby && !hasMum))
+    .slice(0, 3);
+
+  if (!totalItems && savedItems.length === 0) {
     return (
       <div className="min-h-screen bg-background pt-20 flex items-center justify-center">
         <div className="text-center animate-fade-up">
@@ -63,6 +81,8 @@ export default function CartPage() {
                 <div className="flex-1 min-w-0">
                   <h3 className="font-body font-semibold text-sm truncate">{item.name}</h3>
                   {item.selectedBrand && <span className="font-body text-xs text-forest">{item.selectedBrand.label}</span>}
+                  {item.selectedSize && <span className="font-body text-xs text-text-light ml-2">Size: {item.selectedSize}</span>}
+                  {item.selectedColor && <span className="font-body text-xs text-text-light ml-2">Color: {item.selectedColor}</span>}
                   <p className="font-body font-bold text-coral text-sm mt-1">{fmt(item.price)}</p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -75,11 +95,56 @@ export default function CartPage() {
                   </button>
                 </div>
                 <p className="font-body font-bold text-sm w-20 text-right hidden sm:block">{fmt(item.price * item.qty)}</p>
-                <button onClick={() => removeItem(item._key)} className="text-text-light hover:text-destructive interactive p-1">
-                  <X className="h-4 w-4" />
-                </button>
+                <div className="flex flex-col gap-1">
+                  <button onClick={() => saveForLater(item._key)} className="text-text-light hover:text-forest interactive p-1" title="Save for later">
+                    <Bookmark className="h-4 w-4" />
+                  </button>
+                  <button onClick={() => removeItem(item._key)} className="text-text-light hover:text-destructive interactive p-1">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             ))}
+
+            {/* Saved for later */}
+            {savedItems.length > 0 && (
+              <div className="mt-6">
+                <h3 className="pf text-lg mb-3">💾 Saved for Later ({savedItems.length})</h3>
+                <div className="space-y-2">
+                  {savedItems.map(item => (
+                    <div key={item._key} className="bg-warm-cream rounded-card p-3 flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-card flex items-center justify-center text-xl flex-shrink-0">{item.img || item.baseImg}</div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold truncate">{item.name}</p>
+                        <p className="text-coral text-xs font-bold">{fmt(item.price)}</p>
+                      </div>
+                      <button onClick={() => moveToCart(item._key)} className="rounded-pill bg-forest px-3 py-1.5 text-[11px] font-semibold text-primary-foreground font-body interactive">Move to Cart</button>
+                      <button onClick={() => removeSaved(item._key)} className="text-text-light hover:text-destructive p-1"><X className="h-3.5 w-3.5" /></button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Cross-sell */}
+            {crossSell.length > 0 && totalItems > 0 && (
+              <div className="mt-6">
+                <h3 className="pf text-lg mb-3">💡 Mums also added</h3>
+                <div className="grid grid-cols-3 gap-2">
+                  {crossSell.map(p => {
+                    const brand = p.brands[Math.min(1, p.brands.length - 1)];
+                    return (
+                      <div key={p.id} className="bg-card rounded-card shadow-card p-3 text-center">
+                        <div className="h-16 flex items-center justify-center text-3xl mb-2" style={{ backgroundColor: brand.color }}>{p.baseImg}</div>
+                        <p className="text-[11px] font-semibold truncate mb-1">{p.name}</p>
+                        <p className="text-forest text-xs font-bold mb-2">{fmt(brand.price)}</p>
+                        <Link to="/shop" className="text-forest text-[10px] font-semibold hover:underline">View →</Link>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="lg:sticky lg:top-24 h-fit">
@@ -100,20 +165,23 @@ export default function CartPage() {
                   <span className="text-forest">{fmt(total)}</span>
                 </div>
               </div>
+
+              {/* Delivery estimate */}
+              <div className="mt-3 bg-forest-light rounded-lg p-2.5">
+                <p className="text-forest text-xs font-body font-semibold">
+                  🚚 Estimated delivery: {estimate.text} ({estimate.days}{estimate.isLagos ? ", Lagos" : ""})
+                </p>
+              </div>
+
               {subtotal < 30000 && (
                 <div className="mt-3 bg-warm-cream rounded-lg p-2.5 text-center">
                   <p className="text-text-med text-xs font-body">Add {fmt(30000 - subtotal)} more for <span className="font-bold text-forest">FREE delivery</span></p>
                 </div>
               )}
-              <Link
-                to="/checkout"
-                className="mt-5 block w-full rounded-pill bg-forest py-3 text-center font-body font-semibold text-primary-foreground hover:bg-forest-deep interactive"
-              >
+              <Link to="/checkout" className="mt-5 block w-full rounded-pill bg-forest py-3 text-center font-body font-semibold text-primary-foreground hover:bg-forest-deep interactive">
                 Proceed to Checkout 🔒
               </Link>
-              <p className="text-center font-body text-xs text-text-light mt-3">
-                Secured by Paystack · All cards accepted
-              </p>
+              <p className="text-center font-body text-xs text-text-light mt-3">Secured by Paystack · All cards accepted</p>
               <div className="flex justify-center gap-3 mt-2 text-xs text-text-light">
                 <span>💳 Visa</span><span>💳 Mastercard</span><span>🏦 USSD</span><span>📱 Transfer</span>
               </div>
