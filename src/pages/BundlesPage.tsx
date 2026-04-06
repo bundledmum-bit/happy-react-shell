@@ -81,9 +81,9 @@ export default function BundlesPage() {
 
       {/* Compare modal */}
       {showCompare && compareBundles.length >= 2 && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={() => setShowCompare(false)}>
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-4" onClick={() => setShowCompare(false)}>
           <div className="absolute inset-0 bg-foreground/50 backdrop-blur-sm" />
-          <div className="relative bg-card rounded-[20px] shadow-2xl max-w-[900px] w-full max-h-[85vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
+          <div className="relative bg-card rounded-t-[20px] sm:rounded-[20px] shadow-2xl max-w-[900px] w-full max-h-[85vh] overflow-y-auto p-4 sm:p-6" onClick={e => e.stopPropagation()}>
             <h2 className="pf text-xl mb-4">📊 Compare Bundles</h2>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
