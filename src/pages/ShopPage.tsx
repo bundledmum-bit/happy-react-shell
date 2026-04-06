@@ -5,23 +5,55 @@ import { useCart, fmt, getBrandForBudget } from "@/lib/cart";
 import { toast } from "sonner";
 import ProductDetailModal from "@/components/ProductDetailModal";
 
+const COLOR_SWATCHES: Record<string, { hex: string; label: string }[]> = {
+  "blue/white": [{ hex: "#4A90D9", label: "Blue/White" }],
+  "pink/white": [{ hex: "#E91E8C", label: "Pink/White" }],
+  "cream/sage": [{ hex: "#C2B280", label: "Cream/Sage" }],
+  "blue/grey": [{ hex: "#4A90D9", label: "Blue/Grey" }],
+  "cream/yellow": [{ hex: "#F5DEB3", label: "Cream/Yellow" }],
+  "blue": [{ hex: "#4A90D9", label: "Blue" }],
+  "pink": [{ hex: "#E91E8C", label: "Pink" }],
+  "white/cream": [{ hex: "#F5F5DC", label: "White/Cream" }],
+};
+
 function ProductCard({ product, defaultBudget = "standard", onAdd, onViewDetail }: { product: Product; defaultBudget?: string; onAdd: (item: any) => void; onViewDetail: () => void }) {
   const defaultBrand = getBrandForBudget(product, defaultBudget);
   const [selectedBrand, setSelectedBrand] = useState(defaultBrand);
-  const { cart } = useCart();
-  const isInCart = cart.some(c => c.id === product.id);
+  const [selectedSize, setSelectedSize] = useState(product.sizes?.[Math.floor((product.sizes?.length || 0) / 2)] || "");
+  const [selectedColor, setSelectedColor] = useState("");
+  const { cart, setCart } = useCart();
+
+  // #10 Persistent Added state - check cart for matching product+brand+size
+  const cartKey = `${product.id}-${selectedBrand.id}-${selectedSize}`;
+  const isInCart = cart.some(c => c._key === cartKey || c.id === product.id);
   const stockLabel = product.stock === 0 ? "out" : product.stock && product.stock <= 5 ? "low" : "in";
   const isOutOfStock = stockLabel === "out";
 
+  // #22 Badges
+  const extraBadge = !product.badge && product.rating >= 4.8 ? "💚 Mum Pick" : null;
+
+  useEffect(() => { setSelectedBrand(defaultBrand); }, [defaultBudget]);
+
   const handleAdd = () => {
-    if (product.sizes && product.sizes.length > 0) {
+    if (product.sizes && product.sizes.length > 0 && !selectedSize) {
       onViewDetail();
       return;
     }
-    onAdd({ ...product, selectedBrand, price: selectedBrand.price, name: `${product.name} (${selectedBrand.label})` });
+    onAdd({
+      ...product,
+      selectedBrand,
+      price: selectedBrand.price,
+      name: `${product.name} (${selectedBrand.label})`,
+      selectedSize,
+      selectedColor,
+    });
   };
 
-  // Track recently viewed
+  const handleRemove = () => {
+    setCart(prev => prev.filter(c => c.id !== product.id));
+    toast("Removed from cart");
+  };
+
   const trackView = () => {
     try {
       const rv = JSON.parse(localStorage.getItem("bm-recently-viewed") || "[]");
@@ -31,6 +63,11 @@ function ProductCard({ product, defaultBudget = "standard", onAdd, onViewDetail 
     } catch {}
   };
 
+  // #7 Brand overflow
+  const showAllBrands = product.brands.length <= 3;
+  const visibleBrands = showAllBrands ? product.brands : product.brands.slice(0, 2);
+  const hiddenCount = product.brands.length - visibleBrands.length;
+
   return (
     <div className={`bg-card rounded-card shadow-card card-hover overflow-hidden ${isOutOfStock ? "opacity-60" : ""}`}>
       <div className="h-[170px] flex items-center justify-center text-6xl relative transition-colors cursor-pointer"
@@ -38,6 +75,9 @@ function ProductCard({ product, defaultBudget = "standard", onAdd, onViewDetail 
         onClick={() => { trackView(); onViewDetail(); }}>
         {product.badge && (
           <div className="absolute top-2.5 left-2.5 bg-coral text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill uppercase tracking-wide">{product.badge}</div>
+        )}
+        {!product.badge && extraBadge && (
+          <div className="absolute top-2.5 left-2.5 bg-forest text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill">{extraBadge}</div>
         )}
         {isOutOfStock && (
           <div className="absolute top-2.5 right-2.5 bg-foreground/70 text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill">Out of Stock</div>
@@ -51,47 +91,68 @@ function ProductCard({ product, defaultBudget = "standard", onAdd, onViewDetail 
         <h3 className="text-[13px] font-semibold mb-1 leading-tight min-h-[36px] cursor-pointer hover:text-forest transition-colors" onClick={() => { trackView(); onViewDetail(); }}>{product.name}</h3>
         <p className="text-text-med text-[10px] leading-relaxed mb-2 line-clamp-2">{product.description}</p>
 
-        {/* Pack/Size info */}
         {product.packInfo && <p className="text-text-light text-[10px] mb-1">📦 {product.packInfo}</p>}
-        {product.material && <p className="text-text-light text-[10px] mb-1">🧵 {product.material}</p>}
-        {product.contents && <p className="text-text-light text-[10px] mb-1">📋 {product.contents.slice(0, 3).join(", ")}{product.contents.length > 3 ? "..." : ""}</p>}
-        {product.allergenInfo && <p className="text-[#E65100] text-[10px] mb-1">⚠️ {product.allergenInfo}</p>}
 
-        {/* Color options */}
+        {/* #6 Color swatches */}
         {product.genderRelevant && product.genderColors && (
-          <p className="text-text-light text-[10px] mb-1">🎨 {Object.values(product.genderColors).join(" · ")}</p>
+          <div className="mb-2">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-text-light">🎨</span>
+              {Object.entries(product.genderColors).map(([key, colorName]) => {
+                const swatch = COLOR_SWATCHES[colorName];
+                return (
+                  <button key={key} onClick={() => setSelectedColor(colorName)}
+                    className={`w-4 h-4 rounded-full border-2 transition-all ${selectedColor === colorName ? "border-forest scale-110" : "border-border"}`}
+                    style={{ backgroundColor: swatch?.[0]?.hex || "#ccc" }}
+                    title={`${key}: ${colorName}`} />
+                );
+              })}
+            </div>
+          </div>
         )}
 
         {/* Brand selector */}
-        <div className="mb-2.5">
-          <div className="text-[10px] font-semibold text-text-light uppercase tracking-widest mb-1.5">Brand</div>
+        <div className="mb-2">
+          <div className="text-[10px] font-semibold text-text-light uppercase tracking-widest mb-1">Brand</div>
           <div className="flex flex-wrap gap-1">
-            {product.brands.map(b => (
+            {visibleBrands.map(b => (
               <button key={b.id} onClick={() => setSelectedBrand(b)}
                 className={`px-2 py-0.5 rounded-pill text-[10px] font-semibold border-[1.5px] transition-all font-body ${selectedBrand.id === b.id ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-text-med"}`}>
                 {b.label} {fmt(b.price)}
                 {b.id === defaultBrand.id && <span className="text-coral ml-0.5">★</span>}
               </button>
             ))}
+            {hiddenCount > 0 && (
+              <button onClick={() => { trackView(); onViewDetail(); }}
+                className="px-2 py-0.5 rounded-pill text-[10px] font-semibold border-[1.5px] border-border bg-card text-forest font-body hover:border-forest">
+                +{hiddenCount} more
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Size pills (if applicable) */}
+        {/* #6 Size selector */}
         {product.sizes && product.sizes.length > 0 && (
-          <div className="mb-2.5">
+          <div className="mb-2">
             <div className="text-[10px] font-semibold text-text-light uppercase tracking-widest mb-1">Size</div>
             <div className="flex flex-wrap gap-1">
               {product.sizes.map(s => (
-                <span key={s} className="px-2 py-0.5 rounded-pill text-[10px] border border-border text-text-med font-body">{s}</span>
+                <button key={s} onClick={() => setSelectedSize(s)}
+                  className={`px-2 py-0.5 rounded-pill text-[10px] font-semibold border-[1.5px] transition-all font-body ${selectedSize === s ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-text-med"}`}>
+                  {s}
+                </button>
               ))}
             </div>
           </div>
         )}
 
-        <div className="flex items-center gap-1.5 mb-2">
+        <div className="flex items-center gap-1.5 mb-1">
           <span className="text-coral text-xs">⭐ {product.rating}</span>
           <span className="text-text-light text-[11px]">({product.reviews})</span>
         </div>
+        {/* #27 Delivery estimate */}
+        <p className="text-text-light text-[9px] mb-2">🚚 Lagos: 1-2 days · Others: 3-5 days</p>
+
         <div className="flex justify-between items-center">
           <div>
             <div className="text-forest font-bold text-[17px] transition-all">{fmt(selectedBrand.price)}</div>
@@ -100,11 +161,15 @@ function ProductCard({ product, defaultBudget = "standard", onAdd, onViewDetail 
             )}
           </div>
           {isOutOfStock ? (
-            <span className="rounded-pill bg-border px-4 py-2 text-xs font-semibold text-text-light font-body">Sold Out</span>
+            <div>
+              <span className="rounded-pill bg-border px-3 py-1.5 text-[10px] font-semibold text-text-light font-body block mb-1">Sold Out</span>
+              <button onClick={() => toast("We'll notify you when it's back!")} className="text-forest text-[9px] font-semibold hover:underline">Notify me</button>
+            </div>
           ) : isInCart ? (
-            <Link to="/cart" className="rounded-pill bg-forest-light border border-forest text-forest px-3 py-1.5 text-[11px] font-semibold font-body interactive">
-              {selectedBrand.label} in Cart ✓
-            </Link>
+            <button onClick={handleRemove}
+              className="rounded-pill bg-forest-light border border-forest text-forest px-3 py-1.5 text-[11px] font-semibold font-body interactive flex items-center gap-1">
+              ✓ Added <span className="text-destructive ml-0.5">×</span>
+            </button>
           ) : (
             <button onClick={handleAdd} className="rounded-pill bg-forest px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-forest-deep font-body interactive">+ Add</button>
           )}
@@ -135,18 +200,11 @@ export default function ShopPage() {
     return true;
   });
 
-  // Gray out products outside budget tier instead of hiding
-  const isInBudget = (p: Product) => budgetF === "all" || p.tags.includes(`bundle:${budgetF}`);
-
+  // #1: Budget filter ONLY pre-selects brands — NEVER hides or reduces opacity
   // Sort
   if (sortBy === "price-low") filtered.sort((a, b) => Math.min(...a.brands.map(br => br.price)) - Math.min(...b.brands.map(br => br.price)));
   if (sortBy === "price-high") filtered.sort((a, b) => Math.min(...b.brands.map(br => br.price)) - Math.min(...a.brands.map(br => br.price)));
   if (sortBy === "rating") filtered.sort((a, b) => b.rating - a.rating);
-
-  // Sort: in-budget first
-  if (budgetF !== "all") {
-    filtered.sort((a, b) => (isInBudget(b) ? 1 : 0) - (isInBudget(a) ? 1 : 0));
-  }
 
   // Recently viewed
   const recentlyViewedIds: number[] = (() => {
@@ -158,7 +216,7 @@ export default function ShopPage() {
   const isMum = tab === "mum";
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-16 md:pb-0">
       <div className="pt-20" style={{ background: isBaby ? "linear-gradient(135deg, #2D6A4F 0%, #1E5C44 100%)" : isMum ? "linear-gradient(135deg, #2D6A4F 0%, #1E5C44 100%)" : "linear-gradient(135deg, #1A1A2E 0%, #2D3A5C 100%)" }}>
         <div className="max-w-[1200px] mx-auto px-4 md:px-10 py-8 md:py-14">
           <h1 className="pf text-3xl md:text-[44px] text-primary-foreground mb-2">
@@ -207,7 +265,7 @@ export default function ShopPage() {
           {budgetF !== "all" && (
             <div className="mt-1.5">
               <span className="bg-forest-light text-forest rounded-pill px-3 py-0.5 text-[11px] font-semibold">
-                ✓ Brands pre-selected for {budgetF} — tap swatch to switch brand
+                ✓ Brands pre-selected for {budgetF} — all {filtered.length} products visible
               </span>
             </div>
           )}
@@ -223,31 +281,20 @@ export default function ShopPage() {
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
-            {filtered.map(p => {
-              const inBudget = isInBudget(p);
-              return (
-                <div key={p.id} className={`relative ${!inBudget ? "opacity-50" : ""}`}>
-                  <ProductCard
-                    product={p}
-                    defaultBudget={budgetF === "all" ? "standard" : budgetF}
-                    onAdd={item => { addToCart(item); toast.success(`✓ ${item.name} added to cart`, { action: { label: "View Cart →", onClick: () => window.location.href = "/cart" } }); }}
-                    onViewDetail={() => setDetailProduct(p)}
-                  />
-                  {!inBudget && (
-                    <div className="absolute bottom-16 left-0 right-0 text-center">
-                      <span className="bg-foreground/80 text-primary-foreground text-[10px] font-bold px-2.5 py-1 rounded-pill">
-                        Available in {p.tier.filter(t => t !== budgetF).join(" / ")} tier
-                      </span>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            {filtered.map(p => (
+              <ProductCard
+                key={p.id}
+                product={p}
+                defaultBudget={budgetF === "all" ? "standard" : budgetF}
+                onAdd={item => { addToCart(item); toast.success(`✓ ${item.name} added to cart`, { action: { label: "View Cart →", onClick: () => window.location.href = "/cart" } }); }}
+                onViewDetail={() => setDetailProduct(p)}
+              />
+            ))}
           </div>
         )}
 
-        {/* Recently viewed */}
-        {recentlyViewed.length > 0 && (
+        {/* #12 Recently viewed */}
+        {recentlyViewed.length >= 2 && (
           <div className="mt-12">
             <h3 className="pf text-lg text-forest mb-4">👀 Recently Viewed</h3>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -265,7 +312,6 @@ export default function ShopPage() {
         )}
       </div>
 
-      {/* Product detail modal */}
       {detailProduct && (
         <ProductDetailModal product={detailProduct} defaultBudget={budgetF === "all" ? "standard" : budgetF} onClose={() => setDetailProduct(null)} />
       )}
