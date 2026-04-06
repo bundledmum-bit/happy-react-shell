@@ -30,11 +30,11 @@ function HeroSection() {
           </div>
           <img src={logoWhite} alt="BundledMum" className="h-[54px] md:h-[70px] w-auto mb-3.5 block" />
           <h1 className="pf animate-fade-up-2 text-[32px] md:text-[50px] font-bold text-primary-foreground leading-[1.15] mb-4">
-            Your Hospital Bag,<br />
+            Everything You Need for Baby,<br />
             <span className="text-coral italic">Perfectly Bundled.</span>
           </h1>
           <p className="animate-fade-up-3 text-primary-foreground/70 text-[15px] md:text-[17px] leading-[1.75] mb-7 max-w-[480px] font-body">
-            Take our 60-second quiz — we'll curate the exact items for your budget and your baby. No overwhelm. No guesswork.
+            Hospital bag essentials, newborn must-haves, and mum recovery items — all curated by real Nigerian mums. Take our 60-second quiz and we'll build your perfect bundle.
           </p>
           <div className="animate-fade-up-4 flex gap-3 flex-wrap">
             <Link to="/quiz" className="rounded-pill bg-coral px-7 py-3.5 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-sm md:text-[15px] w-full md:w-auto text-center">Build My Bundle →</Link>
