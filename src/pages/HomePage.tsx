@@ -4,19 +4,48 @@ import { PRODUCTS, HERO_KIT, TESTIMONIALS } from "@/data/products";
 import { bundles } from "@/data/bundles";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
+import BudgetCalculator from "@/components/BudgetCalculator";
+import FOMOToast from "@/components/FOMOToast";
+
+// #19 Check for saved bundle
+function SavedBundleBanner() {
+  const [saved, setSaved] = useState<any>(null);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("bm-saved-bundle");
+      if (raw) {
+        const data = JSON.parse(raw);
+        if (Date.now() - data.timestamp < 30 * 24 * 60 * 60 * 1000) {
+          setSaved(data);
+        } else {
+          localStorage.removeItem("bm-saved-bundle");
+        }
+      }
+    } catch {}
+  }, []);
+
+  if (!saved) return null;
+
+  const budget = saved.answers?.budget || "standard";
+  const label = budget === "starter" ? "Starter" : budget === "premium" ? "Premium" : "Standard";
+  const gender = saved.answers?.gender;
+  const genderLabel = gender === "boy" ? "Boy" : gender === "girl" ? "Girl" : "Neutral";
+
+  return (
+    <div className="bg-forest-light border-b border-forest/20">
+      <div className="max-w-[1200px] mx-auto px-5 md:px-10 py-3 flex flex-col sm:flex-row items-center justify-between gap-2">
+        <p className="text-forest text-sm font-semibold">
+          Welcome back! 👋 Your saved {label} {genderLabel} bundle is waiting
+        </p>
+        <Link to="/quiz" className="rounded-pill bg-forest px-5 py-2 text-xs font-semibold text-primary-foreground hover:bg-forest-deep interactive">
+          View Bundle →
+        </Link>
+      </div>
+    </div>
+  );
+}
 
 function HeroSection() {
-  const { addToCart } = useCart();
-
-  const handleAddKit = () => {
-    HERO_KIT.forEach(item => {
-      addToCart({ ...item, brands: [{ id: "default", label: item.name, price: item.price, img: item.img, tier: 1 }], selectedBrand: { id: "default", label: item.name, price: item.price, img: item.img, tier: 1 } });
-    });
-    toast.success("✓ Standard Kit added to cart!", { description: "6 items added", action: { label: "View Cart →", onClick: () => window.location.href = "/cart" } });
-  };
-
-  const kitTotal = HERO_KIT.reduce((s, i) => s + i.price, 0);
-
   return (
     <section className="min-h-screen flex items-center relative overflow-hidden" style={{ background: "linear-gradient(135deg, #2D6A4F 0%, #1E5C44 55%, #163D2E 100%)" }}>
       <div className="absolute w-[700px] h-[700px] rounded-full bg-primary-foreground/[0.025] -top-[250px] -right-[250px]" />
@@ -38,50 +67,18 @@ function HeroSection() {
             <Link to="/quiz" className="rounded-pill bg-coral px-7 py-3.5 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-sm md:text-[15px] w-full md:w-auto text-center">Build My Bundle →</Link>
             <Link to="/shop" className="rounded-pill border-2 border-primary-foreground/30 px-7 py-3.5 font-body font-semibold text-primary-foreground/80 hover:bg-primary-foreground/10 interactive w-full md:w-auto text-center">Browse All Products</Link>
           </div>
-          <p className="animate-fade-up-4 text-primary-foreground/50 text-xs mt-3 font-body">⭐ 4.9/5 from 200+ mums</p>
+          {/* #9 Dynamic social proof */}
+          <p className="animate-fade-up-4 text-primary-foreground/50 text-xs mt-3 font-body">⭐ 4.9/5 from 347+ mums this month</p>
           <div className="animate-fade-up-4 flex gap-6 md:gap-9 mt-8 md:mt-12 pt-6 md:pt-9 border-t border-primary-foreground/10">
-            {[["200+", "Mums Served"], ["4.9★", "Average Rating"], ["48hr", "Lagos Delivery"]].map(([v, l]) => (
+            {[["347+", "Mums This Month"], ["4.9★", "Average Rating"], ["48hr", "Lagos Delivery"]].map(([v, l]) => (
               <div key={l}><div className="pf text-xl md:text-[26px] font-bold text-coral">{v}</div><div className="text-primary-foreground/50 text-[11px]">{l}</div></div>
             ))}
           </div>
         </div>
 
-        {/* Desktop hero card */}
+        {/* Desktop: Budget Calculator (#3) */}
         <div className="hidden md:block">
-          <div className="animate-float bg-primary-foreground/[0.07] backdrop-blur-lg border border-primary-foreground/[0.11] rounded-[24px] p-5 md:p-7 overflow-hidden">
-            <div className="flex justify-between items-center mb-4">
-              <div>
-                <div className="text-primary-foreground/50 text-[10px] uppercase tracking-widest mb-1">Ready to order</div>
-                <div className="pf text-primary-foreground text-[17px] font-semibold">Pre-Packed Hospital Bags</div>
-              </div>
-              <span className="bg-coral/20 border border-coral/40 rounded-pill px-2.5 py-1 text-[10px] font-bold text-coral">{bundles.length} Bundles</span>
-            </div>
-            <div className="grid grid-cols-2 gap-2.5 mb-4">
-              {[
-                { icon: "🏥", name: "Public Hospital", sub: "Vaginal · Basic", price: "₦42,500", bg: "rgba(21,101,192,0.15)" },
-                { icon: "🏥", name: "Public Hospital", sub: "C-Section · Basic", price: "₦54,000", bg: "rgba(30,125,32,0.15)" },
-                { icon: "🏨", name: "Private Hospital", sub: "C-Section · Premium", price: "₦88,000", bg: "rgba(136,14,79,0.15)" },
-                { icon: "🎁", name: "Gift Bundle", sub: "Premium", price: "₦82,000", bg: "rgba(198,40,40,0.15)" },
-              ].map(c => (
-                <Link to="/bundles" key={c.sub} className="rounded-xl p-3 text-center hover:scale-105 transition-transform" style={{ background: c.bg }}>
-                  <div className="text-2xl">{c.icon}</div>
-                  <div className="text-primary-foreground text-[10px] font-semibold mt-1">{c.name}</div>
-                  <div className="text-primary-foreground/50 text-[9px]">{c.sub}</div>
-                  <div className="text-coral font-bold text-[11px] mt-0.5">{c.price}</div>
-                </Link>
-              ))}
-            </div>
-            <div className="flex items-center gap-2 mb-4 justify-center">
-              {HERO_KIT.slice(0, 4).map(item => (
-                <div key={item.id} className="w-8 h-8 bg-primary-foreground/10 rounded-lg flex items-center justify-center text-sm">{item.img}</div>
-              ))}
-              <div className="text-primary-foreground/40 text-[10px] font-semibold">+{bundles.length - 4} more bundles</div>
-            </div>
-            <Link to="/bundles" className="block w-full rounded-pill bg-coral py-2.5 font-body font-semibold text-sm text-primary-foreground hover:bg-coral-dark interactive text-center">
-              Shop Pre-Packed Bags →
-            </Link>
-            <div className="text-primary-foreground/30 text-[10px] text-center mt-2">Public · Private · Vaginal · C-Section · Gift</div>
-          </div>
+          <BudgetCalculator />
         </div>
 
         {/* Mobile bundle preview */}
@@ -109,7 +106,7 @@ function TrustBar() {
   const items = [
     "🌿 100% Curated for Nigeria",
     "📦 Free Delivery over ₦30,000",
-    "⭐ 4.9/5 · 200+ Mums",
+    "⭐ 4.9/5 · 347+ Mums",
     "💬 WhatsApp Support 7 Days",
     "🔒 Secure Paystack Checkout",
   ];
@@ -191,7 +188,7 @@ function BundleTiers() {
 }
 
 function FeaturedProducts() {
-  const { addToCart, cart } = useCart();
+  const { addToCart, cart, setCart } = useCart();
   const featured = [PRODUCTS.baby[0], PRODUCTS.baby[2], PRODUCTS.baby[3], PRODUCTS.mum[0]];
   const badges: Record<number, { label: string; color: string }> = {
     1: { label: "BEST SELLER", color: "#2D6A4F" },
@@ -213,6 +210,7 @@ function FeaturedProducts() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-5">
           {featured.map(p => {
             const brand = getBrandForBudget(p, "standard");
+            const cartKey = `${p.id}-${brand.id}-`;
             const isInCart = cart.some(c => c.id === p.id);
             const badge = badges[p.id];
             return (
@@ -225,17 +223,22 @@ function FeaturedProducts() {
                 </div>
                 <div className="p-4">
                   <h3 className="text-[13px] font-semibold mb-2 leading-tight min-h-[36px]">{p.name}</h3>
-                  <div className="flex items-center gap-1.5 mb-3">
+                  <div className="flex items-center gap-1.5 mb-2">
                     <span className="text-coral text-xs">⭐ {p.rating}</span>
                     <span className="text-text-light text-[11px]">({p.reviews})</span>
                   </div>
+                  {/* #27 Delivery estimate */}
+                  <p className="text-text-light text-[9px] mb-2">🚚 Lagos: 1-2 days · Others: 3-5 days</p>
                   <div className="flex justify-between items-center">
                     <div>
                       <span className="text-forest font-bold text-[17px]">{fmt(brand.price)}</span>
                       {p.brands.length > 1 && <div className="text-text-light text-[10px]">from {fmt(Math.min(...p.brands.map(b => b.price)))}</div>}
                     </div>
                     {isInCart ? (
-                      <Link to="/cart" className="rounded-pill bg-forest-light border border-forest text-forest px-4 py-2 text-xs font-semibold font-body interactive">In Cart ✓</Link>
+                      <button onClick={() => { setCart(prev => prev.filter(c => c.id !== p.id)); toast("Removed from cart"); }}
+                        className="rounded-pill bg-forest-light border border-forest text-forest px-3 py-1.5 text-[11px] font-semibold font-body interactive flex items-center gap-1">
+                        ✓ Added <span className="text-destructive ml-1">×</span>
+                      </button>
                     ) : (
                       <button onClick={() => {
                         addToCart({ ...p, selectedBrand: brand, price: brand.price, name: `${p.name} (${brand.label})` });
@@ -277,6 +280,22 @@ function TestimonialsSection() {
             </div>
           ))}
         </div>
+        {/* #23 Virality enhancement */}
+        <div className="text-center mt-8 space-y-3">
+          <p className="text-primary-foreground/50 text-sm">Know someone expecting? Tell them about BundledMum</p>
+          <div className="flex gap-3 justify-center flex-wrap">
+            <button onClick={() => {
+              const text = "Hey! I found this amazing site that curates hospital bags for Nigerian mums. Check it out: https://bundledmum.lovable.app/?ref=testimonial_share";
+              window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+            }} className="rounded-pill bg-[#25D366] text-primary-foreground px-5 py-2.5 text-xs font-semibold interactive">
+              📱 Share on WhatsApp
+            </button>
+            <a href="https://wa.me/2348012345678?text=Hi! I want to share my BundledMum experience" target="_blank" rel="noopener noreferrer"
+              className="rounded-pill border border-primary-foreground/30 text-primary-foreground/70 px-5 py-2.5 text-xs font-semibold interactive">
+              ✍️ Share Your Story
+            </a>
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -306,7 +325,7 @@ function StickyMobileCTA() {
 
   if (!show) return null;
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-[800] bg-card border-t border-border p-3 md:hidden animate-slide-up">
+    <div className="fixed bottom-14 left-0 right-0 z-[80] bg-card border-t border-border p-3 md:hidden animate-slide-up">
       <Link to="/quiz" className="block w-full rounded-pill bg-coral py-3.5 text-center font-body font-semibold text-primary-foreground text-sm">Build My Bundle →</Link>
     </div>
   );
@@ -315,8 +334,18 @@ function StickyMobileCTA() {
 export default function HomePage() {
   useEffect(() => { document.title = "BundledMum — Nigeria's Hospital Bag Curator"; }, []);
 
+  // Handle referral code from URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("ref");
+    if (ref) {
+      try { localStorage.setItem("bm-referral-from", ref); } catch {}
+    }
+  }, []);
+
   return (
     <>
+      <SavedBundleBanner />
       <HeroSection />
       <TrustBar />
       <HowItWorks />
@@ -325,6 +354,8 @@ export default function HomePage() {
       <TestimonialsSection />
       <CTABanner />
       <StickyMobileCTA />
+      {/* #9 FOMO toasts - only on homepage */}
+      <FOMOToast />
     </>
   );
 }

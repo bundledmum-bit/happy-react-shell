@@ -8,6 +8,9 @@ import SkipNav from "@/components/SkipNav";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import FloatingScrollToTop from "@/components/FloatingWhatsApp";
+import FloatingCartBar from "@/components/FloatingCartBar";
+import FloatingWhatsAppButton from "@/components/FloatingWhatsAppButton";
+import MobileBottomNav from "@/components/MobileBottomNav";
 import HomePage from "@/pages/HomePage";
 import BundlesPage from "@/pages/BundlesPage";
 import BundleDetailPage from "@/pages/BundleDetailPage";
@@ -22,6 +25,8 @@ import PrivacyPage from "@/pages/PrivacyPage";
 import TermsPage from "@/pages/TermsPage";
 import CookiesPage from "@/pages/CookiesPage";
 import ReturnsPage from "@/pages/ReturnsPage";
+import BlogPage from "@/pages/BlogPage";
+import TrackOrderPage from "@/pages/TrackOrderPage";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -51,11 +56,16 @@ const App = () => (
               <Route path="/terms" element={<TermsPage />} />
               <Route path="/cookies" element={<CookiesPage />} />
               <Route path="/returns" element={<ReturnsPage />} />
+              <Route path="/blog" element={<BlogPage />} />
+              <Route path="/track-order" element={<TrackOrderPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>
           <Footer />
           <FloatingScrollToTop />
+          <FloatingCartBar />
+          <FloatingWhatsAppButton />
+          <MobileBottomNav />
         </BrowserRouter>
       </CartProvider>
     </TooltipProvider>

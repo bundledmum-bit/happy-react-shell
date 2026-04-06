@@ -1,11 +1,14 @@
 import { Link, useLocation } from "react-router-dom";
 import { fmt } from "@/lib/cart";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import ReferralSection from "@/components/ReferralSection";
+import ShareModal from "@/components/ShareModal";
 
 export default function OrderConfirmedPage() {
   const { state } = useLocation();
   const order = state as Record<string, any> | null;
+  const [showShareModal, setShowShareModal] = useState(false);
 
   useEffect(() => { document.title = "Order Confirmed | BundledMum"; }, []);
 
@@ -56,13 +59,13 @@ export default function OrderConfirmedPage() {
     a.click(); URL.revokeObjectURL(url);
   };
 
-  const handleWhatsAppShare = () => {
-    const text = `My BundledMum Order #${orderId}\n${items.map((i: any) => `${i.name} ×${i.qty}`).join("\n")}\nTotal: ${order?.total ? fmt(order.total) : ""}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
-  };
+  const referralCode = (() => {
+    const name = (form.firstName || "").replace(/[^a-zA-Z]/g, "").toUpperCase().slice(0, 8);
+    return `${name || "BUNDLED"}${new Date().getFullYear()}`;
+  })();
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-16 md:pb-0">
       <div className="pt-20 relative overflow-hidden" style={{ background: "linear-gradient(135deg, #2D6A4F 0%, #1E5C44 100%)" }}>
         <div className="absolute top-[-60px] left-[10%] w-[200px] h-[200px] rounded-full bg-coral/[0.07]" />
         <div className="absolute bottom-[-40px] right-[8%] w-[160px] h-[160px] rounded-full bg-primary-foreground/[0.04]" />
@@ -77,7 +80,6 @@ export default function OrderConfirmedPage() {
       </div>
 
       <div className="max-w-[860px] mx-auto px-4 md:px-10 py-8 md:py-14">
-        {/* Your Details */}
         {(form.firstName || form.email) && (
           <div className="bg-card rounded-card shadow-card p-5 md:p-8 mb-4">
             <h3 className="pf text-lg md:text-xl text-forest mb-4">📋 Your Details</h3>
@@ -91,7 +93,6 @@ export default function OrderConfirmedPage() {
           </div>
         )}
 
-        {/* Order Summary with full details */}
         {items.length > 0 && (
           <div className="bg-card rounded-card shadow-card p-5 md:p-8 mb-4">
             <h3 className="pf text-lg md:text-xl text-forest mb-4">🛒 Your Order</h3>
@@ -106,7 +107,6 @@ export default function OrderConfirmedPage() {
                         {item.selectedBrand && <span>Brand: {item.selectedBrand.label}</span>}
                         {item.selectedSize && <span>Size: {item.selectedSize}</span>}
                         <span>Qty: {item.qty}</span>
-                        <span>@ {fmt(item.price)} each</span>
                       </div>
                     </div>
                   </div>
@@ -129,8 +129,8 @@ export default function OrderConfirmedPage() {
           <button onClick={handleDownload} className="rounded-pill border-2 border-forest text-forest px-5 py-2.5 font-body font-semibold text-sm hover:bg-forest/5 interactive w-full sm:w-auto text-center">
             📥 Download Order Summary
           </button>
-          <button onClick={handleWhatsAppShare} className="rounded-pill bg-[#25D366] text-primary-foreground px-5 py-2.5 font-body font-semibold text-sm interactive w-full sm:w-auto text-center">
-            📱 Share via WhatsApp
+          <button onClick={() => setShowShareModal(true)} className="rounded-pill bg-coral text-primary-foreground px-5 py-2.5 font-body font-semibold text-sm interactive w-full sm:w-auto text-center">
+            📱 Share Your Bundle
           </button>
         </div>
 
@@ -139,7 +139,7 @@ export default function OrderConfirmedPage() {
           <h3 className="pf text-lg md:text-xl text-forest mb-4">What Happens Next</h3>
           <div className="flex flex-col">
             {[
-              { icon: "📧", title: "Confirmation Email Sent", desc: `We've sent order details to ${form.email || "your email"}. Check your spam folder if you don't see it.`, done: true },
+              { icon: "📧", title: "Confirmation Email Sent", desc: `We've sent order details to ${form.email || "your email"}.`, done: true },
               { icon: "🔍", title: "Order Being Processed", desc: "Our team is picking and packing your items", done: true },
               { icon: "📦", title: "Dispatched for Delivery", desc: `To ${form.address || ""}, ${form.city || ""}, ${form.state || ""}`, done: false },
               { icon: "🏠", title: "Delivered to Your Door", desc: `Expected delivery: ${deliveryDate()}`, done: false },
@@ -156,13 +156,13 @@ export default function OrderConfirmedPage() {
               </div>
             ))}
           </div>
-          <div className="bg-warm-cream rounded-lg p-3 mt-2 text-center">
-            <p className="text-text-med text-xs font-body">📲 We'll send tracking updates to {form.email || "your email"} and WhatsApp ({form.phone || "your phone"}).</p>
-          </div>
-          <p className="text-text-light text-xs mt-2 text-center">Didn't get a confirmation email? Check your spam folder or <a href={`https://wa.me/2348012345678?text=Hi! My order number is ${orderId}`} target="_blank" className="text-forest underline">contact us on WhatsApp</a>.</p>
         </div>
 
-        {/* Payment status */}
+        {/* #5 Referral Program */}
+        <div className="mb-4">
+          <ReferralSection customerName={form.firstName} />
+        </div>
+
         {isBankTransfer && (
           <div className="bg-[#FFF8E1] border border-[#FFD54F] rounded-card p-5 mb-4">
             <h3 className="font-bold text-base mb-2">⏳ Awaiting Payment</h3>
@@ -173,7 +173,6 @@ export default function OrderConfirmedPage() {
           </div>
         )}
 
-        {/* WhatsApp CTA */}
         <div className="bg-forest rounded-card p-5 md:p-8 flex flex-col md:flex-row justify-between items-center gap-3.5 mb-4 text-center md:text-left">
           <div>
             <h4 className="pf text-primary-foreground text-lg mb-1">💬 Questions About Your Order?</h4>
@@ -194,6 +193,21 @@ export default function OrderConfirmedPage() {
           </Link>
         </div>
       </div>
+
+      {/* Share modal */}
+      {showShareModal && (
+        <ShareModal
+          onClose={() => setShowShareModal(false)}
+          title="Order Placed!"
+          subtitle={`Order #${orderId}`}
+          items={items.map((i: any) => ({ name: i.name, price: i.price * i.qty }))}
+          totalPrice={order?.total || 0}
+          badge="ORDER PLACED ✅"
+          shareUrl={`https://bundledmum.lovable.app/?ref=${referralCode}`}
+          shareText={`I just packed my hospital bag with BundledMum! 🎁 Use my link for ₦2,000 off: https://bundledmum.lovable.app/?ref=${referralCode}`}
+          itemCount={items.length}
+        />
+      )}
     </div>
   );
 }

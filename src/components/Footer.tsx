@@ -4,7 +4,7 @@ import { Facebook, Instagram, MessageCircle } from "lucide-react";
 
 export default function Footer() {
   return (
-    <footer style={{ background: "#1A1A1A" }} className="px-5 md:px-10 pt-10 md:pt-14 pb-7 md:pb-9">
+    <footer style={{ background: "#1A1A1A" }} className="px-5 md:px-10 pt-10 md:pt-14 pb-20 md:pb-9">
       <div className="max-w-[1200px] mx-auto">
         <div className="grid grid-cols-2 md:grid-cols-[2fr_1fr_1fr_1fr] gap-7 md:gap-14 mb-8 md:mb-12">
           <div className="col-span-2 md:col-span-1">
@@ -24,8 +24,8 @@ export default function Footer() {
           </div>
           {[
             { title: "Shop", links: [{ label: "Baby Items", to: "/shop?tab=baby" }, { label: "Mum Items", to: "/shop?tab=mum" }, { label: "Bundle Kits", to: "/bundles" }, { label: "Gift Ideas", to: "/bundles?hospital=gift" }] },
-            { title: "Help", links: [{ label: "FAQs", to: "/contact#faqs" }, { label: "WhatsApp Us", to: "https://wa.me/2348012345678?text=Hi%20BundledMum!%20I%20have%20a%20question.", external: true }, { label: "Track Order", to: "/contact" }, { label: "Returns", to: "/terms" }] },
-            { title: "Company", links: [{ label: "Our Story", to: "/about" }, { label: "Contact", to: "/contact" }, { label: "Blog", to: "/contact" }, { label: "Press", to: "/contact" }] },
+            { title: "Help", links: [{ label: "FAQs", to: "/contact#faqs" }, { label: "WhatsApp Us", to: "https://wa.me/2348012345678?text=Hi%20BundledMum!%20I%20have%20a%20question.", external: true }, { label: "Track Order", to: "/track-order" }, { label: "Returns", to: "/returns" }, { label: "Refer a Friend", to: "/order-confirmed" }] },
+            { title: "Company", links: [{ label: "Our Story", to: "/about" }, { label: "Contact", to: "/contact" }, { label: "Blog", to: "/blog" }, { label: "Press", to: "/about" }] },
           ].map(col => (
             <div key={col.title}>
               <div className="text-primary-foreground font-semibold text-[13px] mb-3.5">{col.title}</div>

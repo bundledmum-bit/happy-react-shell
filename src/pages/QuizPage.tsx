@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { useCart, fmt, getBrandForBudget } from "@/lib/cart";
 import { PRODUCTS, ALL_PRODUCTS, type Product } from "@/data/products";
 import { toast } from "sonner";
 import { ArrowLeft, Check, Share2, ClipboardCopy } from "lucide-react";
+import ShareModal from "@/components/ShareModal";
+import ExitIntentPopup from "@/components/ExitIntentPopup";
 
 type Answers = Record<string, string>;
 
@@ -22,6 +24,14 @@ const STEPS: Record<string, StepDef> = {
     options: [
       { id: "self", emoji: "🤱", label: "For me — I'm expecting!", sublabel: "Shopping for myself" },
       { id: "gift", emoji: "🎁", label: "I'm buying as a gift", sublabel: "For someone special" },
+    ]
+  },
+  budget: {
+    id: "budget", label: "Budget", title: "What's your budget range?", sub: "EVERY TIER COVERS THE ESSENTIALS — PICK WHAT FEELS RIGHT",
+    options: [
+      { id: "starter", emoji: "🌱", label: "Starter Bundle", sublabel: "₦15,000 – ₦35,000", desc: "The must-haves, nothing wasted. ~8 items." },
+      { id: "standard", emoji: "🌿", label: "Standard Bundle", sublabel: "₦35,000 – ₦70,000", desc: "Comfortable and complete. ~12-14 items.", popular: true },
+      { id: "premium", emoji: "✨", label: "Premium Bundle", sublabel: "₦70,000+", desc: "The full luxury bundle experience. ~18-22 items." },
     ]
   },
   giftFor: {
@@ -139,14 +149,6 @@ const STEPS: Record<string, StepDef> = {
       { id: "no", emoji: "👍", label: "No message needed", sublabel: "The gift speaks for itself!" },
     ]
   },
-  budget: {
-    id: "budget", label: "Budget", title: "What's your budget range?", sub: "EVERY TIER COVERS THE ESSENTIALS — PICK WHAT FEELS RIGHT",
-    options: [
-      { id: "starter", emoji: "🌱", label: "Starter Bundle", sublabel: "₦15,000 – ₦35,000", desc: "The must-haves, nothing wasted. ~8 items." },
-      { id: "standard", emoji: "🌿", label: "Standard Bundle", sublabel: "₦35,000 – ₦70,000", desc: "Comfortable and complete. ~12-14 items.", popular: true },
-      { id: "premium", emoji: "✨", label: "Premium Bundle", sublabel: "₦70,000+", desc: "The full luxury bundle experience. ~18-22 items." },
-    ]
-  },
 };
 
 function getGenderOptions(answers: Answers): StepDef {
@@ -158,6 +160,7 @@ function getGenderOptions(answers: Answers): StepDef {
   return base;
 }
 
+// #2: Budget is now step 2 (right after shopper for self, after giftKnowledge for gift)
 function getNextStep(current: string, answer: string, answers: Answers): string | null {
   const isGift = answers.shopper === "gift";
   const scopeIncludesHospital = (answers.scope || "").includes("hospital");
@@ -166,30 +169,32 @@ function getNextStep(current: string, answer: string, answers: Answers): string 
   const giftKnowledge = answers.giftKnowledge || "lots";
 
   switch (current) {
-    case "shopper": return answer === "gift" ? "giftFor" : "scope";
+    case "shopper": return answer === "gift" ? "giftFor" : "budget"; // Self → budget immediately
     case "giftFor": return "giftRelationship";
     case "giftRelationship": return "giftOccasion";
     case "giftOccasion": return "giftKnowledge";
     case "giftKnowledge":
       if (answer === "nothing") return "budget"; // skip details, trust us
+      return "budget"; // Budget after gift knowledge
+    case "budget":
+      if (isGift && giftKnowledge === "nothing") return "giftWrap";
       return "scope";
     case "scope": return "multiples";
     case "multiples": return "gender";
     case "gender": return isGift ? "giftAge" : "stage";
     case "giftAge":
       if (giftKnowledge === "lots") return "firstBaby";
-      return isGift ? "giftWrap" : "budget";
+      return "giftWrap";
     case "stage": return "firstBaby";
     case "firstBaby":
       if (scopeIncludesHospital) return "hospitalType";
-      return isGift ? "giftWrap" : "budget";
+      return isGift ? "giftWrap" : null;
     case "hospitalType":
       if (stageIsEarlyEnough) return "deliveryMethod";
-      return isGift ? "giftWrap" : "budget";
-    case "deliveryMethod": return isGift ? "giftWrap" : "budget";
+      return isGift ? "giftWrap" : null;
+    case "deliveryMethod": return isGift ? "giftWrap" : null;
     case "giftWrap": return "giftMessage";
-    case "giftMessage": return "budget";
-    case "budget": return null;
+    case "giftMessage": return null;
     default: return null;
   }
 }
@@ -364,15 +369,10 @@ function generateStory(answers: Answers, results: RecommendedItem[]): string {
 
 // ========= COMPONENTS =========
 
-function ResultProductCard({ item, onAdd }: { item: RecommendedItem; onAdd: () => void }) {
+function ResultProductCard({ item, onAdd, onRemove, isInCart }: { item: RecommendedItem; onAdd: () => void; onRemove: () => void; isInCart: boolean }) {
   const { product, brand, quantity, color, whyIncluded } = item;
   const [selectedBrand, setSelectedBrand] = useState(brand);
-  const [added, setAdded] = useState(false);
-  const { cart } = useCart();
-  const isInCart = cart.some(c => c.id === product.id);
   const lowestPrice = Math.min(...product.brands.map(b => b.price));
-
-  const handleAdd = () => { onAdd(); setAdded(true); };
 
   return (
     <div className="bg-card rounded-card shadow-card overflow-hidden hover:shadow-card-hover transition-all group">
@@ -384,12 +384,13 @@ function ResultProductCard({ item, onAdd }: { item: RecommendedItem; onAdd: () =
       <div className="p-3.5 md:p-4">
         <h3 className="pf text-sm md:text-[15px] font-bold leading-tight mb-1">{product.name}</h3>
         {color && <p className="text-text-light text-[10px] mb-1">Colour: {color}</p>}
-        <p className="text-text-med text-[11px] leading-relaxed italic mb-2">{whyIncluded}</p>
+        <p className="text-text-med text-[11px] leading-relaxed italic mb-2 line-clamp-2">{whyIncluded}</p>
 
-        {/* Product details */}
         {product.packInfo && <p className="text-text-light text-[9px] mb-0.5">📦 {product.packInfo}</p>}
         {product.material && <p className="text-text-light text-[9px] mb-0.5">🧵 {product.material}</p>}
-        {product.contents && <p className="text-text-light text-[9px] mb-0.5">📋 {product.contents.join(", ")}</p>}
+
+        {/* Delivery estimate */}
+        <p className="text-text-light text-[9px] mb-1">🚚 Lagos: 1-2 days · Others: 3-5 days</p>
 
         <div className="mb-2.5">
           <p className="text-text-light text-[10px] font-semibold uppercase tracking-wider mb-1.5">Brand</p>
@@ -408,10 +409,12 @@ function ResultProductCard({ item, onAdd }: { item: RecommendedItem; onAdd: () =
             <p className="pf text-lg font-bold text-foreground">{fmt(selectedBrand.price * quantity)}</p>
             {product.brands.length > 1 && <p className="text-text-light text-[10px]">from {fmt(lowestPrice)}</p>}
           </div>
-          {isInCart || added ? (
-            <Link to="/cart" className="rounded-pill bg-forest-light border border-forest text-forest px-3 py-1.5 text-[11px] font-semibold font-body interactive">In Cart ✓</Link>
+          {isInCart ? (
+            <button onClick={onRemove} className="rounded-pill bg-forest-light border border-forest text-forest px-3 py-1.5 text-[11px] font-semibold font-body interactive flex items-center gap-1">
+              ✓ Added <span className="text-destructive hover:text-destructive">×</span>
+            </button>
           ) : (
-            <button onClick={handleAdd} className="rounded-pill bg-forest px-3 py-1.5 text-[11px] font-semibold text-primary-foreground hover:bg-forest-deep font-body interactive">+ Add</button>
+            <button onClick={onAdd} className="rounded-pill bg-forest px-3 py-1.5 text-[11px] font-semibold text-primary-foreground hover:bg-forest-deep font-body interactive">+ Add</button>
           )}
         </div>
       </div>
@@ -422,12 +425,24 @@ function ResultProductCard({ item, onAdd }: { item: RecommendedItem; onAdd: () =
 // ========= MAIN QUIZ PAGE =========
 
 export default function QuizPage() {
-  const [answers, setAnswers] = useState<Answers>({});
+  const [searchParams] = useSearchParams();
+  const [answers, setAnswers] = useState<Answers>(() => {
+    // Pre-fill from calculator carry-over
+    const initial: Answers = {};
+    const scope = searchParams.get("scope");
+    const multiples = searchParams.get("multiples");
+    const delivery = searchParams.get("delivery");
+    if (scope) initial.scope = scope;
+    if (multiples) initial.multiples = multiples;
+    if (delivery) initial.deliveryMethod = delivery;
+    return initial;
+  });
   const [history, setHistory] = useState<string[]>([]);
   const [currentStep, setCurrentStep] = useState("shopper");
   const [showResults, setShowResults] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const navigate = useNavigate();
-  const { addToCart } = useCart();
+  const { addToCart, cart, setCart } = useCart();
 
   useEffect(() => { document.title = "Build My Bundle | BundledMum"; }, []);
 
@@ -487,6 +502,11 @@ export default function QuizPage() {
 
     const story = generateStory(answers, results);
 
+    // #28 Bundle savings comparison
+    const separateTotal = results.reduce((s, r) => s + r.brand.price * r.quantity, 0);
+    const curationSaving = Math.round(separateTotal * 0.15); // estimate ~15% curation value
+    const effectiveTotal = separateTotal;
+
     const pillData = [
       answers.gender && answers.gender !== "neutral" ? { emoji: answers.gender === "boy" ? "👦" : "👧", label: answers.gender === "boy" ? "Boy" : "Girl", step: "gender" } : { emoji: "🌈", label: "Neutral", step: "gender" },
       answers.stage ? { emoji: "🤰", label: answers.stage === "expecting" ? "Still Expecting" : answers.stage === "newborn" ? "Newborn" : answers.stage, step: "stage" } : null,
@@ -503,6 +523,11 @@ export default function QuizPage() {
       toast.success(`✓ ${item.product.name} added to cart`);
     };
 
+    const handleRemoveProduct = (item: RecommendedItem) => {
+      setCart(prev => prev.filter(c => c.id !== item.product.id));
+      toast("Removed from cart");
+    };
+
     const handleAddAll = () => {
       results.forEach(item => {
         for (let i = 0; i < item.quantity; i++) {
@@ -513,19 +538,26 @@ export default function QuizPage() {
       navigate("/cart");
     };
 
-    const handleShare = () => {
-      const text = `Check out my BundledMum ${budgetLabel} bundle! ${results.length} items for ${fmt(totalValue)}. Build yours at bundledmum.lovable.app/quiz`;
-      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+    // #19 Save bundle
+    const handleSaveBundle = () => {
+      try {
+        localStorage.setItem("bm-saved-bundle", JSON.stringify({ answers, timestamp: Date.now() }));
+        toast.success("💾 Bundle saved! We'll remember it when you come back.");
+      } catch {}
     };
+
+    const handleShare = () => setShowShareModal(true);
 
     const handleCopyChecklist = () => {
       const list = results.map(r => `${r.quantity > 1 ? `×${r.quantity} ` : ""}${r.product.name} (${r.brand.label}) — ${fmt(r.brand.price * r.quantity)}`).join("\n");
-      const text = `My BundledMum ${budgetLabel} Bundle\n${"=".repeat(30)}\n\n${list}\n\nTotal: ${fmt(totalValue)}\n\nBuild yours: bundledmum.lovable.app/quiz`;
+      const text = `My BundledMum ${budgetLabel} Bundle\n${"=".repeat(30)}\n\n${list}\n\nTotal: ${fmt(totalValue)}\n\nBuild yours: https://bundledmum.lovable.app/quiz`;
       navigator.clipboard.writeText(text).then(() => toast.success("Checklist copied to clipboard!"));
     };
 
+    const shareItems = results.map(r => ({ name: r.product.name, price: r.brand.price * r.quantity }));
+
     return (
-      <div className="min-h-screen bg-background pt-[68px]">
+      <div className="min-h-screen bg-background pt-[68px] pb-16 md:pb-0">
         <div style={{ background: "linear-gradient(135deg, #2D6A4F, #1E5C44)" }} className="px-4 md:px-10 py-8 md:py-14">
           <div className="max-w-[880px] mx-auto text-center">
             <div className="animate-fade-in inline-flex items-center gap-2 bg-coral/20 border border-coral/40 rounded-pill px-4 py-1.5 mb-3.5">
@@ -550,6 +582,16 @@ export default function QuizPage() {
               {multiples > 1 && <><span>·</span><span>👶👶 Quantities adjusted for your {multiples === 2 ? "twins" : "triplets"}!</span></>}
             </div>
 
+            {/* #28 Bundle savings */}
+            <div className="bg-primary-foreground/[0.08] rounded-xl p-3 max-w-[400px] mx-auto mb-5">
+              <div className="text-primary-foreground text-xs space-y-1">
+                <div className="flex justify-between"><span>Your bundle:</span><span className="font-bold">{fmt(totalValue)}</span></div>
+                <div className="flex justify-between"><span>Free curation value:</span><span className="text-coral font-bold">~{fmt(curationSaving)}</span></div>
+                <div className="flex justify-between text-primary-foreground/50"><span>+ Free delivery over ₦30,000</span><span>🚚</span></div>
+              </div>
+              <p className="text-coral text-[11px] font-bold mt-1.5">You save time AND money with BundledMum 🎉</p>
+            </div>
+
             <div className="flex flex-col sm:flex-row gap-3 justify-center px-4 sm:px-0">
               <button onClick={() => document.getElementById("quiz-results-items")?.scrollIntoView({ behavior: "smooth" })} className="rounded-pill bg-primary-foreground/20 border border-primary-foreground/30 px-6 py-3 font-body font-semibold text-primary-foreground hover:bg-primary-foreground/30 interactive text-sm w-full sm:hidden">
                 👇 See Your Items Below
@@ -562,12 +604,15 @@ export default function QuizPage() {
               </button>
             </div>
 
-            <div className="flex gap-3 justify-center mt-4">
+            <div className="flex gap-3 justify-center mt-4 flex-wrap">
               <button onClick={handleShare} className="flex items-center gap-1.5 text-primary-foreground/50 text-xs hover:text-primary-foreground/80 transition-colors">
-                <Share2 className="h-3.5 w-3.5" /> Share {isGift ? "gift idea" : "with partner"}
+                <Share2 className="h-3.5 w-3.5" /> Share Bundle
               </button>
               <button onClick={handleCopyChecklist} className="flex items-center gap-1.5 text-primary-foreground/50 text-xs hover:text-primary-foreground/80 transition-colors">
                 <ClipboardCopy className="h-3.5 w-3.5" /> Copy checklist
+              </button>
+              <button onClick={handleSaveBundle} className="flex items-center gap-1.5 text-primary-foreground/50 text-xs hover:text-primary-foreground/80 transition-colors">
+                💾 Save My Bundle
               </button>
             </div>
           </div>
@@ -578,7 +623,15 @@ export default function QuizPage() {
             <div className="mb-10">
               <h2 className="pf text-lg md:text-xl text-forest mb-4">{isGift ? "🎁 Gift for Baby" : "👶 For Baby"}</h2>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
-                {babyItems.map(item => <ResultProductCard key={item.product.id} item={item} onAdd={() => handleAddProduct(item)} />)}
+                {babyItems.map(item => (
+                  <ResultProductCard
+                    key={item.product.id}
+                    item={item}
+                    isInCart={cart.some(c => c.id === item.product.id)}
+                    onAdd={() => handleAddProduct(item)}
+                    onRemove={() => handleRemoveProduct(item)}
+                  />
+                ))}
               </div>
             </div>
           )}
@@ -586,10 +639,39 @@ export default function QuizPage() {
             <div className="mb-10">
               <h2 className="pf text-lg md:text-xl text-forest mb-4">{isGift ? "🎁 Gift for Mum" : "💛 For Mum"}</h2>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
-                {mumItems.map(item => <ResultProductCard key={item.product.id} item={item} onAdd={() => handleAddProduct(item)} />)}
+                {mumItems.map(item => (
+                  <ResultProductCard
+                    key={item.product.id}
+                    item={item}
+                    isInCart={cart.some(c => c.id === item.product.id)}
+                    onAdd={() => handleAddProduct(item)}
+                    onRemove={() => handleRemoveProduct(item)}
+                  />
+                ))}
               </div>
             </div>
           )}
+
+          {/* #8 Window-shopper virality share prompt */}
+          <div className="bg-forest rounded-card p-6 md:p-8 text-center mb-8">
+            <h3 className="pf text-xl text-primary-foreground mb-2">💬 Know Another Expecting Mum?</h3>
+            <p className="text-primary-foreground/70 text-sm mb-4 max-w-[400px] mx-auto">Share BundledMum with her — she'll thank you later!</p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button onClick={() => {
+                const text = "Hey mama! 🤰 I just found this site that builds your hospital bag for you based on your budget and hospital type. Try the free quiz: https://bundledmum.lovable.app/quiz?ref=friend_share";
+                window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+              }} className="rounded-pill bg-[#25D366] px-6 py-2.5 font-body font-semibold text-primary-foreground text-sm interactive">
+                📱 Share on WhatsApp
+              </button>
+              <button onClick={() => {
+                navigator.clipboard.writeText("https://bundledmum.lovable.app/quiz?ref=friend_share");
+                toast.success("Quiz link copied!");
+              }} className="rounded-pill border-2 border-primary-foreground/30 px-6 py-2.5 font-body font-semibold text-primary-foreground/80 text-sm interactive">
+                📋 Copy Quiz Link
+              </button>
+            </div>
+            <p className="text-primary-foreground/40 text-[11px] mt-3 italic">"I was so overwhelmed before finding BundledMum..." — Adaeze O., Lagos</p>
+          </div>
 
           <div className="bg-warm-cream rounded-card p-6 md:p-10 text-center mt-6 mb-10">
             <h3 className="pf text-xl text-forest mb-2">Want to add more items?</h3>
@@ -604,6 +686,31 @@ export default function QuizPage() {
             </div>
           </div>
         </div>
+
+        {/* Share modal */}
+        {showShareModal && (
+          <ShareModal
+            onClose={() => setShowShareModal(false)}
+            title="My Perfect Hospital Bag"
+            subtitle={`${budgetLabel} Bundle · ${results.length} items`}
+            items={shareItems}
+            totalPrice={totalValue}
+            badge={isGift ? "GIFT BUNDLE" : undefined}
+            shareUrl={`https://bundledmum.lovable.app/quiz?ref=share`}
+            shareText={`Check out my BundledMum ${budgetLabel} bundle! ${results.length} items for ${fmt(totalValue)}. Build yours FREE!`}
+            gender={answers.gender}
+            hospitalType={answers.hospitalType === "public" ? "Public Hospital" : answers.hospitalType === "private" ? "Private Hospital" : undefined}
+            budgetLabel={budgetLabel}
+            itemCount={results.length}
+          />
+        )}
+
+        {/* Sticky mobile Add All */}
+        <div className="fixed bottom-14 left-0 right-0 z-[80] bg-card border-t border-border p-3 md:hidden">
+          <button onClick={handleAddAll} className="w-full rounded-pill bg-coral py-3 font-body font-semibold text-primary-foreground text-sm">
+            Get Complete Bundle — {fmt(totalValue)} →
+          </button>
+        </div>
       </div>
     );
   }
@@ -614,7 +721,10 @@ export default function QuizPage() {
   if (!stepDef) return null;
 
   return (
-    <div className="min-h-screen bg-background pt-[68px] flex flex-col items-center px-4 md:px-10 py-8 md:py-12">
+    <div className="min-h-screen bg-background pt-[68px] flex flex-col items-center px-4 md:px-10 py-8 md:py-12 pb-20 md:pb-12">
+      {/* Exit intent */}
+      <ExitIntentPopup stepsCompleted={history.length} totalSteps={totalSteps} onContinue={() => {}} />
+
       <div className="w-full max-w-[660px] mb-6">
         <div className="w-full bg-border h-1.5 rounded-full overflow-hidden">
           <div className="bg-coral h-1.5 transition-all duration-500 rounded-full" style={{ width: `${progress}%` }} />
