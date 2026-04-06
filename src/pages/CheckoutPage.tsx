@@ -92,15 +92,67 @@ export default function CheckoutPage() {
     giftWrap, notes: "",
   });
 
+  const saveOrderToDb = async (orderData: ReturnType<typeof buildOrderData>) => {
+    try {
+      const { data: order, error: orderError } = await supabase
+        .from("orders")
+        .insert({
+          customer_name: `${form.firstName} ${form.lastName}`,
+          customer_email: form.email,
+          customer_phone: form.phone,
+          delivery_address: form.address,
+          delivery_city: form.city,
+          delivery_state: form.state,
+          delivery_notes: form.notes || null,
+          subtotal: orderData.subtotal,
+          delivery_fee: orderData.deliveryFee,
+          service_fee: orderData.serviceFee,
+          total: orderData.total,
+          discount: 0,
+          payment_reference: orderData.paystackRef,
+          payment_status: orderData.paymentStatus === "PAID" ? "paid" : "pending",
+          payment_method: orderData.paymentMethod,
+          order_status: "confirmed",
+          gift_wrapping: orderData.giftWrap,
+        })
+        .select("id, order_number")
+        .single();
+
+      if (orderError) {
+        console.error("Order insert failed:", orderError);
+        return orderData.orderId;
+      }
+
+      // Insert order items
+      const orderItems = cart.map(item => ({
+        order_id: order.id,
+        product_name: item.name,
+        brand_name: item.selectedBrand?.label || "Standard",
+        quantity: item.qty,
+        unit_price: item.price,
+        line_total: item.price * item.qty,
+        size: item.selectedSize || null,
+      }));
+
+      await supabase.from("order_items").insert(orderItems);
+
+      return order.order_number || orderData.orderId;
+    } catch (e) {
+      console.error("DB save failed:", e);
+      return orderData.orderId;
+    }
+  };
+
   const placeOrder = async () => {
     if (!validate()) return;
     setProcessing(true);
 
     if (payment === "transfer") {
       const orderData = buildOrderData();
+      const dbOrderNumber = await saveOrderToDb(orderData);
       await logOrderToSheets(orderData);
       clearCart();
-      navigate("/order-confirmed", { state: { ...orderData, paymentType: "transfer", form } });
+      navigate("/order-confirmed", { state: { ...orderData, orderId: dbOrderNumber, paymentType: "transfer", form } });
       return;
     }
 
@@ -124,17 +176,19 @@ export default function CheckoutPage() {
           }
 
           const orderData = buildOrderData(transaction.reference, verification.status);
+          const dbOrderNumber = await saveOrderToDb(orderData);
           await logOrderToSheets(orderData);
           clearCart();
-          navigate("/order-confirmed", { state: { ...orderData, paymentType: "card", form } });
+          navigate("/order-confirmed", { state: { ...orderData, orderId: dbOrderNumber, paymentType: "card", form } });
         },
         onCancel: () => { setProcessing(false); toast.error("Payment cancelled"); },
       });
     } catch {
       const orderData = buildOrderData("DEMO-" + Date.now(), "success");
+      const dbOrderNumber = await saveOrderToDb(orderData);
       await logOrderToSheets(orderData);
       clearCart();
-      navigate("/order-confirmed", { state: { ...orderData, paymentType: "card", form } });
+      navigate("/order-confirmed", { state: { ...orderData, orderId: dbOrderNumber, paymentType: "card", form } });
     }
   };
 
