@@ -18,6 +18,7 @@ export interface Product {
   id: string;
   name: string;
   baseImg: string;
+  imageUrl?: string; // real product image URL
   rating: number;
   reviews: number;
   tags: string[];
