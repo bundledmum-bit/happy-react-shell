@@ -84,6 +84,9 @@ const TIER_COLORS: Record<string, string> = {
 
 export function adaptProduct(row: any): Product {
   const tags = (row.product_tags || []) as any[];
+  const images = (row.product_images || []) as any[];
+  const primaryImage = images.find((i: any) => i.is_primary) || images[0];
+  const imageUrl = primaryImage?.image_url || row.image_url || null;
   const tierTags = tags.filter((t: any) => t.tag_type === "tier").map((t: any) => t.tag_value);
   const hospitalTags = tags.filter((t: any) => t.tag_type === "hospital_type").map((t: any) => t.tag_value);
   const deliveryTags = tags.filter((t: any) => t.tag_type === "delivery_method").map((t: any) => t.tag_value);
@@ -115,6 +118,7 @@ export function adaptProduct(row: any): Product {
     id: row.id,
     name: row.name,
     baseImg: row.emoji || "📦",
+    imageUrl: imageUrl || undefined,
     rating: Number(row.rating) || 4.5,
     reviews: row.review_count || 0,
     tags: tags.map((t: any) => `${t.tag_type}:${t.tag_value}`),
