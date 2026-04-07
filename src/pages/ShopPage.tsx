@@ -68,22 +68,26 @@ function ProductCard({ product, defaultBudget = "standard", onAdd, onViewDetail 
 
   return (
     <div className={`bg-card rounded-card shadow-card card-hover overflow-hidden ${isOutOfStock ? "opacity-60" : ""}`}>
-      <div className="h-[170px] flex items-center justify-center text-6xl relative transition-colors cursor-pointer"
-        style={{ background: `linear-gradient(135deg, ${selectedBrand.color}, #fff)` }}
+      <div className="h-[170px] flex items-center justify-center relative transition-colors cursor-pointer overflow-hidden"
+        style={{ background: product.imageUrl ? '#f5f5f5' : `linear-gradient(135deg, ${selectedBrand.color}, #fff)` }}
         onClick={() => { trackView(); onViewDetail(); }}>
         {product.badge && (
-          <div className="absolute top-2.5 left-2.5 bg-coral text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill uppercase tracking-wide">{product.badge}</div>
+          <div className="absolute top-2.5 left-2.5 bg-coral text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill uppercase tracking-wide z-10">{product.badge}</div>
         )}
         {!product.badge && extraBadge && (
-          <div className="absolute top-2.5 left-2.5 bg-forest text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill">{extraBadge}</div>
+          <div className="absolute top-2.5 left-2.5 bg-forest text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill z-10">{extraBadge}</div>
         )}
         {isOutOfStock && (
-          <div className="absolute top-2.5 right-2.5 bg-foreground/70 text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill">Out of Stock</div>
+          <div className="absolute top-2.5 right-2.5 bg-foreground/70 text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill z-10">Out of Stock</div>
         )}
         {stockLabel === "low" && (
-          <div className="absolute top-2.5 right-2.5 bg-[#E65100] text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill">Only {product.stock} left!</div>
+          <div className="absolute top-2.5 right-2.5 bg-[#E65100] text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill z-10">Only {product.stock} left!</div>
         )}
-        {selectedBrand.img}
+        {product.imageUrl ? (
+          <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" loading="lazy" />
+        ) : (
+          <span className="text-6xl">{selectedBrand.img}</span>
+        )}
       </div>
       <div className="p-4">
         <h3 className="text-[13px] font-semibold mb-1 leading-tight min-h-[36px] cursor-pointer hover:text-forest transition-colors" onClick={() => { trackView(); onViewDetail(); }}>{product.name}</h3>
