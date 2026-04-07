@@ -2,6 +2,7 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { X, Plus, Trash2 } from "lucide-react";
+import ProductImageManager from "@/components/admin/ProductImageManager";
 
 interface Props {
   product: any | null;
@@ -138,7 +139,7 @@ export default function AdminProductForm({ product, onClose, onSaved }: Props) {
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="text-xs font-semibold text-text-med block mb-1">Emoji</label>
+              <label className="text-xs font-semibold text-text-med block mb-1">Emoji (fallback)</label>
               <input value={form.emoji} onChange={e => setForm(f => ({ ...f, emoji: e.target.value }))}
                 className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background" />
             </div>
@@ -210,6 +211,9 @@ export default function AdminProductForm({ product, onClose, onSaved }: Props) {
               </div>
             ))}
           </div>
+
+          {/* Product Images */}
+          {isEdit && <ProductImageManager productId={product.id} />}
         </div>
         <div className="flex justify-end gap-2 p-4 border-t border-border">
           <button onClick={onClose} className="px-4 py-2 border border-border rounded-lg text-sm font-semibold hover:bg-muted">Cancel</button>
