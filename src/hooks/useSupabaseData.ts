@@ -10,8 +10,9 @@ export function useProducts(category?: string) {
     queryFn: async () => {
       let query = supabase
         .from("products")
-        .select("*, brands(*), product_sizes(*), product_colors(*), product_tags(*)")
+        .select("*, brands(*), product_sizes(*), product_colors(*), product_tags(*), product_images(*)")
         .eq("is_active", true)
+        .is("deleted_at", null)
         .order("display_order");
 
       if (category && category !== "all") {
@@ -32,8 +33,9 @@ export function useAllProducts() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("*, brands(*), product_sizes(*), product_colors(*), product_tags(*)")
+        .select("*, brands(*), product_sizes(*), product_colors(*), product_tags(*), product_images(*)")
         .eq("is_active", true)
+        .is("deleted_at", null)
         .order("display_order");
       if (error) throw error;
       return adaptProducts(data);
