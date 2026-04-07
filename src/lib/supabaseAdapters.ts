@@ -2,6 +2,7 @@
  * Adapters to transform Supabase query results into the existing
  * component-friendly types used throughout the storefront.
  */
+import { getProductImage } from "@/assets/products";
 
 // ─── Legacy types used by components ───────────────────────────
 
@@ -86,7 +87,7 @@ export function adaptProduct(row: any): Product {
   const tags = (row.product_tags || []) as any[];
   const images = (row.product_images || []) as any[];
   const primaryImage = images.find((i: any) => i.is_primary) || images[0];
-  const imageUrl = primaryImage?.image_url || row.image_url || null;
+  const imageUrl = primaryImage?.image_url || row.image_url || getProductImage(row.slug) || null;
   const tierTags = tags.filter((t: any) => t.tag_type === "tier").map((t: any) => t.tag_value);
   const hospitalTags = tags.filter((t: any) => t.tag_type === "hospital_type").map((t: any) => t.tag_value);
   const deliveryTags = tags.filter((t: any) => t.tag_type === "delivery_method").map((t: any) => t.tag_value);
