@@ -14,6 +14,133 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_log: {
+        Row: {
+          action: string
+          admin_user_id: string | null
+          changes: Json | null
+          created_at: string | null
+          entity_id: string | null
+          entity_name: string | null
+          entity_type: string
+          id: string
+          ip_address: string | null
+        }
+        Insert: {
+          action: string
+          admin_user_id?: string | null
+          changes?: Json | null
+          created_at?: string | null
+          entity_id?: string | null
+          entity_name?: string | null
+          entity_type: string
+          id?: string
+          ip_address?: string | null
+        }
+        Update: {
+          action?: string
+          admin_user_id?: string | null
+          changes?: Json | null
+          created_at?: string | null
+          entity_id?: string | null
+          entity_name?: string | null
+          entity_type?: string
+          id?: string
+          ip_address?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_log_admin_user_id_fkey"
+            columns: ["admin_user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_notifications: {
+        Row: {
+          admin_user_id: string | null
+          created_at: string | null
+          id: string
+          is_read: boolean | null
+          link: string | null
+          message: string
+          title: string
+          type: string
+        }
+        Insert: {
+          admin_user_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          link?: string | null
+          message: string
+          title: string
+          type: string
+        }
+        Update: {
+          admin_user_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          link?: string | null
+          message?: string
+          title?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_notifications_admin_user_id_fkey"
+            columns: ["admin_user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_users: {
+        Row: {
+          auth_user_id: string
+          avatar_url: string | null
+          created_at: string | null
+          custom_permissions: Json | null
+          display_name: string
+          email: string
+          id: string
+          is_active: boolean | null
+          last_login_at: string | null
+          role: string
+          updated_at: string | null
+        }
+        Insert: {
+          auth_user_id: string
+          avatar_url?: string | null
+          created_at?: string | null
+          custom_permissions?: Json | null
+          display_name: string
+          email: string
+          id?: string
+          is_active?: boolean | null
+          last_login_at?: string | null
+          role?: string
+          updated_at?: string | null
+        }
+        Update: {
+          auth_user_id?: string
+          avatar_url?: string | null
+          created_at?: string | null
+          custom_permissions?: Json | null
+          display_name?: string
+          email?: string
+          id?: string
+          is_active?: boolean | null
+          last_login_at?: string | null
+          role?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       analytics_events: {
         Row: {
           created_at: string | null
@@ -50,10 +177,15 @@ export type Database = {
           body: string
           cover_image_url: string | null
           created_at: string | null
+          deleted_at: string | null
           excerpt: string | null
           id: string
           is_published: boolean | null
+          meta_description: string | null
+          meta_title: string | null
+          og_image_url: string | null
           published_at: string | null
+          scheduled_for: string | null
           slug: string
           title: string
           updated_at: string | null
@@ -63,10 +195,15 @@ export type Database = {
           body: string
           cover_image_url?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           excerpt?: string | null
           id?: string
           is_published?: boolean | null
+          meta_description?: string | null
+          meta_title?: string | null
+          og_image_url?: string | null
           published_at?: string | null
+          scheduled_for?: string | null
           slug: string
           title: string
           updated_at?: string | null
@@ -76,10 +213,15 @@ export type Database = {
           body?: string
           cover_image_url?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           excerpt?: string | null
           id?: string
           is_published?: boolean | null
+          meta_description?: string | null
+          meta_title?: string | null
+          og_image_url?: string | null
           published_at?: string | null
+          scheduled_for?: string | null
           slug?: string
           title?: string
           updated_at?: string | null
@@ -188,15 +330,20 @@ export type Database = {
       bundles: {
         Row: {
           created_at: string | null
+          deleted_at: string | null
           delivery_method: string | null
           description: string | null
           display_order: number | null
           emoji: string | null
           hospital_type: string
           id: string
+          image_url: string | null
           is_active: boolean | null
           item_count: number
+          meta_description: string | null
+          meta_title: string | null
           name: string
+          og_image_url: string | null
           price: number
           slug: string
           tier: string
@@ -204,15 +351,20 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          deleted_at?: string | null
           delivery_method?: string | null
           description?: string | null
           display_order?: number | null
           emoji?: string | null
           hospital_type: string
           id?: string
+          image_url?: string | null
           is_active?: boolean | null
           item_count: number
+          meta_description?: string | null
+          meta_title?: string | null
           name: string
+          og_image_url?: string | null
           price: number
           slug: string
           tier: string
@@ -220,15 +372,20 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          deleted_at?: string | null
           delivery_method?: string | null
           description?: string | null
           display_order?: number | null
           emoji?: string | null
           hospital_type?: string
           id?: string
+          image_url?: string | null
           is_active?: boolean | null
           item_count?: number
+          meta_description?: string | null
+          meta_title?: string | null
           name?: string
+          og_image_url?: string | null
           price?: number
           slug?: string
           tier?: string
@@ -283,6 +440,7 @@ export type Database = {
           answer: string
           category: string | null
           created_at: string | null
+          deleted_at: string | null
           display_order: number | null
           id: string
           is_active: boolean | null
@@ -292,6 +450,7 @@ export type Database = {
           answer: string
           category?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           display_order?: number | null
           id?: string
           is_active?: boolean | null
@@ -301,6 +460,7 @@ export type Database = {
           answer?: string
           category?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           display_order?: number | null
           id?: string
           is_active?: boolean | null
@@ -506,6 +666,50 @@ export type Database = {
           },
         ]
       }
+      product_images: {
+        Row: {
+          alt_text: string | null
+          created_at: string | null
+          display_order: number | null
+          id: string
+          image_url: string
+          is_primary: boolean | null
+          medium_url: string | null
+          product_id: string | null
+          thumbnail_url: string | null
+        }
+        Insert: {
+          alt_text?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          image_url: string
+          is_primary?: boolean | null
+          medium_url?: string | null
+          product_id?: string | null
+          thumbnail_url?: string | null
+        }
+        Update: {
+          alt_text?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          image_url?: string
+          is_primary?: boolean | null
+          medium_url?: string | null
+          product_id?: string | null
+          thumbnail_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_images_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_sizes: {
         Row: {
           display_order: number | null
@@ -580,6 +784,7 @@ export type Database = {
           category: string
           contents: string | null
           created_at: string | null
+          deleted_at: string | null
           description: string
           display_order: number | null
           emoji: string | null
@@ -590,13 +795,17 @@ export type Database = {
           image_url: string | null
           is_active: boolean | null
           material: string | null
+          meta_description: string | null
+          meta_title: string | null
           multiples_bump: number | null
           name: string
+          og_image_url: string | null
           pack_count: string | null
           priority: string
           rating: number | null
           review_count: number | null
           safety_info: string | null
+          scheduled_for: string | null
           slug: string
           updated_at: string | null
           why_included: string | null
@@ -608,6 +817,7 @@ export type Database = {
           category: string
           contents?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           description: string
           display_order?: number | null
           emoji?: string | null
@@ -618,13 +828,17 @@ export type Database = {
           image_url?: string | null
           is_active?: boolean | null
           material?: string | null
+          meta_description?: string | null
+          meta_title?: string | null
           multiples_bump?: number | null
           name: string
+          og_image_url?: string | null
           pack_count?: string | null
           priority: string
           rating?: number | null
           review_count?: number | null
           safety_info?: string | null
+          scheduled_for?: string | null
           slug: string
           updated_at?: string | null
           why_included?: string | null
@@ -636,6 +850,7 @@ export type Database = {
           category?: string
           contents?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           description?: string
           display_order?: number | null
           emoji?: string | null
@@ -646,13 +861,17 @@ export type Database = {
           image_url?: string | null
           is_active?: boolean | null
           material?: string | null
+          meta_description?: string | null
+          meta_title?: string | null
           multiples_bump?: number | null
           name?: string
+          og_image_url?: string | null
           pack_count?: string | null
           priority?: string
           rating?: number | null
           review_count?: number | null
           safety_info?: string | null
+          scheduled_for?: string | null
           slug?: string
           updated_at?: string | null
           why_included?: string | null
@@ -746,6 +965,50 @@ export type Database = {
           },
         ]
       }
+      revisions: {
+        Row: {
+          change_summary: string | null
+          changed_by: string | null
+          changed_fields: string[] | null
+          created_at: string | null
+          data_snapshot: Json
+          entity_id: string
+          entity_type: string
+          id: string
+          revision_number: number
+        }
+        Insert: {
+          change_summary?: string | null
+          changed_by?: string | null
+          changed_fields?: string[] | null
+          created_at?: string | null
+          data_snapshot: Json
+          entity_id: string
+          entity_type: string
+          id?: string
+          revision_number: number
+        }
+        Update: {
+          change_summary?: string | null
+          changed_by?: string | null
+          changed_fields?: string[] | null
+          created_at?: string | null
+          data_snapshot?: Json
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          revision_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "revisions_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       site_settings: {
         Row: {
           description: string | null
@@ -773,6 +1036,7 @@ export type Database = {
           customer_city: string
           customer_initial: string | null
           customer_name: string
+          deleted_at: string | null
           display_order: number | null
           id: string
           is_active: boolean | null
@@ -785,6 +1049,7 @@ export type Database = {
           customer_city: string
           customer_initial?: string | null
           customer_name: string
+          deleted_at?: string | null
           display_order?: number | null
           id?: string
           is_active?: boolean | null
@@ -797,6 +1062,7 @@ export type Database = {
           customer_city?: string
           customer_initial?: string | null
           customer_name?: string
+          deleted_at?: string | null
           display_order?: number | null
           id?: string
           is_active?: boolean | null
@@ -819,6 +1085,10 @@ export type Database = {
           fee: number
           zone: string
         }[]
+      }
+      has_admin_permission: {
+        Args: { p_action: string; p_section: string }
+        Returns: boolean
       }
     }
     Enums: {

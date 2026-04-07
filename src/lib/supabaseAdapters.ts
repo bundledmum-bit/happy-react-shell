@@ -2,6 +2,7 @@
  * Adapters to transform Supabase query results into the existing
  * component-friendly types used throughout the storefront.
  */
+import { getProductImage } from "@/assets/products";
 
 // ─── Legacy types used by components ───────────────────────────
 
@@ -18,6 +19,7 @@ export interface Product {
   id: string;
   name: string;
   baseImg: string;
+  imageUrl?: string; // real product image URL
   rating: number;
   reviews: number;
   tags: string[];
@@ -83,6 +85,9 @@ const TIER_COLORS: Record<string, string> = {
 
 export function adaptProduct(row: any): Product {
   const tags = (row.product_tags || []) as any[];
+  const images = (row.product_images || []) as any[];
+  const primaryImage = images.find((i: any) => i.is_primary) || images[0];
+  const imageUrl = primaryImage?.image_url || row.image_url || getProductImage(row.slug) || null;
   const tierTags = tags.filter((t: any) => t.tag_type === "tier").map((t: any) => t.tag_value);
   const hospitalTags = tags.filter((t: any) => t.tag_type === "hospital_type").map((t: any) => t.tag_value);
   const deliveryTags = tags.filter((t: any) => t.tag_type === "delivery_method").map((t: any) => t.tag_value);
@@ -114,6 +119,7 @@ export function adaptProduct(row: any): Product {
     id: row.id,
     name: row.name,
     baseImg: row.emoji || "📦",
+    imageUrl: imageUrl || undefined,
     rating: Number(row.rating) || 4.5,
     reviews: row.review_count || 0,
     tags: tags.map((t: any) => `${t.tag_type}:${t.tag_value}`),

@@ -56,11 +56,15 @@ export default function ProductDetailModal({ product, defaultBudget = "standard"
           <X className="h-4 w-4" />
         </button>
 
-        <div className="h-48 md:h-56 flex items-center justify-center relative" style={{ backgroundColor: selectedBrand.color || "#F0F7F4" }}>
+        <div className="h-48 md:h-56 flex items-center justify-center relative overflow-hidden" style={{ backgroundColor: product.imageUrl ? '#f5f5f5' : (selectedBrand.color || "#F0F7F4") }}>
           {product.badge && (
-            <span className="absolute top-3 left-3 bg-coral text-primary-foreground text-[10px] font-bold px-2.5 py-1 rounded-pill uppercase">{product.badge}</span>
+            <span className="absolute top-3 left-3 bg-coral text-primary-foreground text-[10px] font-bold px-2.5 py-1 rounded-pill uppercase z-10">{product.badge}</span>
           )}
-          <span className="text-7xl md:text-8xl">{selectedBrand.img || product.baseImg}</span>
+          {product.imageUrl ? (
+            <img src={product.imageUrl} alt={product.name} className="w-full h-full object-contain p-4" />
+          ) : (
+            <span className="text-7xl md:text-8xl">{selectedBrand.img || product.baseImg}</span>
+          )}
         </div>
 
         <div className="p-5 md:p-7">
