@@ -29,7 +29,8 @@ export default function AdminContent() {
 
   const toggleTestimonial = useMutation({
     mutationFn: async ({ id, field, value }: { id: string; field: string; value: boolean }) => {
-      const { error } = await supabase.from("testimonials").update({ [field]: value }).eq("id", id);
+      const update = field === "is_featured" ? { is_featured: value } : { is_active: value };
+      const { error } = await supabase.from("testimonials").update(update).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["admin-testimonials"] }); toast.success("Updated"); },
