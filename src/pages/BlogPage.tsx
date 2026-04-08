@@ -6,21 +6,14 @@ export default function BlogPage() {
 
   useEffect(() => { document.title = "Blog | BundledMum"; }, []);
 
-  const articles = posts && posts.length > 0
-    ? posts.map(p => ({
-        slug: p.slug,
-        title: p.title,
-        desc: p.excerpt || "",
-        date: p.published_at ? new Date(p.published_at).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "",
-        emoji: "📝",
-        readTime: `${Math.max(1, Math.ceil((p.body?.length || 0) / 1000))} min`,
-      }))
-    : [
-        { slug: "hospital-bag-checklist", title: "Hospital Bag Checklist for Nigerian Mums", desc: "The ultimate guide to packing your hospital bag — what you really need (and what you can skip).", date: "Mar 2026", emoji: "🏥", readTime: "5 min" },
-        { slug: "public-vs-private", title: "Public vs Private Hospital: What to Pack Differently", desc: "Packing for a public hospital is different from private. Here's exactly what changes.", date: "Mar 2026", emoji: "🏨", readTime: "4 min" },
-        { slug: "csection-recovery", title: "C-Section Recovery: What You Actually Need", desc: "Belly bands, compression socks, and the postpartum items that make a real difference after surgery.", date: "Feb 2026", emoji: "🩺", readTime: "6 min" },
-        { slug: "first-time-mum", title: "First-Time Mum Essentials: A Nigerian Guide", desc: "Everything a first-time mum in Nigeria should know about preparing for baby's arrival.", date: "Feb 2026", emoji: "👶", readTime: "7 min" },
-      ];
+  const articles = (posts || []).map(p => ({
+    slug: p.slug,
+    title: p.title,
+    desc: p.excerpt || "",
+    date: p.published_at ? new Date(p.published_at).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "",
+    emoji: "📝",
+    readTime: `${Math.max(1, Math.ceil((p.body?.length || 0) / 1000))} min`,
+  }));
 
   return (
     <div className="min-h-screen bg-background">
@@ -34,6 +27,12 @@ export default function BlogPage() {
         {isLoading ? (
           <div className="grid gap-5 md:grid-cols-2">
             {[1, 2].map(i => <div key={i} className="bg-card rounded-card shadow-card h-[300px] animate-pulse" />)}
+          </div>
+        ) : articles.length === 0 ? (
+          <div className="text-center py-16">
+            <div className="text-4xl mb-4">📝</div>
+            <h2 className="pf text-xl mb-2">No blog posts yet</h2>
+            <p className="text-text-med text-sm">Check back soon for helpful guides and tips!</p>
           </div>
         ) : (
           <div className="grid gap-5 md:grid-cols-2">
@@ -50,19 +49,12 @@ export default function BlogPage() {
                   </div>
                   <h2 className="pf text-lg font-bold mb-2 leading-tight">{a.title}</h2>
                   <p className="text-text-med text-sm leading-relaxed mb-3">{a.desc}</p>
-                  <span className="text-forest text-sm font-semibold">Coming soon →</span>
+                  <span className="text-forest text-sm font-semibold">Read more →</span>
                 </div>
               </div>
             ))}
           </div>
         )}
-        <div className="text-center mt-10">
-          <p className="text-text-med text-sm mb-3">Want to share your story with BundledMum?</p>
-          <a href="https://wa.me/2348012345678?text=Hi! I want to share my BundledMum experience" target="_blank" rel="noopener noreferrer"
-            className="rounded-pill bg-forest px-6 py-3 font-body font-semibold text-primary-foreground text-sm interactive inline-block">
-            Share Your Story 💬
-          </a>
-        </div>
       </div>
     </div>
   );
