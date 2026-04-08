@@ -267,7 +267,7 @@ export default function CheckoutPage() {
               {cart.map(item => (
                 <div key={item._key} className="flex items-center justify-between gap-2 text-xs">
                   <div className="flex items-center gap-2">
-                    <span className="text-lg">{item.img || item.baseImg}</span>
+                    <span className="text-lg">{item.img || item.baseImg || "📦"}</span>
                     <span className="truncate max-w-[180px]">{item.name} ×{item.qty}</span>
                   </div>
                   <span className="font-bold">{fmt(item.price * item.qty)}</span>
@@ -385,7 +385,7 @@ export default function CheckoutPage() {
               <div className="max-h-[260px] overflow-y-auto mb-4 space-y-3">
                 {cart.map(item => (
                   <div key={item._key} className="flex items-center gap-3 pb-3 border-b border-border/50">
-                    <div className="w-11 h-11 bg-warm-cream rounded-lg flex items-center justify-center text-xl flex-shrink-0">{item.img || item.baseImg}</div>
+                    <div className="w-11 h-11 bg-warm-cream rounded-lg flex items-center justify-center text-xl flex-shrink-0">{item.img || item.baseImg || "📦"}</div>
                     <div className="flex-1 min-w-0">
                       <div className="text-xs font-semibold leading-tight truncate">{item.name}</div>
                       {item.selectedBrand && <div className="text-forest text-[10px] mt-0.5">{item.selectedBrand.label} · Qty {item.qty}</div>}

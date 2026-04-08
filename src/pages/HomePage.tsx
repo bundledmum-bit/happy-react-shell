@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import BudgetCalculator from "@/components/BudgetCalculator";
 import { useAllProducts, useTestimonials, useSiteSettings, useBundles } from "@/hooks/useSupabaseData";
 import type { Product } from "@/lib/supabaseAdapters";
+import ProductImage from "@/components/ProductImage";
 
 function HeroSection() {
   const { data: bundles } = useBundles();
@@ -199,11 +200,11 @@ function FeaturedProducts() {
             const isInCart = cart.some(c => c.id === p.id);
             return (
               <div key={p.id} className="bg-card rounded-card shadow-card card-hover overflow-hidden relative">
-                <div className="h-[170px] flex items-center justify-center text-6xl relative" style={{ background: `linear-gradient(135deg, ${brand.color}, #fff)` }}>
+                <div className="h-[170px] flex items-center justify-center relative overflow-hidden" style={{ background: p.imageUrl ? '#f5f5f5' : `linear-gradient(135deg, ${brand.color}, #fff)` }}>
                   {p.badge && (
-                    <div className="absolute top-2.5 left-2.5 text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill uppercase bg-coral">{p.badge}</div>
+                    <div className="absolute top-2.5 left-2.5 text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill uppercase bg-coral z-10">{p.badge}</div>
                   )}
-                  {brand.img}
+                  <ProductImage imageUrl={p.imageUrl} emoji={brand.img} alt={p.name} className="w-full h-full" emojiClassName="text-6xl" />
                 </div>
                 <div className="p-4">
                   <h3 className="text-[13px] font-semibold mb-2 leading-tight min-h-[36px]">{p.name}</h3>

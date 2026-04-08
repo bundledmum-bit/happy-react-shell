@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { useBundles } from "@/hooks/useSupabaseData";
 import type { Product } from "@/lib/supabaseAdapters";
+import ProductImage from "@/components/ProductImage";
 
 interface Props {
   product: Product;
@@ -60,11 +61,7 @@ export default function ProductDetailModal({ product, defaultBudget = "standard"
           {product.badge && (
             <span className="absolute top-3 left-3 bg-coral text-primary-foreground text-[10px] font-bold px-2.5 py-1 rounded-pill uppercase z-10">{product.badge}</span>
           )}
-          {product.imageUrl ? (
-            <img src={product.imageUrl} alt={product.name} className="w-full h-full object-contain p-4" />
-          ) : (
-            <span className="text-7xl md:text-8xl">{selectedBrand.img || product.baseImg}</span>
-          )}
+          <ProductImage imageUrl={product.imageUrl} emoji={selectedBrand.img || product.baseImg} alt={product.name} className="w-full h-full object-contain p-4" emojiClassName="text-7xl md:text-8xl" />
         </div>
 
         <div className="p-5 md:p-7">

@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useCart, fmt } from "@/lib/cart";
-import { ALL_PRODUCTS } from "@/data/products";
+import { useAllProducts } from "@/hooks/useSupabaseData";
+import ProductImage from "@/components/ProductImage";
 import { Minus, Plus, X, ShoppingBag, ArrowLeft, Bookmark } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -35,6 +36,8 @@ export default function CartPage() {
   const removeItem = (key: string) => setCart(prev => prev.filter(i => i._key !== key));
 
   // Cross-sell suggestions based on cart contents
+  const { data: allProductsData } = useAllProducts();
+  const ALL_PRODUCTS = allProductsData || [];
   const cartIds = new Set(cart.map(i => i.id));
   const hasBaby = cart.some(i => ALL_PRODUCTS.find(p => p.id === i.id)?.category === "baby");
   const hasMum = cart.some(i => ALL_PRODUCTS.find(p => p.id === i.id)?.category === "mum");
@@ -76,9 +79,7 @@ export default function CartPage() {
             {cart.map(item => (
               <div key={item._key} className="bg-card rounded-card shadow-card p-3 sm:p-4">
                 <div className="flex items-start gap-3">
-                  <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-warm-cream flex items-center justify-center text-xl sm:text-2xl flex-shrink-0">
-                    {item.img || item.baseImg}
-                  </div>
+                  <ProductImage imageUrl={typeof item.img === 'string' && item.img.startsWith('http') ? item.img : undefined} emoji={item.img || item.baseImg} alt={item.name} className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-warm-cream" emojiClassName="text-xl sm:text-2xl" />
                   <div className="flex-1 min-w-0">
                     <h3 className="font-body font-semibold text-[13px] sm:text-sm leading-tight line-clamp-2">{item.name}</h3>
                     <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
@@ -119,7 +120,7 @@ export default function CartPage() {
                 <div className="space-y-2">
                   {savedItems.map(item => (
                     <div key={item._key} className="bg-warm-cream rounded-card p-3 flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-card flex items-center justify-center text-xl flex-shrink-0">{item.img || item.baseImg}</div>
+                      <ProductImage imageUrl={typeof item.img === 'string' && item.img.startsWith('http') ? item.img : undefined} emoji={item.img || item.baseImg} alt={item.name} className="w-10 h-10 rounded-lg bg-card" emojiClassName="text-xl" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold truncate">{item.name}</p>
                         <p className="text-coral text-xs font-bold">{fmt(item.price)}</p>
@@ -141,7 +142,7 @@ export default function CartPage() {
                     const brand = p.brands[Math.min(1, p.brands.length - 1)];
                     return (
                       <div key={p.id} className="bg-card rounded-card shadow-card p-3 text-center">
-                        <div className="h-16 flex items-center justify-center text-3xl mb-2" style={{ backgroundColor: brand.color }}>{p.baseImg}</div>
+                        <ProductImage imageUrl={p.imageUrl} emoji={p.baseImg} alt={p.name} className="h-16 w-full rounded-lg" emojiClassName="text-3xl" bgColor={brand.color} />
                         <p className="text-[11px] font-semibold truncate mb-1">{p.name}</p>
                         <p className="text-forest text-xs font-bold mb-2">{fmt(brand.price)}</p>
                         <Link to="/shop" className="text-forest text-[10px] font-semibold hover:underline">View →</Link>
