@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Check, Share2, ClipboardCopy } from "lucide-react";
 import ShareModal from "@/components/ShareModal";
 import ExitIntentPopup from "@/components/ExitIntentPopup";
+import ProductImage from "@/components/ProductImage";
 
 type Answers = Record<string, string>;
 
@@ -377,10 +378,10 @@ function ResultProductCard({ item, onAdd, onRemove, isInCart }: { item: Recommen
 
   return (
     <div className="bg-card rounded-card shadow-card overflow-hidden hover:shadow-card-hover transition-all group">
-      <div className="relative h-36 md:h-44 flex items-center justify-center" style={{ backgroundColor: selectedBrand.color || "#F0F7F4" }}>
-        {product.badge && <span className="absolute top-2.5 left-2.5 bg-coral text-primary-foreground text-[10px] font-bold px-2.5 py-1 rounded-pill uppercase tracking-wide">{product.badge}</span>}
-        {quantity > 1 && <span className="absolute top-2.5 right-2.5 bg-forest text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-pill">×{quantity}</span>}
-        <span className="text-5xl md:text-6xl group-hover:scale-110 transition-transform duration-300">{selectedBrand.img || product.baseImg}</span>
+      <div className="relative h-36 md:h-44 flex items-center justify-center overflow-hidden" style={{ backgroundColor: product.imageUrl ? '#f5f5f5' : (selectedBrand.color || "#F0F7F4") }}>
+        {product.badge && <span className="absolute top-2.5 left-2.5 bg-coral text-primary-foreground text-[10px] font-bold px-2.5 py-1 rounded-pill uppercase tracking-wide z-10">{product.badge}</span>}
+        {quantity > 1 && <span className="absolute top-2.5 right-2.5 bg-forest text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-pill z-10">×{quantity}</span>}
+        <ProductImage imageUrl={product.imageUrl} emoji={selectedBrand.img || product.baseImg} alt={product.name} className="w-full h-full group-hover:scale-110 transition-transform duration-300" emojiClassName="text-5xl md:text-6xl" />
       </div>
       <div className="p-3.5 md:p-4">
         <h3 className="pf text-sm md:text-[15px] font-bold leading-tight mb-1">{product.name}</h3>

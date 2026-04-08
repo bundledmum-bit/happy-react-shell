@@ -100,7 +100,7 @@ export default function OrderConfirmedPage() {
               {items.map((item: any, i: number) => (
                 <div key={i} className="flex items-center justify-between gap-3 pb-2.5 border-b border-border/50 last:border-0">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 bg-warm-cream rounded-lg flex items-center justify-center text-lg flex-shrink-0">{item.img || item.baseImg}</div>
+                    <div className="w-9 h-9 bg-warm-cream rounded-lg flex items-center justify-center text-lg flex-shrink-0">{item.img || item.baseImg || "📦"}</div>
                     <div>
                       <div className="text-sm font-semibold">{item.name}</div>
                       <div className="text-text-light text-xs flex flex-wrap gap-2">

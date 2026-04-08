@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import ProductDetailModal from "@/components/ProductDetailModal";
 import { useAllProducts } from "@/hooks/useSupabaseData";
 import type { Product } from "@/lib/supabaseAdapters";
+import ProductImage from "@/components/ProductImage";
 
 const COLOR_SWATCHES: Record<string, { hex: string; label: string }[]> = {
   "blue/white": [{ hex: "#4A90D9", label: "Blue/White" }],
@@ -83,11 +84,13 @@ function ProductCard({ product, defaultBudget = "standard", onAdd, onViewDetail 
         {stockLabel === "low" && (
           <div className="absolute top-2.5 right-2.5 bg-[#E65100] text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill z-10">Only {product.stock} left!</div>
         )}
-        {product.imageUrl ? (
-          <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" loading="lazy" />
-        ) : (
-          <span className="text-6xl">{selectedBrand.img}</span>
-        )}
+        <ProductImage
+          imageUrl={product.imageUrl}
+          emoji={selectedBrand.img || product.baseImg}
+          alt={product.name}
+          className="w-full h-full"
+          emojiClassName="text-6xl"
+        />
       </div>
       <div className="p-4">
         <h3 className="text-[13px] font-semibold mb-1 leading-tight min-h-[36px] cursor-pointer hover:text-forest transition-colors" onClick={() => { trackView(); onViewDetail(); }}>{product.name}</h3>
@@ -306,9 +309,7 @@ export default function ShopPage() {
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               {recentlyViewed.map(p => (
                 <div key={p.id} className="bg-card rounded-card shadow-card p-3 cursor-pointer hover:shadow-card-hover transition-all" onClick={() => setDetailProduct(p)}>
-                  <div className="h-20 flex items-center justify-center text-3xl mb-2" style={{ backgroundColor: getBrandForBudget(p, "standard").color }}>
-                    {p.baseImg}
-                  </div>
+                  <ProductImage imageUrl={p.imageUrl} emoji={p.baseImg} alt={p.name} className="h-20 w-full rounded-lg" emojiClassName="text-3xl" bgColor={getBrandForBudget(p, "standard").color} />
                   <p className="text-xs font-semibold truncate">{p.name}</p>
                   <p className="text-forest text-xs font-bold">{fmt(getBrandForBudget(p, "standard").price)}</p>
                 </div>
