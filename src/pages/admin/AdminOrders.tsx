@@ -2,19 +2,17 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Search, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
+import { Search, ChevronDown, ChevronUp, ExternalLink, Printer, Download } from "lucide-react";
+import BulkActionsBar from "@/components/admin/BulkActionsBar";
+import PrintInvoice from "@/components/admin/PrintInvoice";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const STATUSES = ["confirmed", "processing", "packed", "shipped", "delivered", "cancelled"];
 const STATUS_COLORS: Record<string, string> = {
-  confirmed: "bg-blue-100 text-blue-700",
-  processing: "bg-yellow-100 text-yellow-700",
-  packed: "bg-purple-100 text-purple-700",
-  shipped: "bg-cyan-100 text-cyan-700",
-  delivered: "bg-green-100 text-green-700",
-  cancelled: "bg-red-100 text-red-700",
-  pending: "bg-gray-100 text-gray-700",
-  paid: "bg-green-100 text-green-700",
-  failed: "bg-red-100 text-red-700",
+  confirmed: "bg-blue-100 text-blue-700", processing: "bg-yellow-100 text-yellow-700",
+  packed: "bg-purple-100 text-purple-700", shipped: "bg-cyan-100 text-cyan-700",
+  delivered: "bg-green-100 text-green-700", cancelled: "bg-red-100 text-red-700",
+  pending: "bg-gray-100 text-gray-700", paid: "bg-green-100 text-green-700", failed: "bg-red-100 text-red-700",
 };
 
 export default function AdminOrders() {
@@ -22,26 +20,23 @@ export default function AdminOrders() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [printOrder, setPrintOrder] = useState<any>(null);
 
   const { data: orders, isLoading } = useQuery({
     queryKey: ["admin-orders"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("orders")
-        .select("*, order_items(*)")
-        .order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("orders").select("*, order_items(*)").order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
   });
 
-  // Realtime subscription
   useEffect(() => {
     const channel = supabase.channel("admin-orders-rt")
       .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
         queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
-      })
-      .subscribe();
+      }).subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [queryClient]);
 
@@ -50,26 +45,56 @@ export default function AdminOrders() {
       const { error } = await supabase.from("orders").update({ order_status }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
-      toast.success("Order status updated");
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["admin-orders"] }); toast.success("Status updated"); },
+  });
+
+  const bulkStatusUpdate = useMutation({
+    mutationFn: async ({ ids, status }: { ids: string[]; status: string }) => {
+      const { error } = await supabase.from("orders").update({ order_status: status }).in("id", ids);
+      if (error) throw error;
     },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["admin-orders"] }); setSelected(new Set()); toast.success("Bulk update done"); },
   });
 
   const filtered = (orders || []).filter((o: any) => {
     if (statusFilter !== "all" && o.order_status !== statusFilter) return false;
     if (search) {
       const s = search.toLowerCase();
-      return (o.order_number || "").toLowerCase().includes(s) ||
-        (o.customer_name || "").toLowerCase().includes(s) ||
-        (o.customer_email || "").toLowerCase().includes(s);
+      return (o.order_number || "").toLowerCase().includes(s) || (o.customer_name || "").toLowerCase().includes(s) || (o.customer_email || "").toLowerCase().includes(s);
     }
     return true;
   });
 
+  const exportCSV = () => {
+    const rows = filtered.map((o: any) => [o.order_number, o.customer_name, o.customer_email, o.customer_phone, o.order_status, o.payment_status, o.total, o.delivery_city, o.delivery_state, o.created_at].join(","));
+    const csv = "Order,Name,Email,Phone,Status,Payment,Total,City,State,Date\n" + rows.join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = "orders-export.csv"; a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Exported!");
+  };
+
+  const toggleSelect = (id: string) => { const n = new Set(selected); n.has(id) ? n.delete(id) : n.add(id); setSelected(n); };
+  const allSelected = filtered.length > 0 && filtered.every((o: any) => selected.has(o.id));
+
+  const handleBulkAction = (action: string) => {
+    const ids = Array.from(selected);
+    if (!ids.length) return;
+    if (STATUSES.includes(action)) bulkStatusUpdate.mutate({ ids, status: action });
+    if (action === "export") exportCSV();
+  };
+
+  const bulkActions = [...STATUSES.map(s => ({ label: `Set ${s}`, value: s })), { label: "Export CSV", value: "export" }];
+
   return (
     <div>
-      <h1 className="pf text-2xl font-bold mb-6">Orders ({filtered.length})</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="pf text-2xl font-bold">Orders ({filtered.length})</h1>
+        <button onClick={exportCSV} className="flex items-center gap-1.5 border border-border px-4 py-2 rounded-lg text-sm font-semibold hover:bg-muted">
+          <Download className="w-4 h-4" /> Export CSV
+        </button>
+      </div>
 
       <div className="flex gap-3 mb-4 flex-wrap">
         <div className="relative flex-1 max-w-xs">
@@ -85,6 +110,10 @@ export default function AdminOrders() {
         ))}
       </div>
 
+      <BulkActionsBar selectedCount={selected.size} actions={bulkActions} onApply={handleBulkAction}
+        onSelectAll={() => setSelected(new Set(filtered.map((o: any) => o.id)))}
+        onDeselectAll={() => setSelected(new Set())} totalCount={filtered.length} allSelected={allSelected} />
+
       {isLoading ? (
         <div className="text-center py-10 text-text-med">Loading orders...</div>
       ) : filtered.length === 0 ? (
@@ -93,19 +122,16 @@ export default function AdminOrders() {
         <div className="space-y-3">
           {filtered.map((o: any) => (
             <div key={o.id} className="bg-card border border-border rounded-xl overflow-hidden">
-              <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/30"
+              <div className="flex items-center gap-3 p-4 cursor-pointer hover:bg-muted/30"
                 onClick={() => setExpandedOrder(expandedOrder === o.id ? null : o.id)}>
-                <div className="flex items-center gap-4">
+                <Checkbox checked={selected.has(o.id)} onCheckedChange={() => toggleSelect(o.id)} onClick={(e: any) => e.stopPropagation()} />
+                <div className="flex items-center gap-4 flex-1">
                   <div>
                     <div className="font-semibold text-sm">{o.order_number || "—"}</div>
                     <div className="text-text-light text-xs">{o.customer_name}</div>
                   </div>
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${STATUS_COLORS[o.order_status] || ""}`}>
-                    {o.order_status}
-                  </span>
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${STATUS_COLORS[o.payment_status] || ""}`}>
-                    {o.payment_status}
-                  </span>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${STATUS_COLORS[o.order_status] || ""}`}>{o.order_status}</span>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${STATUS_COLORS[o.payment_status] || ""}`}>{o.payment_status}</span>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="text-right">
@@ -128,7 +154,6 @@ export default function AdminOrders() {
                       <h4 className="text-xs font-semibold text-text-med mb-1">Delivery</h4>
                       <div className="text-sm">{o.delivery_address}</div>
                       <div className="text-xs text-text-light">{o.delivery_city}, {o.delivery_state}</div>
-                      {o.delivery_notes && <div className="text-xs text-text-light italic mt-1">{o.delivery_notes}</div>}
                     </div>
                     <div>
                       <h4 className="text-xs font-semibold text-text-med mb-1">Financials</h4>
@@ -141,8 +166,6 @@ export default function AdminOrders() {
                       </div>
                     </div>
                   </div>
-
-                  {/* Items */}
                   {o.order_items?.length > 0 && (
                     <div className="mb-4">
                       <h4 className="text-xs font-semibold text-text-med mb-2">Items</h4>
@@ -156,19 +179,20 @@ export default function AdminOrders() {
                       </div>
                     </div>
                   )}
-
-                  {/* Status update */}
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-wrap">
                     <label className="text-xs font-semibold text-text-med">Update Status:</label>
                     <select value={o.order_status}
                       onChange={e => updateStatus.mutate({ id: o.id, order_status: e.target.value })}
                       className="border border-input rounded-lg px-3 py-1.5 text-xs bg-background capitalize">
                       {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
+                    <button onClick={() => setPrintOrder(o)} className="flex items-center gap-1 text-xs font-semibold text-forest hover:underline">
+                      <Printer className="w-3 h-3" /> Print Invoice
+                    </button>
                     {o.customer_phone && (
-                      <a href={`https://wa.me/${o.customer_phone.replace(/\D/g, "")}?text=${encodeURIComponent(`Hi ${o.customer_name?.split(" ")[0]}! Your BundledMum order ${o.order_number} is now "${o.order_status}". We'll keep you updated!`)}`}
+                      <a href={`https://wa.me/${o.customer_phone.replace(/\D/g, "")}?text=${encodeURIComponent(`Hi ${o.customer_name?.split(" ")[0]}! Your BundledMum order ${o.order_number} is now "${o.order_status}".`)}`}
                         target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-xs text-[#25D366] font-semibold">
+                        className="flex items-center gap-1 text-xs font-semibold text-[#25D366]">
                         <ExternalLink className="w-3 h-3" /> WhatsApp
                       </a>
                     )}
@@ -179,6 +203,8 @@ export default function AdminOrders() {
           ))}
         </div>
       )}
+
+      {printOrder && <PrintInvoice order={printOrder} onClose={() => setPrintOrder(null)} />}
     </div>
   );
 }
