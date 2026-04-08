@@ -1,10 +1,8 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useAdminUser, canViewSection } from "@/hooks/useAdminPermissions";
-import { subscribeToAllChanges } from "@/lib/realtime";
 import {
   Package, ShoppingBag, ClipboardList, Truck, MessageSquare, Settings,
   BarChart3, Gift, LogOut, LayoutDashboard, FileText, Users, Image, Bell,
