@@ -18,7 +18,7 @@ const COLOR_SWATCHES: Record<string, { hex: string; label: string }[]> = {
   "white/cream": [{ hex: "#F5F5DC", label: "White/Cream" }],
 };
 
-function ProductCard({ product, defaultBudget = "standard", onAdd, onViewDetail }: { product: Product; defaultBudget?: string; onAdd: (item: any) => void; onViewDetail: () => void }) {
+function ProductCard({ product, defaultBudget = "standard", onAdd, onViewDetail, deliveryText }: { product: Product; defaultBudget?: string; onAdd: (item: any) => void; onViewDetail: () => void; deliveryText?: string }) {
   const defaultBrand = getBrandForBudget(product, defaultBudget);
   const [selectedBrand, setSelectedBrand] = useState(defaultBrand);
   const [selectedSize, setSelectedSize] = useState(product.sizes?.[Math.floor((product.sizes?.length || 0) / 2)] || "");
@@ -152,7 +152,7 @@ function ProductCard({ product, defaultBudget = "standard", onAdd, onViewDetail 
           <span className="text-coral text-xs">⭐ {product.rating}</span>
           <span className="text-text-light text-[11px]">({product.reviews})</span>
         </div>
-        {product.deliveryText && <p className="text-text-light text-[9px] mb-2">{product.deliveryText}</p>}
+        {deliveryText && <p className="text-text-light text-[9px] mb-2">{deliveryText}</p>}
 
         <div className="flex justify-between items-center">
           <div>
