@@ -136,6 +136,36 @@ export default function CheckoutPage() {
 
       await supabase.from("order_items").insert(orderItems);
 
+      // Upsert customer record
+      try {
+        const customerName = `${form.firstName} ${form.lastName}`;
+        const { data: existing } = await supabase.from("customers").select("id, total_orders, total_spent").eq("email", form.email).maybeSingle();
+        if (existing) {
+          await supabase.from("customers").update({
+            full_name: customerName,
+            phone: form.phone,
+            delivery_address: form.address,
+            delivery_area: form.city,
+            delivery_state: form.state,
+            total_orders: (existing.total_orders || 0) + 1,
+            total_spent: (existing.total_spent || 0) + orderData.total,
+            last_order_at: new Date().toISOString(),
+          }).eq("id", existing.id);
+        } else {
+          await supabase.from("customers").insert({
+            email: form.email,
+            full_name: customerName,
+            phone: form.phone,
+            delivery_address: form.address,
+            delivery_area: form.city,
+            delivery_state: form.state,
+            total_orders: 1,
+            total_spent: orderData.total,
+            last_order_at: new Date().toISOString(),
+          });
+        }
+      } catch (e) { console.error("Customer upsert failed:", e); }
+
       return order.order_number || orderData.orderId;
     } catch (e) {
       console.error("DB save failed:", e);
