@@ -1,10 +1,8 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useAdminUser, canViewSection } from "@/hooks/useAdminPermissions";
-import { subscribeToAllChanges } from "@/lib/realtime";
 import {
   Package, ShoppingBag, ClipboardList, Truck, MessageSquare, Settings,
   BarChart3, Gift, LogOut, LayoutDashboard, FileText, Users, Image, Bell,
@@ -31,20 +29,14 @@ export default function AdminLayout() {
   const { data: adminUser } = useAdminUser();
   const navigate = useNavigate();
   const location = useLocation();
-  const queryClient = useQueryClient();
+  
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
 
-  // Realtime sync
-  useEffect(() => {
-    const unsub = subscribeToAllChanges((_table, keys) => {
-      keys.forEach(key => queryClient.invalidateQueries({ queryKey: [key] }));
-    });
-    return unsub;
-  }, [queryClient]);
+  // Realtime sync is handled globally by RealtimeProvider in App.tsx
 
   // Notifications
   useEffect(() => {
