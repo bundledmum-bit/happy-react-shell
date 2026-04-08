@@ -29,7 +29,7 @@ export default function AdminLayout() {
   const { data: adminUser } = useAdminUser();
   const navigate = useNavigate();
   const location = useLocation();
-  const queryClient = useQueryClient();
+  
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
