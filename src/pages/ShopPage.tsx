@@ -298,6 +298,7 @@ export default function ShopPage() {
                 key={p.id}
                 product={p}
                 defaultBudget={budgetF === "all" ? "standard" : budgetF}
+                deliveryText={deliveryText}
                 onAdd={item => { addToCart(item); toast.success(`✓ ${item.name} added to cart`, { action: { label: "View Cart →", onClick: () => window.location.href = "/cart" } }); }}
                 onViewDetail={() => setDetailProduct(p)}
               />
