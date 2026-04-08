@@ -3,7 +3,7 @@ import { useSearchParams, Link } from "react-router-dom";
 import { useCart, fmt, getBrandForBudget } from "@/lib/cart";
 import { toast } from "sonner";
 import ProductDetailModal from "@/components/ProductDetailModal";
-import { useAllProducts } from "@/hooks/useSupabaseData";
+import { useAllProducts, useSiteSettings } from "@/hooks/useSupabaseData";
 import type { Product } from "@/lib/supabaseAdapters";
 import ProductImage from "@/components/ProductImage";
 
@@ -18,7 +18,7 @@ const COLOR_SWATCHES: Record<string, { hex: string; label: string }[]> = {
   "white/cream": [{ hex: "#F5F5DC", label: "White/Cream" }],
 };
 
-function ProductCard({ product, defaultBudget = "standard", onAdd, onViewDetail }: { product: Product; defaultBudget?: string; onAdd: (item: any) => void; onViewDetail: () => void }) {
+function ProductCard({ product, defaultBudget = "standard", onAdd, onViewDetail, deliveryText }: { product: Product; defaultBudget?: string; onAdd: (item: any) => void; onViewDetail: () => void; deliveryText?: string }) {
   const defaultBrand = getBrandForBudget(product, defaultBudget);
   const [selectedBrand, setSelectedBrand] = useState(defaultBrand);
   const [selectedSize, setSelectedSize] = useState(product.sizes?.[Math.floor((product.sizes?.length || 0) / 2)] || "");
@@ -152,7 +152,7 @@ function ProductCard({ product, defaultBudget = "standard", onAdd, onViewDetail 
           <span className="text-coral text-xs">⭐ {product.rating}</span>
           <span className="text-text-light text-[11px]">({product.reviews})</span>
         </div>
-        <p className="text-text-light text-[9px] mb-2">🚚 Lagos: 1-2 days · Others: 3-5 days</p>
+        {deliveryText && <p className="text-text-light text-[9px] mb-2">{deliveryText}</p>}
 
         <div className="flex justify-between items-center">
           <div>
@@ -190,6 +190,8 @@ export default function ShopPage() {
   const { addToCart } = useCart();
 
   const { data: allProducts, isLoading } = useAllProducts();
+  const { data: siteSettings } = useSiteSettings();
+  const deliveryText = siteSettings?.delivery_text || "";
 
   useEffect(() => {
     const titles: Record<string, string> = { all: "All Products", baby: "Baby Shop", mum: "Mum Shop" };
@@ -296,6 +298,7 @@ export default function ShopPage() {
                 key={p.id}
                 product={p}
                 defaultBudget={budgetF === "all" ? "standard" : budgetF}
+                deliveryText={deliveryText}
                 onAdd={item => { addToCart(item); toast.success(`✓ ${item.name} added to cart`, { action: { label: "View Cart →", onClick: () => window.location.href = "/cart" } }); }}
                 onViewDetail={() => setDetailProduct(p)}
               />
