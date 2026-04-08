@@ -8,8 +8,9 @@ import {
   BarChart3, Gift, LogOut, LayoutDashboard, FileText, Users, Image, Bell,
   Search, X, Menu, ChevronLeft,
 } from "lucide-react";
-
 import { Tag, Boxes, MapPin, FileText as PageIcon } from "lucide-react";
+import logoWhite from "@/assets/logos/BM-LOGO-WHITE.svg";
+import iconCoral from "@/assets/logos/BM-ICON-CORAL.svg";
 
 const NAV = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, section: "dashboard", exact: true },
@@ -43,9 +44,6 @@ export default function AdminLayout() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
 
-  // Realtime sync is handled globally by RealtimeProvider in App.tsx
-
-  // Notifications
   useEffect(() => {
     if (!adminUser) return;
     const fetchNotifications = async () => {
@@ -66,7 +64,6 @@ export default function AdminLayout() {
     return () => { supabase.removeChannel(channel); };
   }, [adminUser]);
 
-  // Keyboard shortcut
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -96,7 +93,14 @@ export default function AdminLayout() {
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-900"><div className="text-2xl text-white">🌿 Loading...</div></div>;
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center" style={{ background: "linear-gradient(135deg, #2D6A4F 0%, #1A4A33 100%)" }}>
+      <div className="text-center">
+        <img src={iconCoral} alt="BundledMum" className="w-12 h-12 mx-auto mb-3 animate-pulse" />
+        <div className="text-primary-foreground/70 text-sm font-body">Loading admin...</div>
+      </div>
+    </div>
+  );
   if (!isAdmin) return null;
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
@@ -107,18 +111,25 @@ export default function AdminLayout() {
       {/* Mobile overlay */}
       {mobileOpen && <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setMobileOpen(false)} />}
 
-      {/* Sidebar */}
-      <aside className={`fixed h-full z-50 flex flex-col bg-slate-900 text-white transition-transform lg:translate-x-0 w-56 flex-shrink-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
-        <div className="p-4 border-b border-slate-700 flex items-center justify-between">
-          <Link to="/admin" className="flex items-center gap-2">
-            <span className="text-xl">🌿</span>
-            <span className="font-bold text-sm text-coral">BundledMum</span>
+      {/* Sidebar — branded forest green */}
+      <aside className={`fixed h-full z-50 flex flex-col transition-transform lg:translate-x-0 w-60 flex-shrink-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
+        style={{ background: "linear-gradient(180deg, #2D6A4F 0%, #1A4A33 100%)" }}>
+        
+        {/* Logo header */}
+        <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
+          <Link to="/admin" className="flex items-center gap-2.5">
+            <img src={logoWhite} alt="BundledMum" className="h-7 w-auto" />
           </Link>
-          <button className="lg:hidden text-slate-400" onClick={() => setMobileOpen(false)}>
+          <button className="lg:hidden text-white/60 hover:text-white" onClick={() => setMobileOpen(false)}>
             <ChevronLeft className="w-5 h-5" />
           </button>
         </div>
-        <nav className="flex-1 py-2 overflow-y-auto">
+
+        {/* Nav */}
+        <nav className="flex-1 py-3 overflow-y-auto">
+          <div className="px-4 mb-2">
+            <span className="text-[10px] font-bold text-white/30 uppercase tracking-[2px]">Menu</span>
+          </div>
           {visibleNav.map(item => {
             const isActive = item.exact
               ? location.pathname === item.to
@@ -127,50 +138,63 @@ export default function AdminLayout() {
             const active = item.exact ? activeExact : isActive;
             return (
               <Link key={item.to} to={item.to}
-                className={`flex items-center gap-2.5 px-4 py-2 text-sm transition-colors mx-2 rounded-lg ${active ? "bg-coral/20 text-coral font-semibold" : "text-slate-300 hover:bg-slate-800 hover:text-white"}`}>
-                <item.icon className="w-4 h-4" />
+                className={`flex items-center gap-2.5 px-5 py-2 text-[13px] transition-all mx-2 rounded-lg font-body ${
+                  active
+                    ? "bg-white/15 text-white font-semibold shadow-sm"
+                    : "text-white/60 hover:bg-white/8 hover:text-white/90"
+                }`}>
+                <item.icon className={`w-4 h-4 ${active ? "text-coral" : ""}`} />
                 {item.label}
+                {active && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-coral" />}
               </Link>
             );
           })}
         </nav>
-        <div className="p-3 border-t border-slate-700">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-7 h-7 rounded-full bg-coral/20 flex items-center justify-center text-xs font-bold text-coral">
+
+        {/* User footer */}
+        <div className="p-4 border-t border-white/10">
+          <div className="flex items-center gap-2.5 mb-3">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
+              style={{ background: "linear-gradient(135deg, #F4845F, #D4613C)" }}>
               {adminUser?.display_name?.charAt(0) || user?.email?.charAt(0) || "?"}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-semibold truncate">{adminUser?.display_name || "Admin"}</div>
-              <div className="text-[10px] text-slate-400 truncate">{adminUser?.role?.replace("_", " ") || "admin"}</div>
+              <div className="text-xs font-semibold text-white truncate">{adminUser?.display_name || "Admin"}</div>
+              <div className="text-[10px] text-white/40 truncate capitalize">{adminUser?.role?.replace("_", " ") || "admin"}</div>
             </div>
           </div>
           <button onClick={() => { signOut(); navigate("/admin/login"); }}
-            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-red-400 transition-colors">
+            className="flex items-center gap-1.5 text-xs text-white/40 hover:text-coral transition-colors font-body">
             <LogOut className="w-3 h-3" /> Sign out
           </button>
         </div>
       </aside>
 
       {/* Main */}
-      <main className="flex-1 lg:ml-56 min-h-screen">
+      <main className="flex-1 lg:ml-60 min-h-screen">
         {/* Top bar */}
-        <header className="sticky top-0 z-30 bg-card border-b border-border px-4 py-3 flex items-center gap-3">
+        <header className="sticky top-0 z-30 bg-card/95 backdrop-blur-md border-b border-border px-4 py-3 flex items-center gap-3">
           <button className="lg:hidden" onClick={() => setMobileOpen(true)}>
-            <Menu className="w-5 h-5" />
+            <Menu className="w-5 h-5 text-foreground" />
           </button>
 
           <button onClick={() => setSearchOpen(true)}
-            className="flex items-center gap-2 px-3 py-1.5 border border-border rounded-lg text-xs text-text-light hover:bg-muted flex-1 max-w-xs">
+            className="flex items-center gap-2 px-3 py-1.5 border border-border rounded-lg text-xs text-text-light hover:bg-muted flex-1 max-w-xs transition-colors">
             <Search className="w-3.5 h-3.5" />
-            <span>Search... </span>
-            <kbd className="ml-auto text-[10px] bg-muted px-1.5 py-0.5 rounded hidden sm:inline">⌘K</kbd>
+            <span>Search...</span>
+            <kbd className="ml-auto text-[10px] bg-muted px-1.5 py-0.5 rounded hidden sm:inline font-mono">⌘K</kbd>
           </button>
 
           <div className="ml-auto flex items-center gap-2">
-            <button onClick={() => setShowNotifications(!showNotifications)} className="relative p-2 hover:bg-muted rounded-lg">
+            <Link to="/" target="_blank" className="hidden sm:flex items-center gap-1 text-[11px] text-text-light hover:text-forest transition-colors font-body">
+              <span>View Store</span>
+              <span>↗</span>
+            </Link>
+            <button onClick={() => setShowNotifications(!showNotifications)} className="relative p-2 hover:bg-muted rounded-lg transition-colors">
               <Bell className="w-4 h-4" />
               {unreadCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-coral text-white text-[9px] rounded-full flex items-center justify-center font-bold">
+                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 text-white text-[9px] rounded-full flex items-center justify-center font-bold"
+                  style={{ background: "#F4845F" }}>
                   {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
               )}
@@ -183,14 +207,14 @@ export default function AdminLayout() {
           <div className="fixed top-12 right-4 z-50 w-80 bg-card border border-border rounded-xl shadow-lg max-h-96 overflow-y-auto">
             <div className="flex items-center justify-between p-3 border-b border-border">
               <span className="text-sm font-semibold">Notifications</span>
-              <button onClick={markAllRead} className="text-xs text-forest font-semibold">Mark all read</button>
+              <button onClick={markAllRead} className="text-xs text-forest font-semibold hover:underline">Mark all read</button>
             </div>
             {notifications.length === 0 ? (
               <div className="p-4 text-center text-xs text-text-light">No notifications</div>
             ) : (
               notifications.map(n => (
                 <Link key={n.id} to={n.link || "#"} onClick={() => setShowNotifications(false)}
-                  className={`block p-3 border-b border-border hover:bg-muted/50 ${!n.is_read ? "bg-forest/5" : ""}`}>
+                  className={`block p-3 border-b border-border hover:bg-muted/50 transition-colors ${!n.is_read ? "bg-forest/5" : ""}`}>
                   <div className="text-xs font-semibold">{n.title}</div>
                   <div className="text-[10px] text-text-light mt-0.5">{n.message}</div>
                   <div className="text-[9px] text-text-light mt-1">{new Date(n.created_at).toLocaleString()}</div>
@@ -203,7 +227,7 @@ export default function AdminLayout() {
         {/* Global search modal */}
         {searchOpen && (
           <div className="fixed inset-0 bg-foreground/50 z-[100] flex items-start justify-center pt-20" onClick={() => setSearchOpen(false)}>
-            <div className="bg-card border border-border rounded-xl w-full max-w-lg mx-4" onClick={e => e.stopPropagation()}>
+            <div className="bg-card border border-border rounded-xl w-full max-w-lg mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
               <div className="flex items-center gap-2 p-4 border-b border-border">
                 <Search className="w-4 h-4 text-text-light" />
                 <input autoFocus value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
@@ -213,12 +237,14 @@ export default function AdminLayout() {
               </div>
               <div className="p-4 text-xs text-text-light">
                 {searchQuery.length < 2 ? "Type at least 2 characters to search..." : (
-                  <div className="space-y-2">
-                    {visibleNav.map(item => (
+                  <div className="space-y-1">
+                    {visibleNav.filter(item =>
+                      item.label.toLowerCase().includes(searchQuery.toLowerCase())
+                    ).map(item => (
                       <Link key={item.to} to={item.to} onClick={() => setSearchOpen(false)}
-                        className="flex items-center gap-2 p-2 hover:bg-muted rounded-lg">
-                        <item.icon className="w-4 h-4" />
-                        <span>{item.label}</span>
+                        className="flex items-center gap-2 p-2.5 hover:bg-muted rounded-lg transition-colors">
+                        <item.icon className="w-4 h-4 text-forest" />
+                        <span className="font-semibold">{item.label}</span>
                       </Link>
                     ))}
                   </div>
