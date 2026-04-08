@@ -3,7 +3,7 @@ import { useSearchParams, Link } from "react-router-dom";
 import { useCart, fmt, getBrandForBudget } from "@/lib/cart";
 import { toast } from "sonner";
 import ProductDetailModal from "@/components/ProductDetailModal";
-import { useAllProducts } from "@/hooks/useSupabaseData";
+import { useAllProducts, useSiteSettings } from "@/hooks/useSupabaseData";
 import type { Product } from "@/lib/supabaseAdapters";
 import ProductImage from "@/components/ProductImage";
 
@@ -152,7 +152,7 @@ function ProductCard({ product, defaultBudget = "standard", onAdd, onViewDetail 
           <span className="text-coral text-xs">⭐ {product.rating}</span>
           <span className="text-text-light text-[11px]">({product.reviews})</span>
         </div>
-        <p className="text-text-light text-[9px] mb-2">🚚 Lagos: 1-2 days · Others: 3-5 days</p>
+        {product.deliveryText && <p className="text-text-light text-[9px] mb-2">{product.deliveryText}</p>}
 
         <div className="flex justify-between items-center">
           <div>
