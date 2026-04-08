@@ -190,6 +190,8 @@ export default function ShopPage() {
   const { addToCart } = useCart();
 
   const { data: allProducts, isLoading } = useAllProducts();
+  const { data: siteSettings } = useSiteSettings();
+  const deliveryText = siteSettings?.delivery_text || "";
 
   useEffect(() => {
     const titles: Record<string, string> = { all: "All Products", baby: "Baby Shop", mum: "Mum Shop" };
