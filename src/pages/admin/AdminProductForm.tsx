@@ -186,7 +186,13 @@ export default function AdminProductForm({ product, onClose, onSaved }: Props) {
                 )}
               </div>
 
-              {isEdit && <ProductImageManager productId={product.id} />}
+              {isEdit ? (
+                <ProductImageManager productId={product.id} />
+              ) : (
+                <div className="border-2 border-dashed border-border rounded-lg p-4 text-center">
+                  <p className="text-xs text-muted-foreground">💡 Save the product first, then you can upload images when editing it.</p>
+                </div>
+              )}
             </>
           )}
 
