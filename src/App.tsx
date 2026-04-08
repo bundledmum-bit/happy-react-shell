@@ -45,6 +45,11 @@ import AdminReferrals from "@/pages/admin/AdminReferrals";
 import AdminAnalytics from "@/pages/admin/AdminAnalytics";
 import AdminUsers from "@/pages/admin/AdminUsers";
 import AdminMedia from "@/pages/admin/AdminMedia";
+import AdminCoupons from "@/pages/admin/AdminCoupons";
+import AdminCustomers from "@/pages/admin/AdminCustomers";
+import AdminInventory from "@/pages/admin/AdminInventory";
+import AdminShippingZones from "@/pages/admin/AdminShippingZones";
+import AdminPages from "@/pages/admin/AdminPages";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -90,6 +95,11 @@ const App = () => (
                 <Route path="analytics" element={<AdminAnalytics />} />
                 <Route path="users" element={<AdminUsers />} />
                 <Route path="media" element={<AdminMedia />} />
+                <Route path="coupons" element={<AdminCoupons />} />
+                <Route path="customers" element={<AdminCustomers />} />
+                <Route path="inventory" element={<AdminInventory />} />
+                <Route path="shipping-zones" element={<AdminShippingZones />} />
+                <Route path="pages" element={<AdminPages />} />
               </Route>
 
               {/* Storefront routes */}

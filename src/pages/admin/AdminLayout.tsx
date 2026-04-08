@@ -9,14 +9,21 @@ import {
   Search, X, Menu, ChevronLeft,
 } from "lucide-react";
 
+import { Tag, Boxes, MapPin, FileText as PageIcon } from "lucide-react";
+
 const NAV = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, section: "dashboard", exact: true },
   { to: "/admin/products", label: "Products", icon: Package, section: "products" },
+  { to: "/admin/inventory", label: "Inventory", icon: Boxes, section: "products" },
   { to: "/admin/bundles", label: "Bundles", icon: ShoppingBag, section: "bundles" },
   { to: "/admin/orders", label: "Orders", icon: ClipboardList, section: "orders" },
+  { to: "/admin/customers", label: "Customers", icon: Users, section: "orders" },
+  { to: "/admin/coupons", label: "Coupons", icon: Tag, section: "products" },
   { to: "/admin/delivery", label: "Delivery", icon: Truck, section: "delivery" },
+  { to: "/admin/shipping-zones", label: "Shipping Zones", icon: MapPin, section: "delivery" },
   { to: "/admin/content", label: "Content", icon: MessageSquare, section: "content" },
   { to: "/admin/blog", label: "Blog", icon: FileText, section: "blog" },
+  { to: "/admin/pages", label: "Pages", icon: PageIcon, section: "content" },
   { to: "/admin/media", label: "Media", icon: Image, section: "media" },
   { to: "/admin/referrals", label: "Referrals", icon: Gift, section: "referrals" },
   { to: "/admin/analytics", label: "Analytics", icon: BarChart3, section: "analytics" },
