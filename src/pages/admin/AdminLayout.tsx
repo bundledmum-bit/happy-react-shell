@@ -38,13 +38,7 @@ export default function AdminLayout() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
 
-  // Realtime sync
-  useEffect(() => {
-    const unsub = subscribeToAllChanges((_table, keys) => {
-      keys.forEach(key => queryClient.invalidateQueries({ queryKey: [key] }));
-    });
-    return unsub;
-  }, [queryClient]);
+  // Realtime sync is handled globally by RealtimeProvider in App.tsx
 
   // Notifications
   useEffect(() => {
