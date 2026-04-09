@@ -14,10 +14,10 @@ export default function CartPage() {
   const [deliveryArea, setDeliveryArea] = useState("");
   const { data: settings } = useSiteSettings();
   const { data: zones } = useShippingZones();
+  const { data: thresholds } = useSpendThresholds();
 
   useEffect(() => { document.title = `Your Cart (${totalItems}) | BundledMum`; }, [totalItems]);
 
-  // Compute delivery from zones
   const serviceFeeEnabled = settings?.service_fee_enabled !== false;
   const serviceFee = serviceFeeEnabled ? (parseInt(settings?.service_fee) || 1500) : 0;
   const serviceFeeLabel = settings?.service_fee_label || "Service & Packaging";
@@ -26,7 +26,10 @@ export default function CartPage() {
     ? calculateDeliveryFee(subtotal, deliveryArea, deliveryState, zones, serviceFee, parseInt(settings?.default_delivery_fee) || 2500, parseInt(settings?.default_free_threshold) || 30000)
     : { fee: subtotal >= 30000 ? 0 : 2500, isFree: subtotal >= 30000, zoneName: "Standard", daysMin: 1, daysMax: 3, freeThreshold: 30000 };
 
-  const total = subtotal + deliveryCalc.fee + serviceFee;
+  // Spend threshold discount
+  const spendPrompt = thresholds?.length ? getSpendPrompt(subtotal, thresholds) : null;
+  const spendDiscount = spendPrompt?.appliedDiscount || 0;
+  const total = subtotal + deliveryCalc.fee + serviceFee - spendDiscount;
 
   // Delivery date estimate
   const now = new Date();
