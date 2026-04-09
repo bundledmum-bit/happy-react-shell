@@ -199,6 +199,12 @@ export default function CartPage() {
                     <span>{fmt(serviceFee)}</span>
                   </div>
                 )}
+                {spendDiscount > 0 && (
+                  <div className="flex justify-between text-forest">
+                    <span className="font-semibold">🎉 Spend Discount ({spendPrompt?.currentDiscount?.discount_percent}%)</span>
+                    <span className="font-bold">-{fmt(spendDiscount)}</span>
+                  </div>
+                )}
                 <div className="border-t border-border pt-3 flex justify-between pf font-semibold text-lg">
                   <span>Total</span>
                   <span className="text-forest">{fmt(total)}</span>
