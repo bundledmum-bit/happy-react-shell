@@ -1,32 +1,36 @@
 import { Link } from "react-router-dom";
 import { useCart, fmt } from "@/lib/cart";
-import { useAllProducts } from "@/hooks/useSupabaseData";
+import { useAllProducts, useSiteSettings } from "@/hooks/useSupabaseData";
+import { useShippingZones, calculateDeliveryFee } from "@/hooks/useShippingZones";
 import ProductImage from "@/components/ProductImage";
 import { Minus, Plus, X, ShoppingBag, ArrowLeft, Bookmark } from "lucide-react";
 import { useEffect, useState } from "react";
 
-const SERVICE_FEE = 1500;
-
-function getDeliveryEstimate(state?: string) {
-  const isLagos = (state || "Lagos").toLowerCase() === "lagos";
-  const now = new Date();
-  const min = isLagos ? 1 : 3;
-  const max = isLagos ? 2 : 5;
-  const from = new Date(now); from.setDate(from.getDate() + min);
-  const to = new Date(now); to.setDate(to.getDate() + max);
-  const f = (d: Date) => d.toLocaleDateString("en-NG", { weekday: "short", month: "short", day: "numeric" });
-  return { text: `${f(from)} – ${f(to)}`, days: `${min}-${max} business days`, isLagos };
-}
-
 export default function CartPage() {
   const { cart, setCart, subtotal, totalItems, savedItems, saveForLater, moveToCart, removeSaved } = useCart();
-  const [deliveryState] = useState("Lagos");
+  const [deliveryState, setDeliveryState] = useState("Lagos");
+  const [deliveryArea, setDeliveryArea] = useState("");
+  const { data: settings } = useSiteSettings();
+  const { data: zones } = useShippingZones();
 
   useEffect(() => { document.title = `Your Cart (${totalItems}) | BundledMum`; }, [totalItems]);
 
-  const delivery = subtotal >= 30000 ? 0 : 2500;
-  const total = subtotal + delivery + SERVICE_FEE;
-  const estimate = getDeliveryEstimate(deliveryState);
+  // Compute delivery from zones
+  const serviceFeeEnabled = settings?.service_fee_enabled !== false;
+  const serviceFee = serviceFeeEnabled ? (parseInt(settings?.service_fee) || 1500) : 0;
+  const serviceFeeLabel = settings?.service_fee_label || "Service & Packaging";
+
+  const deliveryCalc = zones?.length
+    ? calculateDeliveryFee(subtotal, deliveryArea, deliveryState, zones, serviceFee, parseInt(settings?.default_delivery_fee) || 2500, parseInt(settings?.default_free_threshold) || 30000)
+    : { fee: subtotal >= 30000 ? 0 : 2500, isFree: subtotal >= 30000, zoneName: "Standard", daysMin: 1, daysMax: 3, freeThreshold: 30000 };
+
+  const total = subtotal + deliveryCalc.fee + serviceFee;
+
+  // Delivery date estimate
+  const now = new Date();
+  const fromDate = new Date(now); fromDate.setDate(fromDate.getDate() + deliveryCalc.daysMin);
+  const toDate = new Date(now); toDate.setDate(toDate.getDate() + deliveryCalc.daysMax);
+  const fmtDate = (d: Date) => d.toLocaleDateString("en-NG", { weekday: "short", month: "short", day: "numeric" });
 
   const updateQty = (key: string, newQty: number) => {
     if (newQty <= 0) setCart(prev => prev.filter(i => i._key !== key));
@@ -35,7 +39,6 @@ export default function CartPage() {
 
   const removeItem = (key: string) => setCart(prev => prev.filter(i => i._key !== key));
 
-  // Cross-sell suggestions based on cart contents
   const { data: allProductsData } = useAllProducts();
   const ALL_PRODUCTS = allProductsData || [];
   const cartIds = new Set(cart.map(i => i.id));
@@ -45,6 +48,10 @@ export default function CartPage() {
     .filter(p => !cartIds.has(p.id) && p.priority !== "nice-to-have")
     .filter(p => (hasBaby && p.category === "mum") || (hasMum && p.category === "baby") || (!hasBaby && !hasMum))
     .slice(0, 3);
+
+  // Build unique area/state lists from zones
+  const allAreas = Array.from(new Set((zones || []).flatMap(z => z.areas || [])));
+  const allStates = Array.from(new Set((zones || []).flatMap(z => (z.states || []).filter(s => s !== "*"))));
 
   if (!totalItems && savedItems.length === 0) {
     return (
@@ -71,7 +78,7 @@ export default function CartPage() {
 
         <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
           <div className="space-y-3">
-            {subtotal >= 30000 && (
+            {deliveryCalc.isFree && (
               <div className="bg-forest-light rounded-card p-3 text-center font-body text-sm text-forest font-semibold">
                 🎉 You qualify for FREE delivery!
               </div>
@@ -113,7 +120,6 @@ export default function CartPage() {
               </div>
             ))}
 
-            {/* Saved for later */}
             {savedItems.length > 0 && (
               <div className="mt-6">
                 <h3 className="pf text-lg mb-3">💾 Saved for Later ({savedItems.length})</h3>
@@ -133,7 +139,6 @@ export default function CartPage() {
               </div>
             )}
 
-            {/* Cross-sell */}
             {crossSell.length > 0 && totalItems > 0 && (
               <div className="mt-6">
                 <h3 className="pf text-lg mb-3">💡 Mums also added</h3>
@@ -157,32 +162,52 @@ export default function CartPage() {
           <div className="lg:sticky lg:top-24 h-fit">
             <div className="bg-card rounded-card shadow-card p-6">
               <h2 className="pf text-lg mb-4">Order Summary</h2>
+
+              {/* Delivery location selector */}
+              {allStates.length > 0 && (
+                <div className="mb-4 space-y-2">
+                  <label className="text-xs font-semibold text-text-med block">Delivery Location</label>
+                  <select value={deliveryState} onChange={e => { setDeliveryState(e.target.value); setDeliveryArea(""); }}
+                    className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background">
+                    {allStates.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  {allAreas.length > 0 && (
+                    <select value={deliveryArea} onChange={e => setDeliveryArea(e.target.value)}
+                      className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background">
+                      <option value="">Select area (optional)</option>
+                      {allAreas.map(a => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                  )}
+                </div>
+              )}
+
               <div className="space-y-2 font-body text-sm">
                 <div className="flex justify-between"><span className="text-text-med">Subtotal</span><span>{fmt(subtotal)}</span></div>
                 <div className="flex justify-between">
-                  <span className="text-text-med">Delivery</span>
-                  <span className={delivery === 0 ? "text-forest font-bold" : ""}>{delivery === 0 ? "FREE 🎉" : fmt(delivery)}</span>
+                  <span className="text-text-med">Delivery {deliveryCalc.zoneName !== "Standard" && <span className="text-[10px]">({deliveryCalc.zoneName})</span>}</span>
+                  <span className={deliveryCalc.isFree ? "text-forest font-bold" : ""}>{deliveryCalc.isFree ? "FREE 🎉" : fmt(deliveryCalc.fee)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-text-med flex items-center gap-1">📦 Service & Packaging</span>
-                  <span>{fmt(SERVICE_FEE)}</span>
-                </div>
+                {serviceFeeEnabled && (
+                  <div className="flex justify-between">
+                    <span className="text-text-med flex items-center gap-1">📦 {serviceFeeLabel}</span>
+                    <span>{fmt(serviceFee)}</span>
+                  </div>
+                )}
                 <div className="border-t border-border pt-3 flex justify-between pf font-semibold text-lg">
                   <span>Total</span>
                   <span className="text-forest">{fmt(total)}</span>
                 </div>
               </div>
 
-              {/* Delivery estimate */}
               <div className="mt-3 bg-forest-light rounded-lg p-2.5">
                 <p className="text-forest text-xs font-body font-semibold">
-                  🚚 Estimated delivery: {estimate.text} ({estimate.days}{estimate.isLagos ? ", Lagos" : ""})
+                  🚚 Estimated delivery: {fmtDate(fromDate)} – {fmtDate(toDate)} ({deliveryCalc.daysMin}–{deliveryCalc.daysMax} business days)
                 </p>
               </div>
 
-              {subtotal < 30000 && (
+              {!deliveryCalc.isFree && deliveryCalc.freeThreshold && (
                 <div className="mt-3 bg-warm-cream rounded-lg p-2.5 text-center">
-                  <p className="text-text-med text-xs font-body">Add {fmt(30000 - subtotal)} more for <span className="font-bold text-forest">FREE delivery</span></p>
+                  <p className="text-text-med text-xs font-body">Add {fmt(deliveryCalc.freeThreshold - subtotal)} more for <span className="font-bold text-forest">FREE delivery</span></p>
                 </div>
               )}
               <Link to="/checkout" className="mt-5 block w-full rounded-pill bg-forest py-3 text-center font-body font-semibold text-primary-foreground hover:bg-forest-deep interactive">
