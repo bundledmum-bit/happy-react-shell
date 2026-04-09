@@ -2,7 +2,9 @@ import { Link } from "react-router-dom";
 import { useCart, fmt } from "@/lib/cart";
 import { useAllProducts, useSiteSettings } from "@/hooks/useSupabaseData";
 import { useShippingZones, calculateDeliveryFee } from "@/hooks/useShippingZones";
+import { useSpendThresholds, getSpendPrompt } from "@/hooks/useSpendThresholds";
 import ProductImage from "@/components/ProductImage";
+import SpendMoreBanner from "@/components/SpendMoreBanner";
 import { Minus, Plus, X, ShoppingBag, ArrowLeft, Bookmark } from "lucide-react";
 import { useEffect, useState } from "react";
 
