@@ -345,6 +345,7 @@ export type Database = {
           deleted_at: string | null
           delivery_method: string | null
           description: string | null
+          discount_percent: number | null
           display_order: number | null
           emoji: string | null
           hospital_type: string
@@ -357,6 +358,7 @@ export type Database = {
           name: string
           og_image_url: string | null
           price: number
+          price_mode: string | null
           slug: string
           tier: string
           updated_at: string | null
@@ -368,6 +370,7 @@ export type Database = {
           deleted_at?: string | null
           delivery_method?: string | null
           description?: string | null
+          discount_percent?: number | null
           display_order?: number | null
           emoji?: string | null
           hospital_type: string
@@ -380,6 +383,7 @@ export type Database = {
           name: string
           og_image_url?: string | null
           price: number
+          price_mode?: string | null
           slug: string
           tier: string
           updated_at?: string | null
@@ -391,6 +395,7 @@ export type Database = {
           deleted_at?: string | null
           delivery_method?: string | null
           description?: string | null
+          discount_percent?: number | null
           display_order?: number | null
           emoji?: string | null
           hospital_type?: string
@@ -403,6 +408,7 @@ export type Database = {
           name?: string
           og_image_url?: string | null
           price?: number
+          price_mode?: string | null
           slug?: string
           tier?: string
           updated_at?: string | null
@@ -903,6 +909,9 @@ export type Database = {
           quiz_answers: Json | null
           referral_code_used: string | null
           service_fee: number
+          spend_discount_amount: number | null
+          spend_discount_id: string | null
+          spend_discount_percent: number | null
           subtotal: number
           total: number
           tracking_number: string | null
@@ -935,6 +944,9 @@ export type Database = {
           quiz_answers?: Json | null
           referral_code_used?: string | null
           service_fee?: number
+          spend_discount_amount?: number | null
+          spend_discount_id?: string | null
+          spend_discount_percent?: number | null
           subtotal: number
           total: number
           tracking_number?: string | null
@@ -967,6 +979,9 @@ export type Database = {
           quiz_answers?: Json | null
           referral_code_used?: string | null
           service_fee?: number
+          spend_discount_amount?: number | null
+          spend_discount_id?: string | null
+          spend_discount_percent?: number | null
           subtotal?: number
           total?: number
           tracking_number?: string | null
@@ -1018,6 +1033,39 @@ export type Database = {
           slug?: string
           title?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      product_categories: {
+        Row: {
+          created_at: string | null
+          display_order: number | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          parent_category: string | null
+          slug: string
+        }
+        Insert: {
+          created_at?: string | null
+          display_order?: number | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          parent_category?: string | null
+          slug: string
+        }
+        Update: {
+          created_at?: string | null
+          display_order?: number | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          parent_category?: string | null
+          slug?: string
         }
         Relationships: []
       }
@@ -1219,6 +1267,7 @@ export type Database = {
           safety_info: string | null
           scheduled_for: string | null
           slug: string
+          subcategory: string | null
           updated_at: string | null
           why_included: string | null
           why_included_variants: Json | null
@@ -1252,6 +1301,7 @@ export type Database = {
           safety_info?: string | null
           scheduled_for?: string | null
           slug: string
+          subcategory?: string | null
           updated_at?: string | null
           why_included?: string | null
           why_included_variants?: Json | null
@@ -1285,6 +1335,7 @@ export type Database = {
           safety_info?: string | null
           scheduled_for?: string | null
           slug?: string
+          subcategory?: string | null
           updated_at?: string | null
           why_included?: string | null
           why_included_variants?: Json | null
@@ -1493,6 +1544,42 @@ export type Database = {
           key?: string
           updated_at?: string | null
           value?: Json
+        }
+        Relationships: []
+      }
+      spend_threshold_discounts: {
+        Row: {
+          created_at: string | null
+          discount_percent: number
+          display_order: number | null
+          id: string
+          is_active: boolean | null
+          max_discount_amount: number | null
+          name: string
+          threshold_amount: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          discount_percent: number
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          max_discount_amount?: number | null
+          name: string
+          threshold_amount: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          discount_percent?: number
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          max_discount_amount?: number | null
+          name?: string
+          threshold_amount?: number
+          updated_at?: string | null
         }
         Relationships: []
       }
