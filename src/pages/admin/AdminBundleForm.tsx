@@ -226,9 +226,27 @@ export default function AdminBundleForm({ bundle, onClose, onSaved }: Props) {
                     {TIERS.map(t => <option key={t} value={t}>{t}</option>)}
                   </select></div>
               </div>
+              <div className="bg-muted/50 rounded-lg p-3 space-y-3 border border-border">
+                <label className={labelCls}>Pricing Mode</label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input type="radio" name="price_mode" checked={form.price_mode === "fixed"} onChange={() => setForm(f => ({ ...f, price_mode: "fixed" }))} />
+                    Fixed Price
+                  </label>
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input type="radio" name="price_mode" checked={form.price_mode === "percentage"} onChange={() => setForm(f => ({ ...f, price_mode: "percentage" }))} />
+                    % Discount
+                  </label>
+                </div>
+                {form.price_mode === "fixed" ? (
+                  <div><label className={labelCls}>Bundle Price (₦)</label>
+                    <input type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: parseInt(e.target.value) || 0 }))} className={inputCls} /></div>
+                ) : (
+                  <div><label className={labelCls}>Discount (%)</label>
+                    <input type="number" min={0} max={100} value={form.discount_percent} onChange={e => setForm(f => ({ ...f, discount_percent: parseFloat(e.target.value) || 0 }))} className={inputCls} /></div>
+                )}
+              </div>
               <div className="grid grid-cols-3 gap-3">
-                <div><label className={labelCls}>Bundle Price (₦)</label>
-                  <input type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: parseInt(e.target.value) || 0 }))} className={inputCls} /></div>
                 <div><label className={labelCls}>Display Order</label>
                   <input type="number" value={form.display_order} onChange={e => setForm(f => ({ ...f, display_order: parseInt(e.target.value) || 0 }))} className={inputCls} /></div>
                 <div><label className={labelCls}>Emoji</label>
@@ -241,9 +259,11 @@ export default function AdminBundleForm({ bundle, onClose, onSaved }: Props) {
                 </label>
               </div>
               {separateTotal > 0 && (
-                <div className="bg-forest-light rounded-lg p-3 text-sm">
-                  <span className="text-forest font-semibold">Items total: ₦{separateTotal.toLocaleString()}</span>
-                  {form.price > 0 && <span className="text-text-med ml-2">· Bundle saves ₦{(separateTotal - form.price).toLocaleString()} ({Math.round(((separateTotal - form.price) / separateTotal) * 100)}%)</span>}
+                <div className="bg-forest-light rounded-lg p-3 text-sm space-y-1">
+                  <div className="flex justify-between"><span className="text-text-med">Items total (separately):</span><span className="font-semibold">₦{separateTotal.toLocaleString()}</span></div>
+                  {isPercentMode && <div className="flex justify-between"><span className="text-text-med">Discount ({form.discount_percent}%):</span><span className="text-destructive font-semibold">-₦{effectiveSavings.toLocaleString()}</span></div>}
+                  <div className="flex justify-between"><span className="text-forest font-bold">Bundle price:</span><span className="text-forest font-bold">₦{computedPrice.toLocaleString()}</span></div>
+                  <div className="flex justify-between"><span className="text-text-med">Customer saves:</span><span className="text-forest font-semibold">₦{effectiveSavings.toLocaleString()} ({effectivePercent}%)</span></div>
                 </div>
               )}
             </TabsContent>
