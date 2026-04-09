@@ -231,41 +231,53 @@ export type Database = {
       brands: {
         Row: {
           brand_name: string
+          compare_at_price: number | null
           created_at: string | null
           display_order: number | null
           id: string
+          image_url: string | null
           in_stock: boolean | null
           is_default_for_tier: boolean | null
+          logo_url: string | null
           price: number
           product_id: string
           size_variant: string | null
           stock_quantity: number | null
+          thumbnail_url: string | null
           tier: string
         }
         Insert: {
           brand_name: string
+          compare_at_price?: number | null
           created_at?: string | null
           display_order?: number | null
           id?: string
+          image_url?: string | null
           in_stock?: boolean | null
           is_default_for_tier?: boolean | null
+          logo_url?: string | null
           price: number
           product_id: string
           size_variant?: string | null
           stock_quantity?: number | null
+          thumbnail_url?: string | null
           tier: string
         }
         Update: {
           brand_name?: string
+          compare_at_price?: number | null
           created_at?: string | null
           display_order?: number | null
           id?: string
+          image_url?: string | null
           in_stock?: boolean | null
           is_default_for_tier?: boolean | null
+          logo_url?: string | null
           price?: number
           product_id?: string
           size_variant?: string | null
           stock_quantity?: number | null
+          thumbnail_url?: string | null
           tier?: string
         }
         Relationships: [
@@ -348,6 +360,8 @@ export type Database = {
           slug: string
           tier: string
           updated_at: string | null
+          upsell_bundle_id: string | null
+          upsell_text: string | null
         }
         Insert: {
           created_at?: string | null
@@ -369,6 +383,8 @@ export type Database = {
           slug: string
           tier: string
           updated_at?: string | null
+          upsell_bundle_id?: string | null
+          upsell_text?: string | null
         }
         Update: {
           created_at?: string | null
@@ -390,8 +406,18 @@ export type Database = {
           slug?: string
           tier?: string
           updated_at?: string | null
+          upsell_bundle_id?: string | null
+          upsell_text?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "bundles_upsell_bundle_id_fkey"
+            columns: ["upsell_bundle_id"]
+            isOneToOne: false
+            referencedRelation: "bundles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       coupon_usage: {
         Row: {
@@ -1036,6 +1062,7 @@ export type Database = {
       product_images: {
         Row: {
           alt_text: string | null
+          brand_id: string | null
           created_at: string | null
           display_order: number | null
           file_size: number | null
@@ -1050,6 +1077,7 @@ export type Database = {
         }
         Insert: {
           alt_text?: string | null
+          brand_id?: string | null
           created_at?: string | null
           display_order?: number | null
           file_size?: number | null
@@ -1064,6 +1092,7 @@ export type Database = {
         }
         Update: {
           alt_text?: string | null
+          brand_id?: string | null
           created_at?: string | null
           display_order?: number | null
           file_size?: number | null
@@ -1077,6 +1106,13 @@ export type Database = {
           width?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "product_images_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "product_images_product_id_fkey"
             columns: ["product_id"]

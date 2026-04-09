@@ -10,16 +10,22 @@ export interface Brand {
   id: string;
   label: string;
   price: number;
+  compareAtPrice?: number | null;
   img: string;
+  imageUrl?: string | null;
+  logoUrl?: string | null;
   tier: number;
   color: string;
+  stockQuantity?: number | null;
+  inStock?: boolean;
+  sizeVariant?: string | null;
 }
 
 export interface Product {
   id: string;
   name: string;
   baseImg: string;
-  imageUrl?: string; // real product image URL
+  imageUrl?: string;
   rating: number;
   reviews: number;
   tags: string[];
@@ -45,6 +51,7 @@ export interface Product {
   packInfo?: string;
   stock?: number;
   slug?: string;
+  safetyInfo?: string;
 }
 
 export interface BundleItem {
@@ -53,6 +60,7 @@ export interface BundleItem {
   forWhom: "baby" | "mum";
   price: number;
   emoji?: string;
+  imageUrl?: string | null;
 }
 
 export interface Bundle {
@@ -61,6 +69,7 @@ export interface Bundle {
   price: number;
   separateTotal: number;
   icon: string;
+  imageUrl?: string | null;
   color: string;
   lightColor: string;
   tagline: string;
@@ -70,6 +79,12 @@ export interface Bundle {
   deliveryType?: "vaginal" | "csection";
   babyItems: BundleItem[];
   mumItems: BundleItem[];
+  upsellBundleId?: string | null;
+  upsellText?: string | null;
+  slug?: string;
+  description?: string;
+  deliveryMethod?: string | null;
+  itemCount?: number;
 }
 
 // ─── Tier mapping ──────────────────────────────────────────────
@@ -80,6 +95,20 @@ const TIER_COLORS: Record<string, string> = {
   standard: "#E8F5E9",
   premium: "#FCE4EC",
 };
+
+// ─── Image helper ──────────────────────────────────────────────
+
+export function getProductImageUrl(product: any, selectedBrand?: Brand | null): string | null {
+  // 1. Selected brand's image
+  if (selectedBrand?.imageUrl) return selectedBrand.imageUrl;
+  // 2. Primary from product_images
+  const images = product.product_images || [];
+  const primary = images.find((i: any) => i.is_primary) || images[0];
+  if (primary?.image_url) return primary.image_url;
+  // 3. Product-level
+  if (product.imageUrl || product.image_url) return product.imageUrl || product.image_url;
+  return null;
+}
 
 // ─── Product adapter ───────────────────────────────────────────
 
@@ -100,9 +129,15 @@ export function adaptProduct(row: any): Product {
       id: b.id,
       label: b.brand_name,
       price: b.price,
+      compareAtPrice: b.compare_at_price || null,
       img: row.emoji || "📦",
+      imageUrl: b.image_url || null,
+      logoUrl: b.logo_url || null,
       tier: TIER_MAP[b.tier] ?? 1,
       color: TIER_COLORS[b.tier] || "#E8F5E9",
+      stockQuantity: b.stock_quantity,
+      inStock: b.in_stock !== false,
+      sizeVariant: b.size_variant || null,
     }));
 
   const sizes = ((row.product_sizes || []) as any[])
@@ -142,8 +177,9 @@ export function adaptProduct(row: any): Product {
     contents: contentsArr,
     material: row.material || undefined,
     allergenInfo: row.allergen_info || undefined,
+    safetyInfo: row.safety_info || undefined,
     packInfo: row.pack_count || undefined,
-    stock: undefined, // managed via brands.in_stock in future
+    stock: undefined,
     slug: row.slug,
   };
 }
@@ -176,6 +212,7 @@ export function adaptBundle(row: any): Bundle {
       forWhom: (prod?.category === "mum" ? "mum" : "baby") as "baby" | "mum",
       price: brand?.price || 0,
       emoji: prod?.emoji || "📦",
+      imageUrl: brand?.image_url || prod?.image_url || null,
     };
     if (item.forWhom === "mum") mumItems.push(item);
     else babyItems.push(item);
@@ -190,6 +227,7 @@ export function adaptBundle(row: any): Bundle {
     price: row.price,
     separateTotal: separateTotal || Math.round(row.price * 1.2),
     icon: row.emoji || "📦",
+    imageUrl: row.image_url || null,
     color: colors.color,
     lightColor: colors.light,
     tagline: row.description || "",
@@ -198,6 +236,12 @@ export function adaptBundle(row: any): Bundle {
     deliveryType: row.delivery_method as any || undefined,
     babyItems,
     mumItems,
+    upsellBundleId: row.upsell_bundle_id || null,
+    upsellText: row.upsell_text || null,
+    slug: row.slug,
+    description: row.description || "",
+    deliveryMethod: row.delivery_method || null,
+    itemCount: row.item_count || items.length,
   };
 }
 

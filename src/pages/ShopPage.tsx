@@ -4,37 +4,35 @@ import { useCart, fmt, getBrandForBudget } from "@/lib/cart";
 import { toast } from "sonner";
 import ProductDetailModal from "@/components/ProductDetailModal";
 import { useAllProducts, useSiteSettings } from "@/hooks/useSupabaseData";
-import type { Product } from "@/lib/supabaseAdapters";
+import type { Product, Brand } from "@/lib/supabaseAdapters";
 import ProductImage from "@/components/ProductImage";
-
-const COLOR_SWATCHES: Record<string, { hex: string; label: string }[]> = {
-  "blue/white": [{ hex: "#4A90D9", label: "Blue/White" }],
-  "pink/white": [{ hex: "#E91E8C", label: "Pink/White" }],
-  "cream/sage": [{ hex: "#C2B280", label: "Cream/Sage" }],
-  "blue/grey": [{ hex: "#4A90D9", label: "Blue/Grey" }],
-  "cream/yellow": [{ hex: "#F5DEB3", label: "Cream/Yellow" }],
-  "blue": [{ hex: "#4A90D9", label: "Blue" }],
-  "pink": [{ hex: "#E91E8C", label: "Pink" }],
-  "white/cream": [{ hex: "#F5F5DC", label: "White/Cream" }],
-};
 
 function ProductCard({ product, defaultBudget = "standard", onAdd, onViewDetail, deliveryText }: { product: Product; defaultBudget?: string; onAdd: (item: any) => void; onViewDetail: () => void; deliveryText?: string }) {
   const defaultBrand = getBrandForBudget(product, defaultBudget);
-  const [selectedBrand, setSelectedBrand] = useState(defaultBrand);
+  const [selectedBrand, setSelectedBrand] = useState<Brand>(defaultBrand);
   const [selectedSize, setSelectedSize] = useState(product.sizes?.[Math.floor((product.sizes?.length || 0) / 2)] || "");
   const [selectedColor, setSelectedColor] = useState("");
   const { cart, setCart } = useCart();
 
   const cartKey = `${product.id}-${selectedBrand.id}-${selectedSize}`;
   const isInCart = cart.some(c => c._key === cartKey || c.id === product.id);
-  const stockLabel = product.stock === 0 ? "out" : product.stock && product.stock <= 5 ? "low" : "in";
-  const isOutOfStock = stockLabel === "out";
 
-  const extraBadge = !product.badge && product.rating >= 4.8 ? "💚 Mum Pick" : null;
+  // Brand-level stock
+  const brandOos = selectedBrand.inStock === false || selectedBrand.stockQuantity === 0;
+  const allBrandsOos = product.brands.every(b => b.inStock === false || b.stockQuantity === 0);
+  const isOutOfStock = allBrandsOos || brandOos;
+  const isLowStock = selectedBrand.stockQuantity != null && selectedBrand.stockQuantity > 0 && selectedBrand.stockQuantity <= 5;
+
+  // Brand image swap
+  const displayImage = selectedBrand.imageUrl || product.imageUrl;
+
+  // Compare-at price
+  const showSale = selectedBrand.compareAtPrice && selectedBrand.compareAtPrice > selectedBrand.price;
 
   useEffect(() => { setSelectedBrand(defaultBrand); }, [defaultBudget]);
 
   const handleAdd = () => {
+    if (isOutOfStock) return;
     if (product.sizes && product.sizes.length > 0 && !selectedSize) {
       onViewDetail();
       return;
@@ -68,24 +66,26 @@ function ProductCard({ product, defaultBudget = "standard", onAdd, onViewDetail,
   const hiddenCount = product.brands.length - visibleBrands.length;
 
   return (
-    <div className={`bg-card rounded-card shadow-card card-hover overflow-hidden ${isOutOfStock ? "opacity-60" : ""}`}>
-      <div className="h-[170px] flex items-center justify-center relative transition-colors cursor-pointer overflow-hidden"
-        style={{ background: product.imageUrl ? '#f5f5f5' : `linear-gradient(135deg, ${selectedBrand.color}, #fff)` }}
+    <div className={`bg-card rounded-card shadow-card card-hover overflow-hidden ${allBrandsOos ? "opacity-60" : ""}`}>
+      <div className="h-[170px] flex items-center justify-center relative transition-all cursor-pointer overflow-hidden"
+        style={{ background: displayImage ? '#f5f5f5' : `linear-gradient(135deg, ${selectedBrand.color}, #fff)` }}
         onClick={() => { trackView(); onViewDetail(); }}>
         {product.badge && (
           <div className="absolute top-2.5 left-2.5 bg-coral text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill uppercase tracking-wide z-10">{product.badge}</div>
         )}
-        {!product.badge && extraBadge && (
-          <div className="absolute top-2.5 left-2.5 bg-forest text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill z-10">{extraBadge}</div>
+        {showSale && (
+          <div className="absolute top-2.5 right-2.5 bg-destructive text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill z-10">
+            Save {Math.round(((selectedBrand.compareAtPrice! - selectedBrand.price) / selectedBrand.compareAtPrice!) * 100)}%
+          </div>
         )}
-        {isOutOfStock && (
+        {allBrandsOos && (
           <div className="absolute top-2.5 right-2.5 bg-foreground/70 text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill z-10">Out of Stock</div>
         )}
-        {stockLabel === "low" && (
-          <div className="absolute top-2.5 right-2.5 bg-[#E65100] text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill z-10">Only {product.stock} left!</div>
+        {isLowStock && !allBrandsOos && (
+          <div className="absolute top-2.5 right-2.5 bg-[#E65100] text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill z-10">Only {selectedBrand.stockQuantity} left!</div>
         )}
         <ProductImage
-          imageUrl={product.imageUrl}
+          imageUrl={displayImage}
           emoji={selectedBrand.img || product.baseImg}
           alt={product.name}
           className="w-full h-full"
@@ -98,33 +98,19 @@ function ProductCard({ product, defaultBudget = "standard", onAdd, onViewDetail,
 
         {product.packInfo && <p className="text-text-light text-[10px] mb-1">📦 {product.packInfo}</p>}
 
-        {product.genderRelevant && product.genderColors && (
-          <div className="mb-2">
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] text-text-light">🎨</span>
-              {Object.entries(product.genderColors).map(([key, colorName]) => {
-                const swatch = COLOR_SWATCHES[colorName];
-                return (
-                  <button key={key} onClick={() => setSelectedColor(colorName)}
-                    className={`w-4 h-4 rounded-full border-2 transition-all ${selectedColor === colorName ? "border-forest scale-110" : "border-border"}`}
-                    style={{ backgroundColor: swatch?.[0]?.hex || "#ccc" }}
-                    title={`${key}: ${colorName}`} />
-                );
-              })}
-            </div>
-          </div>
-        )}
-
         <div className="mb-2">
           <div className="text-[10px] font-semibold text-text-light uppercase tracking-widest mb-1">Brand</div>
           <div className="flex flex-wrap gap-1">
-            {visibleBrands.map(b => (
-              <button key={b.id} onClick={() => setSelectedBrand(b)}
-                className={`px-2 py-0.5 rounded-pill text-[10px] font-semibold border-[1.5px] transition-all font-body ${selectedBrand.id === b.id ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-text-med"}`}>
-                {b.label} {fmt(b.price)}
-                {b.id === defaultBrand.id && <span className="text-coral ml-0.5">★</span>}
-              </button>
-            ))}
+            {visibleBrands.map(b => {
+              const bOos = b.inStock === false || b.stockQuantity === 0;
+              return (
+                <button key={b.id} onClick={() => setSelectedBrand(b)}
+                  className={`px-2 py-0.5 rounded-pill text-[10px] font-semibold border-[1.5px] transition-all font-body ${bOos ? "opacity-50" : ""} ${selectedBrand.id === b.id ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-text-med"}`}>
+                  {b.label} {fmt(b.price)}
+                  {b.id === defaultBrand.id && !bOos && <span className="text-coral ml-0.5">★</span>}
+                </button>
+              );
+            })}
             {hiddenCount > 0 && (
               <button onClick={() => { trackView(); onViewDetail(); }}
                 className="px-2 py-0.5 rounded-pill text-[10px] font-semibold border-[1.5px] border-border bg-card text-forest font-body hover:border-forest">
@@ -157,7 +143,10 @@ function ProductCard({ product, defaultBudget = "standard", onAdd, onViewDetail,
         <div className="flex justify-between items-center">
           <div>
             <div className="text-forest font-bold text-[17px] transition-all">{fmt(selectedBrand.price)}</div>
-            {product.brands.length > 1 && (
+            {showSale && (
+              <div className="text-text-light text-[10px] line-through">{fmt(selectedBrand.compareAtPrice!)}</div>
+            )}
+            {!showSale && product.brands.length > 1 && (
               <div className="text-text-light text-[10px] mt-0.5">from {fmt(Math.min(...product.brands.map(b => b.price)))}</div>
             )}
           </div>
