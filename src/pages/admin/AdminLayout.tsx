@@ -20,6 +20,7 @@ const NAV = [
   { to: "/admin/orders", label: "Orders", icon: ClipboardList, section: "orders" },
   { to: "/admin/customers", label: "Customers", icon: Users, section: "orders" },
   { to: "/admin/coupons", label: "Coupons", icon: Tag, section: "products" },
+  { to: "/admin/promotions", label: "Promotions", icon: Gift, section: "products" },
   { to: "/admin/delivery", label: "Delivery", icon: Truck, section: "delivery" },
   { to: "/admin/shipping-zones", label: "Shipping Zones", icon: MapPin, section: "delivery" },
   { to: "/admin/content", label: "Content", icon: MessageSquare, section: "content" },
