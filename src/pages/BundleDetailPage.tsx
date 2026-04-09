@@ -38,9 +38,12 @@ export default function BundleDetailPage() {
   const savings = bundle.separateTotal - bundle.price;
   const savingsPercent = bundle.separateTotal > 0 ? Math.round((savings / bundle.separateTotal) * 100) : 0;
 
-  const upgradable = bundle.tier === "Basic" && allBundles
-    ? allBundles.find(b => b.hospitalType === bundle.hospitalType && b.deliveryType === bundle.deliveryType && b.tier === "Premium")
-    : null;
+  // Use upsell from DB first, fallback to tier-based matching
+  const upgradable = bundle.upsellBundleId && allBundles
+    ? allBundles.find(b => b.id === bundle.upsellBundleId || b.slug === bundle.upsellBundleId)
+    : (bundle.tier === "Basic" && allBundles
+      ? allBundles.find(b => b.hospitalType === bundle.hospitalType && b.deliveryType === bundle.deliveryType && b.tier === "Premium")
+      : null);
 
   const handleAdd = () => {
     addToCart({
@@ -184,7 +187,7 @@ export default function BundleDetailPage() {
           <div className="bg-warm-cream border-2 border-coral/30 rounded-card p-5 mt-6">
             <h3 className="pf text-lg text-coral mb-2">✨ Upgrade to Premium?</h3>
             <p className="text-text-med text-sm mb-3">
-              For {fmt(upgradable.price - bundle.price)} more, get the Premium version with {upgradable.babyItems.length + upgradable.mumItems.length} items and top-tier brands.
+              {bundle.upsellText || `For ${fmt(upgradable.price - bundle.price)} more, get the Premium version with ${upgradable.babyItems.length + upgradable.mumItems.length} items and top-tier brands.`}
             </p>
             <Link to={`/bundles/${upgradable.id}`} className="rounded-pill bg-coral px-6 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-coral-dark inline-block interactive">
               View Premium Bundle →

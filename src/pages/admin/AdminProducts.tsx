@@ -7,6 +7,7 @@ import AdminProductForm from "./AdminProductForm";
 import BulkActionsBar from "@/components/admin/BulkActionsBar";
 import TrashTabs from "@/components/admin/TrashTabs";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ExportButton, ImportButton } from "@/components/admin/ExcelImportExport";
 
 export default function AdminProducts() {
   const queryClient = useQueryClient();
@@ -107,12 +108,16 @@ export default function AdminProducts() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <h1 className="pf text-2xl font-bold">Products ({filtered.length})</h1>
-        <button onClick={() => { setEditingProduct(null); setShowForm(true); }}
-          className="flex items-center gap-1.5 bg-forest text-primary-foreground px-4 py-2 rounded-lg text-sm font-semibold hover:bg-forest-deep">
-          <Plus className="w-4 h-4" /> Add Product
-        </button>
+        <div className="flex items-center gap-2">
+          <ExportButton products={allProducts} />
+          <ImportButton />
+          <button onClick={() => { setEditingProduct(null); setShowForm(true); }}
+            className="flex items-center gap-1.5 bg-forest text-primary-foreground px-4 py-2 rounded-lg text-sm font-semibold hover:bg-forest-deep">
+            <Plus className="w-4 h-4" /> Add Product
+          </button>
+        </div>
       </div>
 
       <TrashTabs activeTab={trashTab} onTabChange={t => { setTrashTab(t); setSelected(new Set()); }} activeCount={activeProducts.length} trashCount={trashedProducts.length} />

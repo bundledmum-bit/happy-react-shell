@@ -2,15 +2,18 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Copy, Trash2, RotateCcw } from "lucide-react";
+import { Copy, Trash2, RotateCcw, Plus, Pencil } from "lucide-react";
 import BulkActionsBar from "@/components/admin/BulkActionsBar";
 import TrashTabs from "@/components/admin/TrashTabs";
 import { Checkbox } from "@/components/ui/checkbox";
+import AdminBundleForm from "./AdminBundleForm";
 
 export default function AdminBundles() {
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [trashTab, setTrashTab] = useState<"active" | "trash">("active");
+  const [showForm, setShowForm] = useState(false);
+  const [editingBundle, setEditingBundle] = useState<any>(null);
 
   const { data: bundles, isLoading } = useQuery({
     queryKey: ["admin-bundles"],
@@ -34,7 +37,7 @@ export default function AdminBundles() {
 
   const duplicateBundle = async (b: any) => {
     const { bundle_items, id, created_at, updated_at, deleted_at, ...rest } = b;
-    const { data, error } = await supabase.from("bundles").insert({ ...rest, name: `${rest.name} (Copy)`, slug: `${rest.slug}-copy-${Date.now()}` }).select("id").single();
+    const { error } = await supabase.from("bundles").insert({ ...rest, name: `${rest.name} (Copy)`, slug: `${rest.slug}-copy-${Date.now()}` }).select("id").single();
     if (error) { toast.error(error.message); return; }
     queryClient.invalidateQueries({ queryKey: ["admin-bundles"] });
     toast.success("Duplicated");
@@ -54,7 +57,13 @@ export default function AdminBundles() {
 
   return (
     <div>
-      <h1 className="pf text-2xl font-bold mb-6">Bundles</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="pf text-2xl font-bold">Bundles ({displayList.length})</h1>
+        <button onClick={() => { setEditingBundle(null); setShowForm(true); }}
+          className="flex items-center gap-1.5 bg-forest text-primary-foreground px-4 py-2 rounded-lg text-sm font-semibold hover:bg-forest-deep">
+          <Plus className="w-4 h-4" /> Add Bundle
+        </button>
+      </div>
 
       <TrashTabs activeTab={trashTab} onTabChange={t => { setTrashTab(t); setSelected(new Set()); }} activeCount={activeBundles.length} trashCount={trashedBundles.length} />
 
@@ -105,6 +114,8 @@ export default function AdminBundles() {
                     <div className="flex gap-1 justify-end">
                       {trashTab === "active" ? (
                         <>
+                          <button title="Edit" onClick={() => { setEditingBundle(b); setShowForm(true); }}
+                            className="p-1.5 rounded hover:bg-muted"><Pencil className="w-3.5 h-3.5" /></button>
                           <button title="Duplicate" onClick={() => duplicateBundle(b)} className="p-1.5 rounded hover:bg-muted"><Copy className="w-3.5 h-3.5" /></button>
                           <button title="Trash" onClick={() => bulkMutation.mutate({ ids: [b.id], action: "trash" })}
                             className="p-1.5 rounded hover:bg-destructive/10 text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
@@ -123,6 +134,12 @@ export default function AdminBundles() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {showForm && (
+        <AdminBundleForm bundle={editingBundle}
+          onClose={() => { setShowForm(false); setEditingBundle(null); }}
+          onSaved={() => { setShowForm(false); setEditingBundle(null); queryClient.invalidateQueries({ queryKey: ["admin-bundles"] }); }} />
       )}
     </div>
   );
