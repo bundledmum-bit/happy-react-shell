@@ -32,6 +32,7 @@ export interface Product {
   badge: string | null;
   brands: Brand[];
   category: "baby" | "mum";
+  subcategory?: string | null;
   stage: string[];
   priority: "essential" | "recommended" | "nice-to-have";
   tier: string[];
@@ -85,6 +86,8 @@ export interface Bundle {
   description?: string;
   deliveryMethod?: string | null;
   itemCount?: number;
+  discountPercent?: number;
+  priceMode?: string;
 }
 
 // ─── Tier mapping ──────────────────────────────────────────────
@@ -99,13 +102,10 @@ const TIER_COLORS: Record<string, string> = {
 // ─── Image helper ──────────────────────────────────────────────
 
 export function getProductImageUrl(product: any, selectedBrand?: Brand | null): string | null {
-  // 1. Selected brand's image
   if (selectedBrand?.imageUrl) return selectedBrand.imageUrl;
-  // 2. Primary from product_images
   const images = product.product_images || [];
   const primary = images.find((i: any) => i.is_primary) || images[0];
   if (primary?.image_url) return primary.image_url;
-  // 3. Product-level
   if (product.imageUrl || product.image_url) return product.imageUrl || product.image_url;
   return null;
 }
@@ -145,7 +145,6 @@ export function adaptProduct(row: any): Product {
     .map((s: any) => s.size_label);
 
   const genderColors = row.gender_colors as any;
-
   const contentsArr = row.contents
     ? row.contents.split(",").map((c: string) => c.trim()).filter(Boolean)
     : undefined;
@@ -161,6 +160,7 @@ export function adaptProduct(row: any): Product {
     badge: row.badge || null,
     brands,
     category: row.category as "baby" | "mum",
+    subcategory: row.subcategory || null,
     stage: stageTags.length ? stageTags : ["expecting", "newborn", "0-3m"],
     priority: row.priority as any,
     tier: tierTags,
@@ -210,7 +210,7 @@ export function adaptBundle(row: any): Bundle {
       name: prod?.name || "Unknown",
       brand: brand?.brand_name || "Standard",
       forWhom: (prod?.category === "mum" ? "mum" : "baby") as "baby" | "mum",
-      price: brand?.price || 0,
+      price: (brand?.price || 0) * (bi.quantity || 1),
       emoji: prod?.emoji || "📦",
       imageUrl: brand?.image_url || prod?.image_url || null,
     };
@@ -221,11 +221,20 @@ export function adaptBundle(row: any): Bundle {
   const separateTotal = [...babyItems, ...mumItems].reduce((s, i) => s + i.price, 0);
   const colors = HOSPITAL_COLORS[row.hospital_type] || HOSPITAL_COLORS.public;
 
+  const priceMode = row.price_mode || "fixed";
+  const discountPercent = Number(row.discount_percent) || 0;
+
+  // Compute effective price
+  let effectivePrice = row.price;
+  if (priceMode === "percentage" && separateTotal > 0 && discountPercent > 0) {
+    effectivePrice = Math.round(separateTotal * (1 - discountPercent / 100));
+  }
+
   return {
     id: row.slug || row.id,
     name: row.name,
-    price: row.price,
-    separateTotal: separateTotal || Math.round(row.price * 1.2),
+    price: effectivePrice,
+    separateTotal: separateTotal || Math.round(effectivePrice * 1.2),
     icon: row.emoji || "📦",
     imageUrl: row.image_url || null,
     color: colors.color,
@@ -242,6 +251,8 @@ export function adaptBundle(row: any): Bundle {
     description: row.description || "",
     deliveryMethod: row.delivery_method || null,
     itemCount: row.item_count || items.length,
+    discountPercent,
+    priceMode,
   };
 }
 

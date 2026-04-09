@@ -2,7 +2,9 @@ import { Link } from "react-router-dom";
 import { useCart, fmt } from "@/lib/cart";
 import { useAllProducts, useSiteSettings } from "@/hooks/useSupabaseData";
 import { useShippingZones, calculateDeliveryFee } from "@/hooks/useShippingZones";
+import { useSpendThresholds, getSpendPrompt } from "@/hooks/useSpendThresholds";
 import ProductImage from "@/components/ProductImage";
+import SpendMoreBanner from "@/components/SpendMoreBanner";
 import { Minus, Plus, X, ShoppingBag, ArrowLeft, Bookmark } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -12,10 +14,10 @@ export default function CartPage() {
   const [deliveryArea, setDeliveryArea] = useState("");
   const { data: settings } = useSiteSettings();
   const { data: zones } = useShippingZones();
+  const { data: thresholds } = useSpendThresholds();
 
   useEffect(() => { document.title = `Your Cart (${totalItems}) | BundledMum`; }, [totalItems]);
 
-  // Compute delivery from zones
   const serviceFeeEnabled = settings?.service_fee_enabled !== false;
   const serviceFee = serviceFeeEnabled ? (parseInt(settings?.service_fee) || 1500) : 0;
   const serviceFeeLabel = settings?.service_fee_label || "Service & Packaging";
@@ -24,7 +26,10 @@ export default function CartPage() {
     ? calculateDeliveryFee(subtotal, deliveryArea, deliveryState, zones, serviceFee, parseInt(settings?.default_delivery_fee) || 2500, parseInt(settings?.default_free_threshold) || 30000)
     : { fee: subtotal >= 30000 ? 0 : 2500, isFree: subtotal >= 30000, zoneName: "Standard", daysMin: 1, daysMax: 3, freeThreshold: 30000 };
 
-  const total = subtotal + deliveryCalc.fee + serviceFee;
+  // Spend threshold discount
+  const spendPrompt = thresholds?.length ? getSpendPrompt(subtotal, thresholds) : null;
+  const spendDiscount = spendPrompt?.appliedDiscount || 0;
+  const total = subtotal + deliveryCalc.fee + serviceFee - spendDiscount;
 
   // Delivery date estimate
   const now = new Date();
@@ -78,6 +83,7 @@ export default function CartPage() {
 
         <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
           <div className="space-y-3">
+            <SpendMoreBanner variant="cart" />
             {deliveryCalc.isFree && (
               <div className="bg-forest-light rounded-card p-3 text-center font-body text-sm text-forest font-semibold">
                 🎉 You qualify for FREE delivery!
@@ -191,6 +197,12 @@ export default function CartPage() {
                   <div className="flex justify-between">
                     <span className="text-text-med flex items-center gap-1">📦 {serviceFeeLabel}</span>
                     <span>{fmt(serviceFee)}</span>
+                  </div>
+                )}
+                {spendDiscount > 0 && (
+                  <div className="flex justify-between text-forest">
+                    <span className="font-semibold">🎉 Spend Discount ({spendPrompt?.currentDiscount?.discount_percent}%)</span>
+                    <span className="font-bold">-{fmt(spendDiscount)}</span>
                   </div>
                 )}
                 <div className="border-t border-border pt-3 flex justify-between pf font-semibold text-lg">

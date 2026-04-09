@@ -100,6 +100,8 @@ const STEPS: Record<string, StepDef> = {
       { id: "expecting", emoji: "🤰", label: "Still Expecting", sublabel: "Getting ready for delivery" },
       { id: "newborn", emoji: "🐣", label: "Baby is here! (Newborn)", sublabel: "0 – 4 weeks old" },
       { id: "0-3m", emoji: "🍼", label: "0 – 3 Months", sublabel: "Early newborn stage" },
+      { id: "3-6m", emoji: "🌱", label: "3 – 6 Months", sublabel: "Growing fast!" },
+      { id: "6-12m", emoji: "🐣", label: "6 – 12 Months", sublabel: "Active & curious" },
     ]
   },
   giftAge: {

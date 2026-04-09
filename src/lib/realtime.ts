@@ -26,6 +26,8 @@ const TABLE_TO_QUERY_KEYS: Record<string, string[]> = {
   navigation_links: ["navigation-links"],
   homepage_sections: ["homepage-sections"],
   pages: ["admin-pages", "pages"],
+  spend_threshold_discounts: ["spend-thresholds", "admin-spend-thresholds"],
+  product_categories: ["product-categories", "admin-product-categories"],
 };
 
 export function subscribeToAllChanges(onUpdate: (table: string, queryKeys: string[]) => void) {
