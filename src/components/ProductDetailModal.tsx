@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { useBundles } from "@/hooks/useSupabaseData";
 import type { Product } from "@/lib/supabaseAdapters";
+import { getProductImageUrl } from "@/lib/supabaseAdapters";
 import ProductImage from "@/components/ProductImage";
 
 interface Props {
@@ -25,7 +26,13 @@ export default function ProductDetailModal({ product, defaultBudget = "standard"
     [...b.babyItems, ...b.mumItems].some(i => i.name.toLowerCase().includes(product.name.toLowerCase().split(" ")[0]))
   );
 
+  // Brand image swap
+  const displayImage = selectedBrand?.imageUrl || product.imageUrl;
+  const isOutOfStock = selectedBrand?.inStock === false || selectedBrand?.stockQuantity === 0;
+  const isLowStock = selectedBrand?.stockQuantity != null && selectedBrand.stockQuantity > 0 && selectedBrand.stockQuantity <= 5;
+
   const handleAdd = () => {
+    if (isOutOfStock) return;
     if (product.sizes && product.sizes.length > 0 && !selectedSize) {
       toast.error("Please select a size.");
       return;
@@ -47,7 +54,9 @@ export default function ProductDetailModal({ product, defaultBudget = "standard"
     return Object.values(product.whyIncluded)[0] || "";
   };
 
-  const stockLabel = product.stock === 0 ? "out" : product.stock && product.stock <= 5 ? "low" : "in";
+  const showSalePrice = selectedBrand?.compareAtPrice && selectedBrand.compareAtPrice > selectedBrand.price;
+  const savings = showSalePrice ? selectedBrand.compareAtPrice! - selectedBrand.price : 0;
+  const savingsPercent = showSalePrice ? Math.round((savings / selectedBrand.compareAtPrice!) * 100) : 0;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-4" onClick={onClose}>
@@ -57,11 +66,17 @@ export default function ProductDetailModal({ product, defaultBudget = "standard"
           <X className="h-4 w-4" />
         </button>
 
-        <div className="h-48 md:h-56 flex items-center justify-center relative overflow-hidden" style={{ backgroundColor: product.imageUrl ? '#f5f5f5' : (selectedBrand.color || "#F0F7F4") }}>
+        <div className="h-48 md:h-56 flex items-center justify-center relative overflow-hidden transition-all"
+          style={{ backgroundColor: displayImage ? '#f5f5f5' : (selectedBrand.color || "#F0F7F4") }}>
           {product.badge && (
             <span className="absolute top-3 left-3 bg-coral text-primary-foreground text-[10px] font-bold px-2.5 py-1 rounded-pill uppercase z-10">{product.badge}</span>
           )}
-          <ProductImage imageUrl={product.imageUrl} emoji={selectedBrand.img || product.baseImg} alt={product.name} className="w-full h-full object-contain p-4" emojiClassName="text-7xl md:text-8xl" />
+          {showSalePrice && (
+            <span className="absolute top-3 right-12 bg-destructive text-primary-foreground text-[10px] font-bold px-2 py-1 rounded-pill z-10">
+              Save {savingsPercent}%
+            </span>
+          )}
+          <ProductImage imageUrl={displayImage} emoji={selectedBrand.img || product.baseImg} alt={product.name} className="w-full h-full object-contain p-4" emojiClassName="text-7xl md:text-8xl" />
         </div>
 
         <div className="p-5 md:p-7">
@@ -90,30 +105,36 @@ export default function ProductDetailModal({ product, defaultBudget = "standard"
                 <span className="font-semibold">📋 Includes: </span>{product.contents.join(" · ")}
               </div>
             )}
+            {product.safetyInfo && (
+              <div className="bg-warm-cream rounded-lg px-3 py-2 text-xs"><span className="font-semibold">🛡️ </span>{product.safetyInfo}</div>
+            )}
             {product.allergenInfo && (
               <div className="bg-[#FFF3E0] rounded-lg px-3 py-2 text-xs text-[#E65100]"><span className="font-semibold">⚠️ </span>{product.allergenInfo}</div>
-            )}
-            {product.genderRelevant && product.genderColors && (
-              <div className="bg-warm-cream rounded-lg px-3 py-2 text-xs">
-                <span className="font-semibold">🎨 Available in: </span>
-                {Object.entries(product.genderColors).map(([k, v]) => (
-                  <span key={k} className="capitalize">{k}: {v} </span>
-                ))}
-              </div>
             )}
           </div>
 
           <div className="mb-4">
             <p className="text-[11px] font-semibold text-text-light uppercase tracking-wider mb-2">Choose Brand</p>
             <div className="flex flex-wrap gap-2">
-              {product.brands.map(b => (
-                <button key={b.id} onClick={() => setSelectedBrand(b)}
-                  className={`px-3 py-1.5 rounded-pill text-xs font-semibold border-[1.5px] transition-all font-body flex items-center gap-1.5 ${selectedBrand.id === b.id ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-text-med"}`}>
-                  {b.label} — {fmt(b.price)}
-                  {b.id === defaultBrand.id && <span className="text-coral text-[9px]">★ Recommended</span>}
-                </button>
-              ))}
+              {product.brands.map(b => {
+                const brandOos = b.inStock === false || b.stockQuantity === 0;
+                return (
+                  <button key={b.id} onClick={() => setSelectedBrand(b)}
+                    className={`px-3 py-1.5 rounded-pill text-xs font-semibold border-[1.5px] transition-all font-body flex items-center gap-1.5 ${brandOos ? "opacity-50" : ""} ${selectedBrand.id === b.id ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-text-med"}`}>
+                    {b.logoUrl && <img src={b.logoUrl} alt="" className="w-4 h-4 object-contain" />}
+                    {b.label} — {fmt(b.price)}
+                    {b.compareAtPrice && b.compareAtPrice > b.price && (
+                      <span className="line-through text-text-light text-[10px]">{fmt(b.compareAtPrice)}</span>
+                    )}
+                    {brandOos && <span className="text-destructive text-[9px]">OOS</span>}
+                    {b.id === defaultBrand.id && !brandOos && <span className="text-coral text-[9px]">★</span>}
+                  </button>
+                );
+              })}
             </div>
+            {isOutOfStock && product.brands.some(b => b.inStock !== false && b.stockQuantity !== 0) && (
+              <p className="text-xs text-coral mt-1.5">This brand is out of stock. Try another brand above.</p>
+            )}
           </div>
 
           {product.sizes && product.sizes.length > 0 && (
@@ -130,16 +151,22 @@ export default function ProductDetailModal({ product, defaultBudget = "standard"
             </div>
           )}
 
-          {stockLabel === "low" && (
-            <p className="text-[#E65100] text-xs font-semibold mb-3">🔥 Only {product.stock} left!</p>
+          {isLowStock && (
+            <p className="text-[#E65100] text-xs font-semibold mb-3">🔥 Only {selectedBrand.stockQuantity} left!</p>
           )}
 
           <div className="flex items-center justify-between gap-4 mb-4 pt-3 border-t border-border">
             <div>
               <p className="pf text-2xl font-bold text-forest">{fmt(selectedBrand.price)}</p>
-              {product.brands.length > 1 && <p className="text-text-light text-[11px]">from {fmt(Math.min(...product.brands.map(b => b.price)))}</p>}
+              {showSalePrice && (
+                <div className="flex items-center gap-2">
+                  <p className="text-text-light text-sm line-through">{fmt(selectedBrand.compareAtPrice!)}</p>
+                  <span className="text-xs font-semibold text-destructive">Save ₦{savings.toLocaleString()}</span>
+                </div>
+              )}
+              {!showSalePrice && product.brands.length > 1 && <p className="text-text-light text-[11px]">from {fmt(Math.min(...product.brands.map(b => b.price)))}</p>}
             </div>
-            {stockLabel === "out" ? (
+            {isOutOfStock ? (
               <button className="rounded-pill bg-border px-6 py-2.5 text-sm font-semibold text-text-light cursor-not-allowed">
                 Out of Stock
               </button>
@@ -154,9 +181,11 @@ export default function ProductDetailModal({ product, defaultBudget = "standard"
             )}
           </div>
 
-          <div className="bg-forest-light rounded-lg p-3 text-xs text-forest mb-4">
-            <span className="font-semibold">💡 Why mums love this: </span>{getWhyText()}
-          </div>
+          {getWhyText() && (
+            <div className="bg-forest-light rounded-lg p-3 text-xs text-forest mb-4">
+              <span className="font-semibold">💡 Why mums love this: </span>{getWhyText()}
+            </div>
+          )}
 
           {relatedBundles.length > 0 && (
             <div>
