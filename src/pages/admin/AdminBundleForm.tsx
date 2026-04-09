@@ -92,6 +92,12 @@ export default function AdminBundleForm({ bundle, onClose, onSaved }: Props) {
   const autoSlug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
   const separateTotal = items.reduce((s, i) => s + (i.brand_price || 0) * (i.quantity || 1), 0);
+  const isPercentMode = form.price_mode === "percentage";
+  const computedPrice = isPercentMode && separateTotal > 0
+    ? Math.round(separateTotal * (1 - (form.discount_percent || 0) / 100))
+    : form.price;
+  const effectiveSavings = separateTotal - computedPrice;
+  const effectivePercent = separateTotal > 0 ? Math.round((effectiveSavings / separateTotal) * 100) : 0;
 
   const addProduct = (prod: any) => {
     const defaultBrand = prod.brands?.[0];
@@ -125,7 +131,9 @@ export default function AdminBundleForm({ bundle, onClose, onSaved }: Props) {
       const bundleData = {
         name: form.name, slug, description: form.description || null,
         hospital_type: form.hospital_type, delivery_method: form.delivery_method || null,
-        tier: form.tier, price: form.price, item_count: items.length,
+        tier: form.tier, price: isPercentMode ? computedPrice : form.price,
+        price_mode: form.price_mode, discount_percent: form.discount_percent || 0,
+        item_count: items.length,
         display_order: form.display_order, is_active: form.is_active,
         emoji: form.emoji || null, image_url: form.image_url || null,
         upsell_bundle_id: form.upsell_bundle_id || null,
