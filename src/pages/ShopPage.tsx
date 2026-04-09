@@ -173,12 +173,18 @@ export default function ShopPage() {
     document.title = `${titles[tab] || "All Products"} | BundledMum`;
   }, [tab]);
 
-  // All unique brand names
+  // All unique brand names — filtered by selected category and tab
   const allBrandNames = useMemo(() => {
     const names = new Set<string>();
-    (allProducts || []).forEach(p => p.brands.forEach(b => names.add(b.label)));
+    let pool = allProducts || [];
+    // Filter by tab
+    if (tab === "baby") pool = pool.filter(p => p.category === "baby");
+    else if (tab === "mum") pool = pool.filter(p => p.category === "mum");
+    // Filter by selected category
+    if (categoryF) pool = pool.filter(p => p.subcategory === categoryF);
+    pool.forEach(p => p.brands.forEach(b => names.add(b.label)));
     return Array.from(names).sort();
-  }, [allProducts]);
+  }, [allProducts, tab, categoryF]);
 
   // Filter categories by selected tab
   const filteredCategories = useMemo(() => {
