@@ -83,6 +83,7 @@ export default function CartPage() {
 
         <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
           <div className="space-y-3">
+            <SpendMoreBanner variant="cart" />
             {deliveryCalc.isFree && (
               <div className="bg-forest-light rounded-card p-3 text-center font-body text-sm text-forest font-semibold">
                 🎉 You qualify for FREE delivery!
