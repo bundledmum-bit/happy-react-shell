@@ -21,12 +21,12 @@ export default function AdminInventory() {
     },
   });
 
-  const updateStock = useMutation({
-    mutationFn: async ({ id, stock_quantity }: { id: string; stock_quantity: number }) => {
-      const { error } = await supabase.from("brands").update({ stock_quantity }).eq("id", id);
+  const updateBrand = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: any }) => {
+      const { error } = await supabase.from("brands").update(updates).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["admin-inventory"] }); toast.success("Stock updated"); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["admin-inventory"] }); toast.success("Updated"); },
   });
 
   const getStatus = (b: any) => {
@@ -49,8 +49,8 @@ export default function AdminInventory() {
   });
 
   const exportCSV = () => {
-    const rows = filtered.map((b: any) => [(b.products as any)?.name, b.brand_name, b.price, b.stock_quantity ?? "N/A", getStatus(b)].join(","));
-    const csv = "Product,Brand,Price,Stock,Status\n" + rows.join("\n");
+    const rows = filtered.map((b: any) => [(b.products as any)?.name, b.brand_name, b.price, b.compare_at_price || "", b.stock_quantity ?? "N/A", getStatus(b)].join(","));
+    const csv = "Product,Brand,Price,Compare-at Price,Stock,Status\n" + rows.join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = "inventory.csv"; a.click();
@@ -119,7 +119,9 @@ export default function AdminInventory() {
                 <th className="px-4 py-3 text-left font-semibold text-text-med">Brand</th>
                 <th className="px-4 py-3 text-left font-semibold text-text-med">Tier</th>
                 <th className="px-4 py-3 text-left font-semibold text-text-med">Price</th>
+                <th className="px-4 py-3 text-left font-semibold text-text-med">Compare-at</th>
                 <th className="px-4 py-3 text-left font-semibold text-text-med">Stock</th>
+                <th className="px-4 py-3 text-left font-semibold text-text-med">In Stock</th>
                 <th className="px-4 py-3 text-left font-semibold text-text-med">Status</th>
               </tr>
             </thead>
@@ -131,17 +133,40 @@ export default function AdminInventory() {
                     <td className="px-4 py-3 text-xs font-semibold">{(b.products as any)?.emoji} {(b.products as any)?.name}</td>
                     <td className="px-4 py-3 text-xs">{b.brand_name}</td>
                     <td className="px-4 py-3 text-xs capitalize">{b.tier}</td>
-                    <td className="px-4 py-3 text-xs font-semibold">₦{b.price.toLocaleString()}</td>
+                    <td className="px-4 py-3">
+                      <input type="number" defaultValue={b.price} min={0}
+                        onBlur={e => {
+                          const val = parseInt(e.target.value);
+                          if (val !== b.price) updateBrand.mutate({ id: b.id, updates: { price: val } });
+                        }}
+                        className="w-24 border border-input rounded px-2 py-1 text-xs bg-background" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <input type="number" defaultValue={b.compare_at_price || ""} min={0}
+                        onBlur={e => {
+                          const val = e.target.value === "" ? null : parseInt(e.target.value);
+                          if (val !== b.compare_at_price) updateBrand.mutate({ id: b.id, updates: { compare_at_price: val } });
+                        }}
+                        className="w-24 border border-input rounded px-2 py-1 text-xs bg-background" placeholder="—" />
+                    </td>
                     <td className="px-4 py-3">
                       <input type="number" defaultValue={b.stock_quantity ?? ""} min={0}
                         onBlur={e => {
                           const val = e.target.value === "" ? null : parseInt(e.target.value);
-                          if (val !== b.stock_quantity) updateStock.mutate({ id: b.id, stock_quantity: val as number });
+                          if (val !== b.stock_quantity) updateBrand.mutate({ id: b.id, updates: { stock_quantity: val } });
                         }}
-                        className="w-20 border border-input rounded px-2 py-1 text-xs bg-background" placeholder="N/A" />
+                        className="w-20 border border-input rounded px-2 py-1 text-xs bg-background" placeholder="∞" />
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-semibold capitalize ${statusBadge(status)}`}>{status === "untracked" ? "N/A" : status}</span>
+                      <button onClick={() => updateBrand.mutate({ id: b.id, updates: { in_stock: !b.in_stock } })}
+                        className={`w-9 h-5 rounded-full relative transition-colors ${b.in_stock !== false ? "bg-forest" : "bg-border"}`}>
+                        <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-primary-foreground shadow transition-transform ${b.in_stock !== false ? "left-4" : "left-0.5"}`} />
+                      </button>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-semibold capitalize ${statusBadge(status)}`}>
+                        {status === "untracked" ? "N/A" : status === "in" ? "In Stock" : status === "low" ? "Low Stock" : "Out of Stock"}
+                      </span>
                     </td>
                   </tr>
                 );
