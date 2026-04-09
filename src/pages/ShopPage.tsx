@@ -165,6 +165,10 @@ export default function ShopPage() {
     const params = new URLSearchParams(searchParams);
     if (!value || value === "all") params.delete(key);
     else params.set(key, value);
+    // Clear brand filter when category changes (brands are filtered by category)
+    if (key === "category") params.delete("brand");
+    // Clear category and brand when tab changes
+    if (key === "tab") { params.delete("category"); params.delete("brand"); }
     setSearchParams(params, { replace: true });
   };
 
