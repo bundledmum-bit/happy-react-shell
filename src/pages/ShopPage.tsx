@@ -148,7 +148,7 @@ function ProductCard({ product, defaultBudget = "standard", forceBrand, onAdd, o
 export default function ShopPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = searchParams.get("tab") || "all";
-  const budgetF = searchParams.get("budget") || "standard";
+  const budgetF = searchParams.get("budget") || "all";
   const categoryF = searchParams.get("category") || "";
   const brandF = searchParams.get("brand") || "";
   const sortBy = searchParams.get("sort") || "popular";
