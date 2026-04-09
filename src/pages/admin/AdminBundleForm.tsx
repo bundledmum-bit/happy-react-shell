@@ -27,6 +27,8 @@ export default function AdminBundleForm({ bundle, onClose, onSaved }: Props) {
     delivery_method: bundle?.delivery_method || "",
     tier: bundle?.tier || "basic",
     price: bundle?.price || 0,
+    price_mode: bundle?.price_mode || "fixed",
+    discount_percent: bundle?.discount_percent || 0,
     item_count: bundle?.item_count || 0,
     display_order: bundle?.display_order || 0,
     is_active: bundle?.is_active ?? true,
