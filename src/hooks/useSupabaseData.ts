@@ -182,7 +182,7 @@ export function useReferralCode(code: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("referral_codes")
-        .select("*")
+        .select("id, code, is_active")
         .eq("code", code)
         .eq("is_active", true)
         .single();
