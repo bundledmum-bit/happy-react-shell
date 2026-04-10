@@ -3,6 +3,7 @@ import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useAdminUser, canViewSection } from "@/hooks/useAdminPermissions";
+import { useIdleTimeout } from "@/hooks/useIdleTimeout";
 import {
   Package, ShoppingBag, ClipboardList, Truck, MessageSquare, Settings,
   BarChart3, Gift, LogOut, LayoutDashboard, FileText, Users, Image, Bell,
@@ -39,6 +40,7 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   
+  useIdleTimeout();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");

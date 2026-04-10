@@ -4,9 +4,11 @@ import { useCart, fmt, generateOrderId } from "@/lib/cart";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { useShippingZones, calculateDeliveryFee } from "@/hooks/useShippingZones";
+import { useSiteSettings } from "@/hooks/useSupabaseData";
+import { useSpendThresholds, getSpendPrompt } from "@/hooks/useSpendThresholds";
 
 const NIGERIAN_STATES = ["Lagos", "Abuja", "Rivers", "Ogun", "Oyo", "Kano", "Kaduna", "Anambra", "Enugu", "Delta", "Edo", "Imo", "Osun", "Kwara", "Benue"];
-const SERVICE_FEE = 1500;
 const GIFT_WRAP_FEE = 3500;
 
 interface FormData {
@@ -32,12 +34,77 @@ export default function CheckoutPage() {
   const [errors, setErrors] = useState<Partial<FormData>>({});
   const [mobileOrderOpen, setMobileOrderOpen] = useState(false);
 
+  // Coupon state
+  const [couponCode, setCouponCode] = useState("");
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<{ id: string; code: string; discount_type: string; discount_value: number; maximum_discount_amount: number | null } | null>(null);
+
+  // Dynamic settings from DB
+  const { data: settings } = useSiteSettings();
+  const { data: zones } = useShippingZones();
+  const { data: thresholds } = useSpendThresholds();
+
   useEffect(() => { document.title = "Secure Checkout | BundledMum"; }, []);
 
-  const delivery = subtotal >= 30000 ? 0 : 2500;
-  const giftWrapFee = giftWrap ? GIFT_WRAP_FEE : 0;
-  const grand = subtotal + delivery + SERVICE_FEE + giftWrapFee;
+  const serviceFeeEnabled = settings?.service_fee_enabled !== false;
+  const serviceFee = serviceFeeEnabled ? (parseInt(settings?.service_fee) || 1500) : 0;
+  const serviceFeeLabel = settings?.service_fee_label || "Service & Packaging";
 
+  // Delivery fee from DB zones
+  const deliveryCalc = zones?.length
+    ? calculateDeliveryFee(subtotal, form.city, form.state, zones, serviceFee, parseInt(settings?.default_delivery_fee) || 2500, parseInt(settings?.default_free_threshold) || 30000)
+    : { fee: subtotal >= 30000 ? 0 : 2500, isFree: subtotal >= 30000, zoneName: "Standard", daysMin: 1, daysMax: 3, freeThreshold: 30000 };
+  const delivery = deliveryCalc.fee;
+
+  // Spend threshold discount
+  const spendPrompt = thresholds?.length ? getSpendPrompt(subtotal, thresholds) : null;
+  const spendDiscount = spendPrompt?.appliedDiscount || 0;
+
+  // Coupon discount calculation
+  let couponDiscount = 0;
+  if (appliedCoupon) {
+    if (appliedCoupon.discount_type === "percentage") {
+      couponDiscount = Math.round(subtotal * appliedCoupon.discount_value / 100);
+      if (appliedCoupon.maximum_discount_amount) couponDiscount = Math.min(couponDiscount, appliedCoupon.maximum_discount_amount);
+    } else {
+      couponDiscount = Math.min(appliedCoupon.discount_value, subtotal);
+    }
+  }
+
+  const giftWrapFee = giftWrap ? GIFT_WRAP_FEE : 0;
+  const grand = Math.max(0, subtotal + delivery + serviceFee + giftWrapFee - couponDiscount - spendDiscount);
+
+  // Delivery date estimate
+  const now = new Date();
+  const fromDate = new Date(now); fromDate.setDate(fromDate.getDate() + deliveryCalc.daysMin);
+  const toDate = new Date(now); toDate.setDate(toDate.getDate() + deliveryCalc.daysMax);
+  const fmtDate = (d: Date) => d.toLocaleDateString("en-NG", { weekday: "short", month: "short", day: "numeric" });
+
+  const applyCoupon = async () => {
+    const code = couponCode.trim().toUpperCase();
+    if (!code) { toast.error("Enter a coupon code"); return; }
+    setCouponLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("coupons")
+        .select("id, code, discount_type, discount_value, maximum_discount_amount, minimum_order_amount, is_active, start_date, end_date, usage_limit, usage_count")
+        .eq("code", code)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) { toast.error("Invalid coupon code"); setCouponLoading(false); return; }
+      if (data.start_date && new Date() < new Date(data.start_date)) { toast.error("Coupon not yet valid"); setCouponLoading(false); return; }
+      if (data.end_date && new Date() > new Date(data.end_date)) { toast.error("Coupon has expired"); setCouponLoading(false); return; }
+      if (data.usage_limit && data.usage_count >= data.usage_limit) { toast.error("Coupon usage limit reached"); setCouponLoading(false); return; }
+      if (data.minimum_order_amount && subtotal < data.minimum_order_amount) { toast.error(`Minimum order of ${fmt(data.minimum_order_amount)} required`); setCouponLoading(false); return; }
+      setAppliedCoupon({ id: data.id, code: data.code, discount_type: data.discount_type, discount_value: data.discount_value || 0, maximum_discount_amount: data.maximum_discount_amount });
+      toast.success(`Coupon "${data.code}" applied!`);
+    } catch {
+      toast.error("Failed to validate coupon");
+    } finally {
+      setCouponLoading(false);
+    }
+  };
   const update = (key: keyof FormData, val: string) => {
     setForm(p => ({ ...p, [key]: val }));
     if (errors[key]) setErrors(p => ({ ...p, [key]: undefined }));
@@ -83,7 +150,7 @@ export default function CheckoutPage() {
     deliveryNotes: form.notes,
     items: cart,
     itemsSummary: cart.map(i => `${i.name} x${i.qty}`).join(", "),
-    subtotal, deliveryFee: delivery, serviceFee: SERVICE_FEE, giftWrapFee,
+    subtotal, deliveryFee: delivery, serviceFee, giftWrapFee,
     total: grand,
     paymentMethod: payment,
     paymentStatus: payment === "transfer" ? "PENDING_TRANSFER" : "PAID",
@@ -109,11 +176,18 @@ export default function CheckoutPage() {
           service_fee: orderData.serviceFee,
           total: orderData.total,
           discount: 0,
+          discount_amount: couponDiscount > 0 ? couponDiscount : 0,
+          coupon_id: appliedCoupon?.id || null,
+          spend_discount_amount: spendDiscount > 0 ? spendDiscount : 0,
+          spend_discount_percent: spendPrompt?.currentDiscount?.discount_percent || null,
+          referral_code_used: null,
           payment_reference: orderData.paystackRef,
           payment_status: orderData.paymentStatus === "PAID" ? "paid" : "pending",
           payment_method: orderData.paymentMethod,
           order_status: "confirmed",
           gift_wrapping: orderData.giftWrap,
+          estimated_delivery_start: fromDate.toISOString().split("T")[0],
+          estimated_delivery_end: toDate.toISOString().split("T")[0],
         })
         .select("id, order_number")
         .single();
@@ -275,10 +349,13 @@ export default function CheckoutPage() {
               ))}
               <div className="border-t border-border pt-2 space-y-1 text-xs">
                 <div className="flex justify-between"><span className="text-text-med">Subtotal</span><span>{fmt(subtotal)}</span></div>
-                <div className="flex justify-between"><span className="text-text-med">Delivery</span><span>{delivery === 0 ? "FREE" : fmt(delivery)}</span></div>
-                <div className="flex justify-between"><span className="text-text-med">Service & Packaging</span><span>{fmt(SERVICE_FEE)}</span></div>
+                <div className="flex justify-between"><span className="text-text-med">Delivery ({deliveryCalc.zoneName})</span><span className={delivery === 0 ? "text-forest" : ""}>{delivery === 0 ? "FREE 🎉" : fmt(delivery)}</span></div>
+                <div className="flex justify-between"><span className="text-text-med">{serviceFeeLabel}</span><span>{fmt(serviceFee)}</span></div>
                 {giftWrap && <div className="flex justify-between"><span className="text-text-med">Gift Wrapping</span><span>{fmt(GIFT_WRAP_FEE)}</span></div>}
+                {couponDiscount > 0 && <div className="flex justify-between text-forest"><span>🏷️ Coupon ({appliedCoupon?.code})</span><span>-{fmt(couponDiscount)}</span></div>}
+                {spendDiscount > 0 && <div className="flex justify-between text-forest"><span>🎉 Spend Discount</span><span>-{fmt(spendDiscount)}</span></div>}
                 <div className="flex justify-between font-bold text-sm pt-1"><span>Total</span><span className="text-forest">{fmt(grand)}</span></div>
+                <div className="text-[10px] text-text-light mt-1">🚚 Est. {fmtDate(fromDate)} – {fmtDate(toDate)}</div>
               </div>
             </div>
           )}
@@ -328,6 +405,29 @@ export default function CheckoutPage() {
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* Coupon Code */}
+            <div className="bg-card rounded-card shadow-card p-4 md:p-8">
+              <h2 className="pf text-lg mb-4">🏷️ Have a Coupon?</h2>
+              {appliedCoupon ? (
+                <div className="flex items-center justify-between bg-forest-light rounded-[10px] p-3">
+                  <div>
+                    <span className="text-forest font-bold text-sm">{appliedCoupon.code}</span>
+                    <span className="text-forest text-xs ml-2">— saving {fmt(couponDiscount)}</span>
+                  </div>
+                  <button onClick={() => { setAppliedCoupon(null); setCouponCode(""); }} className="text-destructive text-xs font-semibold hover:underline">Remove</button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input value={couponCode} onChange={e => setCouponCode(e.target.value.toUpperCase())} placeholder="Enter coupon code"
+                    className="flex-1 rounded-[10px] border-[1.5px] border-border px-3 py-2.5 text-sm bg-card font-body focus:border-forest outline-none uppercase" />
+                  <button onClick={applyCoupon} disabled={couponLoading}
+                    className="rounded-[10px] bg-forest px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-forest-deep disabled:opacity-50 font-body">
+                    {couponLoading ? "..." : "Apply"}
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Payment Method */}
@@ -396,13 +496,23 @@ export default function CheckoutPage() {
               </div>
               <div className="space-y-2 font-body text-[13px]">
                 <div className="flex justify-between"><span className="text-text-med">Subtotal ({totalItems} items)</span><span>{fmt(subtotal)}</span></div>
-                <div className="flex justify-between"><span className="text-text-med">Delivery</span><span className={delivery === 0 ? "text-forest" : ""}>{delivery === 0 ? "FREE 🎉" : fmt(delivery)}</span></div>
-                <div className="flex justify-between"><span className="text-text-med flex items-center gap-1">📦 Service & Packaging</span><span>{fmt(SERVICE_FEE)}</span></div>
+                <div className="flex justify-between"><span className="text-text-med">Delivery ({deliveryCalc.zoneName})</span><span className={delivery === 0 ? "text-forest" : ""}>{delivery === 0 ? "FREE 🎉" : fmt(delivery)}</span></div>
+                <div className="flex justify-between"><span className="text-text-med flex items-center gap-1">📦 {serviceFeeLabel}</span><span>{fmt(serviceFee)}</span></div>
                 {giftWrap && <div className="flex justify-between"><span className="text-text-med">🎀 Gift Wrapping</span><span className="text-[#7B5E00]">{fmt(GIFT_WRAP_FEE)}</span></div>}
+                {couponDiscount > 0 && <div className="flex justify-between text-forest"><span className="font-semibold">🏷️ Coupon ({appliedCoupon?.code})</span><span className="font-bold">-{fmt(couponDiscount)}</span></div>}
+                {spendDiscount > 0 && <div className="flex justify-between text-forest"><span className="font-semibold">🎉 Spend Discount ({spendPrompt?.currentDiscount?.discount_percent}%)</span><span className="font-bold">-{fmt(spendDiscount)}</span></div>}
                 <div className="flex justify-between pt-2.5 border-t-2 border-border mt-0.5">
                   <span className="pf font-semibold">Total</span>
                   <span className="pf font-bold text-lg text-forest">{fmt(grand)}</span>
                 </div>
+                <div className="mt-2 bg-forest-light rounded-lg p-2.5">
+                  <p className="text-forest text-xs font-body font-semibold">🚚 Est. delivery: {fmtDate(fromDate)} – {fmtDate(toDate)} ({deliveryCalc.daysMin}–{deliveryCalc.daysMax} days)</p>
+                </div>
+                {!deliveryCalc.isFree && deliveryCalc.freeThreshold && (
+                  <div className="mt-2 bg-warm-cream rounded-lg p-2 text-center">
+                    <p className="text-text-med text-[11px]">Add {fmt(deliveryCalc.freeThreshold - subtotal)} more for <span className="font-bold text-forest">FREE delivery</span></p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
