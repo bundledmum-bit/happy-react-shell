@@ -34,12 +34,77 @@ export default function CheckoutPage() {
   const [errors, setErrors] = useState<Partial<FormData>>({});
   const [mobileOrderOpen, setMobileOrderOpen] = useState(false);
 
+  // Coupon state
+  const [couponCode, setCouponCode] = useState("");
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<{ id: string; code: string; discount_type: string; discount_value: number; maximum_discount_amount: number | null } | null>(null);
+
+  // Dynamic settings from DB
+  const { data: settings } = useSiteSettings();
+  const { data: zones } = useShippingZones();
+  const { data: thresholds } = useSpendThresholds();
+
   useEffect(() => { document.title = "Secure Checkout | BundledMum"; }, []);
 
-  const delivery = subtotal >= 30000 ? 0 : 2500;
-  const giftWrapFee = giftWrap ? GIFT_WRAP_FEE : 0;
-  const grand = subtotal + delivery + SERVICE_FEE + giftWrapFee;
+  const serviceFeeEnabled = settings?.service_fee_enabled !== false;
+  const serviceFee = serviceFeeEnabled ? (parseInt(settings?.service_fee) || 1500) : 0;
+  const serviceFeeLabel = settings?.service_fee_label || "Service & Packaging";
 
+  // Delivery fee from DB zones
+  const deliveryCalc = zones?.length
+    ? calculateDeliveryFee(subtotal, form.city, form.state, zones, serviceFee, parseInt(settings?.default_delivery_fee) || 2500, parseInt(settings?.default_free_threshold) || 30000)
+    : { fee: subtotal >= 30000 ? 0 : 2500, isFree: subtotal >= 30000, zoneName: "Standard", daysMin: 1, daysMax: 3, freeThreshold: 30000 };
+  const delivery = deliveryCalc.fee;
+
+  // Spend threshold discount
+  const spendPrompt = thresholds?.length ? getSpendPrompt(subtotal, thresholds) : null;
+  const spendDiscount = spendPrompt?.appliedDiscount || 0;
+
+  // Coupon discount calculation
+  let couponDiscount = 0;
+  if (appliedCoupon) {
+    if (appliedCoupon.discount_type === "percentage") {
+      couponDiscount = Math.round(subtotal * appliedCoupon.discount_value / 100);
+      if (appliedCoupon.maximum_discount_amount) couponDiscount = Math.min(couponDiscount, appliedCoupon.maximum_discount_amount);
+    } else {
+      couponDiscount = Math.min(appliedCoupon.discount_value, subtotal);
+    }
+  }
+
+  const giftWrapFee = giftWrap ? GIFT_WRAP_FEE : 0;
+  const grand = Math.max(0, subtotal + delivery + serviceFee + giftWrapFee - couponDiscount - spendDiscount);
+
+  // Delivery date estimate
+  const now = new Date();
+  const fromDate = new Date(now); fromDate.setDate(fromDate.getDate() + deliveryCalc.daysMin);
+  const toDate = new Date(now); toDate.setDate(toDate.getDate() + deliveryCalc.daysMax);
+  const fmtDate = (d: Date) => d.toLocaleDateString("en-NG", { weekday: "short", month: "short", day: "numeric" });
+
+  const applyCoupon = async () => {
+    const code = couponCode.trim().toUpperCase();
+    if (!code) { toast.error("Enter a coupon code"); return; }
+    setCouponLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("coupons")
+        .select("id, code, discount_type, discount_value, maximum_discount_amount, minimum_order_amount, is_active, start_date, end_date, usage_limit, usage_count")
+        .eq("code", code)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) { toast.error("Invalid coupon code"); setCouponLoading(false); return; }
+      if (data.start_date && new Date() < new Date(data.start_date)) { toast.error("Coupon not yet valid"); setCouponLoading(false); return; }
+      if (data.end_date && new Date() > new Date(data.end_date)) { toast.error("Coupon has expired"); setCouponLoading(false); return; }
+      if (data.usage_limit && data.usage_count >= data.usage_limit) { toast.error("Coupon usage limit reached"); setCouponLoading(false); return; }
+      if (data.minimum_order_amount && subtotal < data.minimum_order_amount) { toast.error(`Minimum order of ${fmt(data.minimum_order_amount)} required`); setCouponLoading(false); return; }
+      setAppliedCoupon({ id: data.id, code: data.code, discount_type: data.discount_type, discount_value: data.discount_value || 0, maximum_discount_amount: data.maximum_discount_amount });
+      toast.success(`Coupon "${data.code}" applied!`);
+    } catch {
+      toast.error("Failed to validate coupon");
+    } finally {
+      setCouponLoading(false);
+    }
+  };
   const update = (key: keyof FormData, val: string) => {
     setForm(p => ({ ...p, [key]: val }));
     if (errors[key]) setErrors(p => ({ ...p, [key]: undefined }));
