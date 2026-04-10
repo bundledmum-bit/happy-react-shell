@@ -176,11 +176,18 @@ export default function CheckoutPage() {
           service_fee: orderData.serviceFee,
           total: orderData.total,
           discount: 0,
+          discount_amount: couponDiscount > 0 ? couponDiscount : 0,
+          coupon_id: appliedCoupon?.id || null,
+          spend_discount_amount: spendDiscount > 0 ? spendDiscount : 0,
+          spend_discount_percent: spendPrompt?.currentDiscount?.discount_percent || null,
+          referral_code_used: null,
           payment_reference: orderData.paystackRef,
           payment_status: orderData.paymentStatus === "PAID" ? "paid" : "pending",
           payment_method: orderData.paymentMethod,
           order_status: "confirmed",
           gift_wrapping: orderData.giftWrap,
+          estimated_delivery_start: fromDate.toISOString().split("T")[0],
+          estimated_delivery_end: toDate.toISOString().split("T")[0],
         })
         .select("id, order_number")
         .single();
