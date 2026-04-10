@@ -4,9 +4,12 @@ import { useCart, fmt, generateOrderId } from "@/lib/cart";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { useShippingZones, calculateDeliveryFee } from "@/hooks/useShippingZones";
+import { useSiteSettings } from "@/hooks/useSupabaseData";
+import { useSpendThresholds, getSpendPrompt } from "@/hooks/useSpendThresholds";
 
 const NIGERIAN_STATES = ["Lagos", "Abuja", "Rivers", "Ogun", "Oyo", "Kano", "Kaduna", "Anambra", "Enugu", "Delta", "Edo", "Imo", "Osun", "Kwara", "Benue"];
-const SERVICE_FEE = 1500;
+const GIFT_WRAP_FEE = 3500;
 const GIFT_WRAP_FEE = 3500;
 
 interface FormData {
