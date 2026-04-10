@@ -150,7 +150,7 @@ export default function CheckoutPage() {
     deliveryNotes: form.notes,
     items: cart,
     itemsSummary: cart.map(i => `${i.name} x${i.qty}`).join(", "),
-    subtotal, deliveryFee: delivery, serviceFee: SERVICE_FEE, giftWrapFee,
+    subtotal, deliveryFee: delivery, serviceFee, giftWrapFee,
     total: grand,
     paymentMethod: payment,
     paymentStatus: payment === "transfer" ? "PENDING_TRANSFER" : "PAID",
@@ -343,7 +343,7 @@ export default function CheckoutPage() {
               <div className="border-t border-border pt-2 space-y-1 text-xs">
                 <div className="flex justify-between"><span className="text-text-med">Subtotal</span><span>{fmt(subtotal)}</span></div>
                 <div className="flex justify-between"><span className="text-text-med">Delivery</span><span>{delivery === 0 ? "FREE" : fmt(delivery)}</span></div>
-                <div className="flex justify-between"><span className="text-text-med">Service & Packaging</span><span>{fmt(SERVICE_FEE)}</span></div>
+                <div className="flex justify-between"><span className="text-text-med">{serviceFeeLabel}</span><span>{fmt(serviceFee)}</span></div>
                 {giftWrap && <div className="flex justify-between"><span className="text-text-med">Gift Wrapping</span><span>{fmt(GIFT_WRAP_FEE)}</span></div>}
                 <div className="flex justify-between font-bold text-sm pt-1"><span>Total</span><span className="text-forest">{fmt(grand)}</span></div>
               </div>
@@ -464,7 +464,7 @@ export default function CheckoutPage() {
               <div className="space-y-2 font-body text-[13px]">
                 <div className="flex justify-between"><span className="text-text-med">Subtotal ({totalItems} items)</span><span>{fmt(subtotal)}</span></div>
                 <div className="flex justify-between"><span className="text-text-med">Delivery</span><span className={delivery === 0 ? "text-forest" : ""}>{delivery === 0 ? "FREE 🎉" : fmt(delivery)}</span></div>
-                <div className="flex justify-between"><span className="text-text-med flex items-center gap-1">📦 Service & Packaging</span><span>{fmt(SERVICE_FEE)}</span></div>
+                <div className="flex justify-between"><span className="text-text-med flex items-center gap-1">📦 {serviceFeeLabel}</span><span>{fmt(serviceFee)}</span></div>
                 {giftWrap && <div className="flex justify-between"><span className="text-text-med">🎀 Gift Wrapping</span><span className="text-[#7B5E00]">{fmt(GIFT_WRAP_FEE)}</span></div>}
                 <div className="flex justify-between pt-2.5 border-t-2 border-border mt-0.5">
                   <span className="pf font-semibold">Total</span>
