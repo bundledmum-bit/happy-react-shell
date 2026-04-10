@@ -181,13 +181,9 @@ export function useReferralCode(code: string) {
     queryKey: ["referral_code", code],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("referral_codes")
-        .select("id, code, is_active")
-        .eq("code", code)
-        .eq("is_active", true)
-        .single();
+        .rpc("validate_referral_code", { p_code: code });
       if (error) throw error;
-      return data;
+      return data?.[0] || null;
     },
     enabled: !!code,
   });
