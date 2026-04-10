@@ -404,6 +404,29 @@ export default function CheckoutPage() {
               </div>
             </div>
 
+            {/* Coupon Code */}
+            <div className="bg-card rounded-card shadow-card p-4 md:p-8">
+              <h2 className="pf text-lg mb-4">🏷️ Have a Coupon?</h2>
+              {appliedCoupon ? (
+                <div className="flex items-center justify-between bg-forest-light rounded-[10px] p-3">
+                  <div>
+                    <span className="text-forest font-bold text-sm">{appliedCoupon.code}</span>
+                    <span className="text-forest text-xs ml-2">— saving {fmt(couponDiscount)}</span>
+                  </div>
+                  <button onClick={() => { setAppliedCoupon(null); setCouponCode(""); }} className="text-destructive text-xs font-semibold hover:underline">Remove</button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input value={couponCode} onChange={e => setCouponCode(e.target.value.toUpperCase())} placeholder="Enter coupon code"
+                    className="flex-1 rounded-[10px] border-[1.5px] border-border px-3 py-2.5 text-sm bg-card font-body focus:border-forest outline-none uppercase" />
+                  <button onClick={applyCoupon} disabled={couponLoading}
+                    className="rounded-[10px] bg-forest px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-forest-deep disabled:opacity-50 font-body">
+                    {couponLoading ? "..." : "Apply"}
+                  </button>
+                </div>
+              )}
+            </div>
+
             {/* Payment Method */}
             <div className="bg-card rounded-card shadow-card p-4 md:p-8">
               <h2 className="pf text-lg mb-4">💳 Payment Method</h2>
