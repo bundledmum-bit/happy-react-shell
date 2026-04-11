@@ -172,7 +172,6 @@ export default function CheckoutPage() {
   };
 
   const buildOrderData = (paystackRef?: string, paystackStatus?: string) => ({
-    orderId: generateOrderId(),
     timestamp: new Date().toISOString(),
     customerName: `${form.firstName} ${form.lastName}`,
     email: form.email, phone: form.phone, address: form.address, city: form.city, state: form.state,
@@ -266,7 +265,7 @@ export default function CheckoutPage() {
 
       if (orderError) {
         console.error("Order insert failed:", orderError);
-        return orderData.orderId;
+        return null;
       }
 
       // Insert order items
@@ -358,10 +357,10 @@ export default function CheckoutPage() {
         item_count: cart.length,
       });
 
-      return order.order_number || orderData.orderId;
+      return order.order_number;
     } catch (e) {
       console.error("DB save failed:", e);
-      return orderData.orderId;
+      return null;
     }
   };
 
