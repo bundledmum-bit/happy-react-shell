@@ -2,6 +2,9 @@ import { useState, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import OrdersReportTab from "@/components/admin/OrdersReportTab";
+import OrderLinesReportTab from "@/components/admin/OrderLinesReportTab";
+import CustomerReportTab from "@/components/admin/CustomerReportTab";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -341,6 +344,8 @@ export default function AdminAnalytics() {
       <Tabs defaultValue="business" className="w-full">
         <TabsList className="mb-4 flex-wrap h-auto">
           <TabsTrigger value="business">Business</TabsTrigger>
+          <TabsTrigger value="orders-report">Orders Report</TabsTrigger>
+          <TabsTrigger value="order-lines">Order Lines</TabsTrigger>
           <TabsTrigger value="customers">Customers</TabsTrigger>
           <TabsTrigger value="quiz">Quiz & Leads</TabsTrigger>
           <TabsTrigger value="products">Products</TabsTrigger>
@@ -350,6 +355,12 @@ export default function AdminAnalytics() {
           <TabsTrigger value="behaviour">Behaviour</TabsTrigger>
           <TabsTrigger value="audience">Audience</TabsTrigger>
         </TabsList>
+
+        {/* ═══ ORDERS REPORT ═══ */}
+        <TabsContent value="orders-report"><OrdersReportTab /></TabsContent>
+
+        {/* ═══ ORDER LINES ═══ */}
+        <TabsContent value="order-lines"><OrderLinesReportTab /></TabsContent>
 
         {/* ═══ TAB 1: BUSINESS ═══ */}
         <TabsContent value="business">
