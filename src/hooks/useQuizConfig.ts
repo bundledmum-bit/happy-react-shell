@@ -9,8 +9,8 @@ export interface QuizOption {
   option_emoji: string | null;
   option_description: string | null;
   price_modifier: number | null;
-  display_order: number;
-  is_active: boolean;
+  display_order: number | null;
+  is_active: boolean | null;
 }
 
 export interface QuizQuestion {
@@ -19,11 +19,11 @@ export interface QuizQuestion {
   question_text: string;
   sub_text: string | null;
   input_type: string;
-  is_skippable: boolean;
-  applies_to_path: string[];
+  is_skippable: boolean | null;
+  applies_to_path: string[] | null;
   step_order: number;
-  is_active: boolean;
-  step_label: string | null;
+  step_label: string;
+  is_active: boolean | null;
   quiz_options: QuizOption[];
 }
 
@@ -31,25 +31,23 @@ export interface QuizRoutingRule {
   id: string;
   from_step_id: string;
   condition_answer: string | null;
-  condition_operator: string;
-  next_step_id: string | null;
-  priority: number;
-  is_active: boolean;
-  condition_field: string | null;
-  description: string | null;
+  condition_operator: string | null;
+  next_step_id: string;
+  priority: number | null;
+  is_active: boolean | null;
 }
 
 export interface QuizAdjustmentRule {
   id: string;
   rule_name: string;
-  trigger_step: string;
+  trigger_step_id: string;
   trigger_value: string;
-  trigger_operator: string;
-  target_product_slug: string | null;
+  trigger_operator: string | null;
+  target_product_slug: string;
   action: string;
   action_value: string | null;
-  priority: number;
-  is_active: boolean;
+  priority: number | null;
+  is_active: boolean | null;
 }
 
 export interface QuizTargetCount {
@@ -58,6 +56,7 @@ export interface QuizTargetCount {
   target_count: number;
   min_count: number;
   max_count: number;
+  is_active: boolean | null;
 }
 
 export function useQuizQuestions() {
@@ -70,9 +69,9 @@ export function useQuizQuestions() {
         .eq("is_active", true)
         .order("step_order");
       if (error) throw error;
-      return (data || []) as QuizQuestion[];
+      return (data || []) as unknown as QuizQuestion[];
     },
-    staleTime: 0, // always re-fetch so admin changes take effect
+    staleTime: 0,
   });
 }
 
@@ -86,7 +85,7 @@ export function useQuizRoutingRules() {
         .eq("is_active", true)
         .order("priority", { ascending: false });
       if (error) throw error;
-      return (data || []) as QuizRoutingRule[];
+      return (data || []) as unknown as QuizRoutingRule[];
     },
     staleTime: 0,
   });
@@ -102,7 +101,7 @@ export function useQuizAdjustmentRules() {
         .eq("is_active", true)
         .order("priority", { ascending: false });
       if (error) throw error;
-      return (data || []) as QuizAdjustmentRule[];
+      return (data || []) as unknown as QuizAdjustmentRule[];
     },
     staleTime: 0,
   });
@@ -116,13 +115,12 @@ export function useQuizTargetCounts() {
         .from("quiz_target_counts")
         .select("*");
       if (error) throw error;
-      return (data || []) as QuizTargetCount[];
+      return (data || []) as unknown as QuizTargetCount[];
     },
     staleTime: 0,
   });
 }
 
-// All quiz config in one call for admin
 export function useAllQuizConfig() {
   return useQuery({
     queryKey: ["quiz_all_config"],
@@ -134,10 +132,10 @@ export function useAllQuizConfig() {
         supabase.from("quiz_target_counts").select("*"),
       ]);
       return {
-        questions: (qRes.data || []) as QuizQuestion[],
-        routingRules: (rRes.data || []) as QuizRoutingRule[],
-        adjustmentRules: (aRes.data || []) as QuizAdjustmentRule[],
-        targetCounts: (tRes.data || []) as QuizTargetCount[],
+        questions: (qRes.data || []) as unknown as QuizQuestion[],
+        routingRules: (rRes.data || []) as unknown as QuizRoutingRule[],
+        adjustmentRules: (aRes.data || []) as unknown as QuizAdjustmentRule[],
+        targetCounts: (tRes.data || []) as unknown as QuizTargetCount[],
       };
     },
     staleTime: 0,
