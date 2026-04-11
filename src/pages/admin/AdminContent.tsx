@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -10,8 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 
 export default function AdminContent() {
   const queryClient = useQueryClient();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const tab = searchParams.get("tab") === "faqs" ? "faqs" : "testimonials";
+  const [tab, setTab] = useState<"testimonials" | "faqs">("testimonials");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [trashTab, setTrashTab] = useState<"active" | "trash">("active");
 
@@ -66,14 +64,7 @@ export default function AdminContent() {
       <h1 className="pf text-2xl font-bold mb-6">Content</h1>
       <div className="flex gap-2 mb-4">
         {(["testimonials", "faqs"] as const).map(t => (
-          <button key={t} onClick={() => {
-            const sp = new URLSearchParams(searchParams);
-            if (t === "testimonials") sp.delete("tab");
-            else sp.set("tab", t);
-            setSearchParams(sp);
-            setSelected(new Set());
-            setTrashTab("active");
-          }}
+          <button key={t} onClick={() => { setTab(t); setSelected(new Set()); setTrashTab("active"); }}
             className={`px-4 py-2 rounded-lg text-sm font-semibold capitalize ${tab === t ? "bg-forest text-primary-foreground" : "border border-border text-text-med"}`}>
             {t}
           </button>

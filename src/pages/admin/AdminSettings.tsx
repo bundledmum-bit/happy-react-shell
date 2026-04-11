@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -56,10 +55,8 @@ const TAB_KEYS: Record<string, { key: string; label: string; type: "text" | "tex
 
 export default function AdminSettings() {
   const queryClient = useQueryClient();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const requestedTab = searchParams.get("tab");
+  const [activeTab, setActiveTab] = useState("General");
   const [editValues, setEditValues] = useState<Record<string, string>>({});
-  const activeTab = requestedTab && TABS.includes(requestedTab) ? requestedTab : "General";
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ["admin-settings"],
@@ -104,12 +101,7 @@ export default function AdminSettings() {
 
       <div className="flex gap-2 mb-6 flex-wrap">
         {TABS.map(tab => (
-          <button key={tab} onClick={() => {
-            const sp = new URLSearchParams(searchParams);
-            if (tab === "General") sp.delete("tab");
-            else sp.set("tab", tab);
-            setSearchParams(sp);
-          }}
+          <button key={tab} onClick={() => setActiveTab(tab)}
             className={`px-4 py-2 rounded-lg text-xs font-semibold border ${activeTab === tab ? "border-forest bg-forest-light text-forest" : "border-border text-text-med"}`}>
             {tab}
           </button>

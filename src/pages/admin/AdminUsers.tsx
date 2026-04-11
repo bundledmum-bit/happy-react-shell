@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import { Plus, X, Shield } from "lucide-react";
 import { usePermissions } from "@/hooks/useAdminPermissionsContext";
 import AdminPermissionsManager from "@/components/admin/AdminPermissionsManager";
-import NavVisibilityEditor from "@/components/admin/NavVisibilityEditor";
 
 const ROLES = ["super_admin", "admin", "fulfilment", "customer_service", "analyst", "content_manager", "custom"];
 const ROLE_LABELS: Record<string, string> = {
@@ -212,20 +211,6 @@ function UserForm({ user, onClose, onSaved }: { user: any; onClose: () => void; 
               {ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
             </select>
           </div>
-
-          {/* Nav Menu Access section */}
-          {isEdit && (
-            <div className="border-t border-border pt-4">
-              <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
-                <span>📋</span> Nav Menu Access
-              </h3>
-              <NavVisibilityEditor
-                userId={user.id}
-                userRole={form.role}
-                userName={user.display_name}
-              />
-            </div>
-          )}
         </div>
         <div className="flex justify-end gap-2 p-4 border-t border-border">
           <button onClick={onClose} className="px-4 py-2 border border-border rounded-lg text-sm font-semibold">Cancel</button>

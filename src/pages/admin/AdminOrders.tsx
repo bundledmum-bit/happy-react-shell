@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Search, Download, ChevronDown, ChevronUp, Printer, MessageSquare, Clock, Send, ExternalLink, ArrowLeft } from "lucide-react";
@@ -37,25 +36,13 @@ const fmt = (n: number) => `₦${n.toLocaleString()}`;
 export default function AdminOrders() {
   const queryClient = useQueryClient();
   const { can, adminUser, isSuperAdmin } = usePermissions();
-  const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState("");
-  const statusParam = searchParams.get("status");
-  const paymentParam = searchParams.get("payment");
-  const statusFilter = statusParam && ORDER_STATUSES.includes(statusParam) ? statusParam : "all";
-  const paymentFilter = paymentParam && PAYMENT_STATUSES.includes(paymentParam) ? paymentParam : "all";
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [paymentFilter, setPaymentFilter] = useState("all");
   const [methodFilter, setMethodFilter] = useState("all");
   const [datePreset, setDatePreset] = useState("This Month");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [detailOrder, setDetailOrder] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(0);
-
-  const updateQueryFilter = (key: "status" | "payment", value: string) => {
-    const sp = new URLSearchParams(searchParams);
-    if (value === "all") sp.delete(key);
-    else sp.set(key, value);
-    setCurrentPage(0);
-    setSearchParams(sp);
-  };
 
   useEffect(() => {
     const channel = supabase.channel("admin-new-orders")
@@ -72,6 +59,8 @@ export default function AdminOrders() {
     const preset = DATE_PRESETS.find(p => p.label === datePreset);
     return preset ? preset.getValue() : new Date(0).toISOString();
   }, [datePreset]);
+
+  const [currentPage, setCurrentPage] = useState(0);
 
   const { data: rpcResult, isLoading } = useQuery({
     queryKey: ["admin-orders", currentPage, statusFilter, paymentFilter, search],
@@ -226,12 +215,12 @@ export default function AdminOrders() {
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search order, name, phone..."
             className="w-full pl-9 pr-3 py-2 border border-input rounded-lg text-sm bg-background outline-none focus:ring-2 focus:ring-ring" />
         </div>
-        <select value={statusFilter} onChange={e => updateQueryFilter("status", e.target.value)} className="border border-input rounded-lg px-3 py-2 text-xs bg-background">
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="border border-input rounded-lg px-3 py-2 text-xs bg-background">
           <option value="all">All statuses</option>
           {ORDER_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
         {!isPaidOnlyRestricted && (
-          <select value={paymentFilter} onChange={e => updateQueryFilter("payment", e.target.value)} className="border border-input rounded-lg px-3 py-2 text-xs bg-background">
+          <select value={paymentFilter} onChange={e => setPaymentFilter(e.target.value)} className="border border-input rounded-lg px-3 py-2 text-xs bg-background">
             <option value="all">All payments</option>
             {PAYMENT_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
           </select>

@@ -58,48 +58,6 @@ export type Database = {
           },
         ]
       }
-      admin_nav_items: {
-        Row: {
-          created_at: string | null
-          display_order: number | null
-          icon: string | null
-          id: string
-          is_active: boolean | null
-          label: string
-          nav_key: string
-          parent_key: string | null
-          path: string
-          requires_permission_action: string | null
-          requires_permission_module: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          display_order?: number | null
-          icon?: string | null
-          id?: string
-          is_active?: boolean | null
-          label: string
-          nav_key: string
-          parent_key?: string | null
-          path: string
-          requires_permission_action?: string | null
-          requires_permission_module?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          display_order?: number | null
-          icon?: string | null
-          id?: string
-          is_active?: boolean | null
-          label?: string
-          nav_key?: string
-          parent_key?: string | null
-          path?: string
-          requires_permission_action?: string | null
-          requires_permission_module?: string | null
-        }
-        Relationships: []
-      }
       admin_notifications: {
         Row: {
           admin_user_id: string | null
@@ -194,55 +152,6 @@ export type Database = {
           role?: string
         }
         Relationships: []
-      }
-      admin_user_nav_visibility: {
-        Row: {
-          admin_user_id: string
-          id: string
-          nav_key: string
-          set_at: string | null
-          set_by: string | null
-          visible: boolean
-        }
-        Insert: {
-          admin_user_id: string
-          id?: string
-          nav_key: string
-          set_at?: string | null
-          set_by?: string | null
-          visible?: boolean
-        }
-        Update: {
-          admin_user_id?: string
-          id?: string
-          nav_key?: string
-          set_at?: string | null
-          set_by?: string | null
-          visible?: boolean
-        }
-        Relationships: [
-          {
-            foreignKeyName: "admin_user_nav_visibility_admin_user_id_fkey"
-            columns: ["admin_user_id"]
-            isOneToOne: false
-            referencedRelation: "admin_users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "admin_user_nav_visibility_nav_key_fkey"
-            columns: ["nav_key"]
-            isOneToOne: false
-            referencedRelation: "admin_nav_items"
-            referencedColumns: ["nav_key"]
-          },
-          {
-            foreignKeyName: "admin_user_nav_visibility_set_by_fkey"
-            columns: ["set_by"]
-            isOneToOne: false
-            referencedRelation: "admin_users"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       admin_user_permissions: {
         Row: {
@@ -3257,7 +3166,6 @@ export type Database = {
         }
         Returns: string
       }
-      get_admin_nav: { Args: never; Returns: Json }
       get_admin_orders: {
         Args: {
           p_limit?: number

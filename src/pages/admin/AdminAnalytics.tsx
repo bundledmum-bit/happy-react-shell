@@ -138,24 +138,13 @@ function DataTable({ columns, data, pageSize = 25, preserveOrder = false }: { co
 
 export default function AdminAnalytics() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const validTabs = new Set(["business", "orders-report", "order-lines", "customers", "quiz", "products", "marketing", "cohort", "acquisition", "behaviour", "audience"]);
-  const requestedTab = searchParams.get("tab");
-  const activeTab = requestedTab && validTabs.has(requestedTab) ? requestedTab : "business";
   const preset = searchParams.get("period") || "Last 30 Days";
   const compareEnabled = searchParams.get("compare") === "1";
   const quizFilter = searchParams.get("quiz") || "all";
 
-  const updateSearchParam = (key: string, value: string | null) => {
-    const sp = new URLSearchParams(searchParams);
-    if (!value) sp.delete(key);
-    else sp.set(key, value);
-    setSearchParams(sp);
-  };
-
-  const setActiveTab = (tab: string) => updateSearchParam("tab", tab === "business" ? null : tab);
-  const setPreset = (p: string) => updateSearchParam("period", p);
-  const toggleCompare = () => updateSearchParam("compare", compareEnabled ? null : "1");
-  const setQuizFilter = (v: string) => updateSearchParam("quiz", v === "all" ? null : v);
+  const setPreset = (p: string) => { const sp = new URLSearchParams(searchParams); sp.set("period", p); setSearchParams(sp); };
+  const toggleCompare = () => { const sp = new URLSearchParams(searchParams); sp.set("compare", compareEnabled ? "0" : "1"); setSearchParams(sp); };
+  const setQuizFilter = (v: string) => { const sp = new URLSearchParams(searchParams); sp.set("quiz", v); setSearchParams(sp); };
 
   const { from, to } = useMemo(() => getDateRange(preset), [preset]);
   const prev = useMemo(() => getPrevPeriod(from, to), [from, to]);
@@ -352,7 +341,7 @@ export default function AdminAnalytics() {
         </select>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs defaultValue="business" className="w-full">
         <TabsList className="mb-4 flex-wrap h-auto">
           <TabsTrigger value="business">Business</TabsTrigger>
           <TabsTrigger value="orders-report">Orders Report</TabsTrigger>
