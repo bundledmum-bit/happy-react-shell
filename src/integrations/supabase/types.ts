@@ -1666,6 +1666,7 @@ export type Database = {
           id: string
           image_url: string | null
           is_active: boolean | null
+          is_push_gift_eligible: boolean | null
           material: string | null
           meta_description: string | null
           meta_title: string | null
@@ -1674,6 +1675,7 @@ export type Database = {
           og_image_url: string | null
           pack_count: string | null
           priority: string
+          push_gift_categories: string[] | null
           quiz_priority: string | null
           rating: number | null
           review_count: number | null
@@ -1707,6 +1709,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean | null
+          is_push_gift_eligible?: boolean | null
           material?: string | null
           meta_description?: string | null
           meta_title?: string | null
@@ -1715,6 +1718,7 @@ export type Database = {
           og_image_url?: string | null
           pack_count?: string | null
           priority: string
+          push_gift_categories?: string[] | null
           quiz_priority?: string | null
           rating?: number | null
           review_count?: number | null
@@ -1748,6 +1752,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean | null
+          is_push_gift_eligible?: boolean | null
           material?: string | null
           meta_description?: string | null
           meta_title?: string | null
@@ -1756,6 +1761,7 @@ export type Database = {
           og_image_url?: string | null
           pack_count?: string | null
           priority?: string
+          push_gift_categories?: string[] | null
           quiz_priority?: string | null
           rating?: number | null
           review_count?: number | null
@@ -2015,10 +2021,13 @@ export type Database = {
           converted_to_order: boolean | null
           created_at: string | null
           current_step: string | null
+          dad_purpose: string | null
           engine_version: string | null
           id: string
           is_completed: boolean | null
           order_id: string | null
+          push_gift_category: string | null
+          push_gift_timing: string | null
           result_bundle_slug: string | null
           result_product_count: number | null
           result_product_ids: string[] | null
@@ -2034,10 +2043,13 @@ export type Database = {
           converted_to_order?: boolean | null
           created_at?: string | null
           current_step?: string | null
+          dad_purpose?: string | null
           engine_version?: string | null
           id?: string
           is_completed?: boolean | null
           order_id?: string | null
+          push_gift_category?: string | null
+          push_gift_timing?: string | null
           result_bundle_slug?: string | null
           result_product_count?: number | null
           result_product_ids?: string[] | null
@@ -2053,10 +2065,13 @@ export type Database = {
           converted_to_order?: boolean | null
           created_at?: string | null
           current_step?: string | null
+          dad_purpose?: string | null
           engine_version?: string | null
           id?: string
           is_completed?: boolean | null
           order_id?: string | null
+          push_gift_category?: string | null
+          push_gift_timing?: string | null
           result_bundle_slug?: string | null
           result_product_count?: number | null
           result_product_ids?: string[] | null
@@ -2904,6 +2919,10 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
       is_admin_user: { Args: never; Returns: boolean }
       is_sensitive_realtime_topic: { Args: { topic: string }; Returns: boolean }
+      run_push_gift_recommendation: {
+        Args: { p_budget_tier: string; p_category: string; p_timing: string }
+        Returns: Json
+      }
       run_quiz_recommendation: {
         Args: {
           p_budget_tier: string
