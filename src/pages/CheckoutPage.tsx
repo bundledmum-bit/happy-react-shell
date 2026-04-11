@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { useCart, fmt, generateOrderId } from "@/lib/cart";
+import { useCart, fmt } from "@/lib/cart";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ChevronDown, ChevronUp } from "lucide-react";
@@ -21,7 +21,24 @@ async function logOrderToSheets(orderData: Record<string, unknown>) {
   const url = import.meta.env.VITE_SHEETS_WEBHOOK_URL || "https://script.google.com/macros/s/AKfycby3mFQQ9oORQeiCKyd1hWaxx0m9n6T4mSQl3hb1DgyD--0UrKiUE_Qvnh0pV4Jp_janXw/exec";
   if (!url) return;
   try {
-    await fetch(url, { method: "POST", body: JSON.stringify(orderData) });
+    const payload = {
+      orderNumber: orderData.orderNumber,
+      customerName: orderData.customerName,
+      phone: orderData.phone,
+      deliveryAddress: orderData.address,
+      city: orderData.city,
+      state: orderData.state,
+      itemsOrdered: orderData.itemsSummary,
+      subtotal: orderData.subtotal,
+      deliveryFee: orderData.deliveryFee,
+      serviceFee: orderData.serviceFee,
+      total: orderData.total,
+      paymentMethod: orderData.paymentMethod,
+      paymentStatus: orderData.paymentStatus,
+      orderStatus: "confirmed",
+      date: orderData.timestamp,
+    };
+    await fetch(url, { method: "POST", body: JSON.stringify(payload) });
   } catch (err) { console.error("Sheet logging failed:", err); }
 }
 
