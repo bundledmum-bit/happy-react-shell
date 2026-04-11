@@ -53,17 +53,12 @@ function AdminLayoutInner() {
     }));
   }, [navItems]);
 
-  // All allowed paths for route guarding
-  const allowedPaths = useMemo(() => {
-    return navItems.map(i => i.path);
-  }, [navItems]);
-
-  // Route guard: redirect if path not allowed
+  // Route guard for custom-role users only: redirect if path not in their explicit nav
   useEffect(() => {
     if (loading || navLoading || !isAdmin || !adminUser) return;
-    // Dashboard is always accessible
-    if (location.pathname === "/admin") return;
-    // Check if current path matches any allowed nav path
+    if (adminUser.role !== "custom") return; // Non-custom roles use page-level permission checks
+    if (location.pathname === "/admin") return; // Dashboard always accessible
+    const allowedPaths = navItems.map(i => i.path);
     const isAllowed = allowedPaths.some(p =>
       location.pathname === p || location.pathname.startsWith(p + "/")
     );
@@ -71,7 +66,7 @@ function AdminLayoutInner() {
       toast.error("You don't have access to that page");
       navigate("/admin", { replace: true });
     }
-  }, [location.pathname, allowedPaths, loading, navLoading, isAdmin, adminUser, navigate]);
+  }, [location.pathname, navItems, loading, navLoading, isAdmin, adminUser, navigate]);
 
   // Auto-expand group containing active route
   useEffect(() => {
