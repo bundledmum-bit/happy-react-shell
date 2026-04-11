@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { trackEvent } from "@/lib/analytics";
 
 export interface CartItem {
   id: string | number;
@@ -55,6 +56,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       if (existing) return prev.map(i => i._key === key ? { ...i, qty: i.qty + 1 } : i);
       return [...prev, { ...product, _key: key, qty: 1 }];
     });
+    trackEvent("cart_updated", { action: "add", product_id: product.id, product_name: product.name });
     setJustAdded(true);
     setTimeout(() => setJustAdded(false), 400);
   }, []);
@@ -64,7 +66,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const saveForLater = useCallback((key: string) => {
     setCart(prev => {
       const item = prev.find(i => i._key === key);
-      if (item) setSavedItems(s => [...s, item]);
+      if (item) {
+        setSavedItems(s => [...s, item]);
+        trackEvent("cart_updated", { action: "save_for_later", product_name: item.name });
+      }
       return prev.filter(i => i._key !== key);
     });
   }, []);

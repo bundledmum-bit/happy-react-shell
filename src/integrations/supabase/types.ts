@@ -1342,6 +1342,62 @@ export type Database = {
         }
         Relationships: []
       }
+      quiz_customers: {
+        Row: {
+          baby_gender: string | null
+          budget_tier: string | null
+          created_at: string | null
+          delivery_method: string | null
+          has_purchased: boolean | null
+          hospital_type: string | null
+          id: string
+          order_id: string | null
+          page_url: string | null
+          referral_source: string | null
+          session_id: string | null
+          updated_at: string | null
+          whatsapp_number: string | null
+        }
+        Insert: {
+          baby_gender?: string | null
+          budget_tier?: string | null
+          created_at?: string | null
+          delivery_method?: string | null
+          has_purchased?: boolean | null
+          hospital_type?: string | null
+          id?: string
+          order_id?: string | null
+          page_url?: string | null
+          referral_source?: string | null
+          session_id?: string | null
+          updated_at?: string | null
+          whatsapp_number?: string | null
+        }
+        Update: {
+          baby_gender?: string | null
+          budget_tier?: string | null
+          created_at?: string | null
+          delivery_method?: string | null
+          has_purchased?: boolean | null
+          hospital_type?: string | null
+          id?: string
+          order_id?: string | null
+          page_url?: string | null
+          referral_source?: string | null
+          session_id?: string | null
+          updated_at?: string | null
+          whatsapp_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_customers_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       referral_codes: {
         Row: {
           code: string

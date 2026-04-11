@@ -8,6 +8,8 @@ import { ArrowLeft, Check, Share2, ClipboardCopy } from "lucide-react";
 import ShareModal from "@/components/ShareModal";
 import ExitIntentPopup from "@/components/ExitIntentPopup";
 import ProductImage from "@/components/ProductImage";
+import { trackEvent, getSessionId, getReferralSource } from "@/lib/analytics";
+import { supabase } from "@/integrations/supabase/client";
 
 type Answers = Record<string, string>;
 
@@ -444,6 +446,9 @@ export default function QuizPage() {
   const [currentStep, setCurrentStep] = useState("shopper");
   const [showResults, setShowResults] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showWhatsAppStep, setShowWhatsAppStep] = useState(false);
+  const [whatsappNumber, setWhatsappNumber] = useState("");
+  const [quizStartTracked, setQuizStartTracked] = useState(false);
   const navigate = useNavigate();
   const { addToCart, cart, setCart } = useCart();
   const { data: supabaseProducts } = useAllProducts();
@@ -451,18 +456,58 @@ export default function QuizPage() {
 
   useEffect(() => { document.title = "Build My Bundle | BundledMum"; }, []);
 
+  // Track quiz_started once
+  useEffect(() => {
+    if (!quizStartTracked) {
+      trackEvent("quiz_started");
+      setQuizStartTracked(true);
+    }
+  }, [quizStartTracked]);
+
   const stepSequence = useMemo(() => getStepSequence(answers), [answers]);
   const currentIdx = stepSequence.indexOf(currentStep);
   const totalSteps = stepSequence.length;
-  const progress = showResults ? 100 : totalSteps > 0 ? ((currentIdx + 1) / totalSteps) * 100 : 0;
+  const progress = showResults ? 100 : showWhatsAppStep ? 95 : totalSteps > 0 ? ((currentIdx + 1) / totalSteps) * 100 : 0;
+
+  const saveQuizCustomer = async (whatsapp?: string) => {
+    const quizData = {
+      hospital_type: answers.hospitalType || null,
+      delivery_method: answers.deliveryMethod || null,
+      baby_gender: answers.gender || null,
+      budget_tier: answers.budget || null,
+      whatsapp_number: whatsapp || null,
+      session_id: getSessionId(),
+      page_url: window.location.pathname,
+      referral_source: getReferralSource(),
+      has_purchased: false,
+    };
+    await supabase.from("quiz_customers").insert([quizData]);
+  };
+
+  const finishQuiz = async (whatsapp?: string) => {
+    trackEvent("quiz_completed", {
+      hospital_type: answers.hospitalType,
+      delivery_method: answers.deliveryMethod,
+      baby_gender: answers.gender,
+      budget_tier: answers.budget,
+    });
+    await saveQuizCustomer(whatsapp);
+    setShowWhatsAppStep(false);
+    setShowResults(true);
+  };
 
   const handleAnswer = (stepId: string, optionId: string) => {
     const newAnswers = { ...answers, [stepId]: optionId };
     setAnswers(newAnswers);
     setTimeout(() => {
       const next = getNextStep(stepId, optionId, newAnswers);
-      if (!next) setShowResults(true);
-      else { setHistory(h => [...h, currentStep]); setCurrentStep(next); }
+      if (!next) {
+        // Show WhatsApp capture step before results
+        setShowWhatsAppStep(true);
+      } else {
+        setHistory(h => [...h, currentStep]);
+        setCurrentStep(next);
+      }
     }, 320);
   };
 
@@ -470,12 +515,17 @@ export default function QuizPage() {
     const newAnswers = { ...answers, [stepId]: "skip" };
     setAnswers(newAnswers);
     const next = getNextStep(stepId, "skip", newAnswers);
-    if (!next) setShowResults(true);
-    else { setHistory(h => [...h, currentStep]); setCurrentStep(next); }
+    if (!next) {
+      setShowWhatsAppStep(true);
+    } else {
+      setHistory(h => [...h, currentStep]);
+      setCurrentStep(next);
+    }
   };
 
   const handleBack = () => {
     if (showResults) { setShowResults(false); return; }
+    if (showWhatsAppStep) { setShowWhatsAppStep(false); return; }
     if (history.length === 0) return;
     const prev = history[history.length - 1];
     setHistory(h => h.slice(0, -1));
@@ -716,6 +766,70 @@ export default function QuizPage() {
             Get Complete Bundle — {fmt(totalValue)} →
           </button>
         </div>
+      </div>
+    );
+  }
+
+  // ========= WHATSAPP CAPTURE STEP =========
+
+  if (showWhatsAppStep) {
+    const isValidNigerian = (num: string) => {
+      const digits = num.replace(/\D/g, "");
+      return /^(0[789][01]\d{8})$/.test(digits) || /^234[789][01]\d{8}$/.test(digits);
+    };
+    const whatsappError = whatsappNumber && !isValidNigerian(whatsappNumber) ? "Enter a valid Nigerian number (e.g. 08012345678 or +234...)" : "";
+
+    return (
+      <div className="min-h-screen bg-background pt-[68px] flex flex-col items-center px-4 md:px-10 py-8 md:py-12 pb-20 md:pb-12">
+        <div className="w-full max-w-[660px] mb-6">
+          <div className="w-full bg-border h-1.5 rounded-full overflow-hidden">
+            <div className="bg-coral h-1.5 transition-all duration-500 rounded-full" style={{ width: `${progress}%` }} />
+          </div>
+          <div className="flex justify-between mt-2">
+            <div className="text-text-light text-xs">Almost done!</div>
+            <button onClick={handleBack} className="text-text-light text-xs flex items-center gap-1 font-body hover:text-foreground"><ArrowLeft className="h-3 w-3" /> Back</button>
+          </div>
+        </div>
+
+        <div className="animate-fade-in bg-card rounded-[22px] p-7 md:p-12 shadow-card-hover w-full max-w-[660px]">
+          <div className="text-center mb-7">
+            <p className="text-text-light text-[11px] font-semibold uppercase tracking-widest mb-2">ONE LAST THING 📱</p>
+            <h2 className="pf text-xl md:text-[30px] leading-tight">WhatsApp Number (optional)</h2>
+            <p className="text-text-med text-sm mt-2">So we can send your bundle summary</p>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex flex-col gap-1">
+              <input
+                type="tel"
+                value={whatsappNumber}
+                onChange={e => setWhatsappNumber(e.target.value)}
+                placeholder="08012345678 or +234..."
+                className={`w-full rounded-[14px] border-2 px-4 py-3.5 text-sm bg-card font-body outline-none transition-colors ${whatsappError ? "border-destructive" : "border-border focus:border-forest"}`}
+              />
+              {whatsappError && <p className="text-destructive text-[11px]">{whatsappError}</p>}
+              <p className="text-text-light text-[11px]">Accepts 07xx, 08xx, 09xx or +234 format</p>
+            </div>
+
+            <button
+              onClick={() => {
+                if (whatsappNumber && !isValidNigerian(whatsappNumber)) return;
+                finishQuiz(whatsappNumber || undefined);
+              }}
+              className="w-full rounded-pill bg-forest py-3.5 font-body font-semibold text-primary-foreground hover:bg-forest-deep interactive text-sm"
+            >
+              {whatsappNumber ? "Continue →" : "Continue without WhatsApp →"}
+            </button>
+
+            <button
+              onClick={() => finishQuiz()}
+              className="w-full text-text-light text-xs hover:text-forest transition-colors font-body"
+            >
+              ⏭️ Skip
+            </button>
+          </div>
+        </div>
+        <p className="text-text-light text-xs mt-4 text-center">🔒 We never share your data · Results appear instantly</p>
       </div>
     );
   }

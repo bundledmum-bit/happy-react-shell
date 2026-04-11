@@ -7,6 +7,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { useShippingZones, calculateDeliveryFee } from "@/hooks/useShippingZones";
 import { useSiteSettings } from "@/hooks/useSupabaseData";
 import { useSpendThresholds, getSpendPrompt } from "@/hooks/useSpendThresholds";
+import { trackEvent, getSessionId } from "@/lib/analytics";
 
 const NIGERIAN_STATES = ["Lagos", "Abuja", "Rivers", "Ogun", "Oyo", "Kano", "Kaduna", "Anambra", "Enugu", "Delta", "Edo", "Imo", "Osun", "Kwara", "Benue"];
 const GIFT_WRAP_FEE = 3500;
@@ -44,7 +45,38 @@ export default function CheckoutPage() {
   const { data: zones } = useShippingZones();
   const { data: thresholds } = useSpendThresholds();
 
-  useEffect(() => { document.title = "Secure Checkout | BundledMum"; }, []);
+  useEffect(() => {
+    document.title = "Secure Checkout | BundledMum";
+    trackEvent("checkout_started", { item_count: totalItems, subtotal });
+  }, []);
+
+  // Returning customer recognition: pre-fill from existing customer data
+  const [customerLookedUp, setCustomerLookedUp] = useState(false);
+  useEffect(() => {
+    const phone = form.phone.replace(/\D/g, "");
+    if (phone.length >= 10 && !customerLookedUp) {
+      setCustomerLookedUp(true);
+      supabase
+        .from("customers")
+        .select("full_name, delivery_address, delivery_area, delivery_state")
+        .eq("phone", form.phone)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) {
+            const [first, ...rest] = (data.full_name || "").split(" ");
+            setForm(prev => ({
+              ...prev,
+              firstName: prev.firstName || first || "",
+              lastName: prev.lastName || rest.join(" ") || "",
+              address: prev.address || data.delivery_address || "",
+              city: prev.city || data.delivery_area || "",
+              state: prev.state || data.delivery_state || prev.state,
+            }));
+            toast.success("Welcome back! We've pre-filled your details.");
+          }
+        });
+    }
+  }, [form.phone]);
 
   const serviceFeeEnabled = settings?.service_fee_enabled !== false;
   const serviceFee = serviceFeeEnabled ? (parseInt(settings?.service_fee) || 1500) : 0;
@@ -161,6 +193,23 @@ export default function CheckoutPage() {
 
   const saveOrderToDb = async (orderData: ReturnType<typeof buildOrderData>) => {
     try {
+      // Get quiz answers from localStorage saved bundle if available
+      let quizAnswers: any = null;
+      try {
+        const savedBundle = localStorage.getItem("bm-saved-bundle");
+        if (savedBundle) {
+          const parsed = JSON.parse(savedBundle);
+          if (parsed.answers) {
+            quizAnswers = {
+              hospital_type: parsed.answers.hospitalType || null,
+              delivery_method: parsed.answers.deliveryMethod || null,
+              baby_gender: parsed.answers.gender || null,
+              budget_tier: parsed.answers.budget || null,
+            };
+          }
+        }
+      } catch {}
+
       const { data: order, error: orderError } = await supabase
         .from("orders")
         .insert({
@@ -188,6 +237,7 @@ export default function CheckoutPage() {
           gift_wrapping: orderData.giftWrap,
           estimated_delivery_start: fromDate.toISOString().split("T")[0],
           estimated_delivery_end: toDate.toISOString().split("T")[0],
+          quiz_answers: quizAnswers,
         })
         .select("id, order_number")
         .single();
@@ -239,6 +289,23 @@ export default function CheckoutPage() {
           });
         }
       } catch (e) { console.error("Customer upsert failed:", e); }
+
+      // Mark quiz_customers as purchased
+      try {
+        const sessionId = getSessionId();
+        await supabase
+          .from("quiz_customers")
+          .update({ has_purchased: true, order_id: order.id } as any)
+          .eq("session_id", sessionId);
+      } catch (e) { console.error("Quiz customer update failed:", e); }
+
+      // Track order_placed event
+      trackEvent("order_placed", {
+        order_id: order.id,
+        order_number: order.order_number,
+        total: orderData.total,
+        item_count: cart.length,
+      });
 
       return order.order_number || orderData.orderId;
     } catch (e) {
