@@ -4,6 +4,15 @@ import { useAdmin } from "./useAdmin";
 
 export type PermissionsMap = Record<string, Record<string, boolean>>;
 
+export interface AdminNavItem {
+  nav_key: string;
+  label: string;
+  icon: string | null;
+  path: string;
+  parent_key: string | null;
+  display_order: number;
+}
+
 interface AdminPermissionsContextType {
   permissions: PermissionsMap;
   loading: boolean;
@@ -11,6 +20,9 @@ interface AdminPermissionsContextType {
   can: (module: string, action: string) => boolean;
   isSuperAdmin: boolean;
   refresh: () => void;
+  navItems: AdminNavItem[];
+  navLoading: boolean;
+  refreshNav: () => void;
 }
 
 const AdminPermissionsContext = createContext<AdminPermissionsContextType>({
@@ -20,6 +32,9 @@ const AdminPermissionsContext = createContext<AdminPermissionsContextType>({
   can: () => false,
   isSuperAdmin: false,
   refresh: () => {},
+  navItems: [],
+  navLoading: true,
+  refreshNav: () => {},
 });
 
 export function AdminPermissionsProvider({ children }: { children: ReactNode }) {
@@ -27,12 +42,27 @@ export function AdminPermissionsProvider({ children }: { children: ReactNode }) 
   const [permissions, setPermissions] = useState<PermissionsMap>({});
   const [adminUser, setAdminUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [navItems, setNavItems] = useState<AdminNavItem[]>([]);
+  const [navLoading, setNavLoading] = useState(true);
+
+  const fetchNav = useCallback(async () => {
+    if (!user) { setNavItems([]); setNavLoading(false); return; }
+    try {
+      const { data, error } = await supabase.rpc("get_admin_nav");
+      if (error) throw error;
+      setNavItems((data as AdminNavItem[]) || []);
+    } catch (e) {
+      console.error("Failed to load nav", e);
+      setNavItems([]);
+    } finally {
+      setNavLoading(false);
+    }
+  }, [user]);
 
   const fetchPermissions = useCallback(async () => {
     if (!user) { setLoading(false); return; }
 
     try {
-      // 1. Get admin user profile
       const { data: au } = await supabase
         .from("admin_users")
         .select("*")
@@ -42,9 +72,7 @@ export function AdminPermissionsProvider({ children }: { children: ReactNode }) 
       setAdminUser(au);
       if (!au || !au.is_active) { setPermissions({}); setLoading(false); return; }
 
-      // Super admin gets everything
       if (au.role === "super_admin") {
-        // Build a full permissions map with everything true
         const { data: defs } = await supabase
           .from("admin_permission_definitions")
           .select("module, action")
@@ -60,25 +88,21 @@ export function AdminPermissionsProvider({ children }: { children: ReactNode }) 
         return;
       }
 
-      // 2. Get all permission definitions
       const { data: defs } = await supabase
         .from("admin_permission_definitions")
         .select("module, action")
         .eq("is_active", true);
 
-      // 3. Get role defaults
       const { data: roleDefaults } = await supabase
         .from("admin_role_defaults")
         .select("module, action, granted")
         .eq("role", au.role);
 
-      // 4. Get per-user overrides
       const { data: userPerms } = await supabase
         .from("admin_user_permissions")
         .select("module, action, granted")
         .eq("admin_user_id", au.id);
 
-      // Build map: start with all false, apply role defaults, then user overrides
       const map: PermissionsMap = {};
       (defs || []).forEach((d: any) => {
         if (!map[d.module]) map[d.module] = {};
@@ -103,7 +127,7 @@ export function AdminPermissionsProvider({ children }: { children: ReactNode }) 
     }
   }, [user]);
 
-  useEffect(() => { fetchPermissions(); }, [fetchPermissions]);
+  useEffect(() => { fetchPermissions(); fetchNav(); }, [fetchPermissions, fetchNav]);
 
   const can = useCallback((module: string, action: string): boolean => {
     if (!adminUser || !adminUser.is_active) return false;
@@ -114,7 +138,7 @@ export function AdminPermissionsProvider({ children }: { children: ReactNode }) 
   const isSuperAdmin = adminUser?.role === "super_admin";
 
   return (
-    <AdminPermissionsContext.Provider value={{ permissions, loading, adminUser, can, isSuperAdmin, refresh: fetchPermissions }}>
+    <AdminPermissionsContext.Provider value={{ permissions, loading, adminUser, can, isSuperAdmin, refresh: fetchPermissions, navItems, navLoading, refreshNav: fetchNav }}>
       {children}
     </AdminPermissionsContext.Provider>
   );
