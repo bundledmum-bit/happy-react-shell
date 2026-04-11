@@ -200,13 +200,10 @@ export default function ShopPage() {
 
   // Apply all filters
   const filtered = useMemo(() => {
-    let raw = tab === "baby"
-      ? (allProducts || []).filter(p => p.category === "baby")
-      : tab === "mum"
-      ? (allProducts || []).filter(p => p.category === "mum")
-      : tab === "push-gift"
-      ? (allProducts || []).filter(p => p.category === "push-gift")
-      : (allProducts || []);
+    let raw = (allProducts || []);
+    if (tab === "baby") raw = raw.filter(p => p.category === "baby");
+    else if (tab === "mum") raw = raw.filter(p => p.category === "mum");
+    else if (tab as string === "push-gift") raw = raw.filter(p => p.category === "push-gift");
 
     if (search) raw = raw.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
     if (categoryF) raw = raw.filter(p => p.subcategory === categoryF);
