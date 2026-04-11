@@ -99,6 +99,108 @@ export type Database = {
           },
         ]
       }
+      admin_permission_definitions: {
+        Row: {
+          action: string
+          description: string | null
+          display_order: number | null
+          id: string
+          is_active: boolean | null
+          label: string
+          module: string
+        }
+        Insert: {
+          action: string
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          label: string
+          module: string
+        }
+        Update: {
+          action?: string
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          label?: string
+          module?: string
+        }
+        Relationships: []
+      }
+      admin_role_defaults: {
+        Row: {
+          action: string
+          granted: boolean
+          id: string
+          module: string
+          role: string
+        }
+        Insert: {
+          action: string
+          granted?: boolean
+          id?: string
+          module: string
+          role: string
+        }
+        Update: {
+          action?: string
+          granted?: boolean
+          id?: string
+          module?: string
+          role?: string
+        }
+        Relationships: []
+      }
+      admin_user_permissions: {
+        Row: {
+          action: string
+          admin_user_id: string
+          granted: boolean
+          granted_at: string | null
+          granted_by: string | null
+          id: string
+          module: string
+          notes: string | null
+        }
+        Insert: {
+          action: string
+          admin_user_id: string
+          granted?: boolean
+          granted_at?: string | null
+          granted_by?: string | null
+          id?: string
+          module: string
+          notes?: string | null
+        }
+        Update: {
+          action?: string
+          admin_user_id?: string
+          granted?: boolean
+          granted_at?: string | null
+          granted_by?: string | null
+          id?: string
+          module?: string
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_user_permissions_admin_user_id_fkey"
+            columns: ["admin_user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_user_permissions_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_users: {
         Row: {
           auth_user_id: string

@@ -6,7 +6,7 @@ import { Search, Download, ChevronDown, ChevronUp, Printer, MessageSquare, Clock
 import BulkActionsBar from "@/components/admin/BulkActionsBar";
 import { openBrandedInvoice } from "@/components/admin/PrintInvoice";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useAdminUser } from "@/hooks/useAdminPermissions";
+import { usePermissions } from "@/hooks/useAdminPermissionsContext";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const ORDER_STATUSES = ["pending", "confirmed", "processing", "packed", "shipped", "delivered", "cancelled", "returned", "refunded", "failed"];
@@ -35,7 +35,7 @@ const fmt = (n: number) => `₦${n.toLocaleString()}`;
 
 export default function AdminOrders() {
   const queryClient = useQueryClient();
-  const { data: adminUser } = useAdminUser();
+  const { can, adminUser, isSuperAdmin } = usePermissions();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [paymentFilter, setPaymentFilter] = useState("all");
@@ -44,7 +44,6 @@ export default function AdminOrders() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [detailOrder, setDetailOrder] = useState<string | null>(null);
 
-  // Realtime new order toast
   useEffect(() => {
     const channel = supabase.channel("admin-new-orders")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "orders" }, (payload) => {
@@ -84,7 +83,6 @@ export default function AdminOrders() {
     });
   }, [orders, statusFilter, paymentFilter, methodFilter, dateFrom, search]);
 
-  // Stats
   const stats = useMemo(() => {
     const f = filtered;
     const paid = f.filter((o: any) => o.payment_status === "paid");
@@ -133,27 +131,29 @@ export default function AdminOrders() {
   };
 
   const bulkActions = [
-    { label: "Mark as confirmed", value: "confirmed" },
-    { label: "Mark transfers as paid", value: "mark_paid" },
-    { label: "Export selected CSV", value: "export" },
+    ...(can("orders", "edit_status") ? [{ label: "Mark as confirmed", value: "confirmed" }, { label: "Mark transfers as paid", value: "mark_paid" }] : []),
+    ...(can("orders", "export") ? [{ label: "Export selected CSV", value: "export" }] : []),
   ];
 
-  // If viewing order detail
   if (detailOrder) {
     const order = (orders || []).find((o: any) => o.id === detailOrder);
     if (!order) { setDetailOrder(null); return null; }
-    return <OrderDetailPage order={order} adminUser={adminUser} onBack={() => setDetailOrder(null)} onPrint={() => openBrandedInvoice(order, adminUser?.id)} />;
+    return <OrderDetailPage order={order} adminUser={adminUser} can={can} isSuperAdmin={isSuperAdmin} onBack={() => setDetailOrder(null)} onPrint={() => openBrandedInvoice(order, adminUser?.id)} />;
   }
+
+  const showFinance = can("finance", "view");
 
   const statCards = [
     { label: "Total Orders", value: stats.total },
     { label: "Paid Orders", value: stats.paid },
     { label: "Pending Payment", value: stats.pending },
-    { label: "GMV", value: fmt(stats.gmv) },
-    { label: "Revenue", value: fmt(stats.revenue) },
+    ...(showFinance ? [
+      { label: "GMV", value: fmt(stats.gmv) },
+      { label: "Revenue", value: fmt(stats.revenue) },
+    ] : []),
     { label: "Cancelled", value: stats.cancelled },
     { label: "Returned", value: stats.returned },
-    { label: "Avg Order Value", value: fmt(stats.avg) },
+    ...(showFinance ? [{ label: "Avg Order Value", value: fmt(stats.avg) }] : []),
     { label: "Gift Wrapping", value: stats.gift },
   ];
 
@@ -161,12 +161,13 @@ export default function AdminOrders() {
     <div>
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <h1 className="pf text-2xl font-bold">Orders</h1>
-        <button onClick={exportCSV} className="flex items-center gap-1.5 border border-border px-4 py-2 rounded-lg text-sm font-semibold hover:bg-muted">
-          <Download className="w-4 h-4" /> Export CSV
-        </button>
+        {can("orders", "export") && (
+          <button onClick={exportCSV} className="flex items-center gap-1.5 border border-border px-4 py-2 rounded-lg text-sm font-semibold hover:bg-muted">
+            <Download className="w-4 h-4" /> Export CSV
+          </button>
+        )}
       </div>
 
-      {/* Date presets */}
       <div className="flex gap-2 mb-4 flex-wrap">
         {DATE_PRESETS.map(p => (
           <button key={p.label} onClick={() => setDatePreset(p.label)}
@@ -176,7 +177,6 @@ export default function AdminOrders() {
         ))}
       </div>
 
-      {/* Stat cards */}
       <div className="grid grid-cols-3 md:grid-cols-9 gap-2 mb-4">
         {statCards.map(c => (
           <div key={c.label} className="bg-card border border-border rounded-xl p-3 text-center">
@@ -186,7 +186,6 @@ export default function AdminOrders() {
         ))}
       </div>
 
-      {/* Filters */}
       <div className="flex gap-2 mb-4 flex-wrap">
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -207,9 +206,11 @@ export default function AdminOrders() {
         </select>
       </div>
 
-      <BulkActionsBar selectedCount={selected.size} actions={bulkActions} onApply={handleBulkAction}
-        onSelectAll={() => setSelected(new Set(filtered.map((o: any) => o.id)))}
-        onDeselectAll={() => setSelected(new Set())} totalCount={filtered.length} allSelected={allSelected} />
+      {bulkActions.length > 0 && (
+        <BulkActionsBar selectedCount={selected.size} actions={bulkActions} onApply={handleBulkAction}
+          onSelectAll={() => setSelected(new Set(filtered.map((o: any) => o.id)))}
+          onDeselectAll={() => setSelected(new Set())} totalCount={filtered.length} allSelected={allSelected} />
+      )}
 
       {isLoading ? (
         <div className="space-y-2">{Array.from({length:5}).map((_,i)=><Skeleton key={i} className="h-14 w-full rounded-xl" />)}</div>
@@ -222,9 +223,9 @@ export default function AdminOrders() {
               <tr className="text-xs text-muted-foreground border-b border-border">
                 <th className="p-2 text-left w-8"><Checkbox checked={allSelected} onCheckedChange={() => allSelected ? setSelected(new Set()) : setSelected(new Set(filtered.map((o:any)=>o.id)))} /></th>
                 <th className="p-2 text-left">Order</th>
-                <th className="p-2 text-left">Customer</th>
-                <th className="p-2 text-left">Phone</th>
-                <th className="p-2 text-right">Total</th>
+                {can("orders", "view_customer") && <th className="p-2 text-left">Customer</th>}
+                {can("orders", "view_customer") && <th className="p-2 text-left">Phone</th>}
+                {showFinance && <th className="p-2 text-right">Total</th>}
                 <th className="p-2 text-center">Payment</th>
                 <th className="p-2 text-center">Status</th>
                 <th className="p-2 text-center">Method</th>
@@ -237,9 +238,9 @@ export default function AdminOrders() {
                 <tr key={o.id} className="border-b border-border hover:bg-muted/30 cursor-pointer" onClick={() => setDetailOrder(o.id)}>
                   <td className="p-2" onClick={e => e.stopPropagation()}><Checkbox checked={selected.has(o.id)} onCheckedChange={() => toggleSelect(o.id)} /></td>
                   <td className="p-2 font-semibold">{o.order_number || "—"}</td>
-                  <td className="p-2">{o.customer_name}</td>
-                  <td className="p-2 text-muted-foreground">{o.customer_phone}</td>
-                  <td className="p-2 text-right font-semibold">{fmt(o.total || 0)}</td>
+                  {can("orders", "view_customer") && <td className="p-2">{o.customer_name}</td>}
+                  {can("orders", "view_customer") && <td className="p-2 text-muted-foreground">{o.customer_phone}</td>}
+                  {showFinance && <td className="p-2 text-right font-semibold">{fmt(o.total || 0)}</td>}
                   <td className="p-2 text-center"><span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${STATUS_COLORS[o.payment_status] || ""}`}>{o.payment_status}</span></td>
                   <td className="p-2 text-center">
                     <span className={`px-2 py-0.5 rounded text-[10px] font-semibold capitalize ${STATUS_COLORS[o.order_status] || ""}`}>{o.order_status}</span>
@@ -260,13 +261,12 @@ export default function AdminOrders() {
           </table>
         </div>
       )}
-      {/* Branded invoice opens in new window via openBrandedInvoice() */}
     </div>
   );
 }
 
 // ═══════ ORDER DETAIL PAGE ═══════
-function OrderDetailPage({ order: o, adminUser, onBack, onPrint }: { order: any; adminUser: any; onBack: () => void; onPrint: () => void }) {
+function OrderDetailPage({ order: o, adminUser, can, isSuperAdmin, onBack, onPrint }: { order: any; adminUser: any; can: (m: string, a: string) => boolean; isSuperAdmin: boolean; onBack: () => void; onPrint: () => void }) {
   const queryClient = useQueryClient();
   const [newStatus, setNewStatus] = useState(o.order_status);
   const [statusNote, setStatusNote] = useState("");
@@ -386,6 +386,10 @@ function OrderDetailPage({ order: o, adminUser, onBack, onPrint }: { order: any;
     toast.success("Delivery info saved");
   };
 
+  const showFinance = can("finance", "view");
+  const showCustomer = can("orders", "view_customer");
+  const showAddress = showCustomer && can("fulfilment", "view_address");
+  const showPayRef = can("orders", "view_payment_ref") || can("finance", "view_paystack");
   const quizAnswers = o.quiz_answers as any;
 
   return (
@@ -412,18 +416,27 @@ function OrderDetailPage({ order: o, adminUser, onBack, onPrint }: { order: any;
       </div>
 
       <div className="grid md:grid-cols-2 gap-4 mb-4">
-        {/* Customer Info */}
-        <div className="bg-card border border-border rounded-xl p-5">
-          <h3 className="text-sm font-bold mb-3">Customer Info</h3>
-          <div className="space-y-1 text-sm">
-            <div><span className="text-muted-foreground text-xs">Name:</span> {o.customer_name}</div>
-            <div><span className="text-muted-foreground text-xs">Phone:</span> {o.customer_phone}</div>
-            <div><span className="text-muted-foreground text-xs">Email:</span> {o.customer_email}</div>
-            <div><span className="text-muted-foreground text-xs">Address:</span> {o.delivery_address}</div>
-            <div><span className="text-muted-foreground text-xs">City/State:</span> {o.delivery_city}, {o.delivery_state}</div>
-            {o.delivery_notes && <div><span className="text-muted-foreground text-xs">Notes:</span> {o.delivery_notes}</div>}
+        {/* Customer Info — gated */}
+        {showCustomer && (
+          <div className="bg-card border border-border rounded-xl p-5">
+            <h3 className="text-sm font-bold mb-3">Customer Info</h3>
+            <div className="space-y-1 text-sm">
+              <div><span className="text-muted-foreground text-xs">Name:</span> {o.customer_name}</div>
+              <div><span className="text-muted-foreground text-xs">Phone:</span> {o.customer_phone}</div>
+              <div><span className="text-muted-foreground text-xs">Email:</span> {o.customer_email}</div>
+              {showAddress && (
+                <>
+                  <div><span className="text-muted-foreground text-xs">Address:</span> {o.delivery_address}</div>
+                  <div><span className="text-muted-foreground text-xs">City/State:</span> {o.delivery_city}, {o.delivery_state}</div>
+                  {o.delivery_notes && <div><span className="text-muted-foreground text-xs">Notes:</span> {o.delivery_notes}</div>}
+                </>
+              )}
+              {can("customers", "view") && (
+                <a href="/admin/customers" className="text-xs text-forest font-semibold hover:underline mt-1 inline-block">View full profile →</a>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Payment Info */}
         <div className="bg-card border border-border rounded-xl p-5">
@@ -432,7 +445,7 @@ function OrderDetailPage({ order: o, adminUser, onBack, onPrint }: { order: any;
             <div><span className="text-muted-foreground text-xs">Method:</span> <span className="capitalize">{o.payment_method}</span></div>
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground text-xs">Status:</span>
-              {o.payment_method === "transfer" && o.payment_status === "pending" ? (
+              {can("orders", "edit_payment") && o.payment_method === "transfer" && o.payment_status === "pending" ? (
                 <select value={o.payment_status} onChange={e => updatePaymentStatus(e.target.value)}
                   className="border border-input rounded px-2 py-0.5 text-xs bg-background">
                   <option value="pending">pending</option>
@@ -442,8 +455,8 @@ function OrderDetailPage({ order: o, adminUser, onBack, onPrint }: { order: any;
                 <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${STATUS_COLORS[o.payment_status] || ""}`}>{o.payment_status}</span>
               )}
             </div>
-            {o.payment_reference && <div><span className="text-muted-foreground text-xs">Reference:</span> {o.payment_reference}</div>}
-            {o.paystack_transaction_id && <div><span className="text-muted-foreground text-xs">Paystack ID:</span> {o.paystack_transaction_id}</div>}
+            {showPayRef && o.payment_reference && <div><span className="text-muted-foreground text-xs">Reference:</span> {o.payment_reference}</div>}
+            {showPayRef && o.paystack_transaction_id && <div><span className="text-muted-foreground text-xs">Paystack ID:</span> {o.paystack_transaction_id}</div>}
           </div>
         </div>
       </div>
@@ -455,53 +468,59 @@ function OrderDetailPage({ order: o, adminUser, onBack, onPrint }: { order: any;
           {(o.order_items || []).map((item: any) => (
             <div key={item.id} className="flex justify-between text-xs bg-muted/30 rounded p-2">
               <span>{item.product_name} ({item.brand_name}){item.size ? ` · ${item.size}` : ""}{item.color ? ` · ${item.color}` : ""} × {item.quantity}</span>
-              <span className="font-semibold">{fmt(item.line_total || 0)}</span>
+              {showFinance && <span className="font-semibold">{fmt(item.line_total || 0)}</span>}
             </div>
           ))}
         </div>
-        <div className="mt-3 pt-3 border-t border-border space-y-1 text-xs">
-          <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{fmt(o.subtotal || 0)}</span></div>
-          <div className="flex justify-between"><span className="text-muted-foreground">Delivery Fee</span><span>{fmt(o.delivery_fee || 0)}</span></div>
-          <div className="flex justify-between"><span className="text-muted-foreground">Service Fee</span><span>{fmt(o.service_fee || 0)}</span></div>
-          {(o.discount_amount || 0) > 0 && <div className="flex justify-between text-green-600"><span>Coupon Discount</span><span>-{fmt(o.discount_amount)}</span></div>}
-          {(o.spend_discount_amount || 0) > 0 && <div className="flex justify-between text-green-600"><span>Spend Discount ({o.spend_discount_percent}%)</span><span>-{fmt(o.spend_discount_amount)}</span></div>}
-          <div className="flex justify-between font-bold text-sm pt-2 border-t border-border"><span>Total</span><span>{fmt(o.total || 0)}</span></div>
-        </div>
+        {showFinance && (
+          <div className="mt-3 pt-3 border-t border-border space-y-1 text-xs">
+            <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{fmt(o.subtotal || 0)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Delivery Fee</span><span>{fmt(o.delivery_fee || 0)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Service Fee</span><span>{fmt(o.service_fee || 0)}</span></div>
+            {(o.discount_amount || 0) > 0 && <div className="flex justify-between text-green-600"><span>Coupon Discount</span><span>-{fmt(o.discount_amount)}</span></div>}
+            {(o.spend_discount_amount || 0) > 0 && <div className="flex justify-between text-green-600"><span>Spend Discount ({o.spend_discount_percent}%)</span><span>-{fmt(o.spend_discount_amount)}</span></div>}
+            <div className="flex justify-between font-bold text-sm pt-2 border-t border-border"><span>Total</span><span>{fmt(o.total || 0)}</span></div>
+          </div>
+        )}
       </div>
 
       <div className="grid md:grid-cols-2 gap-4 mb-4">
         {/* Delivery Info */}
-        <div className="bg-card border border-border rounded-xl p-5">
-          <h3 className="text-sm font-bold mb-3">Delivery Info</h3>
-          <div className="space-y-2 text-sm">
-            <div><span className="text-muted-foreground text-xs">Est. Delivery:</span> {o.estimated_delivery_start || "—"} to {o.estimated_delivery_end || "—"}</div>
-            <div className="flex items-center gap-2">
-              <span className="text-muted-foreground text-xs">Tracking #:</span>
-              <input value={trackingNumber} onChange={e => setTrackingNumber(e.target.value)} className="border border-input rounded px-2 py-1 text-xs bg-background flex-1" placeholder="Enter tracking number" />
+        {showAddress && (
+          <div className="bg-card border border-border rounded-xl p-5">
+            <h3 className="text-sm font-bold mb-3">Delivery Info</h3>
+            <div className="space-y-2 text-sm">
+              <div><span className="text-muted-foreground text-xs">Est. Delivery:</span> {o.estimated_delivery_start || "—"} to {o.estimated_delivery_end || "—"}</div>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground text-xs">Tracking #:</span>
+                <input value={trackingNumber} onChange={e => setTrackingNumber(e.target.value)} className="border border-input rounded px-2 py-1 text-xs bg-background flex-1" placeholder="Enter tracking number" />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground text-xs">Actual Delivery:</span>
+                <input type="date" value={actualDelivery} onChange={e => setActualDelivery(e.target.value)} className="border border-input rounded px-2 py-1 text-xs bg-background" />
+              </div>
+              <button onClick={saveDeliveryInfo} className="px-3 py-1.5 bg-forest text-primary-foreground rounded-lg text-xs font-semibold">Save</button>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-muted-foreground text-xs">Actual Delivery:</span>
-              <input type="date" value={actualDelivery} onChange={e => setActualDelivery(e.target.value)} className="border border-input rounded px-2 py-1 text-xs bg-background" />
-            </div>
-            <button onClick={saveDeliveryInfo} className="px-3 py-1.5 bg-forest text-primary-foreground rounded-lg text-xs font-semibold">Save</button>
           </div>
-        </div>
+        )}
 
         {/* Status Management */}
-        <div className="bg-card border border-border rounded-xl p-5">
-          <h3 className="text-sm font-bold mb-3">Status Management</h3>
-          <div className="space-y-2">
-            <select value={newStatus} onChange={e => setNewStatus(e.target.value)} className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background capitalize">
-              {ORDER_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-            <input value={statusNote} onChange={e => setStatusNote(e.target.value)} placeholder={newStatus === "cancelled" || newStatus === "returned" ? "Reason (required)" : "Note (optional)"}
-              className="w-full border border-input rounded-lg px-3 py-2 text-xs bg-background" />
-            <button onClick={updateStatus} disabled={newStatus === o.order_status}
-              className="w-full px-3 py-2 bg-forest text-primary-foreground rounded-lg text-xs font-semibold disabled:opacity-50">
-              Update Status
-            </button>
+        {can("orders", "edit_status") && (
+          <div className="bg-card border border-border rounded-xl p-5">
+            <h3 className="text-sm font-bold mb-3">Status Management</h3>
+            <div className="space-y-2">
+              <select value={newStatus} onChange={e => setNewStatus(e.target.value)} className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background capitalize">
+                {ORDER_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <input value={statusNote} onChange={e => setStatusNote(e.target.value)} placeholder={newStatus === "cancelled" || newStatus === "returned" ? "Reason (required)" : "Note (optional)"}
+                className="w-full border border-input rounded-lg px-3 py-2 text-xs bg-background" />
+              <button onClick={updateStatus} disabled={newStatus === o.order_status}
+                className="w-full px-3 py-2 bg-forest text-primary-foreground rounded-lg text-xs font-semibold disabled:opacity-50">
+                Update Status
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Order Flags */}
@@ -562,21 +581,41 @@ function OrderDetailPage({ order: o, adminUser, onBack, onPrint }: { order: any;
           ))}
           {(!orderNotes || orderNotes.length === 0) && <p className="text-xs text-muted-foreground">No notes yet</p>}
         </div>
-        <div className="flex gap-2">
-          <input value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="Add a note..."
-            className="flex-1 border border-input rounded-lg px-3 py-1.5 text-xs bg-background" />
-          <button onClick={addNote} className="px-3 py-1.5 bg-forest text-primary-foreground rounded-lg text-xs font-semibold">
-            <Send className="w-3 h-3" />
-          </button>
-        </div>
+        {can("orders", "add_note") && (
+          <div className="flex gap-2">
+            <input value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="Add a note..."
+              className="flex-1 border border-input rounded-lg px-3 py-1.5 text-xs bg-background" />
+            <button onClick={addNote} className="px-3 py-1.5 bg-forest text-primary-foreground rounded-lg text-xs font-semibold">
+              <Send className="w-3 h-3" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Actions */}
       <div className="flex items-center gap-3 flex-wrap">
-        <button onClick={onPrint} className="flex items-center gap-1 text-xs font-semibold text-forest hover:underline">
-          <Printer className="w-3 h-3" /> Print Invoice
-        </button>
-        {o.customer_phone && (
+        {(can("orders", "print_invoice") || can("fulfilment", "print_invoice")) && (
+          <button onClick={onPrint} className="flex items-center gap-1 text-xs font-semibold text-forest hover:underline">
+            <Printer className="w-3 h-3" /> Print Invoice
+          </button>
+        )}
+        {can("orders", "cancel") && o.order_status !== "cancelled" && (
+          <button onClick={() => setShowCancel(true)} className="flex items-center gap-1 text-xs font-semibold text-destructive hover:underline">
+            Cancel Order
+          </button>
+        )}
+        {(can("orders", "refund") || can("finance", "process_refunds")) && o.order_status !== "returned" && (
+          <button onClick={() => setShowReturn(true)} className="flex items-center gap-1 text-xs font-semibold text-orange-600 hover:underline">
+            Process Return
+          </button>
+        )}
+        {isSuperAdmin && (
+          <button onClick={async () => { if (!confirm("Permanently delete this order?")) return; await supabase.from("orders").delete().eq("id", o.id); queryClient.invalidateQueries({ queryKey: ["admin-orders"] }); onBack(); toast.success("Order deleted"); }}
+            className="flex items-center gap-1 text-xs font-semibold text-destructive hover:underline">
+            Delete Order
+          </button>
+        )}
+        {showCustomer && o.customer_phone && (
           <a href={`https://wa.me/${o.customer_phone.replace(/\D/g, "")}?text=${encodeURIComponent(`Hi ${o.customer_name?.split(" ")[0]}! Your BundledMum order ${o.order_number} is now "${o.order_status}".`)}`}
             target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs font-semibold text-[#25D366]">
             <ExternalLink className="w-3 h-3" /> WhatsApp
@@ -622,7 +661,7 @@ function OrderDetailPage({ order: o, adminUser, onBack, onPrint }: { order: any;
             <input type="number" value={refundAmount} onChange={e => setRefundAmount(Number(e.target.value))} className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background mb-3" />
             <div className="flex gap-2">
               <button onClick={() => setShowReturn(false)} className="flex-1 px-3 py-2 border border-border rounded-lg text-xs font-semibold">Cancel</button>
-              <button onClick={handleReturn} className="flex-1 px-3 py-2 bg-destructive text-destructive-foreground rounded-lg text-xs font-semibold">Confirm Return</button>
+              <button onClick={handleReturn} className="flex-1 px-3 py-2 bg-destructive text-destructive-foreground rounded-lg text-xs font-semibold">Process Return</button>
             </div>
           </div>
         </div>

@@ -3,31 +3,26 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Plus, X, Shield } from "lucide-react";
-import { useAdminUser, hasPermission } from "@/hooks/useAdminPermissions";
+import { usePermissions } from "@/hooks/useAdminPermissionsContext";
+import AdminPermissionsManager from "@/components/admin/AdminPermissionsManager";
 
-const ROLES = ["super_admin", "admin", "editor", "order_manager", "viewer", "custom"];
+const ROLES = ["super_admin", "admin", "fulfilment", "customer_service", "analyst", "content_manager", "custom"];
 const ROLE_LABELS: Record<string, string> = {
-  super_admin: "Super Admin", admin: "Admin", editor: "Editor",
-  order_manager: "Order Manager", viewer: "Viewer", custom: "Custom",
+  super_admin: "Super Admin", admin: "Admin", fulfilment: "Fulfilment",
+  customer_service: "Customer Service", analyst: "Analyst", content_manager: "Content Manager", custom: "Custom",
 };
 const ROLE_COLORS: Record<string, string> = {
   super_admin: "bg-purple-100 text-purple-700", admin: "bg-blue-100 text-blue-700",
-  editor: "bg-green-100 text-green-700", order_manager: "bg-yellow-100 text-yellow-700",
-  viewer: "bg-gray-100 text-gray-700", custom: "bg-orange-100 text-orange-700",
+  fulfilment: "bg-green-100 text-green-700", customer_service: "bg-yellow-100 text-yellow-700",
+  analyst: "bg-cyan-100 text-cyan-700", content_manager: "bg-orange-100 text-orange-700", custom: "bg-gray-100 text-gray-700",
 };
-
-const SECTIONS = [
-  "dashboard", "products", "bundles", "orders", "delivery",
-  "content", "blog", "referrals", "analytics", "settings",
-  "users", "media", "activity_log",
-];
-const ACTIONS = ["view", "create", "edit", "delete"];
 
 export default function AdminUsers() {
   const queryClient = useQueryClient();
-  const { data: currentAdmin } = useAdminUser();
+  const { can, isSuperAdmin, adminUser: currentAdmin } = usePermissions();
   const [showForm, setShowForm] = useState(false);
   const [editUser, setEditUser] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<"users" | "permissions">("users");
 
   const { data: users, isLoading } = useQuery({
     queryKey: ["admin-users"],
@@ -46,7 +41,7 @@ export default function AdminUsers() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["admin-users"] }); toast.success("Updated"); },
   });
 
-  if (!hasPermission(currentAdmin, "users", "view")) {
+  if (!can("admin", "view_users")) {
     return <div className="text-center py-20 text-text-med">You don't have permission to access this page.</div>;
   }
 
@@ -54,70 +49,96 @@ export default function AdminUsers() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="pf text-2xl font-bold">Admin Users</h1>
-        {hasPermission(currentAdmin, "users", "create") && (
-          <button onClick={() => { setEditUser(null); setShowForm(true); }}
-            className="flex items-center gap-1.5 bg-forest text-primary-foreground px-4 py-2 rounded-lg text-sm font-semibold hover:bg-forest-deep">
-            <Plus className="w-4 h-4" /> Invite Admin
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {isSuperAdmin && (
+            <div className="flex gap-1 mr-4">
+              <button onClick={() => setActiveTab("users")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${activeTab === "users" ? "bg-forest text-primary-foreground" : "border border-border"}`}>
+                Users
+              </button>
+              <button onClick={() => setActiveTab("permissions")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${activeTab === "permissions" ? "bg-forest text-primary-foreground" : "border border-border"}`}>
+                Permissions
+              </button>
+            </div>
+          )}
+          {can("admin", "create_users") && activeTab === "users" && (
+            <button onClick={() => { setEditUser(null); setShowForm(true); }}
+              className="flex items-center gap-1.5 bg-forest text-primary-foreground px-4 py-2 rounded-lg text-sm font-semibold hover:bg-forest-deep">
+              <Plus className="w-4 h-4" /> Invite Admin
+            </button>
+          )}
+        </div>
       </div>
 
-      {isLoading ? (
-        <div className="text-center py-10 text-text-med">Loading...</div>
+      {activeTab === "permissions" && isSuperAdmin ? (
+        <AdminPermissionsManager users={users || []} />
       ) : (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50">
-              <tr>
-                <th className="px-4 py-3 text-left font-semibold text-text-med">User</th>
-                <th className="px-4 py-3 text-left font-semibold text-text-med">Role</th>
-                <th className="px-4 py-3 text-center font-semibold text-text-med">Active</th>
-                <th className="px-4 py-3 text-left font-semibold text-text-med">Last Login</th>
-                <th className="px-4 py-3 text-right font-semibold text-text-med">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(users || []).map((u: any) => (
-                <tr key={u.id} className="border-t border-border hover:bg-muted/30">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-forest/10 flex items-center justify-center text-sm font-bold text-forest">
-                        {u.display_name?.charAt(0) || "?"}
-                      </div>
-                      <div>
-                        <div className="font-semibold">{u.display_name}</div>
-                        <div className="text-text-light text-xs">{u.email}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${ROLE_COLORS[u.role] || ""}`}>
-                      {ROLE_LABELS[u.role] || u.role}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <button onClick={() => {
-                      if (u.auth_user_id === currentAdmin?.auth_user_id) return;
-                      toggleActive.mutate({ id: u.id, is_active: !u.is_active });
-                    }}
-                      className={`w-10 h-5 rounded-full relative transition-colors ${u.is_active ? "bg-forest" : "bg-border"} ${u.auth_user_id === currentAdmin?.auth_user_id ? "opacity-50 cursor-not-allowed" : ""}`}>
-                      <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-primary-foreground shadow transition-transform ${u.is_active ? "left-5" : "left-0.5"}`} />
-                    </button>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-text-light">
-                    {u.last_login_at ? new Date(u.last_login_at).toLocaleDateString() : "Never"}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    {hasPermission(currentAdmin, "users", "edit") && u.auth_user_id !== currentAdmin?.auth_user_id && (
-                      <button onClick={() => { setEditUser(u); setShowForm(true); }}
-                        className="px-3 py-1 rounded text-xs font-semibold border border-border hover:bg-muted">Edit</button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <>
+          {isLoading ? (
+            <div className="text-center py-10 text-text-med">Loading...</div>
+          ) : (
+            <div className="bg-card border border-border rounded-xl overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-semibold text-text-med">User</th>
+                    <th className="px-4 py-3 text-left font-semibold text-text-med">Role</th>
+                    <th className="px-4 py-3 text-center font-semibold text-text-med">Active</th>
+                    <th className="px-4 py-3 text-left font-semibold text-text-med">Last Login</th>
+                    <th className="px-4 py-3 text-right font-semibold text-text-med">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(users || []).map((u: any) => (
+                    <tr key={u.id} className="border-t border-border hover:bg-muted/30">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-forest/10 flex items-center justify-center text-sm font-bold text-forest">
+                            {u.display_name?.charAt(0) || "?"}
+                          </div>
+                          <div>
+                            <div className="font-semibold">{u.display_name}</div>
+                            <div className="text-text-light text-xs">{u.email}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${ROLE_COLORS[u.role] || "bg-gray-100 text-gray-700"}`}>
+                          {ROLE_LABELS[u.role] || u.role}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {can("admin", "deactivate_users") ? (
+                          <button onClick={() => {
+                            if (u.auth_user_id === currentAdmin?.auth_user_id) return;
+                            toggleActive.mutate({ id: u.id, is_active: !u.is_active });
+                          }}
+                            className={`w-10 h-5 rounded-full relative transition-colors ${u.is_active ? "bg-forest" : "bg-border"} ${u.auth_user_id === currentAdmin?.auth_user_id ? "opacity-50 cursor-not-allowed" : ""}`}>
+                            <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-primary-foreground shadow transition-transform ${u.is_active ? "left-5" : "left-0.5"}`} />
+                          </button>
+                        ) : (
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${u.is_active ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                            {u.is_active ? "Active" : "Inactive"}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-text-light">
+                        {u.last_login_at ? new Date(u.last_login_at).toLocaleDateString() : "Never"}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {can("admin", "edit_users") && u.auth_user_id !== currentAdmin?.auth_user_id && (
+                          <button onClick={() => { setEditUser(u); setShowForm(true); }}
+                            className="px-3 py-1 rounded text-xs font-semibold border border-border hover:bg-muted">Edit</button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
       )}
 
       {showForm && (
@@ -131,10 +152,8 @@ export default function AdminUsers() {
 function UserForm({ user, onClose, onSaved }: { user: any; onClose: () => void; onSaved: () => void }) {
   const isEdit = !!user;
   const [form, setForm] = useState({
-    email: user?.email || "",
-    display_name: user?.display_name || "",
-    role: user?.role || "viewer",
-    custom_permissions: user?.custom_permissions || {},
+    email: user?.email || "", display_name: user?.display_name || "",
+    role: user?.role || "customer_service", custom_permissions: user?.custom_permissions || {},
   });
   const [saving, setSaving] = useState(false);
 
@@ -144,37 +163,27 @@ function UserForm({ user, onClose, onSaved }: { user: any; onClose: () => void; 
     try {
       if (isEdit) {
         const { error } = await supabase.from("admin_users").update({
-          display_name: form.display_name,
-          role: form.role,
+          display_name: form.display_name, role: form.role,
           custom_permissions: form.role === "custom" ? form.custom_permissions : {},
         }).eq("id", user.id);
         if (error) throw error;
         toast.success("User updated");
       } else {
-        // For new users, we need to create the auth user first via signup
         const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: form.email,
-          password: crypto.randomUUID().slice(0, 16) + "Aa1!",
+          email: form.email, password: crypto.randomUUID().slice(0, 16) + "Aa1!",
         });
         if (authError) throw authError;
         if (!authData.user) throw new Error("Failed to create auth user");
 
         const { error } = await supabase.from("admin_users").insert({
-          auth_user_id: authData.user.id,
-          email: form.email,
-          display_name: form.display_name,
-          role: form.role,
-          custom_permissions: form.role === "custom" ? form.custom_permissions : {},
+          auth_user_id: authData.user.id, email: form.email, display_name: form.display_name,
+          role: form.role, custom_permissions: form.role === "custom" ? form.custom_permissions : {},
         });
         if (error) throw error;
         toast.success("Admin invited! They'll receive an email to set their password.");
       }
       onSaved();
-    } catch (e: any) {
-      toast.error(e.message);
-    } finally {
-      setSaving(false);
-    }
+    } catch (e: any) { toast.error(e.message); } finally { setSaving(false); }
   };
 
   return (
@@ -202,39 +211,6 @@ function UserForm({ user, onClose, onSaved }: { user: any; onClose: () => void; 
               {ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
             </select>
           </div>
-          {form.role === "custom" && (
-            <div>
-              <label className="text-xs font-semibold text-text-med block mb-2">Custom Permissions</label>
-              <div className="max-h-60 overflow-y-auto border border-border rounded-lg p-3">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr>
-                      <th className="text-left pb-2">Section</th>
-                      {ACTIONS.map(a => <th key={a} className="text-center pb-2 capitalize">{a}</th>)}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {SECTIONS.map(sec => (
-                      <tr key={sec} className="border-t border-border">
-                        <td className="py-1.5 capitalize">{sec.replace("_", " ")}</td>
-                        {ACTIONS.map(act => (
-                          <td key={act} className="text-center py-1.5">
-                            <input type="checkbox"
-                              checked={!!(form.custom_permissions[sec]?.[act])}
-                              onChange={e => {
-                                const cp = { ...form.custom_permissions };
-                                cp[sec] = { ...cp[sec], [act]: e.target.checked };
-                                setForm(f => ({ ...f, custom_permissions: cp }));
-                              }} />
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
         </div>
         <div className="flex justify-end gap-2 p-4 border-t border-border">
           <button onClick={onClose} className="px-4 py-2 border border-border rounded-lg text-sm font-semibold">Cancel</button>

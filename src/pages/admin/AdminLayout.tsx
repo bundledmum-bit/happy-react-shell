@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdmin } from "@/hooks/useAdmin";
-import { useAdminUser, canViewSection } from "@/hooks/useAdminPermissions";
+import { AdminPermissionsProvider, usePermissions } from "@/hooks/useAdminPermissionsContext";
 import { useIdleTimeout } from "@/hooks/useIdleTimeout";
 import {
   Package, ShoppingBag, ClipboardList, Truck, MessageSquare, Settings,
@@ -13,32 +13,42 @@ import { Tag, Boxes, MapPin, FileText as PageIcon } from "lucide-react";
 import logoWhite from "@/assets/logos/BM-LOGO-WHITE.svg";
 import iconCoral from "@/assets/logos/BM-ICON-CORAL.svg";
 
-const NAV = [
-  { to: "/admin", label: "Dashboard", icon: LayoutDashboard, section: "dashboard", exact: true },
-  { to: "/admin/products", label: "Products", icon: Package, section: "products" },
-  { to: "/admin/inventory", label: "Inventory", icon: Boxes, section: "products" },
-  { to: "/admin/bundles", label: "Bundles", icon: ShoppingBag, section: "bundles" },
-  { to: "/admin/orders", label: "Orders", icon: ClipboardList, section: "orders" },
-  { to: "/admin/customers", label: "Customers", icon: Users, section: "orders" },
-  { to: "/admin/coupons", label: "Coupons", icon: Tag, section: "products" },
-  { to: "/admin/promotions", label: "Promotions", icon: Gift, section: "products" },
-  { to: "/admin/delivery", label: "Delivery", icon: Truck, section: "delivery" },
-  { to: "/admin/shipping-zones", label: "Shipping Zones", icon: MapPin, section: "delivery" },
-  { to: "/admin/content", label: "Content", icon: MessageSquare, section: "content" },
-  { to: "/admin/blog", label: "Blog", icon: FileText, section: "blog" },
-  { to: "/admin/pages", label: "Pages", icon: PageIcon, section: "content" },
-  { to: "/admin/media", label: "Media", icon: Image, section: "media" },
-  { to: "/admin/referrals", label: "Referrals", icon: Gift, section: "referrals" },
-  { to: "/admin/quiz-leads", label: "Quiz Leads", icon: MessageCircleQuestion, section: "orders" },
-  { to: "/admin/quiz-engine", label: "Quiz Engine", icon: Workflow, section: "settings", superAdminOnly: true },
-  { to: "/admin/analytics", label: "Analytics", icon: BarChart3, section: "analytics" },
-  { to: "/admin/users", label: "Users", icon: Users, section: "users" },
-  { to: "/admin/settings", label: "Settings", icon: Settings, section: "settings" },
+interface NavItem {
+  to: string;
+  label: string;
+  icon: any;
+  exact?: boolean;
+  /** module.action required — e.g. "orders.view" */
+  permission?: string;
+  superAdminOnly?: boolean;
+}
+
+const NAV: NavItem[] = [
+  { to: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
+  { to: "/admin/products", label: "Products", icon: Package, permission: "products.view" },
+  { to: "/admin/inventory", label: "Inventory", icon: Boxes, permission: "products.view" },
+  { to: "/admin/bundles", label: "Bundles", icon: ShoppingBag, permission: "products.view" },
+  { to: "/admin/orders", label: "Orders", icon: ClipboardList, permission: "orders.view" },
+  { to: "/admin/customers", label: "Customers", icon: Users, permission: "customers.view" },
+  { to: "/admin/coupons", label: "Coupons", icon: Tag, permission: "coupons.view" },
+  { to: "/admin/promotions", label: "Promotions", icon: Gift, permission: "products.view" },
+  { to: "/admin/delivery", label: "Delivery", icon: Truck, permission: "fulfilment.view_address" },
+  { to: "/admin/shipping-zones", label: "Shipping Zones", icon: MapPin, permission: "fulfilment.view_address" },
+  { to: "/admin/content", label: "Content", icon: MessageSquare, permission: "content.view" },
+  { to: "/admin/blog", label: "Blog", icon: FileText, permission: "content.view" },
+  { to: "/admin/pages", label: "Pages", icon: PageIcon, permission: "content.view" },
+  { to: "/admin/media", label: "Media", icon: Image, permission: "content.view" },
+  { to: "/admin/referrals", label: "Referrals", icon: Gift, permission: "analytics.view" },
+  { to: "/admin/quiz-leads", label: "Quiz Leads", icon: MessageCircleQuestion, permission: "orders.view" },
+  { to: "/admin/quiz-engine", label: "Quiz Engine", icon: Workflow, permission: "content.manage_quiz", superAdminOnly: true },
+  { to: "/admin/analytics", label: "Analytics", icon: BarChart3, permission: "analytics.view" },
+  { to: "/admin/users", label: "Users", icon: Users, permission: "admin.view_users" },
+  { to: "/admin/settings", label: "Settings", icon: Settings, permission: "content.edit_settings" },
 ];
 
-export default function AdminLayout() {
+function AdminLayoutInner() {
   const { isAdmin, loading, signOut, user } = useAdmin();
-  const { data: adminUser } = useAdminUser();
+  const { can, adminUser, isSuperAdmin } = usePermissions();
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -109,21 +119,21 @@ export default function AdminLayout() {
   if (!isAdmin) return null;
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
+
   const visibleNav = NAV.filter(item => {
-    if ((item as any).superAdminOnly && adminUser?.role !== "super_admin") return false;
-    return canViewSection(adminUser, item.section);
+    if (item.superAdminOnly && !isSuperAdmin) return false;
+    if (!item.permission) return true; // Dashboard always visible
+    const [mod, act] = item.permission.split(".");
+    return can(mod, act);
   });
 
   return (
     <div className="min-h-screen flex bg-muted/30">
-      {/* Mobile overlay */}
       {mobileOpen && <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setMobileOpen(false)} />}
 
-      {/* Sidebar — branded forest green */}
       <aside className={`fixed h-full z-50 flex flex-col transition-transform lg:translate-x-0 w-60 flex-shrink-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
         style={{ background: "linear-gradient(180deg, #2D6A4F 0%, #1A4A33 100%)" }}>
         
-        {/* Logo header */}
         <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
           <Link to="/admin" className="flex items-center gap-2.5">
             <img src={logoWhite} alt="BundledMum" className="h-7 w-auto" />
@@ -133,7 +143,6 @@ export default function AdminLayout() {
           </button>
         </div>
 
-        {/* Nav */}
         <nav className="flex-1 py-3 overflow-y-auto">
           <div className="px-4 mb-2">
             <span className="text-[10px] font-bold text-white/30 uppercase tracking-[2px]">Menu</span>
@@ -159,7 +168,6 @@ export default function AdminLayout() {
           })}
         </nav>
 
-        {/* User footer */}
         <div className="p-4 border-t border-white/10">
           <div className="flex items-center gap-2.5 mb-3">
             <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
@@ -178,9 +186,7 @@ export default function AdminLayout() {
         </div>
       </aside>
 
-      {/* Main */}
       <main className="flex-1 lg:ml-60 min-h-screen">
-        {/* Top bar */}
         <header className="sticky top-0 z-30 bg-card/95 backdrop-blur-md border-b border-border px-4 py-3 flex items-center gap-3">
           <button className="lg:hidden" onClick={() => setMobileOpen(true)}>
             <Menu className="w-5 h-5 text-foreground" />
@@ -210,7 +216,6 @@ export default function AdminLayout() {
           </div>
         </header>
 
-        {/* Notifications dropdown */}
         {showNotifications && (
           <div className="fixed top-12 right-4 z-50 w-80 bg-card border border-border rounded-xl shadow-lg max-h-96 overflow-y-auto">
             <div className="flex items-center justify-between p-3 border-b border-border">
@@ -232,7 +237,6 @@ export default function AdminLayout() {
           </div>
         )}
 
-        {/* Global search modal */}
         {searchOpen && (
           <div className="fixed inset-0 bg-foreground/50 z-[100] flex items-start justify-center pt-20" onClick={() => setSearchOpen(false)}>
             <div className="bg-card border border-border rounded-xl w-full max-w-lg mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
@@ -267,5 +271,13 @@ export default function AdminLayout() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function AdminLayout() {
+  return (
+    <AdminPermissionsProvider>
+      <AdminLayoutInner />
+    </AdminPermissionsProvider>
   );
 }
