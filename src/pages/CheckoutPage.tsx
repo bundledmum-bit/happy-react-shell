@@ -290,6 +290,23 @@ export default function CheckoutPage() {
         }
       } catch (e) { console.error("Customer upsert failed:", e); }
 
+      // Mark quiz_customers as purchased
+      try {
+        const sessionId = getSessionId();
+        await supabase
+          .from("quiz_customers")
+          .update({ has_purchased: true, order_id: order.id } as any)
+          .eq("session_id", sessionId);
+      } catch (e) { console.error("Quiz customer update failed:", e); }
+
+      // Track order_placed event
+      trackEvent("order_placed", {
+        order_id: order.id,
+        order_number: order.order_number,
+        total: orderData.total,
+        item_count: cart.length,
+      });
+
       return order.order_number || orderData.orderId;
     } catch (e) {
       console.error("DB save failed:", e);
