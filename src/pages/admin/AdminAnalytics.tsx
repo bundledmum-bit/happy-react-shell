@@ -2,6 +2,9 @@ import { useState, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import OrdersReportTab from "@/components/admin/OrdersReportTab";
+import OrderLinesReportTab from "@/components/admin/OrderLinesReportTab";
+import CustomerReportTab from "@/components/admin/CustomerReportTab";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -341,6 +344,8 @@ export default function AdminAnalytics() {
       <Tabs defaultValue="business" className="w-full">
         <TabsList className="mb-4 flex-wrap h-auto">
           <TabsTrigger value="business">Business</TabsTrigger>
+          <TabsTrigger value="orders-report">Orders Report</TabsTrigger>
+          <TabsTrigger value="order-lines">Order Lines</TabsTrigger>
           <TabsTrigger value="customers">Customers</TabsTrigger>
           <TabsTrigger value="quiz">Quiz & Leads</TabsTrigger>
           <TabsTrigger value="products">Products</TabsTrigger>
@@ -350,6 +355,12 @@ export default function AdminAnalytics() {
           <TabsTrigger value="behaviour">Behaviour</TabsTrigger>
           <TabsTrigger value="audience">Audience</TabsTrigger>
         </TabsList>
+
+        {/* ═══ ORDERS REPORT ═══ */}
+        <TabsContent value="orders-report"><OrdersReportTab /></TabsContent>
+
+        {/* ═══ ORDER LINES ═══ */}
+        <TabsContent value="order-lines"><OrderLinesReportTab /></TabsContent>
 
         {/* ═══ TAB 1: BUSINESS ═══ */}
         <TabsContent value="business">
@@ -448,50 +459,7 @@ export default function AdminAnalytics() {
 
         {/* ═══ TAB 2: CUSTOMERS ═══ */}
         <TabsContent value="customers">
-          {(() => {
-            const c = customers || [];
-            const allO = allOrders || [];
-            const emailOrders: Record<string, number> = {};
-            allO.forEach((x: any) => { emailOrders[x.customer_email] = (emailOrders[x.customer_email] || 0) + 1; });
-            const returning = Object.values(emailOrders).filter(v => v > 1).length;
-            const total = Object.keys(emailOrders).length;
-            const repeatRate = total > 0 ? ((returning / total) * 100).toFixed(1) : "0.0";
-            const topCustomers = [...c].sort((a: any, b: any) => (b.total_spent || 0) - (a.total_spent || 0)).slice(0, 10);
-            const geoData: Record<string, number> = {};
-            c.forEach((x: any) => { if (x.delivery_state) geoData[x.delivery_state] = (geoData[x.delivery_state] || 0) + 1; });
-            const geoChart = Object.entries(geoData).sort((a,b) => b[1]-a[1]).slice(0,10).map(([name,value]) => ({ name, value }));
-            return (
-              <>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-                  <StatCard label="Total Customers" value={total} />
-                  <StatCard label="Returning" value={returning} />
-                  <StatCard label="Repeat Rate" value={`${repeatRate}%`} />
-                  <StatCard label="Avg LTV" value={fmt(c.length > 0 ? Math.round(c.reduce((s: number,x: any) => s+(x.total_spent||0), 0)/c.length) : 0)} />
-                </div>
-                <div className="grid md:grid-cols-2 gap-6">
-                  <ChartCard title="Top 10 Customers by Spend" empty={topCustomers.length === 0}>
-                    <div className="space-y-2">
-                      {topCustomers.map((c: any,i: number) => (
-                        <div key={c.id} className="flex justify-between text-xs">
-                          <span>{i+1}. {c.email}</span>
-                          <span className="font-semibold">{fmt(c.total_spent || 0)} ({c.total_orders} orders)</span>
-                        </div>
-                      ))}
-                    </div>
-                  </ChartCard>
-                  <ChartCard title="Geographic Distribution" empty={geoChart.length === 0}>
-                    <ResponsiveContainer width="100%" height={280}>
-                      <BarChart data={geoChart} layout="vertical">
-                        <XAxis type="number" tick={{ fontSize: 10 }} />
-                        <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={100} />
-                        <Tooltip /><Bar dataKey="value" fill="#2D6A4F" radius={[0,4,4,0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </ChartCard>
-                </div>
-              </>
-            );
-          })()}
+          <CustomerReportTab />
         </TabsContent>
 
         {/* ═══ TAB 3: QUIZ & LEADS ═══ */}

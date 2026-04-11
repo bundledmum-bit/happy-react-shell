@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { useCart, fmt, generateOrderId } from "@/lib/cart";
+import { useCart, fmt } from "@/lib/cart";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ChevronDown, ChevronUp } from "lucide-react";
@@ -21,7 +21,24 @@ async function logOrderToSheets(orderData: Record<string, unknown>) {
   const url = import.meta.env.VITE_SHEETS_WEBHOOK_URL || "https://script.google.com/macros/s/AKfycby3mFQQ9oORQeiCKyd1hWaxx0m9n6T4mSQl3hb1DgyD--0UrKiUE_Qvnh0pV4Jp_janXw/exec";
   if (!url) return;
   try {
-    await fetch(url, { method: "POST", body: JSON.stringify(orderData) });
+    const payload = {
+      orderNumber: orderData.orderNumber,
+      customerName: orderData.customerName,
+      phone: orderData.phone,
+      deliveryAddress: orderData.address,
+      city: orderData.city,
+      state: orderData.state,
+      itemsOrdered: orderData.itemsSummary,
+      subtotal: orderData.subtotal,
+      deliveryFee: orderData.deliveryFee,
+      serviceFee: orderData.serviceFee,
+      total: orderData.total,
+      paymentMethod: orderData.paymentMethod,
+      paymentStatus: orderData.paymentStatus,
+      orderStatus: "confirmed",
+      date: orderData.timestamp,
+    };
+    await fetch(url, { method: "POST", body: JSON.stringify(payload) });
   } catch (err) { console.error("Sheet logging failed:", err); }
 }
 
@@ -172,7 +189,6 @@ export default function CheckoutPage() {
   };
 
   const buildOrderData = (paystackRef?: string, paystackStatus?: string) => ({
-    orderId: generateOrderId(),
     timestamp: new Date().toISOString(),
     customerName: `${form.firstName} ${form.lastName}`,
     email: form.email, phone: form.phone, address: form.address, city: form.city, state: form.state,
@@ -266,7 +282,7 @@ export default function CheckoutPage() {
 
       if (orderError) {
         console.error("Order insert failed:", orderError);
-        return orderData.orderId;
+        return null;
       }
 
       // Insert order items
@@ -358,10 +374,10 @@ export default function CheckoutPage() {
         item_count: cart.length,
       });
 
-      return order.order_number || orderData.orderId;
+      return order.order_number;
     } catch (e) {
       console.error("DB save failed:", e);
-      return orderData.orderId;
+      return null;
     }
   };
 
@@ -372,9 +388,9 @@ export default function CheckoutPage() {
     if (payment === "transfer") {
       const orderData = buildOrderData();
       const dbOrderNumber = await saveOrderToDb(orderData);
-      await logOrderToSheets(orderData);
+      await logOrderToSheets({ ...orderData, orderNumber: dbOrderNumber });
       clearCart();
-      navigate("/order-confirmed", { state: { ...orderData, orderId: dbOrderNumber, paymentType: "transfer", form } });
+      navigate(`/order-confirmed?order=${encodeURIComponent(dbOrderNumber || "")}`);
       return;
     }
 
@@ -388,13 +404,11 @@ export default function CheckoutPage() {
         ref: `BM-${Date.now()}`, firstname: form.firstName, lastname: form.lastName,
         channels: payment === "ussd" ? ["ussd"] : ["card", "bank_transfer", "ussd", "qr", "mobile_money", "bank"],
         onSuccess: async (transaction: { reference: string; status: string }) => {
-          // Save order first with pending status
           const orderData = buildOrderData(transaction.reference, "pending");
           const dbOrderNumber = await saveOrderToDb(orderData);
 
-          // Verify payment via edge function
           const { data: verification, error: verifyError } = await supabase.functions.invoke("process-payment", {
-            body: { reference: transaction.reference, order_id: orderData.orderId },
+            body: { reference: transaction.reference, order_id: dbOrderNumber },
           });
 
           if (verifyError || !verification?.verified) {
@@ -403,18 +417,18 @@ export default function CheckoutPage() {
             return;
           }
 
-          await logOrderToSheets(orderData);
+          await logOrderToSheets({ ...orderData, orderNumber: dbOrderNumber });
           clearCart();
-          navigate("/order-confirmed", { state: { ...orderData, orderId: dbOrderNumber, paymentType: "card", form } });
+          navigate(`/order-confirmed?order=${encodeURIComponent(dbOrderNumber || "")}`);
         },
         onCancel: () => { setProcessing(false); toast.error("Payment cancelled"); },
       });
     } catch {
       const orderData = buildOrderData("DEMO-" + Date.now(), "success");
       const dbOrderNumber = await saveOrderToDb(orderData);
-      await logOrderToSheets(orderData);
+      await logOrderToSheets({ ...orderData, orderNumber: dbOrderNumber });
       clearCart();
-      navigate("/order-confirmed", { state: { ...orderData, orderId: dbOrderNumber, paymentType: "card", form } });
+      navigate(`/order-confirmed?order=${encodeURIComponent(dbOrderNumber || "")}`);
     }
   };
 
