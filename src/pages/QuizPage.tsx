@@ -322,7 +322,8 @@ export default function QuizPage() {
       const next = getNextStep(stepId, optionId, newAnswers, routingRules, questions);
       const newSteps = [...history, stepId];
       
-      if (!next) {
+      // Skip the whatsapp_consent DB step — we have a hardcoded WhatsApp capture instead
+      if (!next || next === "whatsapp_consent") {
         setShowWhatsAppStep(true);
       } else {
         setHistory(newSteps);
@@ -338,7 +339,7 @@ export default function QuizPage() {
     const newAnswers = { ...answers, [stepId]: "skip" };
     setAnswers(newAnswers);
     const next = getNextStep(stepId, "skip", newAnswers, routingRules, questions);
-    if (!next) {
+    if (!next || next === "whatsapp_consent") {
       setShowWhatsAppStep(true);
     } else {
       setHistory(h => [...h, currentStep!]);
