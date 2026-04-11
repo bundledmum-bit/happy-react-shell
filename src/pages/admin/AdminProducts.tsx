@@ -8,9 +8,11 @@ import BulkActionsBar from "@/components/admin/BulkActionsBar";
 import TrashTabs from "@/components/admin/TrashTabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ExportButton, ImportButton } from "@/components/admin/ExcelImportExport";
+import { usePermissions } from "@/hooks/useAdminPermissionsContext";
 
 export default function AdminProducts() {
   const queryClient = useQueryClient();
+  const { can } = usePermissions();
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
   const [editingProduct, setEditingProduct] = useState<any>(null);
@@ -34,23 +36,13 @@ export default function AdminProducts() {
 
   const bulkMutation = useMutation({
     mutationFn: async ({ ids, action }: { ids: string[]; action: string }) => {
-      if (action === "activate") {
-        await supabase.from("products").update({ is_active: true, deleted_at: null }).in("id", ids);
-      } else if (action === "deactivate") {
-        await supabase.from("products").update({ is_active: false }).in("id", ids);
-      } else if (action === "trash") {
-        await supabase.from("products").update({ is_active: false, deleted_at: new Date().toISOString() }).in("id", ids);
-      } else if (action === "restore") {
-        await supabase.from("products").update({ is_active: true, deleted_at: null }).in("id", ids);
-      } else if (action === "delete_permanent") {
-        await supabase.from("products").delete().in("id", ids);
-      }
+      if (action === "activate") await supabase.from("products").update({ is_active: true, deleted_at: null }).in("id", ids);
+      else if (action === "deactivate") await supabase.from("products").update({ is_active: false }).in("id", ids);
+      else if (action === "trash") await supabase.from("products").update({ is_active: false, deleted_at: new Date().toISOString() }).in("id", ids);
+      else if (action === "restore") await supabase.from("products").update({ is_active: true, deleted_at: null }).in("id", ids);
+      else if (action === "delete_permanent") await supabase.from("products").delete().in("id", ids);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-products"] });
-      setSelected(new Set());
-      toast.success("Bulk action applied");
-    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["admin-products"] }); setSelected(new Set()); toast.success("Bulk action applied"); },
   });
 
   const quickSave = useMutation({
@@ -58,11 +50,7 @@ export default function AdminProducts() {
       const { error } = await supabase.from("products").update(data).eq("id", quickEditId);
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-products"] });
-      setQuickEditId(null);
-      toast.success("Updated");
-    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["admin-products"] }); setQuickEditId(null); toast.success("Updated"); },
   });
 
   const duplicateProduct = async (p: any) => {
@@ -87,12 +75,7 @@ export default function AdminProducts() {
     return true;
   });
 
-  const toggleSelect = (id: string) => {
-    const next = new Set(selected);
-    next.has(id) ? next.delete(id) : next.add(id);
-    setSelected(next);
-  };
-
+  const toggleSelect = (id: string) => { const next = new Set(selected); next.has(id) ? next.delete(id) : next.add(id); setSelected(next); };
   const allSelected = filtered.length > 0 && filtered.every((p: any) => selected.has(p.id));
 
   const handleBulkAction = (action: string) => {
@@ -103,20 +86,30 @@ export default function AdminProducts() {
   };
 
   const bulkActions = trashTab === "active"
-    ? [{ label: "Activate", value: "activate" }, { label: "Deactivate", value: "deactivate" }, { label: "Move to Trash", value: "trash", destructive: true }]
-    : [{ label: "Restore", value: "restore" }, { label: "Delete Permanently", value: "delete_permanent", destructive: true }];
+    ? [
+        ...(can("products", "edit") ? [{ label: "Activate", value: "activate" }, { label: "Deactivate", value: "deactivate" }] : []),
+        ...(can("products", "delete") ? [{ label: "Move to Trash", value: "trash", destructive: true }] : []),
+      ]
+    : [
+        ...(can("products", "edit") ? [{ label: "Restore", value: "restore" }] : []),
+        ...(can("products", "delete") ? [{ label: "Delete Permanently", value: "delete_permanent", destructive: true }] : []),
+      ];
+
+  const showCogs = can("finance", "view_cogs");
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <h1 className="pf text-2xl font-bold">Products ({filtered.length})</h1>
         <div className="flex items-center gap-2">
-          <ExportButton products={allProducts} />
-          <ImportButton />
-          <button onClick={() => { setEditingProduct(null); setShowForm(true); }}
-            className="flex items-center gap-1.5 bg-forest text-primary-foreground px-4 py-2 rounded-lg text-sm font-semibold hover:bg-forest-deep">
-            <Plus className="w-4 h-4" /> Add Product
-          </button>
+          {can("products", "export") && <ExportButton products={allProducts} />}
+          {can("products", "import") && <ImportButton />}
+          {can("products", "create") && (
+            <button onClick={() => { setEditingProduct(null); setShowForm(true); }}
+              className="flex items-center gap-1.5 bg-forest text-primary-foreground px-4 py-2 rounded-lg text-sm font-semibold hover:bg-forest-deep">
+              <Plus className="w-4 h-4" /> Add Product
+            </button>
+          )}
         </div>
       </div>
 
@@ -136,9 +129,11 @@ export default function AdminProducts() {
         ))}
       </div>
 
-      <BulkActionsBar selectedCount={selected.size} actions={bulkActions} onApply={handleBulkAction}
-        onSelectAll={() => setSelected(new Set(filtered.map((p: any) => p.id)))}
-        onDeselectAll={() => setSelected(new Set())} totalCount={filtered.length} allSelected={allSelected} />
+      {bulkActions.length > 0 && (
+        <BulkActionsBar selectedCount={selected.size} actions={bulkActions} onApply={handleBulkAction}
+          onSelectAll={() => setSelected(new Set(filtered.map((p: any) => p.id)))}
+          onDeselectAll={() => setSelected(new Set())} totalCount={filtered.length} allSelected={allSelected} />
+      )}
 
       {isLoading ? (
         <div className="text-center py-10 text-text-med">Loading products...</div>
@@ -187,16 +182,13 @@ export default function AdminProducts() {
                     <div className="flex gap-1 justify-end">
                       <button onClick={() => quickSave.mutate({ name: quickEditData.name, category: quickEditData.category, priority: quickEditData.priority, display_order: quickEditData.display_order })}
                         className="p-1.5 rounded hover:bg-forest/10 text-forest"><Check className="w-3.5 h-3.5" /></button>
-                      <button onClick={() => setQuickEditId(null)}
-                        className="p-1.5 rounded hover:bg-muted"><X className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => setQuickEditId(null)} className="p-1.5 rounded hover:bg-muted"><X className="w-3.5 h-3.5" /></button>
                     </div>
                   </td>
                 </tr>
               ) : (
                 <tr key={p.id} className="border-t border-border hover:bg-muted/30">
-                  <td className="px-3 py-3">
-                    <Checkbox checked={selected.has(p.id)} onCheckedChange={() => toggleSelect(p.id)} />
-                  </td>
+                  <td className="px-3 py-3"><Checkbox checked={selected.has(p.id)} onCheckedChange={() => toggleSelect(p.id)} /></td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <span className="text-xl">{p.emoji}</span>
@@ -218,21 +210,33 @@ export default function AdminProducts() {
                     <div className="flex gap-1 justify-end">
                       {trashTab === "active" ? (
                         <>
-                          <button title="Quick Edit" onClick={() => { setQuickEditId(p.id); setQuickEditData({ name: p.name, category: p.category, priority: p.priority, display_order: p.display_order }); }}
-                            className="p-1.5 rounded hover:bg-muted text-text-med text-[10px] font-semibold">QE</button>
-                          <button title="Edit" onClick={() => { setEditingProduct(p); setShowForm(true); }}
-                            className="p-1.5 rounded hover:bg-muted"><Pencil className="w-3.5 h-3.5" /></button>
-                          <button title="Duplicate" onClick={() => duplicateProduct(p)}
-                            className="p-1.5 rounded hover:bg-muted"><Copy className="w-3.5 h-3.5" /></button>
-                          <button title="Trash" onClick={() => bulkMutation.mutate({ ids: [p.id], action: "trash" })}
-                            className="p-1.5 rounded hover:bg-destructive/10 text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
+                          {can("products", "edit") && (
+                            <button title="Quick Edit" onClick={() => { setQuickEditId(p.id); setQuickEditData({ name: p.name, category: p.category, priority: p.priority, display_order: p.display_order }); }}
+                              className="p-1.5 rounded hover:bg-muted text-text-med text-[10px] font-semibold">QE</button>
+                          )}
+                          {can("products", "edit") && (
+                            <button title="Edit" onClick={() => { setEditingProduct(p); setShowForm(true); }}
+                              className="p-1.5 rounded hover:bg-muted"><Pencil className="w-3.5 h-3.5" /></button>
+                          )}
+                          {can("products", "create") && (
+                            <button title="Duplicate" onClick={() => duplicateProduct(p)}
+                              className="p-1.5 rounded hover:bg-muted"><Copy className="w-3.5 h-3.5" /></button>
+                          )}
+                          {can("products", "delete") && (
+                            <button title="Trash" onClick={() => bulkMutation.mutate({ ids: [p.id], action: "trash" })}
+                              className="p-1.5 rounded hover:bg-destructive/10 text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
+                          )}
                         </>
                       ) : (
                         <>
-                          <button title="Restore" onClick={() => bulkMutation.mutate({ ids: [p.id], action: "restore" })}
-                            className="p-1.5 rounded hover:bg-forest/10 text-forest"><RotateCcw className="w-3.5 h-3.5" /></button>
-                          <button title="Delete Permanently" onClick={() => { if (confirm("Permanently delete?")) bulkMutation.mutate({ ids: [p.id], action: "delete_permanent" }); }}
-                            className="p-1.5 rounded hover:bg-destructive/10 text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
+                          {can("products", "edit") && (
+                            <button title="Restore" onClick={() => bulkMutation.mutate({ ids: [p.id], action: "restore" })}
+                              className="p-1.5 rounded hover:bg-forest/10 text-forest"><RotateCcw className="w-3.5 h-3.5" /></button>
+                          )}
+                          {can("products", "delete") && (
+                            <button title="Delete Permanently" onClick={() => { if (confirm("Permanently delete?")) bulkMutation.mutate({ ids: [p.id], action: "delete_permanent" }); }}
+                              className="p-1.5 rounded hover:bg-destructive/10 text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
+                          )}
                         </>
                       )}
                     </div>

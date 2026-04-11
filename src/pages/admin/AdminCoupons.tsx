@@ -3,11 +3,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Plus, Search, Trash2, Edit2, X } from "lucide-react";
+import { usePermissions } from "@/hooks/useAdminPermissionsContext";
 
 const TYPES = ["percentage", "fixed_amount", "free_delivery"] as const;
 
 export default function AdminCoupons() {
   const queryClient = useQueryClient();
+  const { can } = usePermissions();
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<any>(null);
   const [showForm, setShowForm] = useState(false);
@@ -24,44 +26,23 @@ export default function AdminCoupons() {
   const saveCoupon = useMutation({
     mutationFn: async (coupon: any) => {
       const payload = {
-        code: coupon.code.toUpperCase().trim(),
-        description: coupon.description || null,
-        discount_type: coupon.discount_type,
-        discount_value: parseFloat(coupon.discount_value) || 0,
+        code: coupon.code.toUpperCase().trim(), description: coupon.description || null,
+        discount_type: coupon.discount_type, discount_value: parseFloat(coupon.discount_value) || 0,
         minimum_order_amount: parseInt(coupon.minimum_order_amount) || null,
         maximum_discount_amount: parseInt(coupon.maximum_discount_amount) || null,
-        usage_limit: parseInt(coupon.usage_limit) || null,
-        usage_limit_per_customer: parseInt(coupon.usage_limit_per_customer) || 1,
-        start_date: coupon.start_date || null,
-        end_date: coupon.end_date || null,
-        is_active: coupon.is_active ?? true,
+        usage_limit: parseInt(coupon.usage_limit) || null, usage_limit_per_customer: parseInt(coupon.usage_limit_per_customer) || 1,
+        start_date: coupon.start_date || null, end_date: coupon.end_date || null, is_active: coupon.is_active ?? true,
       };
-      if (coupon.id) {
-        const { error } = await supabase.from("coupons").update(payload).eq("id", coupon.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("coupons").insert(payload);
-        if (error) throw error;
-      }
+      if (coupon.id) { const { error } = await supabase.from("coupons").update(payload).eq("id", coupon.id); if (error) throw error; }
+      else { const { error } = await supabase.from("coupons").insert(payload); if (error) throw error; }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-coupons"] });
-      setEditing(null);
-      setShowForm(false);
-      toast.success("Coupon saved");
-    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["admin-coupons"] }); setEditing(null); setShowForm(false); toast.success("Coupon saved"); },
     onError: (e: any) => toast.error(e.message),
   });
 
   const deleteCoupon = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("coupons").delete().eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-coupons"] });
-      toast.success("Coupon deleted");
-    },
+    mutationFn: async (id: string) => { const { error } = await supabase.from("coupons").delete().eq("id", id); if (error) throw error; },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["admin-coupons"] }); toast.success("Coupon deleted"); },
   });
 
   const filtered = (coupons || []).filter((c: any) =>
@@ -69,7 +50,6 @@ export default function AdminCoupons() {
   );
 
   const blankCoupon = { code: "", description: "", discount_type: "percentage", discount_value: "", minimum_order_amount: "", maximum_discount_amount: "", usage_limit: "", usage_limit_per_customer: "1", start_date: "", end_date: "", is_active: true };
-
   const isExpired = (c: any) => c.end_date && new Date(c.end_date) < new Date();
   const isExhausted = (c: any) => c.usage_limit && c.usage_count >= c.usage_limit;
 
@@ -77,10 +57,12 @@ export default function AdminCoupons() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="pf text-2xl font-bold">Coupons</h1>
-        <button onClick={() => { setEditing(blankCoupon); setShowForm(true); }}
-          className="flex items-center gap-1.5 bg-forest text-primary-foreground px-4 py-2 rounded-lg text-sm font-semibold hover:bg-forest-deep">
-          <Plus className="w-4 h-4" /> Create Coupon
-        </button>
+        {can("coupons", "create") && (
+          <button onClick={() => { setEditing(blankCoupon); setShowForm(true); }}
+            className="flex items-center gap-1.5 bg-forest text-primary-foreground px-4 py-2 rounded-lg text-sm font-semibold hover:bg-forest-deep">
+            <Plus className="w-4 h-4" /> Create Coupon
+          </button>
+        )}
       </div>
 
       <div className="relative max-w-xs mb-4">
@@ -118,18 +100,15 @@ export default function AdminCoupons() {
                   <td className="px-4 py-3 text-xs">{c.usage_count}{c.usage_limit ? ` / ${c.usage_limit}` : " / ∞"}</td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                      !c.is_active ? "bg-gray-100 text-gray-600" :
-                      isExpired(c) ? "bg-red-100 text-red-600" :
-                      isExhausted(c) ? "bg-yellow-100 text-yellow-700" :
-                      "bg-green-100 text-green-700"
+                      !c.is_active ? "bg-gray-100 text-gray-600" : isExpired(c) ? "bg-red-100 text-red-600" : isExhausted(c) ? "bg-yellow-100 text-yellow-700" : "bg-green-100 text-green-700"
                     }`}>
                       {!c.is_active ? "Inactive" : isExpired(c) ? "Expired" : isExhausted(c) ? "Exhausted" : "Active"}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex gap-1 justify-end">
-                      <button onClick={() => { setEditing(c); setShowForm(true); }} className="p-1.5 hover:bg-muted rounded"><Edit2 className="w-3.5 h-3.5" /></button>
-                      <button onClick={() => { if (confirm("Delete this coupon?")) deleteCoupon.mutate(c.id); }} className="p-1.5 hover:bg-destructive/10 text-destructive rounded"><Trash2 className="w-3.5 h-3.5" /></button>
+                      {can("coupons", "edit") && <button onClick={() => { setEditing(c); setShowForm(true); }} className="p-1.5 hover:bg-muted rounded"><Edit2 className="w-3.5 h-3.5" /></button>}
+                      {can("coupons", "delete") && <button onClick={() => { if (confirm("Delete this coupon?")) deleteCoupon.mutate(c.id); }} className="p-1.5 hover:bg-destructive/10 text-destructive rounded"><Trash2 className="w-3.5 h-3.5" /></button>}
                     </div>
                   </td>
                 </tr>
@@ -163,68 +142,56 @@ function CouponForm({ coupon, onSave, onClose, saving }: { coupon: any; onSave: 
         <div className="p-4 space-y-4">
           <div>
             <label className="text-xs font-semibold text-text-med block mb-1">Code *</label>
-            <input value={form.code} onChange={e => set("code", e.target.value.toUpperCase())}
-              className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background font-mono" placeholder="WELCOME10" />
+            <input value={form.code} onChange={e => set("code", e.target.value.toUpperCase())} className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background font-mono" placeholder="WELCOME10" />
           </div>
           <div>
             <label className="text-xs font-semibold text-text-med block mb-1">Description</label>
-            <input value={form.description || ""} onChange={e => set("description", e.target.value)}
-              className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background" placeholder="10% off for new customers" />
+            <input value={form.description || ""} onChange={e => set("description", e.target.value)} className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background" placeholder="10% off for new customers" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold text-text-med block mb-1">Type *</label>
-              <select value={form.discount_type} onChange={e => set("discount_type", e.target.value)}
-                className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background">
+              <select value={form.discount_type} onChange={e => set("discount_type", e.target.value)} className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background">
                 {TYPES.map(t => <option key={t} value={t}>{t.replace("_", " ")}</option>)}
               </select>
             </div>
             <div>
               <label className="text-xs font-semibold text-text-med block mb-1">Value</label>
-              <input type="number" value={form.discount_value} onChange={e => set("discount_value", e.target.value)}
-                className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background"
-                placeholder={form.discount_type === "percentage" ? "10" : "2000"} />
+              <input type="number" value={form.discount_value} onChange={e => set("discount_value", e.target.value)} className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold text-text-med block mb-1">Min Order (₦)</label>
-              <input type="number" value={form.minimum_order_amount || ""} onChange={e => set("minimum_order_amount", e.target.value)}
-                className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background" placeholder="None" />
+              <input type="number" value={form.minimum_order_amount || ""} onChange={e => set("minimum_order_amount", e.target.value)} className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background" />
             </div>
             <div>
               <label className="text-xs font-semibold text-text-med block mb-1">Max Discount (₦)</label>
-              <input type="number" value={form.maximum_discount_amount || ""} onChange={e => set("maximum_discount_amount", e.target.value)}
-                className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background" placeholder="No cap" />
+              <input type="number" value={form.maximum_discount_amount || ""} onChange={e => set("maximum_discount_amount", e.target.value)} className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold text-text-med block mb-1">Usage Limit</label>
-              <input type="number" value={form.usage_limit || ""} onChange={e => set("usage_limit", e.target.value)}
-                className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background" placeholder="Unlimited" />
+              <input type="number" value={form.usage_limit || ""} onChange={e => set("usage_limit", e.target.value)} className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background" />
             </div>
             <div>
               <label className="text-xs font-semibold text-text-med block mb-1">Per Customer</label>
-              <input type="number" value={form.usage_limit_per_customer} onChange={e => set("usage_limit_per_customer", e.target.value)}
-                className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background" />
+              <input type="number" value={form.usage_limit_per_customer} onChange={e => set("usage_limit_per_customer", e.target.value)} className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold text-text-med block mb-1">Start Date</label>
-              <input type="datetime-local" value={form.start_date ? form.start_date.slice(0, 16) : ""} onChange={e => set("start_date", e.target.value || null)}
-                className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background" />
+              <input type="datetime-local" value={form.start_date ? form.start_date.slice(0, 16) : ""} onChange={e => set("start_date", e.target.value || null)} className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background" />
             </div>
             <div>
               <label className="text-xs font-semibold text-text-med block mb-1">End Date</label>
-              <input type="datetime-local" value={form.end_date ? form.end_date.slice(0, 16) : ""} onChange={e => set("end_date", e.target.value || null)}
-                className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background" />
+              <input type="datetime-local" value={form.end_date ? form.end_date.slice(0, 16) : ""} onChange={e => set("end_date", e.target.value || null)} className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background" />
             </div>
           </div>
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={form.is_active} onChange={e => set("is_active", e.target.checked)} className="rounded" />
-            Active
+            <input type="checkbox" checked={form.is_active} onChange={e => set("is_active", e.target.checked)} className="rounded" /> Active
           </label>
         </div>
         <div className="flex gap-2 p-4 border-t border-border">
