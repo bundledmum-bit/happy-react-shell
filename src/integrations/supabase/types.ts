@@ -143,31 +143,76 @@ export type Database = {
       }
       analytics_events: {
         Row: {
+          browser: string | null
+          city: string | null
+          country: string | null
           created_at: string | null
+          device_type: string | null
           event_data: Json | null
           event_type: string
           id: string
+          ip_address: string | null
+          os: string | null
           page_url: string | null
           referral_source: string | null
+          referrer: string | null
           session_id: string | null
+          traffic_medium: string | null
+          traffic_source: string | null
+          user_agent: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
         }
         Insert: {
+          browser?: string | null
+          city?: string | null
+          country?: string | null
           created_at?: string | null
+          device_type?: string | null
           event_data?: Json | null
           event_type: string
           id?: string
+          ip_address?: string | null
+          os?: string | null
           page_url?: string | null
           referral_source?: string | null
+          referrer?: string | null
           session_id?: string | null
+          traffic_medium?: string | null
+          traffic_source?: string | null
+          user_agent?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
         }
         Update: {
+          browser?: string | null
+          city?: string | null
+          country?: string | null
           created_at?: string | null
+          device_type?: string | null
           event_data?: Json | null
           event_type?: string
           id?: string
+          ip_address?: string | null
+          os?: string | null
           page_url?: string | null
           referral_source?: string | null
+          referrer?: string | null
           session_id?: string | null
+          traffic_medium?: string | null
+          traffic_source?: string | null
+          user_agent?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
         }
         Relationships: []
       }
@@ -526,6 +571,77 @@ export type Database = {
           usage_limit_per_customer?: number | null
         }
         Relationships: []
+      }
+      custom_reports: {
+        Row: {
+          comparison_enabled: boolean | null
+          comparison_type: string | null
+          created_at: string | null
+          created_by: string | null
+          date_range_type: string | null
+          description: string | null
+          dimensions: Json
+          filters: Json | null
+          id: string
+          is_pinned: boolean | null
+          is_shared: boolean | null
+          last_run_at: string | null
+          metrics: Json
+          name: string
+          report_type: string | null
+          sort_by: string | null
+          sort_direction: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          comparison_enabled?: boolean | null
+          comparison_type?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          date_range_type?: string | null
+          description?: string | null
+          dimensions?: Json
+          filters?: Json | null
+          id?: string
+          is_pinned?: boolean | null
+          is_shared?: boolean | null
+          last_run_at?: string | null
+          metrics?: Json
+          name: string
+          report_type?: string | null
+          sort_by?: string | null
+          sort_direction?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          comparison_enabled?: boolean | null
+          comparison_type?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          date_range_type?: string | null
+          description?: string | null
+          dimensions?: Json
+          filters?: Json | null
+          id?: string
+          is_pinned?: boolean | null
+          is_shared?: boolean | null
+          last_run_at?: string | null
+          metrics?: Json
+          name?: string
+          report_type?: string | null
+          sort_by?: string | null
+          sort_direction?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_reports_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       customers: {
         Row: {
@@ -975,6 +1091,8 @@ export type Database = {
           gift_message: string | null
           gift_wrapping: boolean | null
           id: string
+          is_quiz_order: boolean | null
+          landing_page: string | null
           order_number: string | null
           order_status: string | null
           packed_at: string | null
@@ -984,6 +1102,7 @@ export type Database = {
           paystack_transaction_id: string | null
           quiz_answers: Json | null
           referral_code_used: string | null
+          referrer: string | null
           refund_amount: number | null
           refunded_at: string | null
           return_reason: string | null
@@ -996,7 +1115,13 @@ export type Database = {
           subtotal: number
           total: number
           tracking_number: string | null
+          traffic_source: string | null
           updated_at: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
         }
         Insert: {
           actual_delivery_date?: string | null
@@ -1022,6 +1147,8 @@ export type Database = {
           gift_message?: string | null
           gift_wrapping?: boolean | null
           id?: string
+          is_quiz_order?: boolean | null
+          landing_page?: string | null
           order_number?: string | null
           order_status?: string | null
           packed_at?: string | null
@@ -1031,6 +1158,7 @@ export type Database = {
           paystack_transaction_id?: string | null
           quiz_answers?: Json | null
           referral_code_used?: string | null
+          referrer?: string | null
           refund_amount?: number | null
           refunded_at?: string | null
           return_reason?: string | null
@@ -1043,7 +1171,13 @@ export type Database = {
           subtotal: number
           total: number
           tracking_number?: string | null
+          traffic_source?: string | null
           updated_at?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
         }
         Update: {
           actual_delivery_date?: string | null
@@ -1069,6 +1203,8 @@ export type Database = {
           gift_message?: string | null
           gift_wrapping?: boolean | null
           id?: string
+          is_quiz_order?: boolean | null
+          landing_page?: string | null
           order_number?: string | null
           order_status?: string | null
           packed_at?: string | null
@@ -1078,6 +1214,7 @@ export type Database = {
           paystack_transaction_id?: string | null
           quiz_answers?: Json | null
           referral_code_used?: string | null
+          referrer?: string | null
           refund_amount?: number | null
           refunded_at?: string | null
           return_reason?: string | null
@@ -1090,7 +1227,13 @@ export type Database = {
           subtotal?: number
           total?: number
           tracking_number?: string | null
+          traffic_source?: string | null
           updated_at?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
         }
         Relationships: [
           {
@@ -1108,6 +1251,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      page_views: {
+        Row: {
+          created_at: string | null
+          id: string
+          page_title: string | null
+          page_url: string
+          referrer: string | null
+          scroll_depth_percent: number | null
+          session_id: string
+          time_on_page_seconds: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          page_title?: string | null
+          page_url: string
+          referrer?: string | null
+          scroll_depth_percent?: number | null
+          session_id: string
+          time_on_page_seconds?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          page_title?: string | null
+          page_url?: string
+          referrer?: string | null
+          scroll_depth_percent?: number | null
+          session_id?: string
+          time_on_page_seconds?: number | null
+        }
+        Relationships: []
       }
       pages: {
         Row: {
@@ -1596,6 +1772,51 @@ export type Database = {
           },
         ]
       }
+      report_dimensions: {
+        Row: {
+          aggregation: string | null
+          category: string
+          data_type: string | null
+          description: string | null
+          display_name: string
+          id: string
+          is_active: boolean | null
+          is_dimension: boolean | null
+          is_metric: boolean | null
+          name: string
+          source_column: string | null
+          source_table: string | null
+        }
+        Insert: {
+          aggregation?: string | null
+          category: string
+          data_type?: string | null
+          description?: string | null
+          display_name: string
+          id?: string
+          is_active?: boolean | null
+          is_dimension?: boolean | null
+          is_metric?: boolean | null
+          name: string
+          source_column?: string | null
+          source_table?: string | null
+        }
+        Update: {
+          aggregation?: string | null
+          category?: string
+          data_type?: string | null
+          description?: string | null
+          display_name?: string
+          id?: string
+          is_active?: boolean | null
+          is_dimension?: boolean | null
+          is_metric?: boolean | null
+          name?: string
+          source_column?: string | null
+          source_table?: string | null
+        }
+        Relationships: []
+      }
       revisions: {
         Row: {
           change_summary: string | null
@@ -1636,6 +1857,107 @@ export type Database = {
             columns: ["changed_by"]
             isOneToOne: false
             referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sessions: {
+        Row: {
+          browser: string | null
+          city: string | null
+          conversion_order_id: string | null
+          converted: boolean | null
+          country: string | null
+          created_at: string | null
+          device_type: string | null
+          duration_seconds: number | null
+          event_count: number | null
+          exit_page: string | null
+          first_seen_at: string | null
+          id: string
+          is_bounce: boolean | null
+          landing_page: string | null
+          last_seen_at: string | null
+          os: string | null
+          page_count: number | null
+          referrer: string | null
+          session_id: string
+          traffic_campaign: string | null
+          traffic_medium: string | null
+          traffic_source: string | null
+          user_agent: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+        }
+        Insert: {
+          browser?: string | null
+          city?: string | null
+          conversion_order_id?: string | null
+          converted?: boolean | null
+          country?: string | null
+          created_at?: string | null
+          device_type?: string | null
+          duration_seconds?: number | null
+          event_count?: number | null
+          exit_page?: string | null
+          first_seen_at?: string | null
+          id?: string
+          is_bounce?: boolean | null
+          landing_page?: string | null
+          last_seen_at?: string | null
+          os?: string | null
+          page_count?: number | null
+          referrer?: string | null
+          session_id: string
+          traffic_campaign?: string | null
+          traffic_medium?: string | null
+          traffic_source?: string | null
+          user_agent?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Update: {
+          browser?: string | null
+          city?: string | null
+          conversion_order_id?: string | null
+          converted?: boolean | null
+          country?: string | null
+          created_at?: string | null
+          device_type?: string | null
+          duration_seconds?: number | null
+          event_count?: number | null
+          exit_page?: string | null
+          first_seen_at?: string | null
+          id?: string
+          is_bounce?: boolean | null
+          landing_page?: string | null
+          last_seen_at?: string | null
+          os?: string | null
+          page_count?: number | null
+          referrer?: string | null
+          session_id?: string
+          traffic_campaign?: string | null
+          traffic_medium?: string | null
+          traffic_source?: string | null
+          user_agent?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessions_conversion_order_id_fkey"
+            columns: ["conversion_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
             referencedColumns: ["id"]
           },
         ]
@@ -1865,6 +2187,45 @@ export type Database = {
           is_featured?: boolean | null
           quote?: string
           rating?: number | null
+        }
+        Relationships: []
+      }
+      traffic_sources: {
+        Row: {
+          campaign: string | null
+          channel_group: string | null
+          created_at: string | null
+          date: string
+          id: string
+          medium: string | null
+          order_count: number | null
+          revenue: number | null
+          session_count: number | null
+          source: string
+        }
+        Insert: {
+          campaign?: string | null
+          channel_group?: string | null
+          created_at?: string | null
+          date: string
+          id?: string
+          medium?: string | null
+          order_count?: number | null
+          revenue?: number | null
+          session_count?: number | null
+          source: string
+        }
+        Update: {
+          campaign?: string | null
+          channel_group?: string | null
+          created_at?: string | null
+          date?: string
+          id?: string
+          medium?: string | null
+          order_count?: number | null
+          revenue?: number | null
+          session_count?: number | null
+          source?: string
         }
         Relationships: []
       }
