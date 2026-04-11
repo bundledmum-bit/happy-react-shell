@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Search, Download, ChevronDown, ChevronUp, Printer, MessageSquare, Clock, Send, ExternalLink, ArrowLeft } from "lucide-react";
 import BulkActionsBar from "@/components/admin/BulkActionsBar";
-import PrintInvoice from "@/components/admin/PrintInvoice";
+import { openBrandedInvoice } from "@/components/admin/PrintInvoice";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAdminUser } from "@/hooks/useAdminPermissions";
 import { Skeleton } from "@/components/ui/skeleton";
