@@ -193,6 +193,23 @@ export default function CheckoutPage() {
 
   const saveOrderToDb = async (orderData: ReturnType<typeof buildOrderData>) => {
     try {
+      // Get quiz answers from localStorage saved bundle if available
+      let quizAnswers: any = null;
+      try {
+        const savedBundle = localStorage.getItem("bm-saved-bundle");
+        if (savedBundle) {
+          const parsed = JSON.parse(savedBundle);
+          if (parsed.answers) {
+            quizAnswers = {
+              hospital_type: parsed.answers.hospitalType || null,
+              delivery_method: parsed.answers.deliveryMethod || null,
+              baby_gender: parsed.answers.gender || null,
+              budget_tier: parsed.answers.budget || null,
+            };
+          }
+        }
+      } catch {}
+
       const { data: order, error: orderError } = await supabase
         .from("orders")
         .insert({
@@ -220,6 +237,7 @@ export default function CheckoutPage() {
           gift_wrapping: orderData.giftWrap,
           estimated_delivery_start: fromDate.toISOString().split("T")[0],
           estimated_delivery_end: toDate.toISOString().split("T")[0],
+          quiz_answers: quizAnswers,
         })
         .select("id, order_number")
         .single();
