@@ -173,7 +173,7 @@ export default function ShopPage() {
   };
 
   useEffect(() => {
-    const titles: Record<string, string> = { all: "All Products", baby: "Baby Shop", mum: "Mum Shop" };
+    const titles: Record<string, string> = { all: "All Products", baby: "Baby Shop", mum: "Mum Shop", "push-gift": "Push Gifts" };
     document.title = `${titles[tab] || "All Products"} | BundledMum`;
   }, [tab]);
 
@@ -200,11 +200,10 @@ export default function ShopPage() {
 
   // Apply all filters
   const filtered = useMemo(() => {
-    let raw = tab === "baby"
-      ? (allProducts || []).filter(p => p.category === "baby")
-      : tab === "mum"
-      ? (allProducts || []).filter(p => p.category === "mum")
-      : (allProducts || []);
+    let raw = (allProducts || []);
+    if (tab === "baby") raw = raw.filter(p => p.category === "baby");
+    else if (tab === "mum") raw = raw.filter(p => p.category === "mum");
+    else if (tab === "push-gift") raw = raw.filter(p => p.category === "push-gift");
 
     if (search) raw = raw.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
     if (categoryF) raw = raw.filter(p => p.subcategory === categoryF);
@@ -249,7 +248,7 @@ export default function ShopPage() {
           <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide">
             <div className="flex gap-2 items-center min-w-max">
               <span className="text-text-med text-[13px] font-semibold mr-1">Shop:</span>
-              {[{ key: "all", label: "All" }, { key: "baby", label: "👶 Baby" }, { key: "mum", label: "💛 Mum" }].map(t => (
+              {[{ key: "all", label: "All" }, { key: "baby", label: "👶 Baby" }, { key: "mum", label: "💛 Mum" }, { key: "push-gift", label: "💝 Push Gifts" }].map(t => (
                 <button key={t.key} onClick={() => setFilter("tab", t.key)}
                   className={`rounded-pill px-3 py-1.5 text-xs font-semibold border-[1.5px] transition-all font-body whitespace-nowrap ${tab === t.key ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-text-med"}`}>
                   {t.label}

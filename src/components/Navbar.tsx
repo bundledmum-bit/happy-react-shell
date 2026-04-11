@@ -31,6 +31,7 @@ export default function Navbar() {
     { to: "/shop", label: "All Shop" },
     { to: "/shop?tab=baby", label: "Baby Shop" },
     { to: "/shop?tab=mum", label: "Mum Shop" },
+    { to: "/push-gifts", label: "Push Gifts 💝" },
     { to: "/about", label: "Our Story" },
     { to: "/contact", label: "Contact" },
   ];

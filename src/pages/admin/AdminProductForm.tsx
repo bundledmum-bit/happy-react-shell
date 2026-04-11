@@ -13,7 +13,7 @@ interface Props {
   onSaved: () => void;
 }
 
-const CATEGORIES = ["baby", "mum", "both"];
+const CATEGORIES = ["baby", "mum", "both", "push-gift"];
 const PRIORITIES = ["essential", "recommended", "nice-to-have"];
 const BADGES = ["bestseller", "essential", "new", "popular", "mum-pick"];
 const TIERS = ["starter", "standard", "premium"];
