@@ -2234,6 +2234,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_realtime_access: {
+        Args: { channel_name: string }
+        Returns: boolean
+      }
       get_delivery_fee: {
         Args: { p_city: string; p_state: string; p_subtotal: number }
         Returns: {
@@ -2248,6 +2252,16 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      is_admin_user: { Args: never; Returns: boolean }
+      is_sensitive_realtime_topic: { Args: { topic: string }; Returns: boolean }
+      set_session_context: {
+        Args: { p_session_id: string }
+        Returns: undefined
+      }
+      validate_coupon: {
+        Args: { coupon_code: string; order_amount: number }
+        Returns: Json
+      }
       validate_referral_code: {
         Args: { p_code: string }
         Returns: {

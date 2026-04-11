@@ -38,7 +38,7 @@ export default function CheckoutPage() {
   // Coupon state
   const [couponCode, setCouponCode] = useState("");
   const [couponLoading, setCouponLoading] = useState(false);
-  const [appliedCoupon, setAppliedCoupon] = useState<{ id: string; code: string; discount_type: string; discount_value: number; maximum_discount_amount: number | null } | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<{ id: string; code: string; discount_type: string; discount_value: number; discount_amount: number } | null>(null);
 
   // Dynamic settings from DB
   const { data: settings } = useSiteSettings();
@@ -92,16 +92,8 @@ export default function CheckoutPage() {
   const spendPrompt = thresholds?.length ? getSpendPrompt(subtotal, thresholds) : null;
   const spendDiscount = spendPrompt?.appliedDiscount || 0;
 
-  // Coupon discount calculation
-  let couponDiscount = 0;
-  if (appliedCoupon) {
-    if (appliedCoupon.discount_type === "percentage") {
-      couponDiscount = Math.round(subtotal * appliedCoupon.discount_value / 100);
-      if (appliedCoupon.maximum_discount_amount) couponDiscount = Math.min(couponDiscount, appliedCoupon.maximum_discount_amount);
-    } else {
-      couponDiscount = Math.min(appliedCoupon.discount_value, subtotal);
-    }
-  }
+  // Coupon discount — already calculated server-side by validate_coupon RPC
+  const couponDiscount = appliedCoupon?.discount_amount || 0;
 
   const giftWrapFee = giftWrap ? GIFT_WRAP_FEE : 0;
   const grand = Math.max(0, subtotal + delivery + serviceFee + giftWrapFee - couponDiscount - spendDiscount);
@@ -117,20 +109,25 @@ export default function CheckoutPage() {
     if (!code) { toast.error("Enter a coupon code"); return; }
     setCouponLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("coupons")
-        .select("id, code, discount_type, discount_value, maximum_discount_amount, minimum_order_amount, is_active, start_date, end_date, usage_limit, usage_count")
-        .eq("code", code)
-        .eq("is_active", true)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc("validate_coupon", {
+        coupon_code: code,
+        order_amount: subtotal,
+      });
       if (error) throw error;
-      if (!data) { toast.error("Invalid coupon code"); setCouponLoading(false); return; }
-      if (data.start_date && new Date() < new Date(data.start_date)) { toast.error("Coupon not yet valid"); setCouponLoading(false); return; }
-      if (data.end_date && new Date() > new Date(data.end_date)) { toast.error("Coupon has expired"); setCouponLoading(false); return; }
-      if (data.usage_limit && data.usage_count >= data.usage_limit) { toast.error("Coupon usage limit reached"); setCouponLoading(false); return; }
-      if (data.minimum_order_amount && subtotal < data.minimum_order_amount) { toast.error(`Minimum order of ${fmt(data.minimum_order_amount)} required`); setCouponLoading(false); return; }
-      setAppliedCoupon({ id: data.id, code: data.code, discount_type: data.discount_type, discount_value: data.discount_value || 0, maximum_discount_amount: data.maximum_discount_amount });
-      toast.success(`Coupon "${data.code}" applied!`);
+      const result = typeof data === "string" ? JSON.parse(data) : data;
+      if (!result?.valid) {
+        toast.error(result?.message || "Invalid coupon code");
+        setCouponLoading(false);
+        return;
+      }
+      setAppliedCoupon({
+        id: result.coupon_id,
+        code,
+        discount_type: result.discount_type,
+        discount_value: result.discount_value || 0,
+        discount_amount: result.discount_amount || 0,
+      });
+      toast.success(result.message || `Coupon "${code}" applied!`);
     } catch {
       toast.error("Failed to validate coupon");
     } finally {

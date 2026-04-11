@@ -10,6 +10,21 @@ function getSessionId(): string {
   return sid;
 }
 
+// ── Session Context ───────────────────────────
+// Must be called before any INSERT/UPDATE to sessions or page_views tables.
+let sessionContextSet = false;
+
+async function ensureSessionContext(): Promise<void> {
+  if (sessionContextSet) return;
+  const sid = getSessionId();
+  try {
+    await supabase.rpc("set_session_context", { p_session_id: sid });
+    sessionContextSet = true;
+  } catch (e) {
+    console.error("Failed to set session context:", e);
+  }
+}
+
 // ── UTM & Traffic Attribution ─────────────────
 interface TrafficAttribution {
   utm_source: string | null;
@@ -87,7 +102,6 @@ function deriveChannelGroup(trafficSource: string, trafficMedium: string, utmMed
 const ATTRIBUTION_KEY = "bm-traffic-attribution";
 
 function captureAttribution(): TrafficAttribution {
-  // Check if we already captured attribution for this session
   const existing = sessionStorage.getItem(ATTRIBUTION_KEY);
   if (existing) {
     try { return JSON.parse(existing); } catch {}
@@ -112,7 +126,6 @@ function captureAttribution(): TrafficAttribution {
   };
 
   sessionStorage.setItem(ATTRIBUTION_KEY, JSON.stringify(attribution));
-  // Also persist in localStorage for cross-tab / order attribution
   localStorage.setItem(ATTRIBUTION_KEY, JSON.stringify(attribution));
 
   return attribution;
@@ -137,9 +150,12 @@ function incrementPageCount() {
 // ── Initialize Session ─────────────────────────
 let sessionInitialized = false;
 
-function initSession() {
+async function initSession() {
   if (sessionInitialized) return;
   sessionInitialized = true;
+
+  // Set session context BEFORE any writes to sessions/page_views
+  await ensureSessionContext();
 
   captureAttribution();
   const sid = getSessionId();
@@ -208,8 +224,8 @@ function trackEvent(eventType: string, eventData?: Record<string, unknown>) {
 }
 
 // ── Track Page View ────────────────────────────
-function trackPageView() {
-  initSession();
+async function trackPageView() {
+  await initSession();
   const pageCount = incrementPageCount();
   const sid = getSessionId();
 
