@@ -7,7 +7,7 @@ import { useIdleTimeout } from "@/hooks/useIdleTimeout";
 import {
   Package, ShoppingBag, ClipboardList, Truck, MessageSquare, Settings,
   BarChart3, Gift, LogOut, LayoutDashboard, FileText, Users, Image, Bell,
-  Search, X, Menu, ChevronLeft, MessageCircleQuestion,
+  Search, X, Menu, ChevronLeft, MessageCircleQuestion, Workflow,
 } from "lucide-react";
 import { Tag, Boxes, MapPin, FileText as PageIcon } from "lucide-react";
 import logoWhite from "@/assets/logos/BM-LOGO-WHITE.svg";
@@ -30,6 +30,7 @@ const NAV = [
   { to: "/admin/media", label: "Media", icon: Image, section: "media" },
   { to: "/admin/referrals", label: "Referrals", icon: Gift, section: "referrals" },
   { to: "/admin/quiz-leads", label: "Quiz Leads", icon: MessageCircleQuestion, section: "orders" },
+  { to: "/admin/quiz-engine", label: "Quiz Engine", icon: Workflow, section: "settings", superAdminOnly: true },
   { to: "/admin/analytics", label: "Analytics", icon: BarChart3, section: "analytics" },
   { to: "/admin/users", label: "Users", icon: Users, section: "users" },
   { to: "/admin/settings", label: "Settings", icon: Settings, section: "settings" },
@@ -108,7 +109,10 @@ export default function AdminLayout() {
   if (!isAdmin) return null;
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
-  const visibleNav = NAV.filter(item => canViewSection(adminUser, item.section));
+  const visibleNav = NAV.filter(item => {
+    if ((item as any).superAdminOnly && adminUser?.role !== "super_admin") return false;
+    return canViewSection(adminUser, item.section);
+  });
 
   return (
     <div className="min-h-screen flex bg-muted/30">

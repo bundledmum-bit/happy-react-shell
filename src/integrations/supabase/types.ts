@@ -1617,18 +1617,21 @@ export type Database = {
       product_tags: {
         Row: {
           id: string
+          normalised_value: string | null
           product_id: string
           tag_type: string
           tag_value: string
         }
         Insert: {
           id?: string
+          normalised_value?: string | null
           product_id: string
           tag_type: string
           tag_value: string
         }
         Update: {
           id?: string
+          normalised_value?: string | null
           product_id?: string
           tag_type?: string
           tag_value?: string
@@ -1652,12 +1655,14 @@ export type Database = {
           contents: string | null
           created_at: string | null
           deleted_at: string | null
+          delivery_methods: string[] | null
           description: string
           display_order: number | null
           emoji: string | null
           first_baby: boolean | null
           gender_colors: Json | null
           gender_relevant: boolean | null
+          hospital_types: string[] | null
           id: string
           image_url: string | null
           is_active: boolean | null
@@ -1669,12 +1674,15 @@ export type Database = {
           og_image_url: string | null
           pack_count: string | null
           priority: string
+          quiz_priority: string | null
           rating: number | null
           review_count: number | null
           safety_info: string | null
           scheduled_for: string | null
+          scopes: string[] | null
           sku: string | null
           slug: string
+          stages: string[] | null
           subcategory: string | null
           updated_at: string | null
           why_included: string | null
@@ -1688,12 +1696,14 @@ export type Database = {
           contents?: string | null
           created_at?: string | null
           deleted_at?: string | null
+          delivery_methods?: string[] | null
           description: string
           display_order?: number | null
           emoji?: string | null
           first_baby?: boolean | null
           gender_colors?: Json | null
           gender_relevant?: boolean | null
+          hospital_types?: string[] | null
           id?: string
           image_url?: string | null
           is_active?: boolean | null
@@ -1705,12 +1715,15 @@ export type Database = {
           og_image_url?: string | null
           pack_count?: string | null
           priority: string
+          quiz_priority?: string | null
           rating?: number | null
           review_count?: number | null
           safety_info?: string | null
           scheduled_for?: string | null
+          scopes?: string[] | null
           sku?: string | null
           slug: string
+          stages?: string[] | null
           subcategory?: string | null
           updated_at?: string | null
           why_included?: string | null
@@ -1724,12 +1737,14 @@ export type Database = {
           contents?: string | null
           created_at?: string | null
           deleted_at?: string | null
+          delivery_methods?: string[] | null
           description?: string
           display_order?: number | null
           emoji?: string | null
           first_baby?: boolean | null
           gender_colors?: Json | null
           gender_relevant?: boolean | null
+          hospital_types?: string[] | null
           id?: string
           image_url?: string | null
           is_active?: boolean | null
@@ -1741,16 +1756,61 @@ export type Database = {
           og_image_url?: string | null
           pack_count?: string | null
           priority?: string
+          quiz_priority?: string | null
           rating?: number | null
           review_count?: number | null
           safety_info?: string | null
           scheduled_for?: string | null
+          scopes?: string[] | null
           sku?: string | null
           slug?: string
+          stages?: string[] | null
           subcategory?: string | null
           updated_at?: string | null
           why_included?: string | null
           why_included_variants?: Json | null
+        }
+        Relationships: []
+      }
+      quiz_adjustment_rules: {
+        Row: {
+          action: string
+          action_value: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          priority: number | null
+          rule_name: string
+          target_product_slug: string
+          trigger_operator: string | null
+          trigger_step_id: string
+          trigger_value: string
+        }
+        Insert: {
+          action: string
+          action_value?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          priority?: number | null
+          rule_name: string
+          target_product_slug: string
+          trigger_operator?: string | null
+          trigger_step_id: string
+          trigger_value: string
+        }
+        Update: {
+          action?: string
+          action_value?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          priority?: number | null
+          rule_name?: string
+          target_product_slug?: string
+          trigger_operator?: string | null
+          trigger_step_id?: string
+          trigger_value?: string
         }
         Relationships: []
       }
@@ -1823,6 +1883,246 @@ export type Database = {
             referencedColumns: ["order_uuid"]
           },
         ]
+      }
+      quiz_options: {
+        Row: {
+          created_at: string | null
+          display_order: number | null
+          id: string
+          is_active: boolean | null
+          option_description: string | null
+          option_emoji: string | null
+          option_label: string
+          option_value: string
+          price_modifier: number | null
+          question_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          option_description?: string | null
+          option_emoji?: string | null
+          option_label: string
+          option_value: string
+          price_modifier?: number | null
+          question_id: string
+        }
+        Update: {
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          option_description?: string | null
+          option_emoji?: string | null
+          option_label?: string
+          option_value?: string
+          price_modifier?: number | null
+          question_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_options_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_questions: {
+        Row: {
+          applies_to_path: string[] | null
+          created_at: string | null
+          id: string
+          input_type: string
+          is_active: boolean | null
+          is_skippable: boolean | null
+          question_text: string
+          step_id: string
+          step_label: string
+          step_order: number
+          sub_text: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          applies_to_path?: string[] | null
+          created_at?: string | null
+          id?: string
+          input_type?: string
+          is_active?: boolean | null
+          is_skippable?: boolean | null
+          question_text: string
+          step_id: string
+          step_label: string
+          step_order: number
+          sub_text?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          applies_to_path?: string[] | null
+          created_at?: string | null
+          id?: string
+          input_type?: string
+          is_active?: boolean | null
+          is_skippable?: boolean | null
+          question_text?: string
+          step_id?: string
+          step_label?: string
+          step_order?: number
+          sub_text?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      quiz_routing_rules: {
+        Row: {
+          condition_answer: string | null
+          condition_operator: string | null
+          created_at: string | null
+          from_step_id: string
+          id: string
+          is_active: boolean | null
+          next_step_id: string
+          priority: number | null
+        }
+        Insert: {
+          condition_answer?: string | null
+          condition_operator?: string | null
+          created_at?: string | null
+          from_step_id: string
+          id?: string
+          is_active?: boolean | null
+          next_step_id: string
+          priority?: number | null
+        }
+        Update: {
+          condition_answer?: string | null
+          condition_operator?: string | null
+          created_at?: string | null
+          from_step_id?: string
+          id?: string
+          is_active?: boolean | null
+          next_step_id?: string
+          priority?: number | null
+        }
+        Relationships: []
+      }
+      quiz_sessions: {
+        Row: {
+          answers: Json
+          converted_to_order: boolean | null
+          created_at: string | null
+          current_step: string | null
+          engine_version: string | null
+          id: string
+          is_completed: boolean | null
+          order_id: string | null
+          result_bundle_slug: string | null
+          result_product_count: number | null
+          result_product_ids: string[] | null
+          result_tier: string | null
+          session_id: string
+          shopper_type: string | null
+          steps_completed: string[] | null
+          updated_at: string | null
+          whatsapp_number: string | null
+        }
+        Insert: {
+          answers?: Json
+          converted_to_order?: boolean | null
+          created_at?: string | null
+          current_step?: string | null
+          engine_version?: string | null
+          id?: string
+          is_completed?: boolean | null
+          order_id?: string | null
+          result_bundle_slug?: string | null
+          result_product_count?: number | null
+          result_product_ids?: string[] | null
+          result_tier?: string | null
+          session_id: string
+          shopper_type?: string | null
+          steps_completed?: string[] | null
+          updated_at?: string | null
+          whatsapp_number?: string | null
+        }
+        Update: {
+          answers?: Json
+          converted_to_order?: boolean | null
+          created_at?: string | null
+          current_step?: string | null
+          engine_version?: string | null
+          id?: string
+          is_completed?: boolean | null
+          order_id?: string | null
+          result_bundle_slug?: string | null
+          result_product_count?: number | null
+          result_product_ids?: string[] | null
+          result_tier?: string | null
+          session_id?: string
+          shopper_type?: string | null
+          steps_completed?: string[] | null
+          updated_at?: string | null
+          whatsapp_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_sessions_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "order_lines_report"
+            referencedColumns: ["order_uuid"]
+          },
+          {
+            foreignKeyName: "quiz_sessions_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_sessions_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders_report"
+            referencedColumns: ["order_uuid"]
+          },
+        ]
+      }
+      quiz_target_counts: {
+        Row: {
+          budget_tier: string
+          id: string
+          is_active: boolean | null
+          max_count: number
+          min_count: number
+          priority_order: string[] | null
+          target_count: number
+          updated_at: string | null
+        }
+        Insert: {
+          budget_tier: string
+          id?: string
+          is_active?: boolean | null
+          max_count: number
+          min_count: number
+          priority_order?: string[] | null
+          target_count: number
+          updated_at?: string | null
+        }
+        Update: {
+          budget_tier?: string
+          id?: string
+          is_active?: boolean | null
+          max_count?: number
+          min_count?: number
+          priority_order?: string[] | null
+          target_count?: number
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       referral_codes: {
         Row: {
@@ -2572,6 +2872,22 @@ export type Database = {
         Returns: boolean
       }
       generate_order_number: { Args: never; Returns: string }
+      generate_quiz_story: {
+        Args: {
+          p_budget_tier: string
+          p_delivery_method?: string
+          p_first_baby?: boolean
+          p_gender: string
+          p_gift_occasion?: string
+          p_gift_relationship?: string
+          p_gift_wrap?: boolean
+          p_hospital_type?: string
+          p_multiples?: number
+          p_product_count?: number
+          p_shopper_type: string
+        }
+        Returns: string
+      }
       get_delivery_fee: {
         Args: { p_city: string; p_state: string; p_subtotal: number }
         Returns: {
@@ -2588,6 +2904,21 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
       is_admin_user: { Args: never; Returns: boolean }
       is_sensitive_realtime_topic: { Args: { topic: string }; Returns: boolean }
+      run_quiz_recommendation: {
+        Args: {
+          p_budget_tier: string
+          p_delivery_method: string
+          p_first_baby?: boolean
+          p_gender?: string
+          p_gift_for?: string
+          p_hospital_type: string
+          p_multiples?: number
+          p_scope: string
+          p_shopper_type?: string
+          p_stage: string
+        }
+        Returns: Json
+      }
       set_session_context: {
         Args: { p_session_id: string }
         Returns: undefined

@@ -1,420 +1,141 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
-import { useCart, fmt, getBrandForBudget } from "@/lib/cart";
-import { useAllProducts } from "@/hooks/useSupabaseData";
-import type { Product } from "@/lib/supabaseAdapters";
+import { useCart, fmt } from "@/lib/cart";
 import { toast } from "sonner";
-import { ArrowLeft, Check, Share2, ClipboardCopy } from "lucide-react";
+import { ArrowLeft, Check, Share2, ClipboardCopy, Loader2 } from "lucide-react";
 import ShareModal from "@/components/ShareModal";
 import ExitIntentPopup from "@/components/ExitIntentPopup";
 import ProductImage from "@/components/ProductImage";
 import { trackEvent, getSessionId, getReferralSource } from "@/lib/analytics";
 import { supabase } from "@/integrations/supabase/client";
+import { useQuizQuestions, useQuizRoutingRules } from "@/hooks/useQuizConfig";
+import { getNextStep, getStepSequence, getModifiedOptions } from "@/lib/quizEngine";
+import type { QuizQuestion } from "@/hooks/useQuizConfig";
 
 type Answers = Record<string, string>;
 
-interface StepDef {
-  id: string;
-  title: string;
-  sub: string;
-  label: string;
-  options: { id: string; emoji: string; label: string; sublabel: string; desc?: string; popular?: boolean }[];
-  skippable?: boolean;
-}
-
-const STEPS: Record<string, StepDef> = {
-  shopper: {
-    id: "shopper", label: "Who", title: "Who are you shopping for today?", sub: "HELP US PERSONALISE YOUR BUNDLE 💛",
-    options: [
-      { id: "self", emoji: "🤱", label: "For me — I'm expecting!", sublabel: "Shopping for myself" },
-      { id: "gift", emoji: "🎁", label: "I'm buying as a gift", sublabel: "For someone special" },
-    ]
-  },
-  budget: {
-    id: "budget", label: "Budget", title: "What's your budget range?", sub: "EVERY TIER COVERS THE ESSENTIALS — PICK WHAT FEELS RIGHT",
-    options: [
-      { id: "starter", emoji: "🌱", label: "Starter Bundle", sublabel: "₦15,000 – ₦35,000", desc: "The must-haves, nothing wasted. ~8 items." },
-      { id: "standard", emoji: "🌿", label: "Standard Bundle", sublabel: "₦35,000 – ₦70,000", desc: "Comfortable and complete. ~12-14 items.", popular: true },
-      { id: "premium", emoji: "✨", label: "Premium Bundle", sublabel: "₦70,000+", desc: "The full luxury bundle experience. ~18-22 items." },
-    ]
-  },
-  giftFor: {
-    id: "giftFor", label: "Gift For", title: "Who is this gift for?", sub: "WE'LL CURATE THE PERFECT GIFT 🎁",
-    options: [
-      { id: "expecting", emoji: "🤰", label: "An expecting mum", sublabel: "She hasn't delivered yet" },
-      { id: "new_mum", emoji: "🤱", label: "A new mum", sublabel: "Baby is already here!" },
-      { id: "both", emoji: "🎀", label: "Mum & baby together", sublabel: "Complete gift for both", popular: true },
-    ]
-  },
-  giftRelationship: {
-    id: "giftRelationship", label: "Relationship", title: "What's your relationship to the mum?", sub: "THIS HELPS US SET THE RIGHT TONE 💛",
-    options: [
-      { id: "partner", emoji: "💑", label: "Partner / Husband", sublabel: "Shopping for my wife/partner" },
-      { id: "friend", emoji: "👯‍♀️", label: "Friend / Colleague", sublabel: "A gift from a friend" },
-      { id: "family", emoji: "👪", label: "Family member", sublabel: "Sister, mum, in-law, etc." },
-      { id: "other", emoji: "🎁", label: "Other", sublabel: "Just want to give a lovely gift" },
-    ]
-  },
-  giftOccasion: {
-    id: "giftOccasion", label: "Occasion", title: "What's the occasion?", sub: "WE'LL MAKE IT EXTRA SPECIAL ✨",
-    options: [
-      { id: "baby_shower", emoji: "🎊", label: "Baby Shower", sublabel: "Pre-birth celebration" },
-      { id: "hospital_visit", emoji: "🏥", label: "Hospital Visit", sublabel: "Meeting the new baby" },
-      { id: "just_because", emoji: "💛", label: "Just Because", sublabel: "No reason needed", popular: true },
-      { id: "holiday", emoji: "🎄", label: "Holiday / Birthday", sublabel: "Special occasion" },
-    ]
-  },
-  giftKnowledge: {
-    id: "giftKnowledge", label: "Details", title: "How much do you know about the mum?", sub: "DON'T WORRY — WE'LL GUIDE YOU EITHER WAY",
-    options: [
-      { id: "lots", emoji: "📋", label: "I know her preferences", sublabel: "Gender, hospital, due date, etc." },
-      { id: "some", emoji: "🤔", label: "I know some details", sublabel: "Gender or due date but not everything" },
-      { id: "nothing", emoji: "🤷‍♀️", label: "Not much — surprise me!", sublabel: "I'll trust BundledMum's picks" },
-    ]
-  },
-  scope: {
-    id: "scope", label: "What You Need", title: "What would you like us to help you with?", sub: "WE'LL TAILOR YOUR RESULTS TO EXACTLY WHAT YOU NEED",
-    options: [
-      { id: "hospital-bag", emoji: "🏥", label: "Hospital bag essentials", sublabel: "Everything for delivery day" },
-      { id: "hospital-bag+general", emoji: "🏥👶", label: "Hospital bag + general baby items", sublabel: "Delivery day + beyond" },
-      { id: "general", emoji: "👶", label: "General baby & mum shopping", sublabel: "Everyday essentials" },
-    ]
-  },
-  multiples: {
-    id: "multiples", label: "How Many", title: "How many little ones?", sub: "WE'LL ADJUST QUANTITIES FOR THE FAMILY",
-    options: [
-      { id: "1", emoji: "👶", label: "One baby", sublabel: "Single bundle of joy" },
-      { id: "2", emoji: "👶👶", label: "Twins!", sublabel: "Double the love, double the prep" },
-      { id: "3", emoji: "👶👶👶", label: "Triplets or more", sublabel: "We'll make sure they're covered!" },
-    ]
-  },
-  gender: {
-    id: "gender", label: "Gender", title: "What's the baby's gender?", sub: "WE'LL PICK THE RIGHT COLOURS AND STYLES",
-    options: [
-      { id: "boy", emoji: "👦", label: "Boy", sublabel: "Blue & neutral tones" },
-      { id: "girl", emoji: "👧", label: "Girl", sublabel: "Pink & neutral tones" },
-      { id: "neutral", emoji: "🌈", label: "Don't know / Surprise!", sublabel: "Beautiful neutral options" },
-    ]
-  },
-  stage: {
-    id: "stage", label: "Stage", title: "When is your baby due (or how old now)?", sub: "WE'LL MATCH PRODUCTS TO YOUR EXACT STAGE",
-    options: [
-      { id: "expecting", emoji: "🤰", label: "Still Expecting", sublabel: "Getting ready for delivery" },
-      { id: "newborn", emoji: "🐣", label: "Baby is here! (Newborn)", sublabel: "0 – 4 weeks old" },
-      { id: "0-3m", emoji: "🍼", label: "0 – 3 Months", sublabel: "Early newborn stage" },
-      { id: "3-6m", emoji: "🌱", label: "3 – 6 Months", sublabel: "Growing fast!" },
-      { id: "6-12m", emoji: "🐣", label: "6 – 12 Months", sublabel: "Active & curious" },
-    ]
-  },
-  giftAge: {
-    id: "giftAge", label: "Age", title: "How old is the baby (or when is baby due)?", sub: "WE'LL MATCH THE RIGHT PRODUCTS",
-    options: [
-      { id: "expecting", emoji: "🤰", label: "Still Expecting", sublabel: "Due soon" },
-      { id: "newborn", emoji: "🐣", label: "Newborn", sublabel: "0 – 4 weeks" },
-      { id: "0-3m", emoji: "🍼", label: "0 – 3 Months", sublabel: "Early newborn stage" },
-      { id: "3-6m", emoji: "🧸", label: "3 – 6 Months", sublabel: "Starting to interact" },
-      { id: "6-12m", emoji: "🚀", label: "6 – 12 Months", sublabel: "Growing fast" },
-    ]
-  },
-  firstBaby: {
-    id: "firstBaby", label: "Experience", title: "Is this her first baby?", sub: "WE'LL ADD HELPFUL EXTRAS FOR FIRST-TIME MUMS",
-    skippable: true,
-    options: [
-      { id: "yes", emoji: "👶", label: "Yes — first time!", sublabel: "We'll include beginner-friendly extras" },
-      { id: "no", emoji: "🤱", label: "Nope — experienced mum!", sublabel: "We'll skip the basics she already has" },
-    ]
-  },
-  hospitalType: {
-    id: "hospitalType", label: "Hospital", title: "What type of hospital?", sub: "WE'LL PACK ITEMS SPECIFIC TO THE HOSPITAL EXPERIENCE",
-    options: [
-      { id: "public", emoji: "🏥", label: "Public / General Hospital", sublabel: "Government hospital" },
-      { id: "private", emoji: "🏨", label: "Private Hospital / Clinic", sublabel: "Private facility" },
-      { id: "both", emoji: "🤷‍♀️", label: "Not sure", sublabel: "We'll cover both" },
-    ]
-  },
-  deliveryMethod: {
-    id: "deliveryMethod", label: "Delivery", title: "What's the delivery plan?", sub: "C-SECTION AND VAGINAL DELIVERIES NEED DIFFERENT ITEMS",
-    options: [
-      { id: "vaginal", emoji: "🤱", label: "Vaginal delivery", sublabel: "Natural birth" },
-      { id: "csection", emoji: "🏥", label: "C-section (planned)", sublabel: "Surgical delivery" },
-      { id: "both", emoji: "🤷‍♀️", label: "Not sure / could be either", sublabel: "We'll prepare for both" },
-    ]
-  },
-  giftWrap: {
-    id: "giftWrap", label: "Gift Wrap", title: "Add BundledMum Gift Wrapping?", sub: "PREMIUM PACKAGING FOR A SPECIAL TOUCH 🎀",
-    options: [
-      { id: "yes", emoji: "🎀", label: "Yes — add gift wrapping!", sublabel: "Premium gift box · satin ribbon · card", desc: "+₦3,500" },
-      { id: "no", emoji: "📦", label: "No wrapping needed", sublabel: "Standard packaging" },
-    ]
-  },
-  giftMessage: {
-    id: "giftMessage", label: "Message", title: "Would you like to add a personal message?", sub: "WE'LL INCLUDE A HANDWRITTEN CARD IN THE BOX 💌",
-    skippable: true,
-    options: [
-      { id: "yes", emoji: "💌", label: "Yes — I'll write one at checkout", sublabel: "Free handwritten card included" },
-      { id: "no", emoji: "👍", label: "No message needed", sublabel: "The gift speaks for itself!" },
-    ]
-  },
-};
-
-function getGenderOptions(answers: Answers): StepDef {
-  const base = { ...STEPS.gender };
-  const multiples = parseInt(answers.multiples || "1");
-  if (multiples >= 2) {
-    base.options = [...base.options, { id: "mixed", emoji: "👦👧", label: "One of each", sublabel: "Mixed colours" }];
-  }
-  return base;
-}
-
-// #2: Budget is now step 2 (right after shopper for self, after giftKnowledge for gift)
-function getNextStep(current: string, answer: string, answers: Answers): string | null {
-  const isGift = answers.shopper === "gift";
-  const scopeIncludesHospital = (answers.scope || "").includes("hospital");
-  const stageVal = answers.stage || answers.giftAge || "";
-  const stageIsEarlyEnough = ["expecting", "newborn"].includes(stageVal);
-  const giftKnowledge = answers.giftKnowledge || "lots";
-
-  switch (current) {
-    case "shopper": return answer === "gift" ? "giftFor" : "budget"; // Self → budget immediately
-    case "giftFor": return "giftRelationship";
-    case "giftRelationship": return "giftOccasion";
-    case "giftOccasion": return "giftKnowledge";
-    case "giftKnowledge":
-      if (answer === "nothing") return "budget"; // skip details, trust us
-      return "budget"; // Budget after gift knowledge
-    case "budget":
-      if (isGift && giftKnowledge === "nothing") return "giftWrap";
-      return "scope";
-    case "scope": return "multiples";
-    case "multiples": return "gender";
-    case "gender": return isGift ? "giftAge" : "stage";
-    case "giftAge":
-      if (giftKnowledge === "lots") return "firstBaby";
-      return "giftWrap";
-    case "stage": return "firstBaby";
-    case "firstBaby":
-      if (scopeIncludesHospital) return "hospitalType";
-      return isGift ? "giftWrap" : null;
-    case "hospitalType":
-      if (stageIsEarlyEnough) return "deliveryMethod";
-      return isGift ? "giftWrap" : null;
-    case "deliveryMethod": return isGift ? "giftWrap" : null;
-    case "giftWrap": return "giftMessage";
-    case "giftMessage": return null;
-    default: return null;
-  }
-}
-
-function getStepSequence(answers: Answers): string[] {
-  const steps: string[] = ["shopper"];
-  let current = "shopper";
-  while (true) {
-    const ans = answers[current] || "";
-    const next = getNextStep(current, ans, answers);
-    if (!next) break;
-    steps.push(next);
-    current = next;
-  }
-  return steps;
-}
-
-// ========= RECOMMENDATION ENGINE =========
-
-interface RecommendedItem {
-  product: Product;
-  brand: any;
+interface RecommendedProduct {
+  product_id: string;
+  name: string;
+  slug: string;
+  priority: string;
+  category: string;
   quantity: number;
-  color: string;
-  whyIncluded: string;
-}
-
-function runRecommendationEngine(answers: Answers, ALL_PRODUCTS: Product[]): RecommendedItem[] {
-  const budget = answers.budget || "standard";
-  const scope = answers.scope || "hospital-bag+general";
-  const stageVal = answers.stage || answers.giftAge || "expecting";
-  const hospitalType = answers.hospitalType || "both";
-  const delivery = answers.deliveryMethod || "both";
-  const gender = answers.gender || "neutral";
-  const multiples = parseInt(answers.multiples || "1");
-  const firstBaby = answers.firstBaby === "yes" ? true : answers.firstBaby === "no" ? false : null;
-
-  const priorityMap: Record<string, string[]> = {
-    starter: ["essential"],
-    standard: ["essential", "recommended"],
-    premium: ["essential", "recommended", "nice-to-have"],
+  selected_color: string | null;
+  why_included: string;
+  emoji: string | null;
+  image_url: string | null;
+  brand: {
+    id: string;
+    brand_name: string;
+    price: number;
+    tier: string;
+    image_url: string | null;
+    in_stock: boolean;
   };
-  const allowedPriorities = priorityMap[budget] || priorityMap.standard;
-
-  let candidates = ALL_PRODUCTS.filter(p => allowedPriorities.includes(p.priority));
-
-  if (scope === "hospital-bag") candidates = candidates.filter(p => p.scope.includes("hospital-bag"));
-  else if (scope === "general") candidates = candidates.filter(p => p.scope.includes("general-baby-prep"));
-
-  candidates = candidates.filter(p => p.stage.includes(stageVal));
-
-  if (hospitalType === "public" || hospitalType === "both") {
-    candidates = candidates.map(p => {
-      if (["disposable-underwear", "compression-socks"].includes(p.slug || "") && !allowedPriorities.includes(p.priority)) return { ...p, priority: "recommended" as const };
-      return p;
-    });
-  }
-  if (hospitalType === "private" || hospitalType === "both") {
-    candidates = candidates.map(p => {
-      if (p.slug === "antenatal-records-folder" && !allowedPriorities.includes(p.priority)) return { ...p, priority: "recommended" as const };
-      return p;
-    });
-  }
-
-  if (delivery === "csection" || delivery === "both") {
-    candidates = candidates.map(p => {
-      if (["postpartum-belly-band", "nursing-nightgown", "baby-thermometer"].includes(p.slug || "")) return { ...p, priority: "essential" as const };
-      return p;
-    });
-    const ids = new Set(candidates.map(p => p.id));
-    ALL_PRODUCTS.filter(p => ["postpartum-belly-band", "nursing-nightgown", "baby-thermometer"].includes(p.slug || "") && !ids.has(p.id) && p.stage.includes(stageVal))
-      .forEach(p => candidates.push({ ...p, priority: "essential" as const }));
-  }
-
-  candidates = candidates.filter(p => p.hospitalType.includes(hospitalType) || p.hospitalType.includes("both"));
-  candidates = candidates.filter(p => p.deliveryMethod.includes(delivery) || p.deliveryMethod.includes("both"));
-
-  const seen = new Set<string>();
-  candidates = candidates.filter(p => { if (seen.has(p.id)) return false; seen.add(p.id); return true; });
-
-  if (firstBaby === true) {
-    ALL_PRODUCTS.filter(p => p.firstBaby === true && !seen.has(p.id) && p.stage.includes(stageVal))
-      .forEach(p => { if (allowedPriorities.includes(p.priority) || budget === "premium") { candidates.push(p); seen.add(p.id); } });
-  }
-
-  const targetCounts: Record<string, number> = { starter: 8, standard: 14, premium: 22 };
-  const target = targetCounts[budget] || 14;
-
-  const priorityOrder = { essential: 0, recommended: 1, "nice-to-have": 2 };
-  candidates.sort((a, b) => (priorityOrder[a.priority] || 2) - (priorityOrder[b.priority] || 2));
-  candidates = candidates.slice(0, target);
-
-  return candidates.map(product => {
-    const brand = getBrandForBudget(product, budget);
-    const qty = product.category === "baby" ? Math.ceil(product.multiplesBump * (multiples - 1) + 1) : 1;
-    let colorStr = "";
-    if (product.genderRelevant && product.genderColors) {
-      const gKey = gender === "mixed" ? "neutral" : gender;
-      colorStr = (product.genderColors as any)[gKey] || product.genderColors.neutral;
-    }
-    let why = "";
-    if (typeof product.whyIncluded === "string") why = product.whyIncluded;
-    else {
-      const ctx = delivery === "csection" ? "csection" : delivery === "vaginal" ? "vaginal" : hospitalType;
-      why = (product.whyIncluded as any)[ctx] || (product.whyIncluded as any).public || (product.whyIncluded as any).vaginal || Object.values(product.whyIncluded)[0] || "";
-    }
-    return { product, brand, quantity: qty, color: colorStr, whyIncluded: why };
-  });
 }
 
-// ========= PERSONALIZED STORY GENERATOR =========
-
-function generateStory(answers: Answers, results: RecommendedItem[]): string {
-  const isGift = answers.shopper === "gift";
-  const gender = answers.gender || "neutral";
-  const stage = answers.stage || answers.giftAge || "expecting";
-  const multiples = parseInt(answers.multiples || "1");
-  const hospitalType = answers.hospitalType || "";
-  const delivery = answers.deliveryMethod || "";
-  const firstBaby = answers.firstBaby;
-  const budget = answers.budget || "standard";
-  const relationship = answers.giftRelationship || "";
-  const occasion = answers.giftOccasion || "";
-
-  const genderEmoji = gender === "boy" ? "💙" : gender === "girl" ? "💗" : "💛";
-  const babyWord = gender === "boy" ? "baby boy" : gender === "girl" ? "baby girl" : "little one";
-  const babiesWord = multiples > 1 ? (multiples === 2 ? "twins" : "triplets") : babyWord;
-
-  if (isGift) {
-    const giftFor = answers.giftFor || "both";
-    const forWho = giftFor === "expecting" ? "an expecting mum" : giftFor === "new_mum" ? `a new mum with a ${babyWord}` : `a mum and her ${babyWord}`;
-    const relText = relationship === "partner" ? "Your partner" : relationship === "family" ? "Your family member" : "She";
-    const occasionText = occasion === "baby_shower" ? " for her baby shower" : occasion === "hospital_visit" ? " for your hospital visit" : "";
-
-    let story = `What a thoughtful gift${occasionText}! 🎁 This bundle is curated for ${forWho}. `;
-    story += `We've included the essentials ${relText.toLowerCase()} will need right now. `;
-    if (gender !== "neutral") {
-      story += `Everything comes in beautiful ${gender === "boy" ? "blue and neutral" : "pink and neutral"} tones. `;
-    } else {
-      story += "We've chosen beautiful neutral tones that work for any baby. ";
-    }
-    if (answers.giftWrap === "yes") story += "Your gift will arrive in premium BundledMum packaging with a satin ribbon and handwritten card. 🎀 ";
-    story += `${relText}'s going to love this.`;
-    return story;
-  }
-
-  let story = "";
-  if (multiples > 1) {
-    story += `${multiples === 2 ? "Two babies" : "Three babies"}! Double the love, double the preparation 👶👶 We've ${multiples === 2 ? "doubled" : "tripled"} the quantities on all baby items. `;
-    if (gender === "neutral") story += "Since you haven't found out the genders, everything comes in beautiful neutral tones of cream and sage. ";
-    story += `You're going to be an amazing ${multiples === 2 ? "twin" : "triplet"} mum.`;
-    return story;
-  }
-
-  if (stage === "expecting") story += `Congratulations, mama — you're getting ready to meet your ${babyWord}! ${genderEmoji} `;
-  else story += `Welcome to motherhood${firstBaby === "no" ? " again" : ""}, mama — your ${babyWord} is here! ${genderEmoji} `;
-
-  if (delivery === "csection") {
-    story += "Since you've had a C-section, we've included extra recovery support: a belly band, compression socks, and comfortable underwear. ";
-  } else if (hospitalType === "public") {
-    story += "Since you're delivering at a public hospital, we've packed extra snacks and an organised records folder. ";
-  } else if (hospitalType === "private") {
-    story += "For your private hospital stay, we've included comfort items that'll make recovery smoother. ";
-  }
-
-  const budgetLabel = budget === "starter" ? "Starter" : budget === "premium" ? "Premium" : "Standard";
-  story += `Every item in your ${budgetLabel} bundle has been hand-picked for ${stage === "expecting" ? "delivery day and beyond" : "the newborn stage"}. `;
-  if (firstBaby === "yes") story += "As a first-time mum, we've added extra tools that experienced mums swear by. ";
-  story += "You've got this. 💪";
-  return story;
+interface RecommendationResult {
+  budget_tier: string;
+  scope: string;
+  stage: string;
+  hospital_type: string;
+  delivery_method: string;
+  multiples: number;
+  gender: string;
+  first_baby: boolean;
+  product_count: number;
+  target_count: number;
+  engine_version: string;
+  products: RecommendedProduct[];
 }
 
-// ========= COMPONENTS =========
+// ========= QUIZ SESSION TRACKING =========
 
-function ResultProductCard({ item, onAdd, onRemove, isInCart }: { item: RecommendedItem; onAdd: () => void; onRemove: () => void; isInCart: boolean }) {
-  const { product, brand, quantity, color, whyIncluded } = item;
-  const [selectedBrand, setSelectedBrand] = useState(brand);
-  const lowestPrice = Math.min(...product.brands.map(b => b.price));
+let quizSessionId: string | null = null;
 
+async function createQuizSession(shopperType: string) {
+  const sessionId = getSessionId();
+  const { data } = await supabase
+    .from("quiz_sessions")
+    .insert({
+      session_id: sessionId,
+      shopper_type: shopperType,
+      answers: {},
+      steps_completed: [],
+      current_step: "shopper",
+    })
+    .select("id")
+    .single();
+  if (data) quizSessionId = data.id;
+}
+
+async function updateQuizSession(answers: Answers, currentStep: string, stepsCompleted: string[]) {
+  if (!quizSessionId) return;
+  await supabase
+    .from("quiz_sessions")
+    .update({
+      answers: answers as any,
+      current_step: currentStep,
+      steps_completed: stepsCompleted,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", quizSessionId);
+}
+
+async function completeQuizSession(answers: Answers, result: RecommendationResult, whatsapp?: string) {
+  if (!quizSessionId) return;
+  await supabase
+    .from("quiz_sessions")
+    .update({
+      is_completed: true,
+      answers: answers as any,
+      result_tier: result.budget_tier,
+      result_product_count: result.product_count,
+      result_product_ids: result.products.map(p => p.product_id),
+      engine_version: result.engine_version,
+      whatsapp_number: whatsapp || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", quizSessionId);
+}
+
+// ========= RESULT PRODUCT CARD =========
+
+function ResultProductCard({ item, onAdd, onRemove, isInCart }: {
+  item: RecommendedProduct;
+  onAdd: () => void;
+  onRemove: () => void;
+  isInCart: boolean;
+}) {
   return (
     <div className="bg-card rounded-card shadow-card overflow-hidden hover:shadow-card-hover transition-all group">
-      <div className="relative h-36 md:h-44 flex items-center justify-center overflow-hidden" style={{ backgroundColor: product.imageUrl ? '#f5f5f5' : (selectedBrand.color || "#F0F7F4") }}>
-        {product.badge && <span className="absolute top-2.5 left-2.5 bg-coral text-primary-foreground text-[10px] font-bold px-2.5 py-1 rounded-pill uppercase tracking-wide z-10">{product.badge}</span>}
-        {quantity > 1 && <span className="absolute top-2.5 right-2.5 bg-forest text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-pill z-10">×{quantity}</span>}
-        <ProductImage imageUrl={product.imageUrl} emoji={selectedBrand.img || product.baseImg} alt={product.name} className="w-full h-full group-hover:scale-110 transition-transform duration-300" emojiClassName="text-5xl md:text-6xl" />
+      <div className="relative h-36 md:h-44 flex items-center justify-center overflow-hidden bg-muted/30">
+        {item.priority === "essential" && (
+          <span className="absolute top-2.5 left-2.5 bg-coral text-primary-foreground text-[10px] font-bold px-2.5 py-1 rounded-pill uppercase tracking-wide z-10">Essential</span>
+        )}
+        {item.quantity > 1 && (
+          <span className="absolute top-2.5 right-2.5 bg-forest text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-pill z-10">×{item.quantity}</span>
+        )}
+        <ProductImage
+          imageUrl={item.brand.image_url || item.image_url}
+          emoji={item.emoji || "📦"}
+          alt={item.name}
+          className="w-full h-full group-hover:scale-110 transition-transform duration-300"
+          emojiClassName="text-5xl md:text-6xl"
+        />
       </div>
       <div className="p-3.5 md:p-4">
-        <h3 className="pf text-sm md:text-[15px] font-bold leading-tight mb-1">{product.name}</h3>
-        {color && <p className="text-text-light text-[10px] mb-1">Colour: {color}</p>}
-        <p className="text-text-med text-[11px] leading-relaxed italic mb-2 line-clamp-2">{whyIncluded}</p>
-
-        {product.packInfo && <p className="text-text-light text-[9px] mb-0.5">📦 {product.packInfo}</p>}
-        {product.material && <p className="text-text-light text-[9px] mb-0.5">🧵 {product.material}</p>}
-
-        {/* Delivery estimate */}
-        <p className="text-text-light text-[9px] mb-1">🚚 Lagos: 1-2 days · Others: 3-5 days</p>
-
+        <h3 className="pf text-sm md:text-[15px] font-bold leading-tight mb-1">{item.name}</h3>
+        {item.selected_color && <p className="text-muted-foreground text-[10px] mb-1">Colour: {item.selected_color}</p>}
+        <p className="text-muted-foreground text-[11px] leading-relaxed italic mb-2 line-clamp-2">{item.why_included}</p>
         <div className="mb-2.5">
-          <p className="text-text-light text-[10px] font-semibold uppercase tracking-wider mb-1.5">Brand</p>
-          <div className="flex flex-wrap gap-1.5">
-            {product.brands.map(b => (
-              <button key={b.id} onClick={() => setSelectedBrand(b)}
-                className={`px-2 py-0.5 rounded-pill text-[10px] font-semibold border transition-all ${selectedBrand.id === b.id ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-text-med hover:border-forest/50"}`}>
-                {b.label} {fmt(b.price)} {brand.id === b.id && "★"}
-              </button>
-            ))}
-          </div>
+          <p className="text-muted-foreground text-[10px] font-semibold uppercase tracking-wider mb-1">
+            {item.brand.brand_name} · {item.brand.tier}
+          </p>
         </div>
-
         <div className="flex items-end justify-between">
-          <div>
-            <p className="pf text-lg font-bold text-foreground">{fmt(selectedBrand.price * quantity)}</p>
-            {product.brands.length > 1 && <p className="text-text-light text-[10px]">from {fmt(lowestPrice)}</p>}
-          </div>
+          <p className="pf text-lg font-bold text-foreground">{fmt(item.brand.price * item.quantity)}</p>
           {isInCart ? (
             <button onClick={onRemove} className="rounded-pill bg-forest-light border border-forest text-forest px-3 py-1.5 text-[11px] font-semibold font-body interactive flex items-center gap-1">
               ✓ Added <span className="text-destructive hover:text-destructive">×</span>
@@ -443,34 +164,75 @@ export default function QuizPage() {
     return initial;
   });
   const [history, setHistory] = useState<string[]>([]);
-  const [currentStep, setCurrentStep] = useState("shopper");
+  const [currentStep, setCurrentStep] = useState<string | null>(null);
   const [showResults, setShowResults] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showWhatsAppStep, setShowWhatsAppStep] = useState(false);
   const [whatsappNumber, setWhatsappNumber] = useState("");
   const [quizStartTracked, setQuizStartTracked] = useState(false);
+  const [recommendation, setRecommendation] = useState<RecommendationResult | null>(null);
+  const [story, setStory] = useState("");
+  const [loadingResults, setLoadingResults] = useState(false);
   const navigate = useNavigate();
   const { addToCart, cart, setCart } = useCart();
-  const { data: supabaseProducts } = useAllProducts();
-  const ALL_PRODUCTS_DATA = supabaseProducts || [];
+
+  // Fetch quiz config from Supabase
+  const { data: questions = [], isLoading: questionsLoading } = useQuizQuestions();
+  const { data: routingRules = [], isLoading: rulesLoading } = useQuizRoutingRules();
+
+  const configLoading = questionsLoading || rulesLoading;
+
+  // Set first step once config loads
+  useEffect(() => {
+    if (questions.length > 0 && !currentStep) {
+      setCurrentStep(questions[0].step_id);
+    }
+  }, [questions, currentStep]);
 
   useEffect(() => { document.title = "Build My Bundle | BundledMum"; }, []);
 
-  // Track quiz_started once
   useEffect(() => {
-    if (!quizStartTracked) {
+    if (!quizStartTracked && currentStep) {
       trackEvent("quiz_started");
       setQuizStartTracked(true);
     }
-  }, [quizStartTracked]);
+  }, [quizStartTracked, currentStep]);
 
-  const stepSequence = useMemo(() => getStepSequence(answers), [answers]);
-  const currentIdx = stepSequence.indexOf(currentStep);
+  // Subscribe to realtime changes for instant admin updates
+  useEffect(() => {
+    const channel = supabase.channel("quiz-config-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "quiz_questions" }, () => {})
+      .on("postgres_changes", { event: "*", schema: "public", table: "quiz_routing_rules" }, () => {})
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  const stepSequence = useMemo(
+    () => getStepSequence(answers, routingRules, questions),
+    [answers, routingRules, questions]
+  );
+
+  const currentIdx = currentStep ? stepSequence.indexOf(currentStep) : 0;
   const totalSteps = stepSequence.length;
   const progress = showResults ? 100 : showWhatsAppStep ? 95 : totalSteps > 0 ? ((currentIdx + 1) / totalSteps) * 100 : 0;
 
-  const saveQuizCustomer = async (whatsapp?: string) => {
-    const quizData = {
+  // Find current question from DB
+  const currentQuestion: QuizQuestion | null = useMemo(() => {
+    if (!currentStep || !questions.length) return null;
+    const q = questions.find(q => q.step_id === currentStep);
+    return q ? getModifiedOptions(q, answers) : null;
+  }, [currentStep, questions, answers]);
+
+  // Sort options by display_order
+  const sortedOptions = useMemo(() => {
+    if (!currentQuestion) return [];
+    return [...currentQuestion.quiz_options]
+      .filter(o => o.is_active !== false)
+      .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+  }, [currentQuestion]);
+
+  const saveQuizCustomer = useCallback(async (whatsapp?: string) => {
+    await supabase.from("quiz_customers").insert([{
       hospital_type: answers.hospitalType || null,
       delivery_method: answers.deliveryMethod || null,
       baby_gender: answers.gender || null,
@@ -480,87 +242,155 @@ export default function QuizPage() {
       page_url: window.location.pathname,
       referral_source: getReferralSource(),
       has_purchased: false,
-    };
-    await supabase.from("quiz_customers").insert([quizData]);
-  };
+    }]);
+  }, [answers]);
 
-  const finishQuiz = async (whatsapp?: string) => {
+  const finishQuiz = useCallback(async (whatsapp?: string) => {
+    setLoadingResults(true);
     trackEvent("quiz_completed", {
       hospital_type: answers.hospitalType,
       delivery_method: answers.deliveryMethod,
       baby_gender: answers.gender,
       budget_tier: answers.budget,
     });
+
     await saveQuizCustomer(whatsapp);
+
+    try {
+      // Call server-side recommendation engine
+      const { data: recData, error: recError } = await supabase.rpc(
+        "run_quiz_recommendation",
+        {
+          p_budget_tier: answers.budget || "standard",
+          p_scope: answers.scope || "hospital-bag+general",
+          p_stage: answers.stage || answers.giftAge || "expecting",
+          p_hospital_type: answers.hospitalType || "both",
+          p_delivery_method: answers.deliveryMethod || "both",
+          p_multiples: parseInt(answers.multiples || "1"),
+          p_gender: answers.gender || "neutral",
+          p_first_baby: answers.firstBaby === "yes",
+          p_shopper_type: answers.shopper || "self",
+          p_gift_for: answers.giftFor || null,
+        }
+      );
+
+      if (recError) throw recError;
+      const rec = recData as unknown as RecommendationResult;
+      setRecommendation(rec);
+
+      // Call story generator
+      const { data: storyData } = await supabase.rpc(
+        "generate_quiz_story",
+        {
+          p_shopper_type: answers.shopper || "self",
+          p_budget_tier: answers.budget || "standard",
+          p_gender: answers.gender || "neutral",
+          p_multiples: parseInt(answers.multiples || "1"),
+          p_delivery_method: answers.deliveryMethod || "vaginal",
+          p_hospital_type: answers.hospitalType || "public",
+          p_first_baby: answers.firstBaby === "yes",
+          p_gift_relationship: answers.giftRelationship || null,
+          p_gift_occasion: answers.giftOccasion || null,
+          p_gift_wrap: answers.giftWrap === "yes",
+          p_product_count: rec.product_count,
+        }
+      );
+      setStory((storyData as string) || "Your personalised bundle is ready!");
+
+      // Update quiz session
+      await completeQuizSession(answers, rec, whatsapp);
+    } catch (err) {
+      console.error("Recommendation engine error:", err);
+      toast.error("Something went wrong generating your bundle. Please try again.");
+    }
+
     setShowWhatsAppStep(false);
     setShowResults(true);
-  };
+    setLoadingResults(false);
+  }, [answers, saveQuizCustomer]);
 
-  const handleAnswer = (stepId: string, optionId: string) => {
+  const handleAnswer = useCallback((stepId: string, optionId: string) => {
     const newAnswers = { ...answers, [stepId]: optionId };
     setAnswers(newAnswers);
+
+    // Create session on first answer
+    if (stepId === "shopper" && !quizSessionId) {
+      createQuizSession(optionId);
+    }
+
     setTimeout(() => {
-      const next = getNextStep(stepId, optionId, newAnswers);
+      const next = getNextStep(stepId, optionId, newAnswers, routingRules, questions);
+      const newSteps = [...history, stepId];
+      
       if (!next) {
-        // Show WhatsApp capture step before results
         setShowWhatsAppStep(true);
       } else {
-        setHistory(h => [...h, currentStep]);
+        setHistory(newSteps);
         setCurrentStep(next);
       }
-    }, 320);
-  };
 
-  const handleSkip = (stepId: string) => {
+      // Track session
+      updateQuizSession(newAnswers, next || stepId, newSteps);
+    }, 320);
+  }, [answers, routingRules, questions, history]);
+
+  const handleSkip = useCallback((stepId: string) => {
     const newAnswers = { ...answers, [stepId]: "skip" };
     setAnswers(newAnswers);
-    const next = getNextStep(stepId, "skip", newAnswers);
+    const next = getNextStep(stepId, "skip", newAnswers, routingRules, questions);
     if (!next) {
       setShowWhatsAppStep(true);
     } else {
-      setHistory(h => [...h, currentStep]);
+      setHistory(h => [...h, currentStep!]);
       setCurrentStep(next);
     }
-  };
+  }, [answers, routingRules, questions, currentStep]);
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     if (showResults) { setShowResults(false); return; }
     if (showWhatsAppStep) { setShowWhatsAppStep(false); return; }
     if (history.length === 0) return;
     const prev = history[history.length - 1];
     setHistory(h => h.slice(0, -1));
     setCurrentStep(prev);
-  };
+  }, [showResults, showWhatsAppStep, history]);
 
-  const goToStep = (stepId: string) => {
+  const goToStep = useCallback((stepId: string) => {
     const idx = history.indexOf(stepId);
     if (idx === -1) return;
     setHistory(h => h.slice(0, idx));
     setCurrentStep(stepId);
     setShowResults(false);
-  };
+  }, [history]);
+
+  // ========= LOADING =========
+  if (configLoading || !currentStep) {
+    return (
+      <div className="min-h-screen bg-background pt-[68px] flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-forest mx-auto mb-3" />
+          <p className="text-muted-foreground text-sm">Loading quiz...</p>
+        </div>
+      </div>
+    );
+  }
 
   // ========= RESULTS =========
-
-  if (showResults) {
-    const results = runRecommendationEngine(answers, ALL_PRODUCTS_DATA);
-    const babyItems = results.filter(r => r.product.category === "baby");
-    const mumItems = results.filter(r => r.product.category === "mum");
+  if (showResults && recommendation) {
+    const results = recommendation.products;
+    const babyItems = results.filter(r => r.category === "baby");
+    const mumItems = results.filter(r => r.category === "mum");
     const totalValue = results.reduce((s, r) => s + r.brand.price * r.quantity, 0);
     const isGift = answers.shopper === "gift";
     const budget = answers.budget || "standard";
     const multiples = parseInt(answers.multiples || "1");
     const budgetLabel = budget === "starter" ? "Starter" : budget === "premium" ? "Premium" : "Standard";
+    const isFallback = recommendation.engine_version?.includes("fallback");
 
     const scope = answers.scope || "";
     const heading = isGift ? "Your Perfect Gift Bundle 🎁" : scope === "hospital-bag" ? "Your Perfect Hospital Bag" : scope.includes("general") && scope.includes("hospital") ? "Your Hospital Bag + Baby Essentials" : scope === "general" ? "Your Baby Essentials Bundle" : "Your Perfect Bundle";
 
-    const story = generateStory(answers, results);
-
-    // #28 Bundle savings comparison
-    const separateTotal = results.reduce((s, r) => s + r.brand.price * r.quantity, 0);
-    const curationSaving = Math.round(separateTotal * 0.15); // estimate ~15% curation value
-    const effectiveTotal = separateTotal;
+    const curationSaving = Math.round(totalValue * 0.15);
 
     const pillData = [
       answers.gender && answers.gender !== "neutral" ? { emoji: answers.gender === "boy" ? "👦" : "👧", label: answers.gender === "boy" ? "Boy" : "Girl", step: "gender" } : { emoji: "🌈", label: "Neutral", step: "gender" },
@@ -573,48 +403,70 @@ export default function QuizPage() {
       isGift && answers.giftWrap === "yes" ? { emoji: "🎀", label: "Gift Wrapped", step: "giftWrap" } : null,
     ].filter(Boolean) as { emoji: string; label: string; step: string }[];
 
-    const handleAddProduct = (item: RecommendedItem) => {
-      addToCart({ ...item.product, selectedBrand: item.brand, price: item.brand.price, name: `${item.product.name} (${item.brand.label})`, img: item.brand.img || item.product.baseImg, baseImg: item.product.baseImg });
-      toast.success(`✓ ${item.product.name} added to cart`);
+    const addedIds = new Set(cart.map(c => c.id));
+
+    const handleAddProduct = (item: RecommendedProduct) => {
+      addToCart({
+        id: item.product_id,
+        name: `${item.name} (${item.brand.brand_name})`,
+        baseImg: item.emoji || "📦",
+        imageUrl: item.brand.image_url || item.image_url || undefined,
+        price: item.brand.price,
+        selectedBrand: { id: item.brand.id, label: item.brand.brand_name, price: item.brand.price, img: item.emoji || "📦", imageUrl: item.brand.image_url, tier: 1, color: "#E8F5E9" },
+        brands: [],
+        category: item.category as any,
+        rating: 4.5,
+        reviews: 0,
+        tags: [],
+        badge: null,
+        stage: [],
+        priority: item.priority as any,
+        tier: [],
+        hospitalType: [],
+        deliveryMethod: [],
+        genderRelevant: false,
+        multiplesBump: 1,
+        scope: [],
+        firstBaby: null,
+        description: "",
+        whyIncluded: item.why_included,
+      });
+      toast.success(`✓ ${item.name} added to cart`);
     };
 
-    const handleRemoveProduct = (item: RecommendedItem) => {
-      setCart(prev => prev.filter(c => c.id !== item.product.id));
+    const handleRemoveProduct = (item: RecommendedProduct) => {
+      setCart(prev => prev.filter(c => c.id !== item.product_id));
       toast("Removed from cart");
     };
 
     const handleAddAll = () => {
       results.forEach(item => {
         for (let i = 0; i < item.quantity; i++) {
-          addToCart({ ...item.product, selectedBrand: item.brand, price: item.brand.price, name: `${item.product.name} (${item.brand.label})`, img: item.brand.img || item.product.baseImg, baseImg: item.product.baseImg });
+          handleAddProduct(item);
         }
       });
       toast.success("✓ Your full bundle has been added to cart!");
       navigate("/cart");
     };
 
-    // #19 Save bundle
-    const handleSaveBundle = () => {
-      try {
-        localStorage.setItem("bm-saved-bundle", JSON.stringify({ answers, timestamp: Date.now() }));
-        toast.success("💾 Bundle saved! We'll remember it when you come back.");
-      } catch {}
-    };
-
     const handleShare = () => setShowShareModal(true);
-
     const handleCopyChecklist = () => {
-      const list = results.map(r => `${r.quantity > 1 ? `×${r.quantity} ` : ""}${r.product.name} (${r.brand.label}) — ${fmt(r.brand.price * r.quantity)}`).join("\n");
+      const list = results.map(r => `${r.quantity > 1 ? `×${r.quantity} ` : ""}${r.name} (${r.brand.brand_name}) — ${fmt(r.brand.price * r.quantity)}`).join("\n");
       const text = `My BundledMum ${budgetLabel} Bundle\n${"=".repeat(30)}\n\n${list}\n\nTotal: ${fmt(totalValue)}\n\nBuild yours: https://bundledmum.lovable.app/quiz`;
       navigator.clipboard.writeText(text).then(() => toast.success("Checklist copied to clipboard!"));
     };
 
-    const shareItems = results.map(r => ({ name: r.product.name, price: r.brand.price * r.quantity }));
+    const shareItems = results.map(r => ({ name: r.name, price: r.brand.price * r.quantity }));
 
     return (
       <div className="min-h-screen bg-background pt-[68px] pb-16 md:pb-0">
         <div style={{ background: "linear-gradient(135deg, #2D6A4F, #1E5C44)" }} className="px-4 md:px-10 py-8 md:py-14">
           <div className="max-w-[880px] mx-auto text-center">
+            {isFallback && (
+              <div className="bg-amber-500/20 border border-amber-500/40 rounded-lg px-4 py-2 mb-4 inline-block">
+                <p className="text-amber-200 text-xs">We widened your results to ensure a complete bundle — all items are relevant to your stage.</p>
+              </div>
+            )}
             <div className="animate-fade-in inline-flex items-center gap-2 bg-coral/20 border border-coral/40 rounded-pill px-4 py-1.5 mb-3.5">
               <span className="text-coral text-[13px] font-semibold">{isGift ? "🎁 Perfect Gift Bundle Ready!" : "✨ Your Personalised Bundle is Ready!"}</span>
             </div>
@@ -637,7 +489,6 @@ export default function QuizPage() {
               {multiples > 1 && <><span>·</span><span>👶👶 Quantities adjusted for your {multiples === 2 ? "twins" : "triplets"}!</span></>}
             </div>
 
-            {/* #28 Bundle savings */}
             <div className="bg-primary-foreground/[0.08] rounded-xl p-3 max-w-[400px] mx-auto mb-5">
               <div className="text-primary-foreground text-xs space-y-1">
                 <div className="flex justify-between"><span>Your bundle:</span><span className="font-bold">{fmt(totalValue)}</span></div>
@@ -666,9 +517,6 @@ export default function QuizPage() {
               <button onClick={handleCopyChecklist} className="flex items-center gap-1.5 text-primary-foreground/50 text-xs hover:text-primary-foreground/80 transition-colors">
                 <ClipboardCopy className="h-3.5 w-3.5" /> Copy checklist
               </button>
-              <button onClick={handleSaveBundle} className="flex items-center gap-1.5 text-primary-foreground/50 text-xs hover:text-primary-foreground/80 transition-colors">
-                💾 Save My Bundle
-              </button>
             </div>
           </div>
         </div>
@@ -680,9 +528,9 @@ export default function QuizPage() {
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
                 {babyItems.map(item => (
                   <ResultProductCard
-                    key={item.product.id}
+                    key={item.product_id}
                     item={item}
-                    isInCart={cart.some(c => c.id === item.product.id)}
+                    isInCart={addedIds.has(item.product_id)}
                     onAdd={() => handleAddProduct(item)}
                     onRemove={() => handleRemoveProduct(item)}
                   />
@@ -696,9 +544,9 @@ export default function QuizPage() {
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
                 {mumItems.map(item => (
                   <ResultProductCard
-                    key={item.product.id}
+                    key={item.product_id}
                     item={item}
-                    isInCart={cart.some(c => c.id === item.product.id)}
+                    isInCart={addedIds.has(item.product_id)}
                     onAdd={() => handleAddProduct(item)}
                     onRemove={() => handleRemoveProduct(item)}
                   />
@@ -707,7 +555,6 @@ export default function QuizPage() {
             </div>
           )}
 
-          {/* #8 Window-shopper virality share prompt */}
           <div className="bg-forest rounded-card p-6 md:p-8 text-center mb-8">
             <h3 className="pf text-xl text-primary-foreground mb-2">💬 Know Another Expecting Mum?</h3>
             <p className="text-primary-foreground/70 text-sm mb-4 max-w-[400px] mx-auto">Share BundledMum with her — she'll thank you later!</p>
@@ -725,24 +572,17 @@ export default function QuizPage() {
                 📋 Copy Quiz Link
               </button>
             </div>
-            <p className="text-primary-foreground/40 text-[11px] mt-3 italic">"I was so overwhelmed before finding BundledMum..." — Adaeze O., Lagos</p>
           </div>
 
           <div className="bg-warm-cream rounded-card p-6 md:p-10 text-center mt-6 mb-10">
             <h3 className="pf text-xl text-forest mb-2">Want to add more items?</h3>
-            <p className="text-text-med text-sm mb-5 max-w-[480px] mx-auto">Your bundle covers the essentials — but every mum is different. Browse our full shop to add anything else you need.</p>
+            <p className="text-muted-foreground text-sm mb-5 max-w-[480px] mx-auto">Your bundle covers the essentials — but every mum is different. Browse our full shop to add anything else you need.</p>
             <Link to="/shop" className="rounded-pill bg-forest px-8 py-3 font-body font-semibold text-primary-foreground hover:bg-forest-deep interactive text-sm inline-block mb-4">
               Browse All Products →
             </Link>
-            <div className="flex flex-wrap gap-3 justify-center">
-              <Link to="/shop?tab=baby" className="text-forest text-xs font-semibold hover:underline">👶 Baby Items</Link>
-              <Link to="/shop?tab=mum" className="text-forest text-xs font-semibold hover:underline">💛 Mum Items</Link>
-              <Link to="/bundles" className="text-forest text-xs font-semibold hover:underline">🏥 Hospital Bag Bundles</Link>
-            </div>
           </div>
         </div>
 
-        {/* Share modal */}
         {showShareModal && (
           <ShareModal
             onClose={() => setShowShareModal(false)}
@@ -751,7 +591,7 @@ export default function QuizPage() {
             items={shareItems}
             totalPrice={totalValue}
             badge={isGift ? "GIFT BUNDLE" : undefined}
-            shareUrl={`https://bundledmum.lovable.app/quiz?ref=share`}
+            shareUrl="https://bundledmum.lovable.app/quiz?ref=share"
             shareText={`Check out my BundledMum ${budgetLabel} bundle! ${results.length} items for ${fmt(totalValue)}. Build yours FREE!`}
             gender={answers.gender}
             hospitalType={answers.hospitalType === "public" ? "Public Hospital" : answers.hospitalType === "private" ? "Private Hospital" : undefined}
@@ -760,7 +600,6 @@ export default function QuizPage() {
           />
         )}
 
-        {/* Sticky mobile Add All */}
         <div className="fixed bottom-14 left-0 right-0 z-[80] bg-card border-t border-border p-3 md:hidden">
           <button onClick={handleAddAll} className="w-full rounded-pill bg-coral py-3 font-body font-semibold text-primary-foreground text-sm">
             Get Complete Bundle — {fmt(totalValue)} →
@@ -770,8 +609,20 @@ export default function QuizPage() {
     );
   }
 
-  // ========= WHATSAPP CAPTURE STEP =========
+  // ========= LOADING RESULTS =========
+  if (loadingResults) {
+    return (
+      <div className="min-h-screen bg-background pt-[68px] flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-10 h-10 animate-spin text-coral mx-auto mb-4" />
+          <h2 className="pf text-xl text-foreground mb-2">Building your perfect bundle...</h2>
+          <p className="text-muted-foreground text-sm">Our engine is picking the best items for you ✨</p>
+        </div>
+      </div>
+    );
+  }
 
+  // ========= WHATSAPP CAPTURE STEP =========
   if (showWhatsAppStep) {
     const isValidNigerian = (num: string) => {
       const digits = num.replace(/\D/g, "");
@@ -786,16 +637,16 @@ export default function QuizPage() {
             <div className="bg-coral h-1.5 transition-all duration-500 rounded-full" style={{ width: `${progress}%` }} />
           </div>
           <div className="flex justify-between mt-2">
-            <div className="text-text-light text-xs">Almost done!</div>
-            <button onClick={handleBack} className="text-text-light text-xs flex items-center gap-1 font-body hover:text-foreground"><ArrowLeft className="h-3 w-3" /> Back</button>
+            <div className="text-muted-foreground text-xs">Almost done!</div>
+            <button onClick={handleBack} className="text-muted-foreground text-xs flex items-center gap-1 font-body hover:text-foreground"><ArrowLeft className="h-3 w-3" /> Back</button>
           </div>
         </div>
 
         <div className="animate-fade-in bg-card rounded-[22px] p-7 md:p-12 shadow-card-hover w-full max-w-[660px]">
           <div className="text-center mb-7">
-            <p className="text-text-light text-[11px] font-semibold uppercase tracking-widest mb-2">ONE LAST THING 📱</p>
+            <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-widest mb-2">ONE LAST THING 📱</p>
             <h2 className="pf text-xl md:text-[30px] leading-tight">WhatsApp Number (optional)</h2>
-            <p className="text-text-med text-sm mt-2">So we can send your bundle summary</p>
+            <p className="text-muted-foreground text-sm mt-2">So we can send your bundle summary</p>
           </div>
 
           <div className="space-y-4">
@@ -808,7 +659,7 @@ export default function QuizPage() {
                 className={`w-full rounded-[14px] border-2 px-4 py-3.5 text-sm bg-card font-body outline-none transition-colors ${whatsappError ? "border-destructive" : "border-border focus:border-forest"}`}
               />
               {whatsappError && <p className="text-destructive text-[11px]">{whatsappError}</p>}
-              <p className="text-text-light text-[11px]">Accepts 07xx, 08xx, 09xx or +234 format</p>
+              <p className="text-muted-foreground text-[11px]">Accepts 07xx, 08xx, 09xx or +234 format</p>
             </div>
 
             <button
@@ -823,25 +674,22 @@ export default function QuizPage() {
 
             <button
               onClick={() => finishQuiz()}
-              className="w-full text-text-light text-xs hover:text-forest transition-colors font-body"
+              className="w-full text-muted-foreground text-xs hover:text-forest transition-colors font-body"
             >
               ⏭️ Skip
             </button>
           </div>
         </div>
-        <p className="text-text-light text-xs mt-4 text-center">🔒 We never share your data · Results appear instantly</p>
+        <p className="text-muted-foreground text-xs mt-4 text-center">🔒 We never share your data · Results appear instantly</p>
       </div>
     );
   }
 
   // ========= QUIZ STEP VIEW =========
-
-  const stepDef = currentStep === "gender" ? getGenderOptions(answers) : STEPS[currentStep];
-  if (!stepDef) return null;
+  if (!currentQuestion) return null;
 
   return (
     <div className="min-h-screen bg-background pt-[68px] flex flex-col items-center px-4 md:px-10 py-8 md:py-12 pb-20 md:pb-12">
-      {/* Exit intent */}
       <ExitIntentPopup stepsCompleted={history.length} totalSteps={totalSteps} onContinue={() => {}} />
 
       <div className="w-full max-w-[660px] mb-6">
@@ -849,53 +697,57 @@ export default function QuizPage() {
           <div className="bg-coral h-1.5 transition-all duration-500 rounded-full" style={{ width: `${progress}%` }} />
         </div>
         <div className="flex gap-2 mt-3 flex-wrap">
-          {history.map(h => (
-            <button key={h} onClick={() => goToStep(h)}
-              className="flex items-center gap-1 bg-forest-light text-forest rounded-pill px-2.5 py-1 text-[10px] font-semibold hover:bg-forest/20 transition-colors">
-              <Check className="h-3 w-3" /> {STEPS[h]?.label || h}
-            </button>
-          ))}
+          {history.map(h => {
+            const q = questions.find(q => q.step_id === h);
+            return (
+              <button key={h} onClick={() => goToStep(h)}
+                className="flex items-center gap-1 bg-forest-light text-forest rounded-pill px-2.5 py-1 text-[10px] font-semibold hover:bg-forest/20 transition-colors">
+                <Check className="h-3 w-3" /> {q?.step_label || h}
+              </button>
+            );
+          })}
           <span className="flex items-center gap-1 bg-coral/15 text-coral rounded-pill px-2.5 py-1 text-[10px] font-semibold">
-            {stepDef.label}
+            {currentQuestion.step_label}
           </span>
         </div>
         <div className="flex justify-between mt-2">
-          <div className="text-text-light text-xs">Step {currentIdx + 1} of {totalSteps}</div>
+          <div className="text-muted-foreground text-xs">Step {currentIdx + 1} of {totalSteps}</div>
           {history.length > 0 && (
-            <button onClick={handleBack} className="text-text-light text-xs flex items-center gap-1 font-body hover:text-foreground"><ArrowLeft className="h-3 w-3" /> Back</button>
+            <button onClick={handleBack} className="text-muted-foreground text-xs flex items-center gap-1 font-body hover:text-foreground"><ArrowLeft className="h-3 w-3" /> Back</button>
           )}
         </div>
       </div>
 
       <div className="animate-fade-in bg-card rounded-[22px] p-7 md:p-12 shadow-card-hover w-full max-w-[660px]" key={currentStep}>
         <div className="text-center mb-7">
-          <p className="text-text-light text-[11px] font-semibold uppercase tracking-widest mb-2">{stepDef.sub}</p>
-          <h2 className="pf text-xl md:text-[30px] leading-tight">{stepDef.title}</h2>
+          <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-widest mb-2">{currentQuestion.sub_text || ""}</p>
+          <h2 className="pf text-xl md:text-[30px] leading-tight">{currentQuestion.question_text}</h2>
         </div>
         <div className="flex flex-col gap-2.5">
-          {stepDef.options.map(opt => (
-            <button key={opt.id} onClick={() => handleAnswer(stepDef.id, opt.id)}
+          {sortedOptions.map(opt => (
+            <button key={opt.option_value} onClick={() => handleAnswer(currentQuestion.step_id, opt.option_value)}
               className="flex items-center gap-3 p-3 md:p-4 rounded-[14px] border-2 text-left transition-all font-body border-border bg-card hover:border-forest hover:bg-forest-light">
-              <div className="w-10 h-10 md:w-12 md:h-12 bg-warm-cream rounded-[13px] flex items-center justify-center text-xl md:text-2xl flex-shrink-0">{opt.emoji}</div>
+              <div className="w-10 h-10 md:w-12 md:h-12 bg-warm-cream rounded-[13px] flex items-center justify-center text-xl md:text-2xl flex-shrink-0">{opt.option_emoji || "📋"}</div>
               <div className="flex-1">
                 <div className="font-bold text-[13px] md:text-[15px] flex items-center gap-2 flex-wrap">
-                  {opt.label}
-                  {opt.popular && <span className="bg-coral text-primary-foreground text-[9px] px-2 py-0.5 rounded-pill font-semibold">Popular</span>}
+                  {opt.option_label}
+                  {opt.price_modifier && opt.price_modifier > 0 && (
+                    <span className="text-coral text-[10px] font-semibold">+{fmt(opt.price_modifier)}</span>
+                  )}
                 </div>
-                <div className="text-text-med text-xs mt-0.5">{opt.sublabel}</div>
-                {opt.desc && <div className="text-text-light text-[11px] mt-0.5">{opt.desc}</div>}
+                {opt.option_description && <div className="text-muted-foreground text-xs mt-0.5">{opt.option_description}</div>}
               </div>
               <div className="w-4 h-4 rounded-full border-2 border-border flex-shrink-0" />
             </button>
           ))}
         </div>
-        {stepDef.skippable && (
-          <button onClick={() => handleSkip(stepDef.id)} className="w-full mt-3 text-text-light text-xs hover:text-forest transition-colors font-body">
+        {currentQuestion.is_skippable && (
+          <button onClick={() => handleSkip(currentQuestion.step_id)} className="w-full mt-3 text-muted-foreground text-xs hover:text-forest transition-colors font-body">
             ⏭️ Skip this question
           </button>
         )}
       </div>
-      <p className="text-text-light text-xs mt-4 text-center">🔒 We never share your data · Results appear instantly</p>
+      <p className="text-muted-foreground text-xs mt-4 text-center">🔒 We never share your data · Results appear instantly</p>
     </div>
   );
 }
