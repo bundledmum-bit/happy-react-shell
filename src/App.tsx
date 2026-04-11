@@ -51,7 +51,7 @@ import AdminInventory from "@/pages/admin/AdminInventory";
 import AdminShippingZones from "@/pages/admin/AdminShippingZones";
 import AdminPages from "@/pages/admin/AdminPages";
 import AdminPromotions from "@/pages/admin/AdminPromotions";
-
+import AdminQuizLeads from "@/pages/admin/AdminQuizLeads";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -102,6 +102,7 @@ const App = () => (
                 <Route path="shipping-zones" element={<AdminShippingZones />} />
                 <Route path="pages" element={<AdminPages />} />
                 <Route path="promotions" element={<AdminPromotions />} />
+                <Route path="quiz-leads" element={<AdminQuizLeads />} />
               </Route>
 
               {/* Storefront routes */}
