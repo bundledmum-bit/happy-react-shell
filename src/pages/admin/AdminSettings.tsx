@@ -87,7 +87,7 @@ export default function AdminSettings() {
   const settingsMap = new Map((settings || []).map((s: any) => [s.key, s]));
 
   const getValue = (key: string) => {
-    const s = settingsMap.get(key);
+    const s = settingsMap.get(key) as any;
     if (!s) return "";
     if (typeof s.value === "object") return JSON.stringify(s.value, null, 2);
     return String(s.value);
