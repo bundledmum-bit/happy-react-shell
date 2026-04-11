@@ -336,7 +336,7 @@ function StickyMobileCTA() {
 }
 
 export default function HomePage() {
-  useEffect(() => { document.title = "BundledMum — Nigeria's Hospital Bag Curator"; }, []);
+  useEffect(() => { document.title = "BundledMum — ...making being a mum easier."; }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
