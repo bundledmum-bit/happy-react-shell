@@ -182,7 +182,7 @@ function trackEvent(eventType: string, eventData?: Record<string, unknown>) {
   const attribution = getAttribution();
   const ua = parseUserAgent();
 
-  const payload: Record<string, any> = {
+  const payload = {
     event_type: eventType,
     session_id: getSessionId(),
     page_url: window.location.pathname,
