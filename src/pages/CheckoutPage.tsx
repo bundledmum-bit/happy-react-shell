@@ -357,14 +357,20 @@ export default function CheckoutPage() {
     try {
       const PaystackPop = (await import("@paystack/inline-js")).default;
       const popup = new PaystackPop();
+      const paystackKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || "pk_test_ee6db593cdee9f92b4114a9b15f4a2a72e71ee20";
       popup.newTransaction({
-        key: "pk_test_ee6db593cdee9f92b4114a9b15f4a2a72e71ee20",
+        key: paystackKey,
         email: form.email, amount: grand * 100, currency: "NGN",
         ref: `BM-${Date.now()}`, firstname: form.firstName, lastname: form.lastName,
         channels: payment === "ussd" ? ["ussd"] : ["card", "bank_transfer", "ussd", "qr", "mobile_money", "bank"],
         onSuccess: async (transaction: { reference: string; status: string }) => {
-          const { data: verification, error: verifyError } = await supabase.functions.invoke("verify-payment", {
-            body: { reference: transaction.reference },
+          // Save order first with pending status
+          const orderData = buildOrderData(transaction.reference, "pending");
+          const dbOrderNumber = await saveOrderToDb(orderData);
+
+          // Verify payment via edge function
+          const { data: verification, error: verifyError } = await supabase.functions.invoke("process-payment", {
+            body: { reference: transaction.reference, order_id: orderData.orderId },
           });
 
           if (verifyError || !verification?.verified) {
@@ -373,8 +379,6 @@ export default function CheckoutPage() {
             return;
           }
 
-          const orderData = buildOrderData(transaction.reference, verification.status);
-          const dbOrderNumber = await saveOrderToDb(orderData);
           await logOrderToSheets(orderData);
           clearCart();
           navigate("/order-confirmed", { state: { ...orderData, orderId: dbOrderNumber, paymentType: "card", form } });
