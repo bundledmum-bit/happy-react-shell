@@ -70,9 +70,9 @@ const StatCard = ({ label, value, change, showChange }: { label: string; value: 
 );
 
 // Paginated & sortable table
-function DataTable({ columns, data, pageSize = 25 }: { columns: { key: string; label: string; format?: (v: any) => string }[]; data: any[]; pageSize?: number }) {
+function DataTable({ columns, data, pageSize = 25, preserveOrder = false }: { columns: { key: string; label: string; format?: (v: any) => string }[]; data: any[]; pageSize?: number; preserveOrder?: boolean }) {
   const [page, setPage] = useState(0);
-  const [sortKey, setSortKey] = useState(columns[0]?.key || "");
+  const [sortKey, setSortKey] = useState(preserveOrder ? "" : (columns[0]?.key || ""));
   const [sortAsc, setSortAsc] = useState(false);
   const [search, setSearch] = useState("");
 
@@ -83,6 +83,7 @@ function DataTable({ columns, data, pageSize = 25 }: { columns: { key: string; l
   }, [data, search, columns]);
 
   const sorted = useMemo(() => {
+    if (!sortKey) return filtered;
     return [...filtered].sort((a, b) => {
       const av = a[sortKey], bv = b[sortKey];
       const cmp = typeof av === "number" ? av - bv : String(av || "").localeCompare(String(bv || ""));
@@ -904,7 +905,7 @@ export default function AdminAnalytics() {
                     { key: "Drop-off", label: "Drop-off" },
                     { key: "Drop-off %", label: "Drop-off %" },
                     { key: "Conv. Rate", label: "Conv. Rate" },
-                  ]} data={funnelTable} pageSize={10} />
+                  ]} data={funnelTable} pageSize={10} preserveOrder />
                 </ChartCard>
               </div>
             );
