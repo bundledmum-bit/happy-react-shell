@@ -7,10 +7,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
 const DATE_PRESETS = [
-  { label: "Today", getDates: () => { const s = new Date(); s.setHours(0,0,0,0); const ps = new Date(s); ps.setDate(ps.getDate()-1); return { start: s, prevStart: ps, prevEnd: s }; }},
+  { label: "Today", getDates: () => { const s = new Date(); s.setHours(0,0,0,0); const e = new Date(s); e.setDate(e.getDate()+1); const ps = new Date(s); ps.setDate(ps.getDate()-1); return { start: s, end: e, prevStart: ps, prevEnd: s }; }},
   { label: "Yesterday", getDates: () => { const s = new Date(); s.setDate(s.getDate()-1); s.setHours(0,0,0,0); const e = new Date(s); e.setDate(e.getDate()+1); const ps = new Date(s); ps.setDate(ps.getDate()-1); return { start: s, end: e, prevStart: ps, prevEnd: s }; }},
-  { label: "This Week", getDates: () => { const s = new Date(); s.setDate(s.getDate()-s.getDay()); s.setHours(0,0,0,0); const ps = new Date(s); ps.setDate(ps.getDate()-7); return { start: s, prevStart: ps, prevEnd: s }; }},
-  { label: "This Month", getDates: () => { const s = new Date(); s.setDate(1); s.setHours(0,0,0,0); const ps = new Date(s); ps.setMonth(ps.getMonth()-1); return { start: s, prevStart: ps, prevEnd: s }; }},
+  { label: "This Week", getDates: () => { const s = new Date(); s.setDate(s.getDate()-s.getDay()); s.setHours(0,0,0,0); const e = new Date(); e.setDate(e.getDate()+1); e.setHours(0,0,0,0); const ps = new Date(s); ps.setDate(ps.getDate()-7); return { start: s, end: e, prevStart: ps, prevEnd: s }; }},
+  { label: "This Month", getDates: () => { const s = new Date(); s.setDate(1); s.setHours(0,0,0,0); const e = new Date(); e.setDate(e.getDate()+1); e.setHours(0,0,0,0); const ps = new Date(s); ps.setMonth(ps.getMonth()-1); return { start: s, end: e, prevStart: ps, prevEnd: s }; }},
 ];
 
 const fmt = (n: number) => `₦${n.toLocaleString()}`;

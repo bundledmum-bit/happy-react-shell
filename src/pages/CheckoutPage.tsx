@@ -290,13 +290,40 @@ export default function CheckoutPage() {
         }
       } catch (e) { console.error("Customer upsert failed:", e); }
 
-      // Mark quiz_customers as purchased
+      // Mark quiz_customers as purchased — session_id match first, then whatsapp fallback
       try {
         const sessionId = getSessionId();
-        await supabase
+        const { data: sessionMatch } = await supabase
           .from("quiz_customers")
-          .update({ has_purchased: true, order_id: order.id } as any)
-          .eq("session_id", sessionId);
+          .select("id")
+          .eq("session_id", sessionId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (sessionMatch) {
+          await supabase.from("quiz_customers")
+            .update({ has_purchased: true, order_id: order.id } as any)
+            .eq("id", sessionMatch.id);
+        } else {
+          // Fallback: match by whatsapp_number using customer phone
+          const phone = form.phone.replace(/\D/g, "");
+          if (phone) {
+            const { data: waMatch } = await supabase
+              .from("quiz_customers")
+              .select("id")
+              .or(`whatsapp_number.eq.${form.phone},whatsapp_number.eq.0${phone.slice(-10)},whatsapp_number.eq.+234${phone.slice(-10)}`)
+              .eq("has_purchased", false)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            if (waMatch) {
+              await supabase.from("quiz_customers")
+                .update({ has_purchased: true, order_id: order.id } as any)
+                .eq("id", waMatch.id);
+            }
+          }
+        }
       } catch (e) { console.error("Quiz customer update failed:", e); }
 
       // Track order_placed event
