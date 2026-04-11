@@ -42,7 +42,6 @@ export default function AdminOrders() {
   const [methodFilter, setMethodFilter] = useState("all");
   const [datePreset, setDatePreset] = useState("This Month");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [printOrder, setPrintOrder] = useState<any>(null);
   const [detailOrder, setDetailOrder] = useState<string | null>(null);
 
   // Realtime new order toast
@@ -143,7 +142,7 @@ export default function AdminOrders() {
   if (detailOrder) {
     const order = (orders || []).find((o: any) => o.id === detailOrder);
     if (!order) { setDetailOrder(null); return null; }
-    return <OrderDetailPage order={order} adminUser={adminUser} onBack={() => setDetailOrder(null)} onPrint={() => setPrintOrder(order)} />;
+    return <OrderDetailPage order={order} adminUser={adminUser} onBack={() => setDetailOrder(null)} onPrint={() => openBrandedInvoice(order, adminUser?.id)} />;
   }
 
   const statCards = [
@@ -261,7 +260,7 @@ export default function AdminOrders() {
           </table>
         </div>
       )}
-      {printOrder && <PrintInvoice order={printOrder} onClose={() => setPrintOrder(null)} />}
+      {/* Branded invoice opens in new window via openBrandedInvoice() */}
     </div>
   );
 }
