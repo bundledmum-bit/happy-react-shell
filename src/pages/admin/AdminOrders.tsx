@@ -141,10 +141,21 @@ export default function AdminOrders() {
     ...(can("orders", "export") ? [{ label: "Export selected CSV", value: "export" }] : []),
   ];
 
+  // Fetch full order with items when detail view is open
+  const { data: detailOrderData } = useQuery({
+    queryKey: ["admin-order-detail", detailOrder],
+    queryFn: async () => {
+      if (!detailOrder) return null;
+      const { data, error } = await supabase.from("orders").select("*, order_items(*)").eq("id", detailOrder).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!detailOrder,
+  });
+
   if (detailOrder) {
-    const order = (orders || []).find((o: any) => o.id === detailOrder);
-    if (!order) { setDetailOrder(null); return null; }
-    return <OrderDetailPage order={order} adminUser={adminUser} can={can} isSuperAdmin={isSuperAdmin} onBack={() => setDetailOrder(null)} onPrint={() => openBrandedInvoice(order, adminUser?.id)} />;
+    if (!detailOrderData) return <div className="flex justify-center py-20"><Skeleton className="h-8 w-48" /></div>;
+    return <OrderDetailPage order={detailOrderData} adminUser={adminUser} can={can} isSuperAdmin={isSuperAdmin} onBack={() => setDetailOrder(null)} onPrint={() => openBrandedInvoice(detailOrderData, adminUser?.id)} />;
   }
 
   const showFinance = can("finance", "view");
