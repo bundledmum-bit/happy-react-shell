@@ -631,14 +631,14 @@ export default function QuizPage() {
     const whatsappError = whatsappNumber && !isValidNigerian(whatsappNumber) ? "Enter a valid Nigerian number (e.g. 08012345678 or +234...)" : "";
 
     return (
-      <div className="min-h-screen bg-background pt-[68px] flex flex-col items-center px-4 md:px-10 py-8 md:py-12 pb-20 md:pb-12">
+      <div className="min-h-screen bg-background pt-[68px] flex flex-col items-center px-4 md:px-10 py-10 md:py-14 pb-20 md:pb-12">
         <div className="w-full max-w-[660px] mb-6">
           <div className="w-full bg-border h-1.5 rounded-full overflow-hidden">
             <div className="bg-coral h-1.5 transition-all duration-500 rounded-full" style={{ width: `${progress}%` }} />
           </div>
-          <div className="flex justify-between mt-2">
-            <div className="text-muted-foreground text-xs">Almost done!</div>
-            <button onClick={handleBack} className="text-muted-foreground text-xs flex items-center gap-1 font-body hover:text-foreground"><ArrowLeft className="h-3 w-3" /> Back</button>
+          <div className="flex justify-between mt-3">
+            <div className="text-muted-foreground text-sm font-semibold">Almost done!</div>
+            <button onClick={handleBack} className="text-muted-foreground text-sm flex items-center gap-1 font-body hover:text-foreground"><ArrowLeft className="h-3.5 w-3.5" /> Back</button>
           </div>
         </div>
 
