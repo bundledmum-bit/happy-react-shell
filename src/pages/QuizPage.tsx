@@ -646,7 +646,7 @@ export default function QuizPage() {
           <div className="text-center mb-7">
             <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-widest mb-2">ONE LAST THING 📱</p>
             <h2 className="pf text-xl md:text-[30px] leading-tight">WhatsApp Number (optional)</h2>
-            <p className="text-muted-foreground text-sm mt-2">So we can send your bundle summary</p>
+            <p className="text-muted-foreground text-sm mt-2">We will only use this to follow up on this order if necessary</p>
           </div>
 
           <div className="space-y-4">
@@ -731,7 +731,7 @@ export default function QuizPage() {
               <div className="flex-1">
                 <div className="font-bold text-[13px] md:text-[15px] flex items-center gap-2 flex-wrap">
                   {opt.option_label}
-                  {opt.price_modifier && opt.price_modifier > 0 && (
+                  {opt.price_modifier != null && opt.price_modifier > 0 && (
                     <span className="text-coral text-[10px] font-semibold">+{fmt(opt.price_modifier)}</span>
                   )}
                 </div>
