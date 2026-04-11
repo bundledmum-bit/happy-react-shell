@@ -50,7 +50,7 @@ export function AdminPermissionsProvider({ children }: { children: ReactNode }) 
     try {
       const { data, error } = await supabase.rpc("get_admin_nav");
       if (error) throw error;
-      setNavItems((data as AdminNavItem[]) || []);
+      setNavItems((data as unknown as AdminNavItem[]) || []);
     } catch (e) {
       console.error("Failed to load nav", e);
       setNavItems([]);
