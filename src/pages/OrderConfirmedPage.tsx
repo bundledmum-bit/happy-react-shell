@@ -1,68 +1,78 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { fmt } from "@/lib/cart";
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import ReferralSection from "@/components/ReferralSection";
 import ShareModal from "@/components/ShareModal";
 
 export default function OrderConfirmedPage() {
-  const { state } = useLocation();
-  const order = state as Record<string, any> | null;
+  const [searchParams] = useSearchParams();
+  const orderNumber = searchParams.get("order") || "";
   const [showShareModal, setShowShareModal] = useState(false);
 
   useEffect(() => { document.title = "Order Confirmed | BundledMum"; }, []);
 
-  const isBankTransfer = order?.paymentType === "transfer";
-  const orderId = (order?.orderId as string) || "ORD-XXXX";
-  const form = order?.form || {};
-  const items = order?.items || [];
+  const { data: order, isLoading } = useQuery({
+    queryKey: ["order-confirmed", orderNumber],
+    enabled: !!orderNumber,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("orders")
+        .select("*, order_items(*)")
+        .eq("order_number", orderNumber)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  if (isLoading) return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="text-center"><div className="mx-auto h-14 w-14 border-4 border-border border-t-forest rounded-full animate-spin mb-4" /><p className="text-muted-foreground">Loading order...</p></div>
+    </div>
+  );
+
+  if (!order) return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="text-center"><h1 className="text-2xl font-bold mb-2">Order not found</h1><p className="text-muted-foreground mb-4">We couldn't find order {orderNumber}</p><Link to="/" className="text-forest font-semibold hover:underline">Go Home</Link></div>
+    </div>
+  );
+
+  const orderId = order.order_number || orderNumber;
+  const items = order.order_items || [];
+  const isBankTransfer = order.payment_method === "transfer";
+  const [firstName] = (order.customer_name || "").split(" ");
   const payLabels: Record<string, string> = { card: "Card Payment via Paystack", transfer: "Bank Transfer", ussd: "USSD / Mobile Money" };
 
   const deliveryDate = () => {
-    const now = new Date();
-    const isLagos = (form.state || "").toLowerCase() === "lagos";
-    const min = isLagos ? 1 : 3;
-    const max = isLagos ? 2 : 5;
-    const from = new Date(now); from.setDate(from.getDate() + min);
-    const to = new Date(now); to.setDate(to.getDate() + max);
+    const from = order.estimated_delivery_start ? new Date(order.estimated_delivery_start) : new Date();
+    const to = order.estimated_delivery_end ? new Date(order.estimated_delivery_end) : new Date();
     const f = (d: Date) => d.toLocaleDateString("en-NG", { weekday: "short", month: "short", day: "numeric" });
     return `${f(from)} – ${f(to)}`;
   };
 
   const handleDownload = () => {
     const lines = [
-      `BundledMum Order Summary`,
-      `Order #${orderId}`,
-      `Date: ${new Date().toLocaleDateString("en-NG")}`,
-      ``,
-      `Customer: ${form.firstName || ""} ${form.lastName || ""}`,
-      `Email: ${form.email || ""}`,
-      `Phone: ${form.phone || ""}`,
-      `Address: ${form.address || ""}, ${form.city || ""}, ${form.state || ""}`,
-      ``,
+      `BundledMum Order Summary`, `Order #${orderId}`, `Date: ${new Date(order.created_at).toLocaleDateString("en-NG")}`, ``,
+      `Customer: ${order.customer_name}`, `Email: ${order.customer_email}`, `Phone: ${order.customer_phone}`,
+      `Address: ${order.delivery_address}, ${order.delivery_city}, ${order.delivery_state}`, ``,
       `Items:`,
-      ...items.map((i: any) => `  ${i.name} × ${i.qty} — ${fmt(i.price * i.qty)}${i.selectedBrand ? ` (${i.selectedBrand.label})` : ""}${i.selectedSize ? ` Size: ${i.selectedSize}` : ""}`),
-      ``,
-      `Subtotal: ${order?.subtotal ? fmt(order.subtotal) : ""}`,
-      `Delivery: ${order?.deliveryFee === 0 ? "FREE" : order?.deliveryFee ? fmt(order.deliveryFee) : ""}`,
-      `Service & Packaging: ${order?.serviceFee ? fmt(order.serviceFee) : ""}`,
-      order?.giftWrapFee > 0 ? `Gift Wrapping: ${fmt(order.giftWrapFee)}` : "",
-      `Total: ${order?.total ? fmt(order.total) : ""}`,
-      ``,
-      `Payment: ${payLabels[order?.paymentMethod] || ""}`,
+      ...items.map((i: any) => `  ${i.product_name} × ${i.quantity} — ${fmt(i.line_total)}${i.brand_name ? ` (${i.brand_name})` : ""}${i.size ? ` Size: ${i.size}` : ""}`),
+      ``, `Subtotal: ${fmt(order.subtotal)}`, `Delivery: ${order.delivery_fee === 0 ? "FREE" : fmt(order.delivery_fee)}`,
+      `Service & Packaging: ${fmt(order.service_fee)}`, `Total: ${fmt(order.total)}`, ``, `Payment: ${payLabels[order.payment_method] || ""}`,
     ].filter(Boolean);
-
     const blob = new Blob([lines.join("\n")], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `BundledMum-${orderId}.txt`;
-    a.click(); URL.revokeObjectURL(url);
+    const a = document.createElement("a"); a.href = url; a.download = `BundledMum-${orderId}.txt`; a.click(); URL.revokeObjectURL(url);
   };
 
   const referralCode = (() => {
-    const name = (form.firstName || "").replace(/[^a-zA-Z]/g, "").toUpperCase().slice(0, 8);
+    const name = (firstName || "").replace(/[^a-zA-Z]/g, "").toUpperCase().slice(0, 8);
     return `${name || "BUNDLED"}${new Date().getFullYear()}`;
   })();
+
+  const whatsappMsg = `Hi BundledMum! I just placed order ${orderId}. Please confirm my order. Thank you!`;
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
@@ -72,7 +82,7 @@ export default function OrderConfirmedPage() {
         <div className="max-w-[860px] mx-auto px-4 md:px-10 py-12 md:py-20 text-center">
           <div className="w-[72px] h-[72px] bg-primary-foreground/[0.12] rounded-full flex items-center justify-center mx-auto mb-4 text-3xl animate-pulse-scale">✅</div>
           <h1 className="pf text-3xl md:text-5xl text-primary-foreground mb-2.5">Order Confirmed! 🎉</h1>
-          <p className="text-primary-foreground/70 text-sm md:text-[17px] mb-1.5">Thank you, {form.firstName || ""}! Your bundle is on its way.</p>
+          <p className="text-primary-foreground/70 text-sm md:text-[17px] mb-1.5">Thank you, {firstName}! Your bundle is on its way.</p>
           <div className="inline-flex items-center gap-2 bg-coral/20 border border-coral/40 rounded-pill px-5 py-2 mt-2.5">
             <span className="text-coral font-bold text-sm">Order #{orderId}</span>
           </div>
@@ -80,19 +90,19 @@ export default function OrderConfirmedPage() {
       </div>
 
       <div className="max-w-[860px] mx-auto px-4 md:px-10 py-8 md:py-14">
-        {(form.firstName || form.email) && (
-          <div className="bg-card rounded-card shadow-card p-5 md:p-8 mb-4">
-            <h3 className="pf text-lg md:text-xl text-forest mb-4">📋 Your Details</h3>
-            <div className="grid md:grid-cols-2 gap-3 text-sm font-body">
-              <div><span className="text-text-light">Name:</span> <span className="font-semibold">{form.firstName} {form.lastName}</span></div>
-              <div><span className="text-text-light">Email:</span> <span className="font-semibold">{form.email}</span></div>
-              <div><span className="text-text-light">Phone:</span> <span className="font-semibold">{form.phone}</span></div>
-              <div><span className="text-text-light">Payment:</span> <span className="font-semibold">{payLabels[order?.paymentMethod] || ""}</span></div>
-              <div className="md:col-span-2"><span className="text-text-light">Address:</span> <span className="font-semibold">{form.address}, {form.city}, {form.state}</span></div>
-            </div>
+        {/* Customer Details */}
+        <div className="bg-card rounded-card shadow-card p-5 md:p-8 mb-4">
+          <h3 className="pf text-lg md:text-xl text-forest mb-4">📋 Your Details</h3>
+          <div className="grid md:grid-cols-2 gap-3 text-sm font-body">
+            <div><span className="text-text-light">Name:</span> <span className="font-semibold">{order.customer_name}</span></div>
+            <div><span className="text-text-light">Email:</span> <span className="font-semibold">{order.customer_email}</span></div>
+            <div><span className="text-text-light">Phone:</span> <span className="font-semibold">{order.customer_phone}</span></div>
+            <div><span className="text-text-light">Payment:</span> <span className="font-semibold">{payLabels[order.payment_method] || ""}</span></div>
+            <div className="md:col-span-2"><span className="text-text-light">Address:</span> <span className="font-semibold">{order.delivery_address}, {order.delivery_city}, {order.delivery_state}</span></div>
           </div>
-        )}
+        </div>
 
+        {/* Order Items */}
         {items.length > 0 && (
           <div className="bg-card rounded-card shadow-card p-5 md:p-8 mb-4">
             <h3 className="pf text-lg md:text-xl text-forest mb-4">🛒 Your Order</h3>
@@ -100,38 +110,35 @@ export default function OrderConfirmedPage() {
               {items.map((item: any, i: number) => (
                 <div key={i} className="flex items-center justify-between gap-3 pb-2.5 border-b border-border/50 last:border-0">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 bg-warm-cream rounded-lg flex items-center justify-center text-lg flex-shrink-0">{item.img || item.baseImg || "📦"}</div>
+                    <div className="w-9 h-9 bg-warm-cream rounded-lg flex items-center justify-center text-lg flex-shrink-0">📦</div>
                     <div>
-                      <div className="text-sm font-semibold">{item.name}</div>
+                      <div className="text-sm font-semibold">{item.product_name}</div>
                       <div className="text-text-light text-xs flex flex-wrap gap-2">
-                        {item.selectedBrand && <span>Brand: {item.selectedBrand.label}</span>}
-                        {item.selectedSize && <span>Size: {item.selectedSize}</span>}
-                        <span>Qty: {item.qty}</span>
+                        {item.brand_name && <span>Brand: {item.brand_name}</span>}
+                        {item.size && <span>Size: {item.size}</span>}
+                        <span>Qty: {item.quantity}</span>
                       </div>
                     </div>
                   </div>
-                  <div className="text-sm font-bold flex-shrink-0">{fmt(item.price * item.qty)}</div>
+                  <div className="text-sm font-bold flex-shrink-0">{fmt(item.line_total)}</div>
                 </div>
               ))}
             </div>
             <div className="space-y-1.5 text-sm font-body border-t border-border pt-3">
-              {order?.subtotal && <div className="flex justify-between"><span className="text-text-med">Subtotal</span><span>{fmt(order.subtotal)}</span></div>}
-              {order?.deliveryFee !== undefined && <div className="flex justify-between"><span className="text-text-med">Delivery</span><span className={order.deliveryFee === 0 ? "text-forest" : ""}>{order.deliveryFee === 0 ? "FREE" : fmt(order.deliveryFee)}</span></div>}
-              {order?.serviceFee && <div className="flex justify-between"><span className="text-text-med">Service & Packaging</span><span>{fmt(order.serviceFee)}</span></div>}
-              {order?.giftWrapFee > 0 && <div className="flex justify-between"><span className="text-text-med">Gift Wrapping</span><span>{fmt(order.giftWrapFee)}</span></div>}
-              {order?.total && <div className="flex justify-between pt-2 border-t border-border font-bold text-base"><span>Total</span><span className="text-forest">{fmt(order.total)}</span></div>}
+              <div className="flex justify-between"><span className="text-text-med">Subtotal</span><span>{fmt(order.subtotal)}</span></div>
+              <div className="flex justify-between"><span className="text-text-med">Delivery</span><span className={order.delivery_fee === 0 ? "text-forest" : ""}>{order.delivery_fee === 0 ? "FREE" : fmt(order.delivery_fee)}</span></div>
+              <div className="flex justify-between"><span className="text-text-med">Service & Packaging</span><span>{fmt(order.service_fee)}</span></div>
+              <div className="flex justify-between pt-2 border-t border-border font-bold text-base"><span>Total</span><span className="text-forest">{fmt(order.total)}</span></div>
             </div>
           </div>
         )}
 
-        {/* Download / Share */}
+        {/* Download / Share / WhatsApp */}
         <div className="flex gap-3 flex-col sm:flex-row mb-4">
-          <button onClick={handleDownload} className="rounded-pill border-2 border-forest text-forest px-5 py-2.5 font-body font-semibold text-sm hover:bg-forest/5 interactive w-full sm:w-auto text-center">
-            📥 Download Order Summary
-          </button>
-          <button onClick={() => setShowShareModal(true)} className="rounded-pill bg-coral text-primary-foreground px-5 py-2.5 font-body font-semibold text-sm interactive w-full sm:w-auto text-center">
-            📱 Share Your Bundle
-          </button>
+          <button onClick={handleDownload} className="rounded-pill border-2 border-forest text-forest px-5 py-2.5 font-body font-semibold text-sm hover:bg-forest/5 interactive w-full sm:w-auto text-center">📥 Download Order Summary</button>
+          <button onClick={() => setShowShareModal(true)} className="rounded-pill bg-coral text-primary-foreground px-5 py-2.5 font-body font-semibold text-sm interactive w-full sm:w-auto text-center">📱 Share Your Bundle</button>
+          <a href={`https://wa.me/2348012345678?text=${encodeURIComponent(whatsappMsg)}`} target="_blank" rel="noopener noreferrer"
+            className="rounded-pill bg-[#25D366] text-primary-foreground px-5 py-2.5 font-body font-semibold text-sm interactive w-full sm:w-auto text-center">💬 Confirm on WhatsApp</a>
         </div>
 
         {/* What Happens Next */}
@@ -139,9 +146,9 @@ export default function OrderConfirmedPage() {
           <h3 className="pf text-lg md:text-xl text-forest mb-4">What Happens Next</h3>
           <div className="flex flex-col">
             {[
-              { icon: "📧", title: "Confirmation Email Sent", desc: `We've sent order details to ${form.email || "your email"}.`, done: true },
+              { icon: "📧", title: "Confirmation Email Sent", desc: `We've sent order details to ${order.customer_email}.`, done: true },
               { icon: "🔍", title: "Order Being Processed", desc: "Our team is picking and packing your items", done: true },
-              { icon: "📦", title: "Dispatched for Delivery", desc: `To ${form.address || ""}, ${form.city || ""}, ${form.state || ""}`, done: false },
+              { icon: "📦", title: "Dispatched for Delivery", desc: `To ${order.delivery_address}, ${order.delivery_city}, ${order.delivery_state}`, done: false },
               { icon: "🏠", title: "Delivered to Your Door", desc: `Expected delivery: ${deliveryDate()}`, done: false },
             ].map((s, i, arr) => (
               <div key={i} className="flex gap-3 pb-3">
@@ -149,19 +156,13 @@ export default function OrderConfirmedPage() {
                   <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center text-lg flex-shrink-0 ${s.done ? "bg-forest-light border-forest" : "bg-warm-cream border-border"}`}>{s.icon}</div>
                   {i < arr.length - 1 && <div className={`w-0.5 h-4 my-0.5 ${s.done ? "bg-forest" : "bg-border"}`} />}
                 </div>
-                <div className="pb-3">
-                  <div className={`font-bold text-sm ${s.done ? "text-forest" : ""}`}>{s.title}</div>
-                  <div className="text-text-med text-[13px] mt-0.5">{s.desc}</div>
-                </div>
+                <div className="pb-3"><div className={`font-bold text-sm ${s.done ? "text-forest" : ""}`}>{s.title}</div><div className="text-text-med text-[13px] mt-0.5">{s.desc}</div></div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* #5 Referral Program */}
-        <div className="mb-4">
-          <ReferralSection customerName={form.firstName} />
-        </div>
+        <div className="mb-4"><ReferralSection customerName={firstName} /></div>
 
         {isBankTransfer && (
           <div className="bg-[#FFF8E1] border border-[#FFD54F] rounded-card p-5 mb-4">
@@ -169,7 +170,7 @@ export default function OrderConfirmedPage() {
             {[["Bank", "GTBank"], ["Account Name", "BundledMum Nigeria Ltd"], ["Account Number", "0123456789"]].map(([k, v]) => (
               <div key={k} className="flex gap-2 mb-1 text-sm"><span className="text-text-light min-w-[120px]">{k}:</span><span className="font-semibold">{v}</span></div>
             ))}
-            {order?.total && <div className="flex gap-2 mt-2 text-sm"><span className="text-text-light min-w-[120px]">Amount:</span><span className="font-bold text-coral">{fmt(order.total)}</span></div>}
+            <div className="flex gap-2 mt-2 text-sm"><span className="text-text-light min-w-[120px]">Amount:</span><span className="font-bold text-coral">{fmt(order.total)}</span></div>
           </div>
         )}
 
@@ -179,34 +180,21 @@ export default function OrderConfirmedPage() {
             <p className="text-primary-foreground/65 text-[13px]">Chat with us on WhatsApp — we reply within minutes.</p>
           </div>
           <a href={`https://wa.me/2348012345678?text=Hi! My order number is ${orderId}`} target="_blank" rel="noopener noreferrer"
-            className="bg-[#25D366] text-primary-foreground px-5 py-3 rounded-pill font-semibold text-sm whitespace-nowrap w-full md:w-auto text-center">
-            Chat on WhatsApp 💬
-          </a>
+            className="bg-[#25D366] text-primary-foreground px-5 py-3 rounded-pill font-semibold text-sm whitespace-nowrap w-full md:w-auto text-center">Chat on WhatsApp 💬</a>
         </div>
 
         <div className="flex gap-3 justify-center flex-col md:flex-row">
-          <Link to="/" className="rounded-pill bg-forest px-7 py-3.5 font-body font-semibold text-primary-foreground hover:bg-forest-deep interactive text-center text-[15px]">
-            Continue Shopping →
-          </Link>
-          <Link to="/quiz" className="rounded-pill border-2 border-forest text-forest px-7 py-3.5 font-body font-semibold hover:bg-forest/5 interactive text-center text-[15px]">
-            Build Another Bundle
-          </Link>
+          <Link to="/" className="rounded-pill bg-forest px-7 py-3.5 font-body font-semibold text-primary-foreground hover:bg-forest-deep interactive text-center text-[15px]">Continue Shopping →</Link>
+          <Link to="/quiz" className="rounded-pill border-2 border-forest text-forest px-7 py-3.5 font-body font-semibold hover:bg-forest/5 interactive text-center text-[15px]">Build Another Bundle</Link>
         </div>
       </div>
 
-      {/* Share modal */}
       {showShareModal && (
-        <ShareModal
-          onClose={() => setShowShareModal(false)}
-          title="Order Placed!"
-          subtitle={`Order #${orderId}`}
-          items={items.map((i: any) => ({ name: i.name, price: i.price * i.qty }))}
-          totalPrice={order?.total || 0}
-          badge="ORDER PLACED ✅"
-          shareUrl={`https://bundledmum.lovable.app/?ref=${referralCode}`}
+        <ShareModal onClose={() => setShowShareModal(false)} title="Order Placed!" subtitle={`Order #${orderId}`}
+          items={items.map((i: any) => ({ name: i.product_name, price: i.line_total }))} totalPrice={order.total}
+          badge="ORDER PLACED ✅" shareUrl={`https://bundledmum.lovable.app/?ref=${referralCode}`}
           shareText={`I just packed my hospital bag with BundledMum! 🎁 Use my link for ₦2,000 off: https://bundledmum.lovable.app/?ref=${referralCode}`}
-          itemCount={items.length}
-        />
+          itemCount={items.length} />
       )}
     </div>
   );
