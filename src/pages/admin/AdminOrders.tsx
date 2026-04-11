@@ -242,7 +242,14 @@ export default function AdminOrders() {
                   <td className="p-2 text-muted-foreground">{o.customer_phone}</td>
                   <td className="p-2 text-right font-semibold">{fmt(o.total || 0)}</td>
                   <td className="p-2 text-center"><span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${STATUS_COLORS[o.payment_status] || ""}`}>{o.payment_status}</span></td>
-                  <td className="p-2 text-center"><span className={`px-2 py-0.5 rounded text-[10px] font-semibold capitalize ${STATUS_COLORS[o.order_status] || ""}`}>{o.order_status}</span></td>
+                  <td className="p-2 text-center">
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-semibold capitalize ${STATUS_COLORS[o.order_status] || ""}`}>{o.order_status}</span>
+                    {o.is_quiz_order ? (
+                      <span className="ml-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-green-100 text-green-700">Quiz</span>
+                    ) : (
+                      <span className="ml-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-gray-100 text-gray-500">Direct</span>
+                    )}
+                  </td>
                   <td className="p-2 text-center capitalize text-muted-foreground">{o.payment_method}</td>
                   <td className="p-2 text-muted-foreground">{new Date(o.created_at).toLocaleDateString("en-NG", { month: "short", day: "numeric" })}</td>
                   <td className="p-2 text-center" onClick={e => e.stopPropagation()}>
@@ -391,6 +398,13 @@ function OrderDetailPage({ order: o, adminUser, onBack, onPrint }: { order: any;
         <div>
           <h1 className="pf text-2xl font-bold">{o.order_number || "Order"}</h1>
           <p className="text-muted-foreground text-xs">{new Date(o.created_at).toLocaleString()}</p>
+          <p className="text-xs mt-0.5">
+            Source: {o.is_quiz_order ? (
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-700">Quiz Order</span>
+            ) : (
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-500">Direct Order</span>
+            )}
+          </p>
         </div>
         <div className="flex gap-2">
           <span className={`px-3 py-1 rounded text-xs font-semibold ${STATUS_COLORS[o.order_status] || ""}`}>{o.order_status}</span>
