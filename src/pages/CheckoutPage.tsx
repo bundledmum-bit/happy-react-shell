@@ -7,6 +7,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { useShippingZones, calculateDeliveryFee } from "@/hooks/useShippingZones";
 import { useSiteSettings } from "@/hooks/useSupabaseData";
 import { useSpendThresholds, getSpendPrompt } from "@/hooks/useSpendThresholds";
+import { trackEvent, getSessionId } from "@/lib/analytics";
 
 const NIGERIAN_STATES = ["Lagos", "Abuja", "Rivers", "Ogun", "Oyo", "Kano", "Kaduna", "Anambra", "Enugu", "Delta", "Edo", "Imo", "Osun", "Kwara", "Benue"];
 const GIFT_WRAP_FEE = 3500;
@@ -44,7 +45,38 @@ export default function CheckoutPage() {
   const { data: zones } = useShippingZones();
   const { data: thresholds } = useSpendThresholds();
 
-  useEffect(() => { document.title = "Secure Checkout | BundledMum"; }, []);
+  useEffect(() => {
+    document.title = "Secure Checkout | BundledMum";
+    trackEvent("checkout_started", { item_count: totalItems, subtotal });
+  }, []);
+
+  // Returning customer recognition: pre-fill from existing customer data
+  const [customerLookedUp, setCustomerLookedUp] = useState(false);
+  useEffect(() => {
+    const phone = form.phone.replace(/\D/g, "");
+    if (phone.length >= 10 && !customerLookedUp) {
+      setCustomerLookedUp(true);
+      supabase
+        .from("customers")
+        .select("full_name, delivery_address, delivery_area, delivery_state")
+        .eq("phone", form.phone)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) {
+            const [first, ...rest] = (data.full_name || "").split(" ");
+            setForm(prev => ({
+              ...prev,
+              firstName: prev.firstName || first || "",
+              lastName: prev.lastName || rest.join(" ") || "",
+              address: prev.address || data.delivery_address || "",
+              city: prev.city || data.delivery_area || "",
+              state: prev.state || data.delivery_state || prev.state,
+            }));
+            toast.success("Welcome back! We've pre-filled your details.");
+          }
+        });
+    }
+  }, [form.phone]);
 
   const serviceFeeEnabled = settings?.service_fee_enabled !== false;
   const serviceFee = serviceFeeEnabled ? (parseInt(settings?.service_fee) || 1500) : 0;
