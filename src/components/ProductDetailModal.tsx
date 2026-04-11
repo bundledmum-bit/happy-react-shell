@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Star, ShoppingBag } from "lucide-react";
 import { useCart, fmt, getBrandForBudget } from "@/lib/cart";
 import { toast } from "sonner";
@@ -7,6 +7,7 @@ import { useBundles } from "@/hooks/useSupabaseData";
 import type { Product } from "@/lib/supabaseAdapters";
 import { getProductImageUrl } from "@/lib/supabaseAdapters";
 import ProductImage from "@/components/ProductImage";
+import { trackEvent } from "@/lib/analytics";
 
 interface Props {
   product: Product;
@@ -21,6 +22,11 @@ export default function ProductDetailModal({ product, defaultBudget = "standard"
   const { cart, addToCart } = useCart();
   const isInCart = cart.some(c => c.id === product.id);
   const { data: allBundles } = useBundles();
+
+  // Track product view
+  useEffect(() => {
+    trackEvent("product_viewed", { product_id: product.id, product_name: product.name });
+  }, [product.id, product.name]);
 
   const relatedBundles = (allBundles || []).filter(b =>
     [...b.babyItems, ...b.mumItems].some(i => i.name.toLowerCase().includes(product.name.toLowerCase().split(" ")[0]))

@@ -770,6 +770,70 @@ export default function QuizPage() {
     );
   }
 
+  // ========= WHATSAPP CAPTURE STEP =========
+
+  if (showWhatsAppStep) {
+    const isValidNigerian = (num: string) => {
+      const digits = num.replace(/\D/g, "");
+      return /^(0[789][01]\d{8})$/.test(digits) || /^234[789][01]\d{8}$/.test(digits);
+    };
+    const whatsappError = whatsappNumber && !isValidNigerian(whatsappNumber) ? "Enter a valid Nigerian number (e.g. 08012345678 or +234...)" : "";
+
+    return (
+      <div className="min-h-screen bg-background pt-[68px] flex flex-col items-center px-4 md:px-10 py-8 md:py-12 pb-20 md:pb-12">
+        <div className="w-full max-w-[660px] mb-6">
+          <div className="w-full bg-border h-1.5 rounded-full overflow-hidden">
+            <div className="bg-coral h-1.5 transition-all duration-500 rounded-full" style={{ width: `${progress}%` }} />
+          </div>
+          <div className="flex justify-between mt-2">
+            <div className="text-text-light text-xs">Almost done!</div>
+            <button onClick={handleBack} className="text-text-light text-xs flex items-center gap-1 font-body hover:text-foreground"><ArrowLeft className="h-3 w-3" /> Back</button>
+          </div>
+        </div>
+
+        <div className="animate-fade-in bg-card rounded-[22px] p-7 md:p-12 shadow-card-hover w-full max-w-[660px]">
+          <div className="text-center mb-7">
+            <p className="text-text-light text-[11px] font-semibold uppercase tracking-widest mb-2">ONE LAST THING 📱</p>
+            <h2 className="pf text-xl md:text-[30px] leading-tight">WhatsApp Number (optional)</h2>
+            <p className="text-text-med text-sm mt-2">So we can send your bundle summary</p>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex flex-col gap-1">
+              <input
+                type="tel"
+                value={whatsappNumber}
+                onChange={e => setWhatsappNumber(e.target.value)}
+                placeholder="08012345678 or +234..."
+                className={`w-full rounded-[14px] border-2 px-4 py-3.5 text-sm bg-card font-body outline-none transition-colors ${whatsappError ? "border-destructive" : "border-border focus:border-forest"}`}
+              />
+              {whatsappError && <p className="text-destructive text-[11px]">{whatsappError}</p>}
+              <p className="text-text-light text-[11px]">Accepts 07xx, 08xx, 09xx or +234 format</p>
+            </div>
+
+            <button
+              onClick={() => {
+                if (whatsappNumber && !isValidNigerian(whatsappNumber)) return;
+                finishQuiz(whatsappNumber || undefined);
+              }}
+              className="w-full rounded-pill bg-forest py-3.5 font-body font-semibold text-primary-foreground hover:bg-forest-deep interactive text-sm"
+            >
+              {whatsappNumber ? "Continue →" : "Continue without WhatsApp →"}
+            </button>
+
+            <button
+              onClick={() => finishQuiz()}
+              className="w-full text-text-light text-xs hover:text-forest transition-colors font-body"
+            >
+              ⏭️ Skip
+            </button>
+          </div>
+        </div>
+        <p className="text-text-light text-xs mt-4 text-center">🔒 We never share your data · Results appear instantly</p>
+      </div>
+    );
+  }
+
   // ========= QUIZ STEP VIEW =========
 
   const stepDef = currentStep === "gender" ? getGenderOptions(answers) : STEPS[currentStep];
