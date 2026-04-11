@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { trackPageView, initSession } from "@/lib/analytics";
+import { trackPageView } from "@/lib/analytics";
 
 /**
  * Hook to track page views on route changes.
@@ -10,7 +10,6 @@ export function usePageTracking() {
   const location = useLocation();
 
   useEffect(() => {
-    initSession();
     trackPageView();
   }, [location.pathname]);
 }
