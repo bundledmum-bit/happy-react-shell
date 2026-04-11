@@ -88,8 +88,6 @@ export function getStepSequence(
     const ans = answers[current] || "";
     const next = getNextStep(current, ans, answers, routingRules, questions);
     if (!next) break;
-    // Skip whatsapp_consent — handled by hardcoded WhatsApp capture step
-    if (next === "whatsapp_consent") break;
     steps.push(next);
     current = next;
   }
