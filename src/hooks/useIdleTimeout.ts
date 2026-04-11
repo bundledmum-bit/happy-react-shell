@@ -2,7 +2,7 @@ import { useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-const IDLE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+const IDLE_TIMEOUT = 30 * 60 * 1000; // 30 minutes
 const EVENTS = ["mousedown", "mousemove", "keydown", "scroll", "touchstart", "click"];
 
 export function useIdleTimeout() {
