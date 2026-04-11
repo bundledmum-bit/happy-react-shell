@@ -60,28 +60,34 @@ export default function AdminOrders() {
     return preset ? preset.getValue() : new Date(0).toISOString();
   }, [datePreset]);
 
-  const { data: orders, isLoading } = useQuery({
-    queryKey: ["admin-orders"],
+  const [currentPage, setCurrentPage] = useState(0);
+
+  const { data: rpcResult, isLoading } = useQuery({
+    queryKey: ["admin-orders", currentPage, statusFilter, paymentFilter, search],
     queryFn: async () => {
-      const { data, error } = await supabase.from("orders").select("*, order_items(*)").order("created_at", { ascending: false });
+      const { data, error } = await supabase.rpc("get_admin_orders", {
+        p_limit: 50,
+        p_offset: currentPage * 50,
+        p_status: statusFilter !== "all" ? statusFilter : null,
+        p_payment_status: paymentFilter !== "all" ? paymentFilter : null,
+        p_search: search || null,
+      });
       if (error) throw error;
-      return data;
+      return data as any;
     },
   });
 
+  const orders = rpcResult?.orders || [];
+  const totalCount = rpcResult?.total || 0;
+  const isPaidOnlyRestricted = rpcResult?.paid_only_restricted || false;
+
   const filtered = useMemo(() => {
     return (orders || []).filter((o: any) => {
-      if (statusFilter !== "all" && o.order_status !== statusFilter) return false;
-      if (paymentFilter !== "all" && o.payment_status !== paymentFilter) return false;
       if (methodFilter !== "all" && o.payment_method !== methodFilter) return false;
       if (o.created_at < dateFrom) return false;
-      if (search) {
-        const s = search.toLowerCase();
-        return (o.order_number || "").toLowerCase().includes(s) || (o.customer_name || "").toLowerCase().includes(s) || (o.customer_phone || "").includes(s);
-      }
       return true;
     });
-  }, [orders, statusFilter, paymentFilter, methodFilter, dateFrom, search]);
+  }, [orders, methodFilter, dateFrom]);
 
   const stats = useMemo(() => {
     const f = filtered;
