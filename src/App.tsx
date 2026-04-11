@@ -11,6 +11,7 @@ import Footer from "@/components/Footer";
 import FloatingCartBar from "@/components/FloatingCartBar";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import { subscribeToAllChanges } from "@/lib/realtime";
+import { usePageTracking } from "@/hooks/usePageTracking";
 
 import HomePage from "@/pages/HomePage";
 import BundlesPage from "@/pages/BundlesPage";
@@ -72,6 +73,11 @@ function RealtimeProvider({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function PageTracker({ children }: { children: React.ReactNode }) {
+  usePageTracking();
+  return <>{children}</>;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <RealtimeProvider>
@@ -79,6 +85,7 @@ const App = () => (
         <CartProvider>
           <Sonner />
           <BrowserRouter>
+            <PageTracker>
             <ScrollToTop />
             <Routes>
               {/* Admin routes */}
@@ -137,6 +144,7 @@ const App = () => (
                 </>
               } />
             </Routes>
+            </PageTracker>
           </BrowserRouter>
         </CartProvider>
       </TooltipProvider>
