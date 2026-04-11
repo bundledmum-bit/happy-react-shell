@@ -24,11 +24,11 @@ export function trackEvent(eventType: string, eventData?: Record<string, unknown
     session_id: getSessionId(),
     page_url: window.location.pathname,
     referral_source: getReferralSource(),
-    event_data: eventData || null,
+    event_data: (eventData || null) as any,
   };
 
   // Fire and forget
-  supabase.from("analytics_events").insert(payload).then(({ error }) => {
+  supabase.from("analytics_events").insert([payload]).then(({ error }) => {
     if (error) console.error("Analytics error:", error);
   });
 }
