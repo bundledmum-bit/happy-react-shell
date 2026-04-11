@@ -255,9 +255,13 @@ export default function AdminProductForm({ product, onClose, onSaved }: Props) {
                         {TIERS.map(t => <option key={t} value={t}>{t}</option>)}
                       </select></div>
                   </div>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-4 gap-2">
                     <div><label className="text-[10px] font-semibold text-text-med block mb-0.5">Price (₦)</label>
                       <input type="number" value={b.price} onChange={e => setBrands(bs => bs.map((br, idx) => idx === i ? { ...br, price: parseInt(e.target.value) || 0 } : br))}
+                        className="w-full border border-input rounded-lg px-2 py-1.5 text-xs bg-background" /></div>
+                    <div><label className="text-[10px] font-semibold text-text-med block mb-0.5">Cost Price (₦)</label>
+                      <input type="number" value={b.cost_price || ""} placeholder="COGS"
+                        onChange={e => setBrands(bs => bs.map((br, idx) => idx === i ? { ...br, cost_price: parseInt(e.target.value) || 0 } : br))}
                         className="w-full border border-input rounded-lg px-2 py-1.5 text-xs bg-background" /></div>
                     <div><label className="text-[10px] font-semibold text-text-med block mb-0.5">Compare-at (₦)</label>
                       <input type="number" value={b.compare_at_price || ""} placeholder="Optional"
