@@ -8,6 +8,8 @@ import { ArrowLeft, Check, Share2, ClipboardCopy } from "lucide-react";
 import ShareModal from "@/components/ShareModal";
 import ExitIntentPopup from "@/components/ExitIntentPopup";
 import ProductImage from "@/components/ProductImage";
+import { trackEvent, getSessionId, getReferralSource } from "@/lib/analytics";
+import { supabase } from "@/integrations/supabase/client";
 
 type Answers = Record<string, string>;
 
@@ -444,6 +446,9 @@ export default function QuizPage() {
   const [currentStep, setCurrentStep] = useState("shopper");
   const [showResults, setShowResults] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showWhatsAppStep, setShowWhatsAppStep] = useState(false);
+  const [whatsappNumber, setWhatsappNumber] = useState("");
+  const [quizStartTracked, setQuizStartTracked] = useState(false);
   const navigate = useNavigate();
   const { addToCart, cart, setCart } = useCart();
   const { data: supabaseProducts } = useAllProducts();
@@ -451,18 +456,58 @@ export default function QuizPage() {
 
   useEffect(() => { document.title = "Build My Bundle | BundledMum"; }, []);
 
+  // Track quiz_started once
+  useEffect(() => {
+    if (!quizStartTracked) {
+      trackEvent("quiz_started");
+      setQuizStartTracked(true);
+    }
+  }, [quizStartTracked]);
+
   const stepSequence = useMemo(() => getStepSequence(answers), [answers]);
   const currentIdx = stepSequence.indexOf(currentStep);
   const totalSteps = stepSequence.length;
-  const progress = showResults ? 100 : totalSteps > 0 ? ((currentIdx + 1) / totalSteps) * 100 : 0;
+  const progress = showResults ? 100 : showWhatsAppStep ? 95 : totalSteps > 0 ? ((currentIdx + 1) / totalSteps) * 100 : 0;
+
+  const saveQuizCustomer = async (whatsapp?: string) => {
+    const quizData = {
+      hospital_type: answers.hospitalType || null,
+      delivery_method: answers.deliveryMethod || null,
+      baby_gender: answers.gender || null,
+      budget_tier: answers.budget || null,
+      whatsapp_number: whatsapp || null,
+      session_id: getSessionId(),
+      page_url: window.location.pathname,
+      referral_source: getReferralSource(),
+      has_purchased: false,
+    };
+    await supabase.from("quiz_customers").insert([quizData]);
+  };
+
+  const finishQuiz = async (whatsapp?: string) => {
+    trackEvent("quiz_completed", {
+      hospital_type: answers.hospitalType,
+      delivery_method: answers.deliveryMethod,
+      baby_gender: answers.gender,
+      budget_tier: answers.budget,
+    });
+    await saveQuizCustomer(whatsapp);
+    setShowWhatsAppStep(false);
+    setShowResults(true);
+  };
 
   const handleAnswer = (stepId: string, optionId: string) => {
     const newAnswers = { ...answers, [stepId]: optionId };
     setAnswers(newAnswers);
     setTimeout(() => {
       const next = getNextStep(stepId, optionId, newAnswers);
-      if (!next) setShowResults(true);
-      else { setHistory(h => [...h, currentStep]); setCurrentStep(next); }
+      if (!next) {
+        // Show WhatsApp capture step before results
+        setShowWhatsAppStep(true);
+      } else {
+        setHistory(h => [...h, currentStep]);
+        setCurrentStep(next);
+      }
     }, 320);
   };
 
@@ -470,12 +515,17 @@ export default function QuizPage() {
     const newAnswers = { ...answers, [stepId]: "skip" };
     setAnswers(newAnswers);
     const next = getNextStep(stepId, "skip", newAnswers);
-    if (!next) setShowResults(true);
-    else { setHistory(h => [...h, currentStep]); setCurrentStep(next); }
+    if (!next) {
+      setShowWhatsAppStep(true);
+    } else {
+      setHistory(h => [...h, currentStep]);
+      setCurrentStep(next);
+    }
   };
 
   const handleBack = () => {
     if (showResults) { setShowResults(false); return; }
+    if (showWhatsAppStep) { setShowWhatsAppStep(false); return; }
     if (history.length === 0) return;
     const prev = history[history.length - 1];
     setHistory(h => h.slice(0, -1));
