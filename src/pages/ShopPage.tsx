@@ -203,7 +203,7 @@ export default function ShopPage() {
     let raw = (allProducts || []);
     if (tab === "baby") raw = raw.filter(p => p.category === "baby");
     else if (tab === "mum") raw = raw.filter(p => p.category === "mum");
-    else if (tab as string === "push-gift") raw = raw.filter(p => p.category === "push-gift");
+    else if (tab === ("push-gift" as string)) raw = raw.filter(p => p.category === "push-gift");
 
     if (search) raw = raw.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
     if (categoryF) raw = raw.filter(p => p.subcategory === categoryF);
