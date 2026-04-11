@@ -103,8 +103,10 @@ export const generateOrderId = () => `ORD-${Math.random().toString(36).slice(2, 
 const BRANDS_BY_BUDGET: Record<string, number> = { starter: 0, standard: 1, premium: 2 };
 
 export function getBrandForBudget(product: any, budget: string) {
+  const brands = product.brands || [];
+  if (brands.length === 0) return { id: "default", label: "Standard", price: 0, img: "📦", tier: 1, color: "#E8F5E9", inStock: true } as any;
   const tierIdx = BRANDS_BY_BUDGET[budget] ?? 1;
-  const sorted = [...product.brands].sort((a: any, b: any) => a.tier - b.tier);
+  const sorted = [...brands].sort((a: any, b: any) => a.tier - b.tier);
   return sorted.find((b: any) => b.tier === tierIdx)
     || sorted.reduce((best: any, b: any) => Math.abs(b.tier - tierIdx) < Math.abs(best.tier - tierIdx) ? b : best, sorted[0]);
 }
