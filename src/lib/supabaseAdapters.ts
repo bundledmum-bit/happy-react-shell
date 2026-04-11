@@ -159,7 +159,7 @@ export function adaptProduct(row: any): Product {
     tags: tags.map((t: any) => `${t.tag_type}:${t.tag_value}`),
     badge: row.badge || null,
     brands,
-    category: row.category as "baby" | "mum",
+    category: row.category,
     subcategory: row.subcategory || null,
     stage: stageTags.length ? stageTags : ["expecting", "newborn", "0-3m"],
     priority: row.priority as any,
