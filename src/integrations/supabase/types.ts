@@ -840,6 +840,159 @@ export type Database = {
         }
         Relationships: []
       }
+      invoices: {
+        Row: {
+          billing_address: string | null
+          billing_city: string | null
+          billing_country: string | null
+          billing_state: string | null
+          coupon_code: string | null
+          created_at: string | null
+          customer_email: string
+          customer_name: string
+          customer_phone: string | null
+          delivery_fee: number
+          discount_amount: number
+          due_date: string | null
+          generated_by: string | null
+          gift_message: string | null
+          gift_wrap: boolean | null
+          id: string
+          invoice_date: string
+          invoice_number: string
+          is_gift: boolean | null
+          line_items: Json
+          notes: string | null
+          order_id: string
+          order_number: string
+          paid_at: string | null
+          payment_method: string | null
+          payment_status: string | null
+          paystack_reference: string | null
+          service_fee: number
+          status: string
+          subtotal: number
+          tax_amount: number
+          total: number
+          updated_at: string | null
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        Insert: {
+          billing_address?: string | null
+          billing_city?: string | null
+          billing_country?: string | null
+          billing_state?: string | null
+          coupon_code?: string | null
+          created_at?: string | null
+          customer_email: string
+          customer_name: string
+          customer_phone?: string | null
+          delivery_fee?: number
+          discount_amount?: number
+          due_date?: string | null
+          generated_by?: string | null
+          gift_message?: string | null
+          gift_wrap?: boolean | null
+          id?: string
+          invoice_date?: string
+          invoice_number: string
+          is_gift?: boolean | null
+          line_items?: Json
+          notes?: string | null
+          order_id: string
+          order_number: string
+          paid_at?: string | null
+          payment_method?: string | null
+          payment_status?: string | null
+          paystack_reference?: string | null
+          service_fee?: number
+          status?: string
+          subtotal?: number
+          tax_amount?: number
+          total?: number
+          updated_at?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Update: {
+          billing_address?: string | null
+          billing_city?: string | null
+          billing_country?: string | null
+          billing_state?: string | null
+          coupon_code?: string | null
+          created_at?: string | null
+          customer_email?: string
+          customer_name?: string
+          customer_phone?: string | null
+          delivery_fee?: number
+          discount_amount?: number
+          due_date?: string | null
+          generated_by?: string | null
+          gift_message?: string | null
+          gift_wrap?: boolean | null
+          id?: string
+          invoice_date?: string
+          invoice_number?: string
+          is_gift?: boolean | null
+          line_items?: Json
+          notes?: string | null
+          order_id?: string
+          order_number?: string
+          paid_at?: string | null
+          payment_method?: string | null
+          payment_status?: string | null
+          paystack_reference?: string | null
+          service_fee?: number
+          status?: string
+          subtotal?: number
+          tax_amount?: number
+          total?: number
+          updated_at?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_generated_by_fkey"
+            columns: ["generated_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "order_lines_report"
+            referencedColumns: ["order_uuid"]
+          },
+          {
+            foreignKeyName: "invoices_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders_report"
+            referencedColumns: ["order_uuid"]
+          },
+          {
+            foreignKeyName: "invoices_voided_by_fkey"
+            columns: ["voided_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       navigation_links: {
         Row: {
           created_at: string | null
@@ -2886,6 +3039,11 @@ export type Database = {
         Args: { channel_name: string }
         Returns: boolean
       }
+      generate_invoice_from_order: {
+        Args: { p_generated_by?: string; p_order_id: string }
+        Returns: Json
+      }
+      generate_invoice_number: { Args: never; Returns: string }
       generate_order_number: { Args: never; Returns: string }
       generate_quiz_story: {
         Args: {
