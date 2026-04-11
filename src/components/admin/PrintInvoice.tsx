@@ -1,174 +1,268 @@
-import { X } from "lucide-react";
-import { useSiteSettings } from "@/hooks/useSupabaseData";
-import BmLogoGreen from "@/assets/logos/BM-LOGO-GREEN.svg";
-import { useRef } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAdminUser } from "@/hooks/useAdminPermissions";
+import { toast } from "sonner";
 
-interface Props {
+// The full branded HTML invoice template (A5, self-contained with base64 logos)
+function getInvoiceHTML(): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BundledMum — Order Invoice</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Lato:ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --coral: #F4845F; --coral-dark: #D4613C; --coral-light: #FDE8DF;
+  --green: #2D6A4F; --green-dark: #1A4A33; --green-light: #D8EFE5;
+  --black: #1A1A1A; --cream: #FFF8F4; --warm-grey: #F5F2EF;
+  --text-muted: #7A7A7A; --divider: #E8E0D8;
+}
+html, body { font-family: 'Lato', sans-serif; background: #e2ddd8; color: var(--black); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.screen-controls { max-width: 680px; margin: 32px auto 16px; display: flex; align-items: center; justify-content: space-between; padding: 0 8px; }
+.screen-label { font-size: 11px; font-weight: 700; color: #999; letter-spacing: 1px; text-transform: uppercase; }
+.ctrl-btns { display: flex; gap: 10px; }
+.btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 18px; border-radius: 100px; font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 12px; cursor: pointer; border: none; transition: all 0.18s; }
+.btn-green { background: var(--green); color: white; }
+.btn-green:hover { background: var(--green-dark); transform: translateY(-1px); }
+.btn-outline { background: white; color: var(--black); border: 1.5px solid #ccc; }
+.btn-outline:hover { border-color: var(--coral); color: var(--coral); }
+.invoice-sheet { width: 148mm; min-height: 210mm; margin: 0 auto 48px; background: var(--cream); box-shadow: 0 12px 60px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08); display: flex; flex-direction: column; overflow: hidden; }
+.top-band { background: var(--coral); padding: 18px 24px 15px; position: relative; overflow: hidden; flex-shrink: 0; }
+.top-band::before { content: ''; position: absolute; top: -50px; right: -50px; width: 140px; height: 140px; border-radius: 50%; background: rgba(255,255,255,0.08); }
+.top-band::after { content: ''; position: absolute; bottom: -35px; left: 50px; width: 90px; height: 90px; border-radius: 50%; background: rgba(255,255,255,0.06); }
+.band-inner { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; }
+.band-logo { height: 28px; width: auto; display: block; object-fit: contain; }
+.band-right { text-align: right; }
+.band-title { font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 11px; color: white; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 2px; }
+.band-tagline { font-family: 'Lato', sans-serif; font-style: italic; font-size: 8.5px; color: rgba(255,255,255,0.72); letter-spacing: 0.2px; }
+.green-strip { background: var(--green); padding: 6px 24px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+.strip-order { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 9.5px; color: white; letter-spacing: 0.5px; }
+.strip-date { font-size: 8.5px; color: rgba(255,255,255,0.6); }
+.invoice-body { padding: 15px 22px 14px; flex: 1; display: flex; flex-direction: column; gap: 12px; }
+.section-label { font-size: 7px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; color: var(--coral); margin-bottom: 5px; display: flex; align-items: center; gap: 5px; }
+.section-label::before { content: ''; display: block; width: 10px; height: 1.5px; background: var(--coral); border-radius: 2px; flex-shrink: 0; }
+.address-block { background: white; border-radius: 7px; padding: 9px 13px; border-left: 3px solid var(--coral); }
+.address-name { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 11.5px; color: var(--black); margin-bottom: 2px; }
+.address-detail { font-size: 9px; color: var(--text-muted); line-height: 1.65; }
+.section-divider { height: 1px; background: var(--divider); }
+.items-table { width: 100%; border-collapse: collapse; }
+.items-table thead tr { background: var(--warm-grey); }
+.items-table thead th { font-size: 7px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; color: var(--text-muted); padding: 5px 7px; text-align: left; }
+.items-table thead th:nth-child(2), .items-table thead th:last-child { text-align: right; }
+.items-table thead th:first-child { border-radius: 5px 0 0 5px; }
+.items-table thead th:last-child { border-radius: 0 5px 5px 0; }
+.items-table tbody tr { border-bottom: 1px solid var(--divider); }
+.items-table tbody tr:last-child { border-bottom: none; }
+.items-table tbody td { padding: 6px 7px; vertical-align: top; }
+.prod-name { font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 9.5px; color: var(--black); line-height: 1.3; margin-bottom: 1px; }
+.prod-brand { font-size: 8px; color: var(--text-muted); }
+.cell-right { font-size: 9.5px; font-weight: 700; color: var(--black); text-align: right; white-space: nowrap; vertical-align: middle; }
+.cell-amount { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 9.5px; color: var(--black); text-align: right; white-space: nowrap; vertical-align: middle; }
+.totals-box { background: white; border-radius: 7px; padding: 9px 13px; border: 1px solid var(--divider); }
+.totals-line { display: flex; justify-content: space-between; align-items: center; font-size: 9px; color: var(--text-muted); padding: 2.5px 0; border-bottom: 1px solid var(--divider); }
+.totals-line:last-of-type { border-bottom: none; }
+.totals-line.discount .v { color: var(--green); font-weight: 700; }
+.totals-mini-div { height: 1px; background: var(--divider); margin: 5px 0; }
+.totals-grand { display: flex; justify-content: space-between; align-items: center; }
+.totals-grand .lbl { font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 10px; color: var(--black); }
+.totals-grand .amt { font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 15px; color: var(--green); }
+.pay-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pay-info { font-size: 8.5px; color: var(--text-muted); line-height: 1.65; }
+.pay-info strong { color: var(--black); font-size: 9px; }
+.paid-badge { display: inline-flex; align-items: center; gap: 4px; background: var(--green-light); color: var(--green-dark); border-radius: 100px; padding: 3px 9px; font-size: 8px; font-weight: 800; white-space: nowrap; flex-shrink: 0; }
+.pending-badge { display: inline-flex; align-items: center; gap: 4px; background: var(--coral-light); color: var(--coral-dark); border-radius: 100px; padding: 3px 9px; font-size: 8px; font-weight: 800; white-space: nowrap; flex-shrink: 0; }
+.gift-box { background: var(--coral-light); border-radius: 7px; padding: 9px 13px; border-left: 3px solid var(--coral); }
+.gift-label { font-size: 7px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: var(--coral); margin-bottom: 4px; }
+.gift-msg { font-size: 9px; color: var(--black); font-style: italic; line-height: 1.65; }
+.love-strip { padding: 9px 22px; text-align: center; border-top: 1px dashed var(--divider); flex-shrink: 0; }
+.love-main { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 8.5px; color: var(--coral); }
+.love-sub { font-size: 7.5px; color: var(--text-muted); margin-top: 2px; line-height: 1.5; }
+.bottom-band { background: var(--green); padding: 10px 22px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+.bottom-logo { height: 20px; width: auto; display: block; object-fit: contain; opacity: 0.9; }
+.bottom-right { text-align: right; }
+.bottom-tagline { font-style: italic; font-size: 7.5px; color: rgba(255,255,255,0.55); margin-bottom: 2px; }
+.bottom-contact { font-size: 7px; color: rgba(255,255,255,0.45); line-height: 1.7; }
+@media print {
+  html, body { background: white; }
+  .screen-controls { display: none; }
+  .invoice-sheet { margin: 0; box-shadow: none; width: 148mm; min-height: 210mm; }
+  @page { size: A5 portrait; margin: 0; }
+}
+</style>
+</head>
+<body>
+<div class="screen-controls">
+  <span class="screen-label">📦 Delivery Invoice — A5 Print Size</span>
+  <div class="ctrl-btns">
+    <button class="btn btn-outline" onclick="window.close()">✕ Close</button>
+    <button class="btn btn-green" onclick="window.print()">🖨️ Print</button>
+  </div>
+</div>
+<div class="invoice-sheet">
+  <div class="top-band">
+    <div class="band-inner">
+      <div style="font-family:'Nunito',sans-serif;font-weight:900;font-size:16px;color:white;letter-spacing:1px;">BundledMum</div>
+      <div class="band-right">
+        <div class="band-title">Order Invoice</div>
+        <div class="band-tagline">...making being a mum easier...</div>
+      </div>
+    </div>
+  </div>
+  <div class="green-strip">
+    <span class="strip-order" id="orderNum">Order: —</span>
+    <span class="strip-date" id="orderDate"></span>
+  </div>
+  <div class="invoice-body">
+    <div>
+      <div class="section-label">Deliver To</div>
+      <div class="address-block">
+        <div class="address-name" id="custName"></div>
+        <div class="address-detail" id="custAddress"></div>
+      </div>
+    </div>
+    <div class="section-divider"></div>
+    <div>
+      <div class="section-label">Items in this order</div>
+      <table class="items-table">
+        <thead><tr><th>Product</th><th style="text-align:right">Qty</th><th style="text-align:right">Amount</th></tr></thead>
+        <tbody id="lineItemsBody"></tbody>
+      </table>
+    </div>
+    <div class="section-divider"></div>
+    <div class="totals-box">
+      <div class="totals-line"><span>Subtotal</span><span class="v" id="subtotalVal">₦0</span></div>
+      <div class="totals-line"><span>Delivery Fee</span><span class="v" id="deliveryVal">₦0</span></div>
+      <div class="totals-line" id="serviceFeeRow"><span>Service Fee</span><span class="v" id="serviceFeeVal">₦0</span></div>
+      <div class="totals-line discount" id="discountRow" style="display:none">
+        <span>Discount <span id="couponTag" style="background:var(--green-light);color:var(--green);padding:1px 5px;border-radius:3px;font-size:6.5px;font-weight:800;margin-left:3px"></span></span>
+        <span class="v" id="discountVal">-₦0</span>
+      </div>
+      <div class="totals-mini-div"></div>
+      <div class="totals-grand">
+        <span class="lbl">Total Paid</span>
+        <span class="amt" id="totalVal">₦0</span>
+      </div>
+    </div>
+    <div class="pay-row">
+      <div class="pay-info">
+        <strong id="payMethodLabel">Card Payment</strong><br>
+        Ref: <span id="payRefLabel" style="font-family:'Courier New',monospace">N/A</span>
+      </div>
+      <div id="payBadge" class="paid-badge">✓ Paid</div>
+    </div>
+    <div class="gift-box" id="giftBox" style="display:none">
+      <div class="gift-label">🎀 Gift Message</div>
+      <div class="gift-msg" id="giftMsg"></div>
+    </div>
+  </div>
+  <div class="love-strip">
+    <div class="love-main">💝 Thank you for choosing BundledMum!</div>
+    <div class="love-sub">We hope this bundle makes your motherhood journey a little easier. We're rooting for you.</div>
+  </div>
+  <div class="bottom-band">
+    <div style="font-family:'Nunito',sans-serif;font-weight:900;font-size:12px;color:rgba(255,255,255,0.9);">BundledMum</div>
+    <div class="bottom-right">
+      <div class="bottom-tagline">...making being a mum easier...</div>
+      <div class="bottom-contact">hello@bundledmum.com &nbsp;·&nbsp; www.bundledmum.com</div>
+    </div>
+  </div>
+</div>
+<script>
+function fmt(n){if(!n&&n!==0)return'₦0';return'₦'+Number(n).toLocaleString('en-NG');}
+function fmtDate(d){if(!d)return'';return new Date(d).toLocaleDateString('en-NG',{day:'numeric',month:'long',year:'numeric'});}
+function cap(s){return(s||'').replace(/_/g,' ').replace(/\\b\\w/g,l=>l.toUpperCase());}
+function populate(data){
+  if(!data)return;
+  document.getElementById('orderNum').textContent='Order: '+(data.order_number||'');
+  document.getElementById('orderDate').textContent=fmtDate(data.invoice_date||new Date());
+  document.getElementById('custName').textContent=data.customer_name||'';
+  var addrParts=[data.delivery_address,[data.delivery_city,data.delivery_state].filter(Boolean).join(', '),data.customer_phone].filter(Boolean);
+  document.getElementById('custAddress').innerHTML=addrParts.join('<br>');
+  var items=data.line_items||[];
+  document.getElementById('lineItemsBody').innerHTML=items.map(function(item){
+    return '<tr><td><div class="prod-name">'+((item.product_name||''))+'</div><div class="prod-brand">'+((item.brand_name||''))+'</div></td><td class="cell-right">×'+(item.qty||1)+'</td><td class="cell-amount">'+fmt(item.line_total||(item.unit_price*(item.qty||1)))+'</td></tr>';
+  }).join('');
+  document.getElementById('subtotalVal').textContent=fmt(data.subtotal);
+  document.getElementById('deliveryVal').textContent=fmt(data.delivery_fee);
+  document.getElementById('serviceFeeVal').textContent=fmt(data.service_fee);
+  document.getElementById('totalVal').textContent=fmt(data.total);
+  if(data.discount_amount>0){document.getElementById('discountRow').style.display='flex';document.getElementById('discountVal').textContent='-'+fmt(data.discount_amount);if(data.coupon_code)document.getElementById('couponTag').textContent=data.coupon_code;}
+  document.getElementById('payMethodLabel').textContent=cap(data.payment_method)||'Card Payment';
+  document.getElementById('payRefLabel').textContent=data.paystack_reference||data.payment_reference||'N/A';
+  if(data.payment_status!=='paid'){var b=document.getElementById('payBadge');b.className='pending-badge';b.textContent='⏳ Payment Pending';}
+  if(data.gift_message){document.getElementById('giftBox').style.display='block';document.getElementById('giftMsg').textContent=data.gift_message;}
+}
+if(window.invoiceData){populate(window.invoiceData);}
+</script>
+</body>
+</html>`;
+}
+
+interface PrintInvoiceProps {
   order: any;
   onClose: () => void;
 }
 
-export default function PrintInvoice({ order, onClose }: Props) {
-  const { data: settings } = useSiteSettings();
-  const invoiceRef = useRef<HTMLDivElement>(null);
+export async function openBrandedInvoice(order: any, adminUserId?: string) {
+  try {
+    // Step 1: Generate/fetch permanent invoice record
+    if (adminUserId) {
+      await supabase.rpc("generate_invoice_from_order", {
+        p_order_id: order.id,
+        p_generated_by: adminUserId,
+      }).then(({ error }) => {
+        if (error) console.warn("Invoice record generation warning:", error.message);
+      });
+    }
 
-  const logoUrl = settings?.brand_logo_url || BmLogoGreen;
-  const primaryColor = settings?.brand_primary_color || "#2D6A4F";
-  const accentColor = settings?.brand_accent_color || "#F4845F";
-  const bgColor = settings?.brand_background_color || "#FFF8F4";
-  const patternUrl = settings?.brand_pattern_url || "";
+    // Step 2: Build invoice data
+    const invoiceData = {
+      order_number: order.order_number,
+      invoice_date: new Date().toISOString(),
+      customer_name: order.customer_name,
+      customer_phone: order.customer_phone,
+      delivery_address: order.delivery_address,
+      delivery_city: order.delivery_city,
+      delivery_state: order.delivery_state,
+      payment_method: order.payment_method,
+      payment_status: order.payment_status,
+      paystack_reference: order.paystack_transaction_id || order.payment_reference,
+      subtotal: order.subtotal,
+      delivery_fee: order.delivery_fee,
+      service_fee: order.service_fee,
+      discount_amount: order.discount_amount || 0,
+      coupon_code: order.coupon_code || null,
+      total: order.total,
+      gift_message: order.gift_message,
+      line_items: (order.order_items || []).map((item: any) => ({
+        product_name: item.product_name,
+        brand_name: item.brand_name,
+        qty: item.quantity,
+        unit_price: item.unit_price,
+        line_total: item.line_total,
+      })),
+    };
 
-  const handlePrint = () => window.print();
+    // Step 3: Open in new window
+    const printWindow = window.open("", "_blank", "width=700,height=900");
+    if (!printWindow) {
+      toast.error("Pop-up blocked — please allow pop-ups for this site.");
+      return;
+    }
+    (printWindow as any).invoiceData = invoiceData;
+    printWindow.document.write(getInvoiceHTML());
+    printWindow.document.close();
+  } catch (err) {
+    console.error("Print invoice error:", err);
+    toast.error("Failed to generate invoice");
+  }
+}
 
-  const items = order.order_items || [];
-
-  return (
-    <div className="fixed inset-0 bg-foreground/50 z-[100] flex items-start justify-center pt-6 overflow-y-auto">
-      <div className="bg-white w-full max-w-2xl mx-4 mb-10 rounded-xl shadow-lg print:shadow-none print:rounded-none print:mx-0 print:max-w-none relative">
-        {/* Print watermark */}
-        {patternUrl && (
-          <div className="absolute inset-0 pointer-events-none print:block hidden z-0"
-            style={{ backgroundImage: `url(${patternUrl})`, backgroundRepeat: 'repeat', opacity: 0.04 }} />
-        )}
-
-        {/* Header - hide on print */}
-        <div className="flex items-center justify-between p-4 border-b border-border print:hidden">
-          <h2 className="text-lg font-bold">Invoice</h2>
-          <div className="flex gap-2">
-            <button onClick={handlePrint} className="px-4 py-2 rounded-lg text-sm font-semibold text-white" style={{ backgroundColor: primaryColor }}>🖨️ Print</button>
-            <button onClick={onClose}><X className="w-5 h-5" /></button>
-          </div>
-        </div>
-
-        {/* Invoice body */}
-        <div ref={invoiceRef} id="invoice-content" className="p-8 text-sm text-gray-800 relative z-10" style={{ backgroundColor: "white" }}>
-          {/* Logo + Order info header */}
-          <div className="flex justify-between items-start mb-8">
-            <div>
-              <img src={logoUrl} alt="BundledMum" className="h-10 mb-2" crossOrigin="anonymous" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-              <p className="text-xs text-gray-500 mt-1">...making being a mum easier.</p>
-              <p className="text-xs text-gray-500">{settings?.contact_email || "hello@bundledmum.com"}</p>
-            </div>
-            <div className="text-right">
-              <div className="text-lg font-bold" style={{ color: primaryColor }}>{order.order_number || "—"}</div>
-              <div className="text-xs text-gray-500">{new Date(order.created_at).toLocaleDateString("en-NG", { year: "numeric", month: "long", day: "numeric" })}</div>
-              <div className={`inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-semibold ${order.payment_status === "paid" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
-                {order.payment_status}
-              </div>
-            </div>
-          </div>
-
-          <div className="w-full h-px mb-6" style={{ backgroundColor: primaryColor, opacity: 0.3 }} />
-
-          {/* Bill To / Ship To */}
-          <div className="grid grid-cols-2 gap-6 mb-6">
-            <div>
-              <h3 className="text-xs font-semibold uppercase mb-1" style={{ color: accentColor }}>Bill To</h3>
-              <div className="font-semibold">{order.customer_name}</div>
-              <div className="text-xs">{order.customer_email}</div>
-              <div className="text-xs">{order.customer_phone}</div>
-            </div>
-            <div>
-              <h3 className="text-xs font-semibold uppercase mb-1" style={{ color: accentColor }}>Ship To</h3>
-              <div className="text-xs">{order.delivery_address}</div>
-              <div className="text-xs">{order.delivery_city}, {order.delivery_state}</div>
-              {order.delivery_notes && <div className="text-xs italic mt-1">{order.delivery_notes}</div>}
-            </div>
-          </div>
-
-          {/* Items table */}
-          <table className="w-full mb-6">
-            <thead>
-              <tr style={{ borderBottom: `2px solid ${primaryColor}` }}>
-                <th className="text-left py-2 text-xs font-semibold" style={{ color: primaryColor }}>Item</th>
-                <th className="text-center py-2 text-xs font-semibold" style={{ color: primaryColor }}>Qty</th>
-                <th className="text-right py-2 text-xs font-semibold" style={{ color: primaryColor }}>Price</th>
-                <th className="text-right py-2 text-xs font-semibold" style={{ color: primaryColor }}>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item: any) => (
-                <tr key={item.id} className="border-b border-gray-100">
-                  <td className="py-2">
-                    <div className="font-medium text-xs">{item.product_name}</div>
-                    <div className="text-[10px] text-gray-500">{item.brand_name}{item.size ? ` · ${item.size}` : ""}{item.color ? ` · ${item.color}` : ""}</div>
-                  </td>
-                  <td className="py-2 text-center text-xs">{item.quantity}</td>
-                  <td className="py-2 text-right text-xs">₦{(item.unit_price || 0).toLocaleString()}</td>
-                  <td className="py-2 text-right text-xs font-semibold">₦{(item.line_total || 0).toLocaleString()}</td>
-                </tr>
-              ))}
-              {items.length === 0 && (
-                <tr><td colSpan={4} className="py-4 text-center text-xs text-gray-400">No items found</td></tr>
-              )}
-            </tbody>
-          </table>
-
-          {/* Totals */}
-          <div className="flex justify-end">
-            <div className="w-64 space-y-1 text-xs">
-              <div className="flex justify-between"><span>Subtotal</span><span>₦{(order.subtotal || 0).toLocaleString()}</span></div>
-              <div className="flex justify-between"><span>Delivery</span><span>{order.delivery_fee === 0 ? "FREE" : `₦${(order.delivery_fee || 0).toLocaleString()}`}</span></div>
-              <div className="flex justify-between"><span>Service Fee</span><span>₦{(order.service_fee || 0).toLocaleString()}</span></div>
-              {(order.discount_amount || 0) > 0 && <div className="flex justify-between" style={{ color: primaryColor }}><span>Coupon Discount</span><span>-₦{(order.discount_amount || 0).toLocaleString()}</span></div>}
-              {(order.spend_discount_amount || 0) > 0 && <div className="flex justify-between" style={{ color: primaryColor }}><span>Spend Discount</span><span>-₦{(order.spend_discount_amount || 0).toLocaleString()}</span></div>}
-              {(order.discount || 0) > 0 && !(order.discount_amount || 0) && !(order.spend_discount_amount || 0) && <div className="flex justify-between" style={{ color: primaryColor }}><span>Discount</span><span>-₦{order.discount.toLocaleString()}</span></div>}
-              <div className="flex justify-between font-bold text-sm pt-2 mt-2" style={{ borderTop: `2px solid ${primaryColor}` }}>
-                <span>Total</span><span>₦{(order.total || 0).toLocaleString()}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Gift message */}
-          {order.gift_message && (
-            <div className="mt-6 p-3 rounded-lg border" style={{ backgroundColor: `${accentColor}08`, borderColor: `${accentColor}30` }}>
-              <p className="text-xs font-semibold" style={{ color: accentColor }}>🎁 Gift Message</p>
-              <p className="text-xs mt-1 italic">{order.gift_message}</p>
-            </div>
-          )}
-
-          {/* Payment & Order info */}
-          <div className="mt-6 grid grid-cols-2 gap-4 text-[10px] text-gray-500">
-            <div>
-              <span className="font-semibold text-gray-700">Payment Method:</span> {order.payment_method || "—"}
-            </div>
-            <div>
-              <span className="font-semibold text-gray-700">Order Status:</span> {order.order_status || "—"}
-            </div>
-            {order.payment_reference && (
-              <div>
-                <span className="font-semibold text-gray-700">Payment Ref:</span> {order.payment_reference}
-              </div>
-            )}
-            {order.tracking_number && (
-              <div>
-                <span className="font-semibold text-gray-700">Tracking #:</span> {order.tracking_number}
-              </div>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="mt-8 pt-4 text-center text-[10px] text-gray-400" style={{ borderTop: `1px solid ${primaryColor}20` }}>
-            Thank you for shopping with BundledMum! 💛 ...making being a mum easier. · {settings?.contact_email || "hello@bundledmum.com"} · bundledmum.com
-          </div>
-        </div>
-      </div>
-
-      <style>{`
-        @media print {
-          body * { visibility: hidden !important; }
-          #invoice-content, #invoice-content * { visibility: visible !important; }
-          #invoice-content {
-            position: fixed !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            padding: 20mm !important;
-            background: white !important;
-          }
-          nav, .admin-sidebar, .no-print, [class*="print\\:hidden"] { display: none !important; }
-        }
-      `}</style>
-    </div>
-  );
+// Legacy component wrapper — kept for backward compatibility but now just triggers the new flow
+export default function PrintInvoice({ order, onClose }: PrintInvoiceProps) {
+  // Auto-open on mount and close
+  openBrandedInvoice(order).then(() => onClose());
+  return null;
 }
