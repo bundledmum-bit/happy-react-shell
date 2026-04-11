@@ -40,7 +40,7 @@ const NAV: NavItem[] = [
   { to: "/admin/media", label: "Media", icon: Image, permission: "content.view" },
   { to: "/admin/referrals", label: "Referrals", icon: Gift, permission: "analytics.view" },
   { to: "/admin/quiz-leads", label: "Quiz Leads", icon: MessageCircleQuestion, permission: "orders.view" },
-  { to: "/admin/quiz-engine", label: "Quiz Engine", icon: Workflow, permission: "content.manage_quiz", superAdminOnly: true },
+  { to: "/admin/quiz-engine", label: "Quiz Engine", icon: Workflow, permission: "content.manage_quiz" },
   { to: "/admin/analytics", label: "Analytics", icon: BarChart3, permission: "analytics.view" },
   { to: "/admin/users", label: "Users", icon: Users, permission: "admin.view_users" },
   { to: "/admin/settings", label: "Settings", icon: Settings, permission: "content.edit_settings" },

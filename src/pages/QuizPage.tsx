@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCart, fmt } from "@/lib/cart";
 import { toast } from "sonner";
 import { ArrowLeft, Check, Share2, ClipboardCopy, Loader2 } from "lucide-react";
@@ -151,9 +152,9 @@ function ResultProductCard({ item, onAdd, onRemove, isInCart }: {
   );
 }
 
-// ========= WHATSAPP INPUT STEP (DB-driven) =========
+// ========= OPTIONAL TEXT INPUT STEP (DB-driven) =========
 
-function WhatsAppInputStep({
+function OptionalTextStep({
   question,
   progress,
   onSubmit,
@@ -162,19 +163,22 @@ function WhatsAppInputStep({
 }: {
   question: QuizQuestion;
   progress: number;
-  onSubmit: (whatsapp?: string) => void;
+  onSubmit: (value?: string) => void;
   onSkip: () => void;
   onBack: () => void;
 }) {
-  const [number, setNumber] = useState("");
+  const [value, setValue] = useState("");
   const config: QuizQuestionUiConfig = question.ui_config || {};
 
-  const regexStr = config.validation_regex || "^(0[789][01]\\d{8})$|^234[789][01]\\d{8}$";
-  const isValid = (num: string) => {
-    const digits = num.replace(/\D/g, "");
-    return new RegExp(regexStr).test(digits);
+  const regexStr = config.validation_regex;
+  const isValid = (val: string) => {
+    if (!regexStr) return true;
+    const digits = val.replace(/\D/g, "");
+    return new RegExp(regexStr).test(digits) || new RegExp(regexStr).test(val);
   };
-  const error = number && !isValid(number) ? (config.validation_error || "Enter a valid Nigerian number (e.g. 08012345678 or +234...)") : "";
+  const error = value && regexStr && !isValid(value)
+    ? (config.validation_error || "Invalid input")
+    : "";
 
   return (
     <div className="min-h-screen bg-background pt-[68px] flex flex-col items-center px-4 md:px-10 py-10 md:py-14 pb-20 md:pb-12">
@@ -183,14 +187,14 @@ function WhatsAppInputStep({
           <div className="bg-coral h-1.5 transition-all duration-500 rounded-full" style={{ width: `${progress}%` }} />
         </div>
         <div className="flex justify-between mt-3">
-          <div className="text-muted-foreground text-sm font-semibold">{config.page_title || "Almost done!"}</div>
+          <div className="text-muted-foreground text-sm font-semibold">{config.page_title || ""}</div>
           <button onClick={onBack} className="text-muted-foreground text-sm flex items-center gap-1 font-body hover:text-foreground"><ArrowLeft className="h-3.5 w-3.5" /> Back</button>
         </div>
       </div>
 
       <div className="animate-fade-in bg-card rounded-[22px] p-7 md:p-12 shadow-card-hover w-full max-w-[660px]">
         <div className="text-center mb-7">
-          <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-widest mb-2">{config.eyebrow || question.sub_text || "ONE LAST THING 📱"}</p>
+          {config.eyebrow && <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-widest mb-2">{config.eyebrow}</p>}
           <h2 className="pf text-xl md:text-[30px] leading-tight">{question.question_text}</h2>
           {question.sub_text && <p className="text-muted-foreground text-sm mt-2">{question.sub_text}</p>}
         </div>
@@ -198,32 +202,36 @@ function WhatsAppInputStep({
         <div className="space-y-4">
           <div className="flex flex-col gap-1">
             <input
-              type="tel"
-              value={number}
-              onChange={e => setNumber(e.target.value)}
-              placeholder={config.placeholder || "08012345678 or +234..."}
+              type={question.step_id === "whatsapp" ? "tel" : "text"}
+              value={value}
+              onChange={e => setValue(e.target.value)}
+              placeholder={config.placeholder || ""}
               className={`w-full rounded-[14px] border-2 px-4 py-3.5 text-sm bg-card font-body outline-none transition-colors ${error ? "border-destructive" : "border-border focus:border-forest"}`}
             />
             {error && <p className="text-destructive text-[11px]">{error}</p>}
-            <p className="text-muted-foreground text-[11px]">{config.helper_text || "Accepts 07xx, 08xx, 09xx or +234 format"}</p>
+            {config.helper_text && <p className="text-muted-foreground text-[11px]">{config.helper_text}</p>}
           </div>
 
           <button
             onClick={() => {
-              if (number && !isValid(number)) return;
-              onSubmit(number || undefined);
+              if (value && regexStr && !isValid(value)) return;
+              onSubmit(value || undefined);
             }}
             className="w-full rounded-pill bg-forest py-3.5 font-body font-semibold text-primary-foreground hover:bg-forest-deep interactive text-sm"
           >
-            {number ? (config.primary_button || "Continue →") : (config.skip_label || "Continue without WhatsApp →")}
+            {value
+              ? (config.primary_button || "Continue →")
+              : (config.skip_label || "Continue →")}
           </button>
 
-          <button onClick={onSkip} className="w-full text-muted-foreground text-xs hover:text-forest transition-colors font-body">
-            ⏭️ {config.skip_label || "Skip"}
-          </button>
+          {question.is_skippable && (
+            <button onClick={onSkip} className="w-full text-muted-foreground text-xs hover:text-forest transition-colors font-body">
+              ⏭️ {config.skip_label || "Skip"}
+            </button>
+          )}
         </div>
       </div>
-      <p className="text-muted-foreground text-xs mt-4 text-center">{config.footer_text || "🔒 We never share your data · Results appear instantly"}</p>
+      {config.footer_text && <p className="text-muted-foreground text-xs mt-4 text-center">{config.footer_text}</p>}
     </div>
   );
 }
@@ -232,6 +240,7 @@ function WhatsAppInputStep({
 
 export default function QuizPage() {
   const [searchParams] = useSearchParams();
+  const queryClient = useQueryClient();
   const [answers, setAnswers] = useState<Answers>(() => {
     const initial: Answers = {};
     const scope = searchParams.get("scope");
@@ -252,7 +261,6 @@ export default function QuizPage() {
   const [story, setStory] = useState("");
   const [loadingResults, setLoadingResults] = useState(false);
   const [bothPhase, setBothPhase] = useState<"push-gift" | "family" | null>(null);
-  const [whatsappNumber, setWhatsappNumber] = useState<string | undefined>();
   const navigate = useNavigate();
   const { addToCart, cart, setCart } = useCart();
 
@@ -278,14 +286,18 @@ export default function QuizPage() {
     }
   }, [quizStartTracked, currentStep]);
 
-  // Subscribe to realtime changes for instant admin updates
+  // Subscribe to realtime changes — refetch on any quiz config change
   useEffect(() => {
     const channel = supabase.channel("quiz-config-live")
-      .on("postgres_changes", { event: "*", schema: "public", table: "quiz_questions" }, () => {})
-      .on("postgres_changes", { event: "*", schema: "public", table: "quiz_routing_rules" }, () => {})
+      .on("postgres_changes", { event: "*", schema: "public", table: "quiz_questions" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["quiz_questions"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "quiz_routing_rules" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["quiz_routing_rules"] });
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [queryClient]);
 
   const stepSequence = useMemo(
     () => getStepSequence(answers, routingRules, questions),
@@ -318,16 +330,16 @@ export default function QuizPage() {
   const isFamilyShoppingPath = isDadPath && (dadPurpose === "family-shopping" || (dadPurpose === "both" && bothPhase === "family"));
 
   // ========= SAVE QUIZ LEAD =========
-  const saveQuizCustomer = useCallback(async (whatsapp?: string) => {
+  const saveQuizCustomer = useCallback(async (whatsappVal?: string) => {
     const sessionId = getSessionId();
-    const whatsappVal = whatsapp || answers.whatsapp || null;
+    const whatsapp = whatsappVal || answers.whatsapp || null;
     await supabase.from("quiz_customers").upsert({
       session_id: sessionId,
       hospital_type: answers.hospitalType || null,
       delivery_method: answers.deliveryMethod || null,
       baby_gender: answers.gender || null,
       budget_tier: answers.budget || answers.pushGiftBudget || null,
-      whatsapp_number: whatsappVal === "skip" ? null : whatsappVal,
+      whatsapp_number: whatsapp === "skip" ? null : whatsapp,
       referral_source: document.referrer || "direct",
       page_url: window.location.href,
       has_purchased: false,
@@ -365,7 +377,6 @@ export default function QuizPage() {
 
   const finishQuiz = useCallback(async (whatsapp?: string) => {
     setLoadingResults(true);
-    setWhatsappNumber(whatsapp);
     trackEvent("quiz_completed", {
       hospital_type: answers.hospitalType,
       delivery_method: answers.deliveryMethod,
@@ -428,7 +439,7 @@ export default function QuizPage() {
     try {
       const rec = await fetchFamilyResults();
       setRecommendation(rec);
-      
+
       const { data: storyData } = await supabase.rpc("generate_quiz_story", {
         p_shopper_type: "dad",
         p_budget_tier: answers.budget || "standard",
@@ -467,7 +478,6 @@ export default function QuizPage() {
       const newSteps = [...history, stepId];
 
       if (!next) {
-        // Quiz is done — go to results
         setHistory(newSteps);
         if (isBothPath && bothPhase === "family") {
           finishBothFamilyPath();
@@ -479,9 +489,26 @@ export default function QuizPage() {
         setCurrentStep(next);
       }
 
-      // Track session after every answer
       updateQuizSession(newAnswers, next || null, newSteps);
     }, 320);
+  }, [answers, routingRules, questions, history, isBothPath, bothPhase, finishQuiz, finishBothFamilyPath]);
+
+  const handleOptionalTextSubmit = useCallback((stepId: string, value?: string) => {
+    const newAnswers = { ...answers, [stepId]: value || "skip" };
+    setAnswers(newAnswers);
+    const next = getNextStep(stepId, value || "skip", newAnswers, routingRules, questions);
+    if (!next) {
+      setHistory(h => [...h, stepId]);
+      if (isBothPath && bothPhase === "family") {
+        finishBothFamilyPath(value);
+      } else {
+        finishQuiz(value);
+      }
+    } else {
+      setHistory(h => [...h, stepId]);
+      setCurrentStep(next);
+    }
+    updateQuizSession(newAnswers, next || null, [...history, stepId]);
   }, [answers, routingRules, questions, history, isBothPath, bothPhase, finishQuiz, finishBothFamilyPath]);
 
   const handleSkip = useCallback((stepId: string) => {
@@ -875,47 +902,14 @@ export default function QuizPage() {
     );
   }
 
-  // ========= WHATSAPP INPUT STEP (DB-driven) =========
+  // ========= OPTIONAL TEXT INPUT STEP (DB-driven: whatsapp, giftMessage, etc.) =========
   if (currentQuestion && currentQuestion.input_type === "optional_text") {
     return (
-      <WhatsAppInputStep
+      <OptionalTextStep
         question={currentQuestion}
         progress={progress}
-        onSubmit={(whatsapp) => {
-          const newAnswers = { ...answers, [currentQuestion.step_id]: whatsapp || "skip" };
-          setAnswers(newAnswers);
-          // This was the last step before results — check routing
-          const next = getNextStep(currentQuestion.step_id, whatsapp || "skip", newAnswers, routingRules, questions);
-          if (!next) {
-            setHistory(h => [...h, currentQuestion.step_id]);
-            if (isBothPath && bothPhase === "family") {
-              finishBothFamilyPath(whatsapp);
-            } else {
-              finishQuiz(whatsapp);
-            }
-          } else {
-            setHistory(h => [...h, currentQuestion.step_id]);
-            setCurrentStep(next);
-          }
-          updateQuizSession(newAnswers, next || null, [...history, currentQuestion.step_id]);
-        }}
-        onSkip={() => {
-          const newAnswers = { ...answers, [currentQuestion.step_id]: "skip" };
-          setAnswers(newAnswers);
-          const next = getNextStep(currentQuestion.step_id, "skip", newAnswers, routingRules, questions);
-          if (!next) {
-            setHistory(h => [...h, currentQuestion.step_id]);
-            if (isBothPath && bothPhase === "family") {
-              finishBothFamilyPath();
-            } else {
-              finishQuiz();
-            }
-          } else {
-            setHistory(h => [...h, currentQuestion.step_id]);
-            setCurrentStep(next);
-          }
-          updateQuizSession(newAnswers, next || null, [...history, currentQuestion.step_id]);
-        }}
+        onSubmit={(val) => handleOptionalTextSubmit(currentQuestion.step_id, val)}
+        onSkip={() => handleSkip(currentQuestion.step_id)}
         onBack={handleBack}
       />
     );

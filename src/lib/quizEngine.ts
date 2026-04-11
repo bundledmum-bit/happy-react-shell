@@ -46,22 +46,37 @@ export function getNextStep(
   routingRules: QuizRoutingRule[],
   questions: QuizQuestion[]
 ): string | null {
-  const rulesForStep = routingRules.filter(r => r.from_step_id === currentStepId);
+  const rulesForStep = routingRules
+    .filter(r => r.from_step_id === currentStepId)
+    .sort((a, b) => (b.priority || 0) - (a.priority || 0));
+
+  const shopperType = allAnswers.shopper || "self";
+
+  // Special dad-path handling: gender → wifeStage
+  if (currentStepId === "gender" && shopperType === "dad") {
+    const dadRule = rulesForStep.find(r => r.condition_answer === "dad");
+    if (dadRule) {
+      const nextId = dadRule.next_step_id;
+      if (!nextId || nextId === "__end__") return null;
+      return nextId;
+    }
+  }
 
   for (const rule of rulesForStep) {
     if (evaluateCondition(rule, currentAnswer, allAnswers)) {
       const nextId = rule.next_step_id;
       if (!nextId || nextId === "__end__") return null;
 
+      // Check if target step applies to current path
       const targetStep = questions.find(q => q.step_id === nextId);
       if (targetStep) {
-        const path = allAnswers.shopper === "gift" ? "gift" : "self";
         const applyTo = targetStep.applies_to_path;
         if (
           applyTo && applyTo.length > 0 &&
-          !applyTo.includes(path) && !applyTo.includes("both")
+          !applyTo.includes(shopperType) && !applyTo.includes("both")
         ) {
-          continue;
+          // Skip this step — recurse to find the next valid one
+          return getNextStep(nextId, "", allAnswers, routingRules, questions);
         }
         return nextId;
       }

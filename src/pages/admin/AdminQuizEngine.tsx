@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAllQuizConfig, type QuizQuestion, type QuizRoutingRule, type QuizAdjustmentRule, type QuizTargetCount } from "@/hooks/useQuizConfig";
-import { useAdminUser } from "@/hooks/useAdminPermissions";
+import { usePermissions } from "@/hooks/useAdminPermissionsContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,67 +19,95 @@ import "reactflow/dist/style.css";
 
 // ========= FLOWCHART TAB =========
 
+function getPathColor(paths: string[] | null): string {
+  if (!paths || paths.length === 0) return "#22c55e";
+  const hasSelf = paths.includes("self");
+  const hasGift = paths.includes("gift");
+  const hasDad = paths.includes("dad");
+  const count = [hasSelf, hasGift, hasDad].filter(Boolean).length;
+  if (count >= 3 || paths.includes("both")) return "#22c55e";
+  if (hasDad && !hasSelf && !hasGift) return "#f97316";
+  if (hasGift && !hasSelf && !hasDad) return "#7c3aed";
+  if (hasSelf && !hasGift && !hasDad) return "#3b82f6";
+  if (hasSelf && hasDad) return "#3b82f6";
+  if (hasSelf && hasGift) return "#6366f1";
+  if (hasGift && hasDad) return "#a855f7";
+  return "#22c55e";
+}
+
+function getLaneY(paths: string[] | null): number {
+  if (!paths || paths.length === 0) return 250;
+  const hasSelf = paths.includes("self");
+  const hasGift = paths.includes("gift");
+  const hasDad = paths.includes("dad");
+  const count = [hasSelf, hasGift, hasDad].filter(Boolean).length;
+  if (count >= 2 || paths.includes("both")) return 250;
+  if (hasGift) return 500;
+  if (hasDad) return 0;
+  return 250;
+}
+
 function QuizFlowchart({ questions, routingRules }: { questions: QuizQuestion[]; routingRules: QuizRoutingRule[] }) {
+  const [selectedNode, setSelectedNode] = useState<string | null>(null);
+
   const nodes: Node[] = useMemo(() => {
     const n: Node[] = [];
-    // Start node
     n.push({
       id: "__start__",
       type: "default",
-      position: { x: 0, y: 200 },
+      position: { x: 0, y: 250 },
       data: { label: "🟢 Quiz Start" },
       style: { background: "#22c55e", color: "#fff", borderRadius: 12, fontWeight: 700, padding: "8px 16px", border: "none" },
     });
 
-    // Question nodes
-    const selfSteps = questions.filter(q => !q.applies_to_path || q.applies_to_path.includes("self") || q.applies_to_path.includes("both"));
-    const giftSteps = questions.filter(q => q.applies_to_path && q.applies_to_path.includes("gift") && !q.applies_to_path.includes("both") && !q.applies_to_path.includes("self"));
-
-    let x = 250;
-    questions.forEach((q, i) => {
-      const isGiftOnly = q.applies_to_path && q.applies_to_path.includes("gift") && !q.applies_to_path.includes("both") && !q.applies_to_path.includes("self");
+    let x = 280;
+    questions.forEach((q) => {
+      const color = getPathColor(q.applies_to_path);
+      const y = getLaneY(q.applies_to_path);
+      const pathBadges = (q.applies_to_path || []).join(", ");
       n.push({
         id: q.step_id,
         type: "default",
-        position: { x, y: isGiftOnly ? 450 : 200 },
+        position: { x, y },
         data: {
           label: (
             <div className="text-left">
-              <div className="text-[10px] font-bold text-blue-200 uppercase">{q.step_id}</div>
-              <div className="text-xs font-semibold">{q.question_text.slice(0, 40)}{q.question_text.length > 40 ? "..." : ""}</div>
-              <div className="text-[9px] opacity-70 mt-0.5">{q.input_type} · {q.quiz_options.length} options{q.is_skippable ? " · skippable" : ""}</div>
+              <div className="text-[10px] font-bold uppercase" style={{ color: `${color}99` }}>{q.step_id}</div>
+              <div className="text-xs font-semibold">{q.question_text.slice(0, 40)}{q.question_text.length > 40 ? "…" : ""}</div>
+              <div className="text-[9px] opacity-70 mt-0.5">
+                {q.input_type} · {q.quiz_options.length} opts{q.is_skippable ? " · skip" : ""}
+              </div>
+              <div className="text-[8px] opacity-50 mt-0.5">{pathBadges}</div>
             </div>
           ),
         },
         style: {
-          background: isGiftOnly ? "#7c3aed" : "#3b82f6",
+          background: q.is_active === false ? "#374151" : color,
           color: "#fff",
           borderRadius: 10,
           padding: "6px 10px",
-          border: q.is_active === false ? "2px dashed #666" : "none",
+          border: q.is_active === false ? "2px dashed #666" : selectedNode === q.step_id ? "3px solid #fbbf24" : "none",
           minWidth: 180,
           maxWidth: 220,
+          opacity: q.is_active === false ? 0.5 : 1,
         },
       });
       x += 280;
     });
 
-    // End node
     n.push({
       id: "__end__",
       type: "default",
-      position: { x: x, y: 300 },
+      position: { x, y: 250 },
       data: { label: "🔴 Show Results" },
       style: { background: "#ef4444", color: "#fff", borderRadius: 12, fontWeight: 700, padding: "8px 16px", border: "none" },
     });
 
     return n;
-  }, [questions]);
+  }, [questions, selectedNode]);
 
   const edges: Edge[] = useMemo(() => {
     const e: Edge[] = [];
-
-    // Start → first step
     if (questions.length > 0) {
       e.push({
         id: "start-to-first",
@@ -91,72 +119,103 @@ function QuizFlowchart({ questions, routingRules }: { questions: QuizQuestion[];
       });
     }
 
-    // Routing rules as edges
     routingRules.forEach((rule) => {
       const target = rule.next_step_id === "__end__" ? "__end__" : rule.next_step_id;
       const isAlways = rule.condition_operator === "always";
       const label = isAlways ? "" : `${rule.condition_answer || ""}`;
-      const isGiftRule = questions.find(q => q.step_id === rule.from_step_id)?.applies_to_path?.includes("gift");
-      const isDadBoth = rule.from_step_id === "dadPurpose" && rule.condition_answer === "both";
+      const fromQ = questions.find(q => q.step_id === rule.from_step_id);
+      const fromPaths = fromQ?.applies_to_path || [];
+      const color = getPathColor(fromPaths);
 
       e.push({
         id: rule.id,
         source: rule.from_step_id,
-        target: target,
+        target,
         label: label ? label.slice(0, 20) : undefined,
-        animated: isAlways || isDadBoth,
+        animated: isAlways,
         style: {
-          stroke: isDadBoth ? "#f97316" : isGiftRule ? "#7c3aed" : "#3b82f6",
+          stroke: color,
           strokeDasharray: isAlways ? undefined : "5 5",
-          strokeWidth: isDadBoth ? 2 : 1,
+          strokeWidth: 1.5,
         },
         markerEnd: { type: MarkerType.ArrowClosed },
-        labelStyle: { fontSize: 9, fill: isDadBoth ? "#f97316" : "#666" },
+        labelStyle: { fontSize: 9, fill: "#888" },
       });
     });
-
-    // Special "both" path return arrow: push gift results → budget (family shopping)
-    const hasDadPurpose = questions.some(q => q.step_id === "dadPurpose");
-    const hasBudget = questions.some(q => q.step_id === "budget");
-    if (hasDadPurpose && hasBudget) {
-      e.push({
-        id: "both-return-arrow",
-        source: "__end__",
-        target: "budget",
-        label: "Then shop family →",
-        animated: true,
-        style: { stroke: "#f97316", strokeDasharray: "8 4", strokeWidth: 2 },
-        markerEnd: { type: MarkerType.ArrowClosed },
-        labelStyle: { fontSize: 9, fill: "#f97316", fontWeight: 700 },
-      });
-    }
 
     return e;
   }, [routingRules, questions]);
 
-  const downloadPNG = useCallback(() => {
-    toast("PNG export coming soon — use browser screenshot for now");
-  }, []);
+  const selectedQuestion = selectedNode ? questions.find(q => q.step_id === selectedNode) : null;
+  const selectedRules = selectedNode ? routingRules.filter(r => r.from_step_id === selectedNode) : [];
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold">Quiz Flowchart</h2>
-        <Button variant="outline" size="sm" onClick={downloadPNG}>
-          <Download className="w-3.5 h-3.5 mr-1" /> Export PNG
-        </Button>
       </div>
-      <div className="border border-border rounded-xl overflow-hidden" style={{ height: 600 }}>
-        <ReactFlow nodes={nodes} edges={edges} fitView>
-          <Background />
-          <Controls />
-          <MiniMap />
-        </ReactFlow>
+      <div className="flex gap-4">
+        <div className={`border border-border rounded-xl overflow-hidden ${selectedNode ? "flex-1" : "w-full"}`} style={{ height: 600 }}>
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            fitView
+            onNodeClick={(_, node) => setSelectedNode(node.id === "__start__" || node.id === "__end__" ? null : node.id)}
+          >
+            <Background />
+            <Controls />
+            <MiniMap />
+          </ReactFlow>
+        </div>
+
+        {selectedQuestion && (
+          <div className="w-80 border border-border rounded-xl p-4 bg-card overflow-y-auto" style={{ maxHeight: 600 }}>
+            <div className="flex items-center justify-between mb-3">
+              <Badge variant="outline" className="font-mono text-xs">{selectedQuestion.step_id}</Badge>
+              <button onClick={() => setSelectedNode(null)} className="text-muted-foreground hover:text-foreground text-xs">✕</button>
+            </div>
+            <h3 className="font-bold text-sm mb-1">{selectedQuestion.question_text}</h3>
+            <p className="text-muted-foreground text-xs mb-3">{selectedQuestion.sub_text}</p>
+            <div className="flex gap-1 mb-3 flex-wrap">
+              {(selectedQuestion.applies_to_path || []).map(p => (
+                <Badge key={p} variant="secondary" className="text-[10px]">{p}</Badge>
+              ))}
+              <Badge variant={selectedQuestion.is_active ? "default" : "secondary"} className="text-[10px]">
+                {selectedQuestion.is_active ? "Active" : "Inactive"}
+              </Badge>
+            </div>
+
+            <h4 className="text-[11px] font-bold text-muted-foreground uppercase mb-2">Options ({selectedQuestion.quiz_options.length})</h4>
+            <div className="space-y-1.5 mb-4">
+              {selectedQuestion.quiz_options.sort((a, b) => (a.display_order || 0) - (b.display_order || 0)).map(opt => (
+                <div key={opt.id} className="bg-muted/30 rounded-lg p-2 text-xs">
+                  <div className="font-semibold">{opt.option_emoji} {opt.option_label}</div>
+                  <div className="text-muted-foreground">{opt.option_value}</div>
+                  {opt.option_description && <div className="text-muted-foreground italic">{opt.option_description}</div>}
+                </div>
+              ))}
+            </div>
+
+            <h4 className="text-[11px] font-bold text-muted-foreground uppercase mb-2">Routing Rules ({selectedRules.length})</h4>
+            <div className="space-y-1.5">
+              {selectedRules.map(rule => (
+                <div key={rule.id} className="bg-muted/30 rounded-lg p-2 text-xs">
+                  <div className="font-semibold">→ {rule.next_step_id}</div>
+                  <div className="text-muted-foreground">
+                    {rule.condition_operator === "always" ? "Always" : `${rule.condition_operator}: ${rule.condition_answer}`}
+                    {rule.priority ? ` (p${rule.priority})` : ""}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
       <div className="flex gap-4 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-[#3b82f6]" /> Self path</span>
-        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-[#7c3aed]" /> Gift path</span>
-        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-[#22c55e]" /> Start</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-[#3b82f6]" /> Self</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-[#7c3aed]" /> Gift</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-[#f97316]" /> Dad</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-[#22c55e]" /> All / Start</span>
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-[#ef4444]" /> End</span>
       </div>
     </div>
@@ -168,6 +227,12 @@ function QuizFlowchart({ questions, routingRules }: { questions: QuizQuestion[];
 function QuestionsEditor({ questions, onRefresh }: { questions: QuizQuestion[]; onRefresh: () => void }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
+
+  const toggleActive = async (q: QuizQuestion) => {
+    await supabase.from("quiz_questions").update({ is_active: !q.is_active }).eq("id", q.id);
+    toast.success(`${q.step_id} ${q.is_active ? "deactivated" : "activated"}`);
+    onRefresh();
+  };
 
   const saveQuestion = async (q: QuizQuestion) => {
     setSaving(q.id);
@@ -198,11 +263,30 @@ function QuestionsEditor({ questions, onRefresh }: { questions: QuizQuestion[]; 
     onRefresh();
   };
 
+  const addOption = async (questionId: string, stepId: string) => {
+    await supabase.from("quiz_options").insert({
+      question_id: questionId,
+      option_value: `new-${Date.now()}`,
+      option_label: "New Option",
+      option_emoji: "📋",
+      display_order: 99,
+    });
+    toast.success("Option added");
+    onRefresh();
+  };
+
+  const deleteOption = async (optId: string) => {
+    if (!confirm("Delete this option?")) return;
+    await supabase.from("quiz_options").delete().eq("id", optId);
+    toast.success("Option deleted");
+    onRefresh();
+  };
+
   return (
     <div className="space-y-2">
       <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground mb-3">Questions & Options</h3>
       {questions.sort((a, b) => a.step_order - b.step_order).map(q => (
-        <div key={q.id} className="border border-border rounded-lg bg-card">
+        <div key={q.id} className={`border rounded-lg bg-card ${q.is_active === false ? "border-border/50 opacity-60" : "border-border"}`}>
           <button
             className="w-full flex items-center gap-3 p-3 text-left hover:bg-muted/30"
             onClick={() => setExpandedId(expandedId === q.id ? null : q.id)}
@@ -210,7 +294,12 @@ function QuestionsEditor({ questions, onRefresh }: { questions: QuizQuestion[]; 
             <GripVertical className="w-4 h-4 text-muted-foreground" />
             <Badge variant="outline" className="font-mono text-[10px]">{q.step_id}</Badge>
             <span className="text-sm font-semibold flex-1 truncate">{q.question_text}</span>
-            <Badge variant={q.is_active ? "default" : "secondary"} className="text-[10px]">{q.is_active ? "Active" : "Inactive"}</Badge>
+            <div className="flex gap-1">
+              {(q.applies_to_path || []).map(p => (
+                <Badge key={p} variant="secondary" className="text-[9px]">{p}</Badge>
+              ))}
+            </div>
+            <Switch checked={q.is_active ?? true} onCheckedChange={() => toggleActive(q)} onClick={e => e.stopPropagation()} />
             {expandedId === q.id ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
           </button>
           {expandedId === q.id && (
@@ -225,19 +314,25 @@ function QuestionsEditor({ questions, onRefresh }: { questions: QuizQuestion[]; 
                   <Input defaultValue={q.sub_text || ""} className="text-sm" onBlur={e => { q.sub_text = e.target.value; }} />
                 </div>
               </div>
-              <div className="flex items-center gap-4">
-                <label className="flex items-center gap-2 text-xs">
-                  <Switch checked={q.is_skippable ?? false} onCheckedChange={v => { q.is_skippable = v; }} />
-                  Skippable
-                </label>
-                <label className="flex items-center gap-2 text-xs">
-                  <Switch checked={q.is_active ?? true} onCheckedChange={v => { q.is_active = v; }} />
-                  Active
-                </label>
-                <Button size="sm" onClick={() => saveQuestion(q)} disabled={saving === q.id}>
-                  {saving === q.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3 mr-1" />} Save
-                </Button>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-[11px] font-semibold text-muted-foreground">Type</label>
+                  <Badge variant="outline" className="text-[10px]">{q.input_type}</Badge>
+                </div>
+                <div>
+                  <label className="flex items-center gap-2 text-xs">
+                    <Switch checked={q.is_skippable ?? false} onCheckedChange={v => { q.is_skippable = v; }} />
+                    Skippable
+                  </label>
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-muted-foreground">Order</label>
+                  <Input defaultValue={String(q.step_order)} type="number" className="w-20 text-sm" onBlur={e => { q.step_order = Number(e.target.value); }} />
+                </div>
               </div>
+              <Button size="sm" onClick={() => saveQuestion(q)} disabled={saving === q.id}>
+                {saving === q.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3 mr-1" />} Save Question
+              </Button>
 
               <div className="mt-3">
                 <h4 className="text-[11px] font-bold text-muted-foreground uppercase mb-2">Options ({q.quiz_options.length})</h4>
@@ -247,13 +342,21 @@ function QuestionsEditor({ questions, onRefresh }: { questions: QuizQuestion[]; 
                       <Input defaultValue={opt.option_emoji || ""} className="w-12 text-center text-sm" onBlur={e => { opt.option_emoji = e.target.value; }} />
                       <Input defaultValue={opt.option_label} className="flex-1 text-sm" onBlur={e => { opt.option_label = e.target.value; }} />
                       <Input defaultValue={opt.option_description || ""} className="flex-1 text-sm" placeholder="Description" onBlur={e => { opt.option_description = e.target.value; }} />
+                      <Badge variant="outline" className="font-mono text-[9px] shrink-0">{opt.option_value}</Badge>
                       <Input defaultValue={String(opt.price_modifier || 0)} className="w-20 text-sm" type="number" onBlur={e => { opt.price_modifier = Number(e.target.value) || null; }} />
+                      <Switch checked={opt.is_active ?? true} onCheckedChange={v => { opt.is_active = v; saveOption(opt); }} />
                       <Button size="sm" variant="ghost" onClick={() => saveOption(opt)}>
                         <Save className="w-3 h-3" />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => deleteOption(opt.id)}>
+                        <Trash2 className="w-3 h-3 text-destructive" />
                       </Button>
                     </div>
                   ))}
                 </div>
+                <Button size="sm" variant="outline" className="mt-2" onClick={() => addOption(q.id, q.step_id)}>
+                  <Plus className="w-3 h-3 mr-1" /> Add Option
+                </Button>
               </div>
             </div>
           )}
@@ -301,7 +404,7 @@ function RoutingRulesEditor({ rules, questions, onRefresh }: { rules: QuizRoutin
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Routing Rules</h3>
+        <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Routing Rules ({rules.length})</h3>
         <Button size="sm" onClick={addRule}><Plus className="w-3 h-3 mr-1" /> Add Rule</Button>
       </div>
       <div className="overflow-auto">
@@ -369,9 +472,25 @@ function AdjustmentRulesEditor({ rules, onRefresh }: { rules: QuizAdjustmentRule
     onRefresh();
   };
 
+  const addRule = async () => {
+    await supabase.from("quiz_adjustment_rules").insert({
+      rule_name: "New Rule",
+      trigger_step_id: "deliveryMethod",
+      trigger_value: "csection",
+      target_product_slug: "example-product",
+      action: "force",
+      priority: 0,
+    });
+    toast.success("Rule added");
+    onRefresh();
+  };
+
   return (
     <div className="space-y-3">
-      <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Adjustment Rules</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Adjustment Rules ({rules.length})</h3>
+        <Button size="sm" onClick={addRule}><Plus className="w-3 h-3 mr-1" /> Add Rule</Button>
+      </div>
       <div className="overflow-auto">
         <Table>
           <TableHeader>
@@ -460,8 +579,15 @@ function EngineTestPanel() {
     p_shopper_type: "self",
     p_gift_for: "",
   });
+  const [pushParams, setPushParams] = useState({
+    p_budget_tier: "push-standard",
+    p_category: "pampering",
+    p_timing: "when-we-come-home",
+  });
   const [result, setResult] = useState<any>(null);
+  const [pushResult, setPushResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
 
   const runTest = async () => {
     setLoading(true);
@@ -479,64 +605,128 @@ function EngineTestPanel() {
     setLoading(false);
   };
 
+  const runPushTest = async () => {
+    setPushLoading(true);
+    try {
+      const { data, error } = await supabase.rpc("run_push_gift_recommendation", {
+        p_budget_tier: pushParams.p_budget_tier,
+        p_category: pushParams.p_category,
+        p_timing: pushParams.p_timing,
+      });
+      if (error) throw error;
+      setPushResult(data);
+      toast.success("Push gift test completed");
+    } catch (err: any) {
+      toast.error(err.message || "Engine error");
+    }
+    setPushLoading(false);
+  };
+
   return (
-    <div className="space-y-4">
-      <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Test the Engine</h3>
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        {[
-          { key: "p_budget_tier", label: "Budget Tier", options: ["starter", "standard", "premium"] },
-          { key: "p_scope", label: "Scope", options: ["hospital-bag", "hospital-bag+general", "general"] },
-          { key: "p_stage", label: "Stage", options: ["expecting", "newborn", "0-3m", "3-6m", "6-12m"] },
-          { key: "p_hospital_type", label: "Hospital Type", options: ["public", "private", "both"] },
-          { key: "p_delivery_method", label: "Delivery Method", options: ["vaginal", "csection", "both"] },
-          { key: "p_gender", label: "Gender", options: ["boy", "girl", "neutral", "mixed"] },
-          { key: "p_shopper_type", label: "Shopper Type", options: ["self", "gift"] },
-        ].map(field => (
-          <div key={field.key}>
-            <label className="text-[11px] font-semibold text-muted-foreground">{field.label}</label>
-            <select
-              value={(params as any)[field.key]}
-              onChange={e => setParams(p => ({ ...p, [field.key]: e.target.value }))}
-              className="w-full border rounded px-2 py-1.5 text-sm bg-background"
-            >
-              {field.options.map(o => <option key={o}>{o}</option>)}
+    <div className="space-y-6">
+      <div className="space-y-4">
+        <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Family Bundle Tester</h3>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {[
+            { key: "p_budget_tier", label: "Budget Tier", options: ["starter", "standard", "premium"] },
+            { key: "p_scope", label: "Scope", options: ["hospital-bag", "hospital-bag+general", "general-baby-prep"] },
+            { key: "p_stage", label: "Stage", options: ["expecting", "newborn", "0-3m", "3-6m", "6-12m"] },
+            { key: "p_hospital_type", label: "Hospital Type", options: ["public", "private", "both"] },
+            { key: "p_delivery_method", label: "Delivery Method", options: ["vaginal", "csection", "both"] },
+            { key: "p_gender", label: "Gender", options: ["boy", "girl", "neutral", "mixed"] },
+            { key: "p_shopper_type", label: "Shopper Type", options: ["self", "gift", "dad"] },
+          ].map(field => (
+            <div key={field.key}>
+              <label className="text-[11px] font-semibold text-muted-foreground">{field.label}</label>
+              <select
+                value={(params as any)[field.key]}
+                onChange={e => setParams(p => ({ ...p, [field.key]: e.target.value }))}
+                className="w-full border rounded px-2 py-1.5 text-sm bg-background"
+              >
+                {field.options.map(o => <option key={o}>{o}</option>)}
+              </select>
+            </div>
+          ))}
+          <div>
+            <label className="text-[11px] font-semibold text-muted-foreground">Multiples</label>
+            <Input type="number" value={params.p_multiples} onChange={e => setParams(p => ({ ...p, p_multiples: Number(e.target.value) || 1 }))} />
+          </div>
+          <div>
+            <label className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground mt-5">
+              <Switch checked={params.p_first_baby} onCheckedChange={v => setParams(p => ({ ...p, p_first_baby: v }))} />
+              First Baby
+            </label>
+          </div>
+        </div>
+        <Button onClick={runTest} disabled={loading}>
+          {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Play className="w-4 h-4 mr-2" />}
+          Run Test
+        </Button>
+        {result && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-muted rounded-lg p-3 text-center">
+                <div className="text-xs text-muted-foreground">Products</div>
+                <div className="text-xl font-bold">{result.product_count}</div>
+              </div>
+              <div className="bg-muted rounded-lg p-3 text-center">
+                <div className="text-xs text-muted-foreground">Target</div>
+                <div className="text-xl font-bold">{result.target_count}</div>
+              </div>
+              <div className="bg-muted rounded-lg p-3 text-center">
+                <div className="text-xs text-muted-foreground">Engine</div>
+                <div className="text-xs font-mono">{result.engine_version}</div>
+              </div>
+            </div>
+            {result.products?.length > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {result.products.map((p: any) => (
+                  <div key={p.product_id} className="border rounded-lg p-2 text-xs">
+                    <div className="font-semibold">{p.name}</div>
+                    <div className="text-muted-foreground">{p.brand?.brand_name} · ₦{p.brand?.price?.toLocaleString()}</div>
+                    <div className="text-muted-foreground">{p.priority} · qty: {p.quantity}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <details>
+              <summary className="text-xs text-muted-foreground cursor-pointer">Raw JSON</summary>
+              <pre className="mt-2 bg-muted rounded-lg p-3 text-[10px] overflow-auto max-h-80">{JSON.stringify(result, null, 2)}</pre>
+            </details>
+          </div>
+        )}
+      </div>
+
+      <div className="border-t border-border pt-6 space-y-4">
+        <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Push Gift Tester</h3>
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="text-[11px] font-semibold text-muted-foreground">Budget</label>
+            <select value={pushParams.p_budget_tier} onChange={e => setPushParams(p => ({ ...p, p_budget_tier: e.target.value }))} className="w-full border rounded px-2 py-1.5 text-sm bg-background">
+              {["push-starter", "push-standard", "push-premium"].map(o => <option key={o}>{o}</option>)}
             </select>
           </div>
-        ))}
-        <div>
-          <label className="text-[11px] font-semibold text-muted-foreground">Multiples</label>
-          <Input type="number" value={params.p_multiples} onChange={e => setParams(p => ({ ...p, p_multiples: Number(e.target.value) || 1 }))} />
-        </div>
-        <div>
-          <label className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground mt-5">
-            <Switch checked={params.p_first_baby} onCheckedChange={v => setParams(p => ({ ...p, p_first_baby: v }))} />
-            First Baby
-          </label>
-        </div>
-      </div>
-      <Button onClick={runTest} disabled={loading}>
-        {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Play className="w-4 h-4 mr-2" />}
-        Run Test
-      </Button>
-      {result && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-muted rounded-lg p-3 text-center">
-              <div className="text-xs text-muted-foreground">Products</div>
-              <div className="text-xl font-bold">{result.product_count}</div>
-            </div>
-            <div className="bg-muted rounded-lg p-3 text-center">
-              <div className="text-xs text-muted-foreground">Target</div>
-              <div className="text-xl font-bold">{result.target_count}</div>
-            </div>
-            <div className="bg-muted rounded-lg p-3 text-center">
-              <div className="text-xs text-muted-foreground">Engine</div>
-              <div className="text-xs font-mono">{result.engine_version}</div>
-            </div>
+          <div>
+            <label className="text-[11px] font-semibold text-muted-foreground">Category</label>
+            <select value={pushParams.p_category} onChange={e => setPushParams(p => ({ ...p, p_category: e.target.value }))} className="w-full border rounded px-2 py-1.5 text-sm bg-background">
+              {["jewellery", "pampering", "keepsake", "experience", "spoil-her-bundle"].map(o => <option key={o}>{o}</option>)}
+            </select>
           </div>
-          {result.products?.length > 0 && (
+          <div>
+            <label className="text-[11px] font-semibold text-muted-foreground">Timing</label>
+            <select value={pushParams.p_timing} onChange={e => setPushParams(p => ({ ...p, p_timing: e.target.value }))} className="w-full border rounded px-2 py-1.5 text-sm bg-background">
+              {["during-labour", "when-we-come-home", "weeks-after", "no-specific-time"].map(o => <option key={o}>{o}</option>)}
+            </select>
+          </div>
+        </div>
+        <Button onClick={runPushTest} disabled={pushLoading}>
+          {pushLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Play className="w-4 h-4 mr-2" />}
+          Test Push Gift
+        </Button>
+        {pushResult && (
+          <div className="space-y-3">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {result.products.map((p: any) => (
+              {(pushResult.products || pushResult || []).map((p: any) => (
                 <div key={p.product_id} className="border rounded-lg p-2 text-xs">
                   <div className="font-semibold">{p.name}</div>
                   <div className="text-muted-foreground">{p.brand?.brand_name} · ₦{p.brand?.price?.toLocaleString()}</div>
@@ -544,13 +734,13 @@ function EngineTestPanel() {
                 </div>
               ))}
             </div>
-          )}
-          <details>
-            <summary className="text-xs text-muted-foreground cursor-pointer">Raw JSON</summary>
-            <pre className="mt-2 bg-muted rounded-lg p-3 text-[10px] overflow-auto max-h-80">{JSON.stringify(result, null, 2)}</pre>
-          </details>
-        </div>
-      )}
+            <details>
+              <summary className="text-xs text-muted-foreground cursor-pointer">Raw JSON</summary>
+              <pre className="mt-2 bg-muted rounded-lg p-3 text-[10px] overflow-auto max-h-80">{JSON.stringify(pushResult, null, 2)}</pre>
+            </details>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -558,10 +748,11 @@ function EngineTestPanel() {
 // ========= MAIN ADMIN QUIZ ENGINE =========
 
 export default function AdminQuizEngine() {
-  const { data: adminUser } = useAdminUser();
+  const { isSuperAdmin, can } = usePermissions();
   const { data: config, isLoading, refetch } = useAllQuizConfig();
   const qc = useQueryClient();
-  const isSuperAdmin = adminUser?.role === "super_admin";
+
+  const canManageQuiz = can("content", "manage_quiz");
 
   const onRefresh = useCallback(() => {
     refetch();
@@ -594,26 +785,32 @@ export default function AdminQuizEngine() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Quiz Engine</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Manage quiz flow, routing rules, and test the recommendation engine.
+          Manage quiz flow, routing rules, and test the recommendation engine. All changes sync to the live quiz in real-time.
         </p>
       </div>
 
-      <Tabs defaultValue="flowchart">
+      <Tabs defaultValue={isSuperAdmin ? "flowchart" : "config"}>
         <TabsList>
-          <TabsTrigger value="flowchart">Flowchart</TabsTrigger>
-          {isSuperAdmin && <TabsTrigger value="config">Config Editor</TabsTrigger>}
+          {isSuperAdmin && <TabsTrigger value="flowchart">Flowchart</TabsTrigger>}
+          <TabsTrigger value="config">Config Editor</TabsTrigger>
+          {isSuperAdmin && <TabsTrigger value="tester">Engine Tester</TabsTrigger>}
         </TabsList>
 
-        <TabsContent value="flowchart">
-          <QuizFlowchart questions={questions} routingRules={routingRules} />
+        {isSuperAdmin && (
+          <TabsContent value="flowchart">
+            <QuizFlowchart questions={questions} routingRules={routingRules} />
+          </TabsContent>
+        )}
+
+        <TabsContent value="config" className="space-y-8">
+          <QuestionsEditor questions={[...questions]} onRefresh={onRefresh} />
+          <RoutingRulesEditor rules={[...routingRules]} questions={questions} onRefresh={onRefresh} />
+          <AdjustmentRulesEditor rules={[...adjustmentRules]} onRefresh={onRefresh} />
+          <TargetCountsEditor counts={[...targetCounts]} onRefresh={onRefresh} />
         </TabsContent>
 
         {isSuperAdmin && (
-          <TabsContent value="config" className="space-y-8">
-            <QuestionsEditor questions={[...questions]} onRefresh={onRefresh} />
-            <RoutingRulesEditor rules={[...routingRules]} questions={questions} onRefresh={onRefresh} />
-            <AdjustmentRulesEditor rules={[...adjustmentRules]} onRefresh={onRefresh} />
-            <TargetCountsEditor counts={[...targetCounts]} onRefresh={onRefresh} />
+          <TabsContent value="tester" className="space-y-8">
             <EngineTestPanel />
           </TabsContent>
         )}
