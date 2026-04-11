@@ -290,13 +290,40 @@ export default function CheckoutPage() {
         }
       } catch (e) { console.error("Customer upsert failed:", e); }
 
-      // Mark quiz_customers as purchased
+      // Mark quiz_customers as purchased — session_id match first, then whatsapp fallback
       try {
         const sessionId = getSessionId();
-        await supabase
+        const { data: sessionMatch } = await supabase
           .from("quiz_customers")
-          .update({ has_purchased: true, order_id: order.id } as any)
-          .eq("session_id", sessionId);
+          .select("id")
+          .eq("session_id", sessionId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (sessionMatch) {
+          await supabase.from("quiz_customers")
+            .update({ has_purchased: true, order_id: order.id } as any)
+            .eq("id", sessionMatch.id);
+        } else {
+          // Fallback: match by whatsapp_number using customer phone
+          const phone = form.phone.replace(/\D/g, "");
+          if (phone) {
+            const { data: waMatch } = await supabase
+              .from("quiz_customers")
+              .select("id")
+              .or(`whatsapp_number.eq.${form.phone},whatsapp_number.eq.0${phone.slice(-10)},whatsapp_number.eq.+234${phone.slice(-10)}`)
+              .eq("has_purchased", false)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            if (waMatch) {
+              await supabase.from("quiz_customers")
+                .update({ has_purchased: true, order_id: order.id } as any)
+                .eq("id", waMatch.id);
+            }
+          }
+        }
       } catch (e) { console.error("Quiz customer update failed:", e); }
 
       // Track order_placed event
@@ -330,14 +357,20 @@ export default function CheckoutPage() {
     try {
       const PaystackPop = (await import("@paystack/inline-js")).default;
       const popup = new PaystackPop();
+      const paystackKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || "pk_test_ee6db593cdee9f92b4114a9b15f4a2a72e71ee20";
       popup.newTransaction({
-        key: "pk_test_ee6db593cdee9f92b4114a9b15f4a2a72e71ee20",
+        key: paystackKey,
         email: form.email, amount: grand * 100, currency: "NGN",
         ref: `BM-${Date.now()}`, firstname: form.firstName, lastname: form.lastName,
         channels: payment === "ussd" ? ["ussd"] : ["card", "bank_transfer", "ussd", "qr", "mobile_money", "bank"],
         onSuccess: async (transaction: { reference: string; status: string }) => {
-          const { data: verification, error: verifyError } = await supabase.functions.invoke("verify-payment", {
-            body: { reference: transaction.reference },
+          // Save order first with pending status
+          const orderData = buildOrderData(transaction.reference, "pending");
+          const dbOrderNumber = await saveOrderToDb(orderData);
+
+          // Verify payment via edge function
+          const { data: verification, error: verifyError } = await supabase.functions.invoke("process-payment", {
+            body: { reference: transaction.reference, order_id: orderData.orderId },
           });
 
           if (verifyError || !verification?.verified) {
@@ -346,8 +379,6 @@ export default function CheckoutPage() {
             return;
           }
 
-          const orderData = buildOrderData(transaction.reference, verification.status);
-          const dbOrderNumber = await saveOrderToDb(orderData);
           await logOrderToSheets(orderData);
           clearCart();
           navigate("/order-confirmed", { state: { ...orderData, orderId: dbOrderNumber, paymentType: "card", form } });

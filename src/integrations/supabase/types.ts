@@ -836,13 +836,76 @@ export type Database = {
           },
         ]
       }
+      order_returns: {
+        Row: {
+          created_at: string | null
+          handled_by: string | null
+          id: string
+          items_returned: Json | null
+          order_id: string
+          refund_amount: number | null
+          refund_issued: boolean | null
+          refunded_at: string | null
+          return_date: string
+          return_reason: string
+          return_reason_notes: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          handled_by?: string | null
+          id?: string
+          items_returned?: Json | null
+          order_id: string
+          refund_amount?: number | null
+          refund_issued?: boolean | null
+          refunded_at?: string | null
+          return_date: string
+          return_reason: string
+          return_reason_notes?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          handled_by?: string | null
+          id?: string
+          items_returned?: Json | null
+          order_id?: string
+          refund_amount?: number | null
+          refund_issued?: boolean | null
+          refunded_at?: string | null
+          return_date?: string
+          return_reason?: string
+          return_reason_notes?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_returns_handled_by_fkey"
+            columns: ["handled_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_returns_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_status_history: {
         Row: {
           changed_by: string | null
           created_at: string | null
           id: string
+          is_payment_update: boolean | null
+          new_payment_status: string | null
           new_status: string
           note: string | null
+          old_payment_status: string | null
           old_status: string | null
           order_id: string
         }
@@ -850,8 +913,11 @@ export type Database = {
           changed_by?: string | null
           created_at?: string | null
           id?: string
+          is_payment_update?: boolean | null
+          new_payment_status?: string | null
           new_status: string
           note?: string | null
+          old_payment_status?: string | null
           old_status?: string | null
           order_id: string
         }
@@ -859,8 +925,11 @@ export type Database = {
           changed_by?: string | null
           created_at?: string | null
           id?: string
+          is_payment_update?: boolean | null
+          new_payment_status?: string | null
           new_status?: string
           note?: string | null
+          old_payment_status?: string | null
           old_status?: string | null
           order_id?: string
         }
@@ -884,11 +953,15 @@ export type Database = {
       orders: {
         Row: {
           actual_delivery_date: string | null
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           coupon_id: string | null
           created_at: string | null
           customer_email: string
           customer_name: string
           customer_phone: string
+          delivered_at: string | null
           delivery_address: string
           delivery_city: string
           delivery_fee: number
@@ -898,17 +971,25 @@ export type Database = {
           discount_amount: number | null
           estimated_delivery_end: string | null
           estimated_delivery_start: string | null
+          fulfillment_notes: string | null
           gift_message: string | null
           gift_wrapping: boolean | null
           id: string
           order_number: string | null
           order_status: string | null
+          packed_at: string | null
           payment_method: string | null
           payment_reference: string | null
           payment_status: string | null
+          paystack_transaction_id: string | null
           quiz_answers: Json | null
           referral_code_used: string | null
+          refund_amount: number | null
+          refunded_at: string | null
+          return_reason: string | null
+          returned_at: string | null
           service_fee: number
+          shipped_at: string | null
           spend_discount_amount: number | null
           spend_discount_id: string | null
           spend_discount_percent: number | null
@@ -919,11 +1000,15 @@ export type Database = {
         }
         Insert: {
           actual_delivery_date?: string | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           coupon_id?: string | null
           created_at?: string | null
           customer_email: string
           customer_name: string
           customer_phone: string
+          delivered_at?: string | null
           delivery_address: string
           delivery_city: string
           delivery_fee?: number
@@ -933,17 +1018,25 @@ export type Database = {
           discount_amount?: number | null
           estimated_delivery_end?: string | null
           estimated_delivery_start?: string | null
+          fulfillment_notes?: string | null
           gift_message?: string | null
           gift_wrapping?: boolean | null
           id?: string
           order_number?: string | null
           order_status?: string | null
+          packed_at?: string | null
           payment_method?: string | null
           payment_reference?: string | null
           payment_status?: string | null
+          paystack_transaction_id?: string | null
           quiz_answers?: Json | null
           referral_code_used?: string | null
+          refund_amount?: number | null
+          refunded_at?: string | null
+          return_reason?: string | null
+          returned_at?: string | null
           service_fee?: number
+          shipped_at?: string | null
           spend_discount_amount?: number | null
           spend_discount_id?: string | null
           spend_discount_percent?: number | null
@@ -954,11 +1047,15 @@ export type Database = {
         }
         Update: {
           actual_delivery_date?: string | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           coupon_id?: string | null
           created_at?: string | null
           customer_email?: string
           customer_name?: string
           customer_phone?: string
+          delivered_at?: string | null
           delivery_address?: string
           delivery_city?: string
           delivery_fee?: number
@@ -968,17 +1065,25 @@ export type Database = {
           discount_amount?: number | null
           estimated_delivery_end?: string | null
           estimated_delivery_start?: string | null
+          fulfillment_notes?: string | null
           gift_message?: string | null
           gift_wrapping?: boolean | null
           id?: string
           order_number?: string | null
           order_status?: string | null
+          packed_at?: string | null
           payment_method?: string | null
           payment_reference?: string | null
           payment_status?: string | null
+          paystack_transaction_id?: string | null
           quiz_answers?: Json | null
           referral_code_used?: string | null
+          refund_amount?: number | null
+          refunded_at?: string | null
+          return_reason?: string | null
+          returned_at?: string | null
           service_fee?: number
+          shipped_at?: string | null
           spend_discount_amount?: number | null
           spend_discount_id?: string | null
           spend_discount_percent?: number | null
@@ -988,6 +1093,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "orders_cancelled_by_fkey"
+            columns: ["cancelled_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "orders_coupon_id_fkey"
             columns: ["coupon_id"]
