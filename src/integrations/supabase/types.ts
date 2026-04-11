@@ -276,7 +276,9 @@ export type Database = {
       brands: {
         Row: {
           brand_name: string
+          cogs_percent: number | null
           compare_at_price: number | null
+          cost_price: number | null
           created_at: string | null
           display_order: number | null
           id: string
@@ -293,7 +295,9 @@ export type Database = {
         }
         Insert: {
           brand_name: string
+          cogs_percent?: number | null
           compare_at_price?: number | null
+          cost_price?: number | null
           created_at?: string | null
           display_order?: number | null
           id?: string
@@ -310,7 +314,9 @@ export type Database = {
         }
         Update: {
           brand_name?: string
+          cogs_percent?: number | null
           compare_at_price?: number | null
+          cost_price?: number | null
           created_at?: string | null
           display_order?: number | null
           id?: string
@@ -507,8 +513,22 @@ export type Database = {
             foreignKeyName: "coupon_usage_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
+            referencedRelation: "order_lines_report"
+            referencedColumns: ["order_uuid"]
+          },
+          {
+            foreignKeyName: "coupon_usage_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coupon_usage_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders_report"
+            referencedColumns: ["order_uuid"]
           },
         ]
       }
@@ -645,52 +665,73 @@ export type Database = {
       }
       customers: {
         Row: {
+          acquisition_channel: string | null
           created_at: string | null
+          customer_ref: string | null
           delivery_address: string | null
           delivery_area: string | null
           delivery_state: string | null
           email: string
+          first_purchase_date: string | null
           full_name: string | null
           id: string
           last_order_at: string | null
+          last_purchase_date: string | null
           notes: string | null
           phone: string | null
+          primary_country: string | null
+          primary_device: string | null
           tags: string[] | null
           total_orders: number | null
           total_spent: number | null
           updated_at: string | null
+          whatsapp_number: string | null
         }
         Insert: {
+          acquisition_channel?: string | null
           created_at?: string | null
+          customer_ref?: string | null
           delivery_address?: string | null
           delivery_area?: string | null
           delivery_state?: string | null
           email: string
+          first_purchase_date?: string | null
           full_name?: string | null
           id?: string
           last_order_at?: string | null
+          last_purchase_date?: string | null
           notes?: string | null
           phone?: string | null
+          primary_country?: string | null
+          primary_device?: string | null
           tags?: string[] | null
           total_orders?: number | null
           total_spent?: number | null
           updated_at?: string | null
+          whatsapp_number?: string | null
         }
         Update: {
+          acquisition_channel?: string | null
           created_at?: string | null
+          customer_ref?: string | null
           delivery_address?: string | null
           delivery_area?: string | null
           delivery_state?: string | null
           email?: string
+          first_purchase_date?: string | null
           full_name?: string | null
           id?: string
           last_order_at?: string | null
+          last_purchase_date?: string | null
           notes?: string | null
           phone?: string | null
+          primary_country?: string | null
+          primary_device?: string | null
           tags?: string[] | null
           total_orders?: number | null
           total_spent?: number | null
           updated_at?: string | null
+          whatsapp_number?: string | null
         }
         Relationships: []
       }
@@ -847,43 +888,64 @@ export type Database = {
         Row: {
           brand_id: string | null
           brand_name: string
+          cogs_amount: number | null
           color: string | null
           created_at: string | null
+          discount_amount: number | null
+          gross_sales: number | null
           id: string
           line_total: number
+          net_sales: number | null
           order_id: string
           product_id: string | null
           product_name: string
           quantity: number
+          returns_amount: number | null
+          shipping_alloc: number | null
           size: string | null
+          tax_amount: number | null
           unit_price: number
         }
         Insert: {
           brand_id?: string | null
           brand_name: string
+          cogs_amount?: number | null
           color?: string | null
           created_at?: string | null
+          discount_amount?: number | null
+          gross_sales?: number | null
           id?: string
           line_total: number
+          net_sales?: number | null
           order_id: string
           product_id?: string | null
           product_name: string
           quantity?: number
+          returns_amount?: number | null
+          shipping_alloc?: number | null
           size?: string | null
+          tax_amount?: number | null
           unit_price: number
         }
         Update: {
           brand_id?: string | null
           brand_name?: string
+          cogs_amount?: number | null
           color?: string | null
           created_at?: string | null
+          discount_amount?: number | null
+          gross_sales?: number | null
           id?: string
           line_total?: number
+          net_sales?: number | null
           order_id?: string
           product_id?: string | null
           product_name?: string
           quantity?: number
+          returns_amount?: number | null
+          shipping_alloc?: number | null
           size?: string | null
+          tax_amount?: number | null
           unit_price?: number
         }
         Relationships: [
@@ -898,8 +960,22 @@ export type Database = {
             foreignKeyName: "order_items_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
+            referencedRelation: "order_lines_report"
+            referencedColumns: ["order_uuid"]
+          },
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders_report"
+            referencedColumns: ["order_uuid"]
           },
           {
             foreignKeyName: "order_items_product_id_fkey"
@@ -947,8 +1023,22 @@ export type Database = {
             foreignKeyName: "order_notes_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
+            referencedRelation: "order_lines_report"
+            referencedColumns: ["order_uuid"]
+          },
+          {
+            foreignKeyName: "order_notes_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_notes_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders_report"
+            referencedColumns: ["order_uuid"]
           },
         ]
       }
@@ -1007,8 +1097,22 @@ export type Database = {
             foreignKeyName: "order_returns_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
+            referencedRelation: "order_lines_report"
+            referencedColumns: ["order_uuid"]
+          },
+          {
+            foreignKeyName: "order_returns_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_returns_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders_report"
+            referencedColumns: ["order_uuid"]
           },
         ]
       }
@@ -1061,8 +1165,22 @@ export type Database = {
             foreignKeyName: "order_status_history_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
+            referencedRelation: "order_lines_report"
+            referencedColumns: ["order_uuid"]
+          },
+          {
+            foreignKeyName: "order_status_history_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_status_history_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders_report"
+            referencedColumns: ["order_uuid"]
           },
         ]
       }
@@ -1530,6 +1648,7 @@ export type Database = {
           allergen_info: string | null
           badge: string | null
           category: string
+          category_label: string | null
           contents: string | null
           created_at: string | null
           deleted_at: string | null
@@ -1554,6 +1673,7 @@ export type Database = {
           review_count: number | null
           safety_info: string | null
           scheduled_for: string | null
+          sku: string | null
           slug: string
           subcategory: string | null
           updated_at: string | null
@@ -1564,6 +1684,7 @@ export type Database = {
           allergen_info?: string | null
           badge?: string | null
           category: string
+          category_label?: string | null
           contents?: string | null
           created_at?: string | null
           deleted_at?: string | null
@@ -1588,6 +1709,7 @@ export type Database = {
           review_count?: number | null
           safety_info?: string | null
           scheduled_for?: string | null
+          sku?: string | null
           slug: string
           subcategory?: string | null
           updated_at?: string | null
@@ -1598,6 +1720,7 @@ export type Database = {
           allergen_info?: string | null
           badge?: string | null
           category?: string
+          category_label?: string | null
           contents?: string | null
           created_at?: string | null
           deleted_at?: string | null
@@ -1622,6 +1745,7 @@ export type Database = {
           review_count?: number | null
           safety_info?: string | null
           scheduled_for?: string | null
+          sku?: string | null
           slug?: string
           subcategory?: string | null
           updated_at?: string | null
@@ -1681,8 +1805,22 @@ export type Database = {
             foreignKeyName: "quiz_customers_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
+            referencedRelation: "order_lines_report"
+            referencedColumns: ["order_uuid"]
+          },
+          {
+            foreignKeyName: "quiz_customers_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_customers_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders_report"
+            referencedColumns: ["order_uuid"]
           },
         ]
       }
@@ -1725,8 +1863,22 @@ export type Database = {
             foreignKeyName: "referral_codes_referrer_order_id_fkey"
             columns: ["referrer_order_id"]
             isOneToOne: false
+            referencedRelation: "order_lines_report"
+            referencedColumns: ["order_uuid"]
+          },
+          {
+            foreignKeyName: "referral_codes_referrer_order_id_fkey"
+            columns: ["referrer_order_id"]
+            isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_codes_referrer_order_id_fkey"
+            columns: ["referrer_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders_report"
+            referencedColumns: ["order_uuid"]
           },
         ]
       }
@@ -1767,8 +1919,22 @@ export type Database = {
             foreignKeyName: "referral_redemptions_referred_order_id_fkey"
             columns: ["referred_order_id"]
             isOneToOne: false
+            referencedRelation: "order_lines_report"
+            referencedColumns: ["order_uuid"]
+          },
+          {
+            foreignKeyName: "referral_redemptions_referred_order_id_fkey"
+            columns: ["referred_order_id"]
+            isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_redemptions_referred_order_id_fkey"
+            columns: ["referred_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders_report"
+            referencedColumns: ["order_uuid"]
           },
         ]
       }
@@ -1957,8 +2123,22 @@ export type Database = {
             foreignKeyName: "sessions_conversion_order_id_fkey"
             columns: ["conversion_order_id"]
             isOneToOne: false
+            referencedRelation: "order_lines_report"
+            referencedColumns: ["order_uuid"]
+          },
+          {
+            foreignKeyName: "sessions_conversion_order_id_fkey"
+            columns: ["conversion_order_id"]
+            isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_conversion_order_id_fkey"
+            columns: ["conversion_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders_report"
+            referencedColumns: ["order_uuid"]
           },
         ]
       }
@@ -2231,13 +2411,167 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      customer_report: {
+        Row: {
+          Acquisition_Channel: string | null
+          Customer_ID: string | null
+          Customer_Since: string | null
+          Email: string | null
+          First_Purchase_Date: string | null
+          Last_Order_Date: string | null
+          Phone: string | null
+          Primary_Country: string | null
+          Primary_Device: string | null
+          State: string | null
+          Total_Orders: number | null
+          Total_Spent: number | null
+        }
+        Insert: {
+          Acquisition_Channel?: never
+          Customer_ID?: string | null
+          Customer_Since?: string | null
+          Email?: string | null
+          First_Purchase_Date?: never
+          Last_Order_Date?: string | null
+          Phone?: string | null
+          Primary_Country?: never
+          Primary_Device?: never
+          State?: string | null
+          Total_Orders?: number | null
+          Total_Spent?: number | null
+        }
+        Update: {
+          Acquisition_Channel?: never
+          Customer_ID?: string | null
+          Customer_Since?: string | null
+          Email?: string | null
+          First_Purchase_Date?: never
+          Last_Order_Date?: string | null
+          Phone?: string | null
+          Primary_Country?: never
+          Primary_Device?: never
+          State?: string | null
+          Total_Orders?: number | null
+          Total_Spent?: number | null
+        }
+        Relationships: []
+      }
+      order_lines_report: {
+        Row: {
+          Attributed_Channel: string | null
+          Brand_Name: string | null
+          Category: string | null
+          COGS_Net_NGN: number | null
+          Customer_Email: string | null
+          Customer_ID: string | null
+          Discount_NGN: number | null
+          Gross_Sales_NGN: number | null
+          Net_Sales_NGN: number | null
+          New_vs_Returning: string | null
+          Order_Date: string | null
+          Order_ID: string | null
+          order_item_uuid: string | null
+          Order_Status: string | null
+          order_uuid: string | null
+          Payment_Method: string | null
+          Payment_Status: string | null
+          Product_Name: string | null
+          Qty: number | null
+          Returns_NGN: number | null
+          Shipping_Alloc_NGN: number | null
+          SKU: string | null
+          State: string | null
+          Tax_NGN: number | null
+          Unit_Price_NGN: number | null
+        }
+        Relationships: []
+      }
+      order_lines_summary: {
+        Row: {
+          attributed_channel: string | null
+          gross_profit: number | null
+          product_category: string | null
+          report_date: string | null
+          total_cogs: number | null
+          total_discounts: number | null
+          total_gross_sales: number | null
+          total_line_items: number | null
+          total_net_sales: number | null
+          total_returns: number | null
+          total_shipping_alloc: number | null
+          total_tax: number | null
+          total_units: number | null
+          unique_customers: number | null
+        }
+        Relationships: []
+      }
+      orders_report: {
+        Row: {
+          AOV_NGN: number | null
+          Attributed_Channel: string | null
+          COGS_Net_NGN: number | null
+          Customer_Email: string | null
+          Customer_ID: string | null
+          Customer_Name: string | null
+          Customer_Phone: string | null
+          Delivery_Fee_NGN: number | null
+          Discount_NGN: number | null
+          Gift_Wrapping: boolean | null
+          Gross_Margin_Pct: number | null
+          Gross_Profit_NGN: number | null
+          Gross_Sales_NGN: number | null
+          Is_Quiz_Order: boolean | null
+          Items: number | null
+          Net_Sales_NGN: number | null
+          New_vs_Returning: string | null
+          Order_Date: string | null
+          Order_Discount_NGN: number | null
+          Order_ID: string | null
+          Order_Status: string | null
+          Order_Subtotal_NGN: number | null
+          Order_Total_NGN: number | null
+          order_uuid: string | null
+          Payment_Method: string | null
+          Payment_Status: string | null
+          Refund_NGN: number | null
+          Returns_NGN: number | null
+          Service_Fee_NGN: number | null
+          Shipping_NGN: number | null
+          State: string | null
+          Tax_NGN: number | null
+          Total_Units: number | null
+        }
+        Relationships: []
+      }
+      orders_report_summary: {
+        Row: {
+          attributed_channel: string | null
+          avg_order_value: number | null
+          delivery_state: string | null
+          gross_margin_pct: number | null
+          payment_method: string | null
+          report_date: string | null
+          total_cogs: number | null
+          total_discounts: number | null
+          total_gross_profit: number | null
+          total_gross_sales: number | null
+          total_line_items: number | null
+          total_net_sales: number | null
+          total_orders: number | null
+          total_returns: number | null
+          total_shipping: number | null
+          total_tax: number | null
+          total_units: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       check_realtime_access: {
         Args: { channel_name: string }
         Returns: boolean
       }
+      generate_order_number: { Args: never; Returns: string }
       get_delivery_fee: {
         Args: { p_city: string; p_state: string; p_subtotal: number }
         Returns: {
