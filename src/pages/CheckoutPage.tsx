@@ -371,9 +371,9 @@ export default function CheckoutPage() {
     if (payment === "transfer") {
       const orderData = buildOrderData();
       const dbOrderNumber = await saveOrderToDb(orderData);
-      await logOrderToSheets(orderData);
+      await logOrderToSheets({ ...orderData, orderNumber: dbOrderNumber });
       clearCart();
-      navigate("/order-confirmed", { state: { ...orderData, orderId: dbOrderNumber, paymentType: "transfer", form } });
+      navigate(`/order-confirmed?order=${encodeURIComponent(dbOrderNumber || "")}`);
       return;
     }
 
@@ -387,13 +387,11 @@ export default function CheckoutPage() {
         ref: `BM-${Date.now()}`, firstname: form.firstName, lastname: form.lastName,
         channels: payment === "ussd" ? ["ussd"] : ["card", "bank_transfer", "ussd", "qr", "mobile_money", "bank"],
         onSuccess: async (transaction: { reference: string; status: string }) => {
-          // Save order first with pending status
           const orderData = buildOrderData(transaction.reference, "pending");
           const dbOrderNumber = await saveOrderToDb(orderData);
 
-          // Verify payment via edge function
           const { data: verification, error: verifyError } = await supabase.functions.invoke("process-payment", {
-            body: { reference: transaction.reference, order_id: orderData.orderId },
+            body: { reference: transaction.reference, order_id: dbOrderNumber },
           });
 
           if (verifyError || !verification?.verified) {
@@ -402,18 +400,18 @@ export default function CheckoutPage() {
             return;
           }
 
-          await logOrderToSheets(orderData);
+          await logOrderToSheets({ ...orderData, orderNumber: dbOrderNumber });
           clearCart();
-          navigate("/order-confirmed", { state: { ...orderData, orderId: dbOrderNumber, paymentType: "card", form } });
+          navigate(`/order-confirmed?order=${encodeURIComponent(dbOrderNumber || "")}`);
         },
         onCancel: () => { setProcessing(false); toast.error("Payment cancelled"); },
       });
     } catch {
       const orderData = buildOrderData("DEMO-" + Date.now(), "success");
       const dbOrderNumber = await saveOrderToDb(orderData);
-      await logOrderToSheets(orderData);
+      await logOrderToSheets({ ...orderData, orderNumber: dbOrderNumber });
       clearCart();
-      navigate("/order-confirmed", { state: { ...orderData, orderId: dbOrderNumber, paymentType: "card", form } });
+      navigate(`/order-confirmed?order=${encodeURIComponent(dbOrderNumber || "")}`);
     }
   };
 
