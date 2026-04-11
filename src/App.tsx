@@ -29,6 +29,7 @@ import CookiesPage from "@/pages/CookiesPage";
 import ReturnsPage from "@/pages/ReturnsPage";
 import BlogPage from "@/pages/BlogPage";
 import TrackOrderPage from "@/pages/TrackOrderPage";
+import PushGiftsPage from "@/pages/PushGiftsPage";
 import NotFound from "./pages/NotFound.tsx";
 
 // Admin
@@ -137,6 +138,7 @@ const App = () => (
                       <Route path="/returns" element={<ReturnsPage />} />
                       <Route path="/blog" element={<BlogPage />} />
                       <Route path="/track-order" element={<TrackOrderPage />} />
+                      <Route path="/push-gifts" element={<PushGiftsPage />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </main>
