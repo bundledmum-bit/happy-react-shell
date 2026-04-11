@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CartProvider } from "@/lib/cart";
@@ -94,6 +94,20 @@ const App = () => (
               <Route path="/admin/login" element={<AdminLogin />} />
               <Route path="/admin" element={<AdminLayout />}>
                 <Route index element={<AdminDashboard />} />
+                <Route path="orders/all" element={<Navigate to="/admin/orders" replace />} />
+                <Route path="orders/paid" element={<Navigate to="/admin/orders?payment=paid" replace />} />
+                <Route path="orders/pending" element={<Navigate to="/admin/orders?payment=pending" replace />} />
+                <Route path="orders/returns" element={<Navigate to="/admin/orders?status=returned" replace />} />
+                <Route path="analytics/orders" element={<Navigate to="/admin/analytics?tab=orders-report" replace />} />
+                <Route path="analytics/order-lines" element={<Navigate to="/admin/analytics?tab=order-lines" replace />} />
+                <Route path="analytics/customers" element={<Navigate to="/admin/analytics?tab=customers" replace />} />
+                <Route path="analytics/quiz" element={<Navigate to="/admin/analytics?tab=quiz" replace />} />
+                <Route path="content/homepage" element={<Navigate to="/admin/settings?tab=Homepage" replace />} />
+                <Route path="content/pages" element={<Navigate to="/admin/pages" replace />} />
+                <Route path="content/faqs" element={<Navigate to="/admin/content?tab=faqs" replace />} />
+                <Route path="content/testimonials" element={<Navigate to="/admin/content?tab=testimonials" replace />} />
+                <Route path="content/settings" element={<Navigate to="/admin/settings" replace />} />
+                <Route path="content/site-settings" element={<Navigate to="/admin/settings" replace />} />
                 <Route path="products" element={<AdminProducts />} />
                 <Route path="bundles" element={<AdminBundles />} />
                 <Route path="orders" element={<AdminOrders />} />
@@ -113,6 +127,7 @@ const App = () => (
                 <Route path="promotions" element={<AdminPromotions />} />
                 <Route path="quiz-leads" element={<AdminQuizLeads />} />
                 <Route path="quiz-engine" element={<AdminQuizEngine />} />
+                <Route path="*" element={<Navigate to="/admin" replace />} />
               </Route>
 
               {/* Storefront routes */}

@@ -2,8 +2,9 @@ import { useEffect, useState, useMemo } from "react";
 import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdmin } from "@/hooks/useAdmin";
-import { AdminPermissionsProvider, usePermissions, AdminNavItem } from "@/hooks/useAdminPermissionsContext";
+import { AdminPermissionsProvider, usePermissions } from "@/hooks/useAdminPermissionsContext";
 import { useIdleTimeout } from "@/hooks/useIdleTimeout";
+import { getCurrentAdminAccessKey, resolveAdminNavItem } from "@/lib/adminNav";
 import {
   Package, ShoppingBag, ClipboardList, Truck, MessageSquare, Settings,
   BarChart3, Gift, LogOut, LayoutDashboard, FileText, Users, Image, Bell,
@@ -15,7 +16,6 @@ import { toast } from "sonner";
 import logoWhite from "@/assets/logos/BM-LOGO-WHITE.svg";
 import iconCoral from "@/assets/logos/BM-ICON-CORAL.svg";
 
-// Map icon string names from DB to Lucide components
 const ICON_MAP: Record<string, LucideIcon> = {
   LayoutDashboard, Package, ShoppingBag, ClipboardList, Truck, MessageSquare,
   Settings, BarChart3, Gift, FileText, Users, Image, MessageCircleQuestion,
@@ -30,10 +30,10 @@ function getIcon(iconName: string | null): LucideIcon {
 
 function AdminLayoutInner() {
   const { isAdmin, loading, signOut, user } = useAdmin();
-  const { can, adminUser, isSuperAdmin, navItems, navLoading } = usePermissions();
+  const { adminUser, navItems, navLoading } = usePermissions();
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   useIdleTimeout();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -42,40 +42,45 @@ function AdminLayoutInner() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
-  // Build nav tree from flat navItems
+  const resolvedNavItems = useMemo(() => navItems.map(resolveAdminNavItem), [navItems]);
+  const currentAccessKey = useMemo(
+    () => getCurrentAdminAccessKey(location.pathname, location.search),
+    [location.pathname, location.search],
+  );
+
   const navTree = useMemo(() => {
-    const topLevel = navItems.filter(i => !i.parent_key).sort((a, b) => a.display_order - b.display_order);
+    const topLevel = resolvedNavItems.filter(i => !i.parent_key).sort((a, b) => a.display_order - b.display_order);
     return topLevel.map(parent => ({
       ...parent,
-      children: navItems
+      children: resolvedNavItems
         .filter(i => i.parent_key === parent.nav_key)
         .sort((a, b) => a.display_order - b.display_order),
     }));
-  }, [navItems]);
+  }, [resolvedNavItems]);
 
-  // Route guard for custom-role users only: redirect if path not in their explicit nav
   useEffect(() => {
     if (loading || navLoading || !isAdmin || !adminUser) return;
-    if (adminUser.role !== "custom") return; // Non-custom roles use page-level permission checks
-    if (location.pathname === "/admin") return; // Dashboard always accessible
-    const allowedPaths = navItems.map(i => i.path);
-    const isAllowed = allowedPaths.some(p =>
-      location.pathname === p || location.pathname.startsWith(p + "/")
-    );
-    if (!isAllowed && allowedPaths.length > 0) {
+    if (adminUser.role !== "custom") return;
+    if (location.pathname === "/admin") return;
+
+    const allowedAccessKeys = new Set(resolvedNavItems.map(item => item.accessKey));
+    if (allowedAccessKeys.size > 0 && !allowedAccessKeys.has(currentAccessKey)) {
       toast.error("You don't have access to that page");
       navigate("/admin", { replace: true });
     }
-  }, [location.pathname, navItems, loading, navLoading, isAdmin, adminUser, navigate]);
+  }, [currentAccessKey, resolvedNavItems, loading, navLoading, isAdmin, adminUser, navigate, location.pathname]);
 
-  // Auto-expand group containing active route
   useEffect(() => {
-    for (const group of navTree) {
-      if (group.children.some(c => location.pathname.startsWith(c.path))) {
-        setExpandedGroups(prev => ({ ...prev, [group.nav_key]: true }));
-      }
-    }
-  }, [location.pathname, navTree]);
+    setExpandedGroups(prev => {
+      const next = { ...prev };
+      navTree.forEach(group => {
+        if (group.children.some(child => child.accessKey === currentAccessKey)) {
+          next[group.nav_key] = true;
+        }
+      });
+      return next;
+    });
+  }, [currentAccessKey, navTree]);
 
   useEffect(() => {
     if (!adminUser) return;
@@ -116,7 +121,7 @@ function AdminLayoutInner() {
     if (!loading && !isAdmin) navigate("/admin/login");
   }, [loading, isAdmin, navigate]);
 
-  useEffect(() => { setMobileOpen(false); }, [location.pathname]);
+  useEffect(() => { setMobileOpen(false); }, [location.pathname, location.search]);
 
   const markAllRead = async () => {
     const unread = notifications.filter(n => !n.is_read);
@@ -137,9 +142,7 @@ function AdminLayoutInner() {
   if (!isAdmin) return null;
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
-
-  // Flat list for search
-  const allNavFlat = navItems;
+  const allNavFlat = resolvedNavItems;
 
   const toggleGroup = (key: string) => {
     setExpandedGroups(prev => ({ ...prev, [key]: !prev[key] }));
@@ -151,7 +154,7 @@ function AdminLayoutInner() {
 
       <aside className={`fixed h-full z-50 flex flex-col transition-transform lg:translate-x-0 w-60 flex-shrink-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
         style={{ background: "linear-gradient(180deg, #2D6A4F 0%, #1A4A33 100%)" }}>
-        
+
         <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
           <Link to="/admin" className="flex items-center gap-2.5">
             <img src={logoWhite} alt="BundledMum" className="h-7 w-auto" />
@@ -169,33 +172,36 @@ function AdminLayoutInner() {
             const Icon = getIcon(item.icon);
             const hasChildren = item.children.length > 0;
             const isExpanded = expandedGroups[item.nav_key] ?? false;
-            const isActive = hasChildren
-              ? item.children.some(c => location.pathname === c.path || location.pathname.startsWith(c.path + "/"))
-              : (item.path === "/admin"
-                  ? location.pathname === "/admin"
-                  : location.pathname.startsWith(item.path));
+            const isActive = currentAccessKey === item.accessKey || item.children.some(child => child.accessKey === currentAccessKey);
 
             if (hasChildren) {
               return (
-                <div key={item.nav_key}>
-                  <button
-                    onClick={() => toggleGroup(item.nav_key)}
-                    className={`flex items-center gap-2.5 px-5 py-2 text-[13px] transition-all mx-2 rounded-lg font-body w-[calc(100%-16px)] ${
-                      isActive
-                        ? "bg-white/15 text-white font-semibold shadow-sm"
-                        : "text-white/60 hover:bg-white/8 hover:text-white/90"
-                    }`}>
-                    <Icon className={`w-4 h-4 ${isActive ? "text-coral" : ""}`} />
-                    <span className="flex-1 text-left">{item.label}</span>
-                    {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                  </button>
+                <div key={item.nav_key} className="mb-0.5">
+                  <div className={`mx-2 flex items-center rounded-lg transition-all ${
+                    isActive
+                      ? "bg-white/15 text-white font-semibold shadow-sm"
+                      : "text-white/60 hover:bg-white/8 hover:text-white/90"
+                  }`}>
+                    <Link to={item.resolvedPath} className="flex min-w-0 flex-1 items-center gap-2.5 px-5 py-2 text-[13px] font-body">
+                      <Icon className={`w-4 h-4 ${isActive ? "text-coral" : ""}`} />
+                      <span className="truncate">{item.label}</span>
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => toggleGroup(item.nav_key)}
+                      className="px-3 py-2 text-white/70 hover:text-white"
+                      aria-label={isExpanded ? `Collapse ${item.label}` : `Expand ${item.label}`}
+                    >
+                      {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
                   {isExpanded && (
                     <div className="ml-4 mt-0.5 space-y-0.5">
                       {item.children.map(child => {
                         const ChildIcon = getIcon(child.icon);
-                        const childActive = location.pathname === child.path || location.pathname.startsWith(child.path + "/");
+                        const childActive = currentAccessKey === child.accessKey;
                         return (
-                          <Link key={child.nav_key} to={child.path}
+                          <Link key={child.nav_key} to={child.resolvedPath}
                             className={`flex items-center gap-2 px-4 py-1.5 text-[12px] transition-all mx-2 rounded-lg font-body ${
                               childActive
                                 ? "bg-white/10 text-white font-semibold"
@@ -213,7 +219,7 @@ function AdminLayoutInner() {
             }
 
             return (
-              <Link key={item.nav_key} to={item.path}
+              <Link key={item.nav_key} to={item.resolvedPath}
                 className={`flex items-center gap-2.5 px-5 py-2 text-[13px] transition-all mx-2 rounded-lg font-body ${
                   isActive
                     ? "bg-white/15 text-white font-semibold shadow-sm"
@@ -302,7 +308,7 @@ function AdminLayoutInner() {
               <div className="flex items-center gap-2 p-4 border-b border-border">
                 <Search className="w-4 h-4 text-text-light" />
                 <input autoFocus value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Search products, orders, blog posts..."
+                  placeholder="Search admin pages..."
                   className="flex-1 text-sm bg-transparent outline-none" />
                 <button onClick={() => setSearchOpen(false)}><X className="w-4 h-4" /></button>
               </div>
@@ -314,7 +320,7 @@ function AdminLayoutInner() {
                     ).map(item => {
                       const NavIcon = getIcon(item.icon);
                       return (
-                        <Link key={item.nav_key} to={item.path} onClick={() => setSearchOpen(false)}
+                        <Link key={item.nav_key} to={item.resolvedPath} onClick={() => setSearchOpen(false)}
                           className="flex items-center gap-2 p-2.5 hover:bg-muted rounded-lg transition-colors">
                           <NavIcon className="w-4 h-4 text-forest" />
                           <span className="font-semibold">{item.label}</span>
