@@ -10,7 +10,7 @@ import { trackEvent, getSessionId, getReferralSource } from "@/lib/analytics";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuizQuestions, useQuizRoutingRules } from "@/hooks/useQuizConfig";
 import { getNextStep, getStepSequence, getModifiedOptions } from "@/lib/quizEngine";
-import type { QuizQuestion } from "@/hooks/useQuizConfig";
+import type { QuizQuestion, QuizQuestionUiConfig } from "@/hooks/useQuizConfig";
 
 type Answers = Record<string, string>;
 
@@ -71,11 +71,12 @@ async function createQuizSession(shopperType: string) {
   if (data) quizSessionId = data.id;
 }
 
-async function updateQuizSession(answers: Answers, currentStep: string, stepsCompleted: string[]) {
+async function updateQuizSession(answers: Answers, currentStep: string | null, stepsCompleted: string[]) {
   if (!quizSessionId) return;
   await supabase
     .from("quiz_sessions")
     .update({
+      shopper_type: answers.shopper || null,
       answers: answers as any,
       current_step: currentStep,
       steps_completed: stepsCompleted,
@@ -84,18 +85,18 @@ async function updateQuizSession(answers: Answers, currentStep: string, stepsCom
     .eq("id", quizSessionId);
 }
 
-async function completeQuizSession(answers: Answers, result: RecommendationResult, whatsapp?: string) {
+async function completeQuizSession(answers: Answers, productCount: number, budgetTier: string) {
   if (!quizSessionId) return;
   await supabase
     .from("quiz_sessions")
     .update({
       is_completed: true,
-      answers: answers as any,
-      result_tier: result.budget_tier,
-      result_product_count: result.product_count,
-      result_product_ids: result.products.map(p => p.product_id),
-      engine_version: result.engine_version,
-      whatsapp_number: whatsapp || null,
+      current_step: null,
+      result_tier: budgetTier,
+      result_product_count: productCount,
+      dad_purpose: answers.dadPurpose || null,
+      push_gift_category: answers.pushGiftCategory || null,
+      push_gift_timing: answers.pushGiftTiming || null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", quizSessionId);
@@ -150,6 +151,83 @@ function ResultProductCard({ item, onAdd, onRemove, isInCart }: {
   );
 }
 
+// ========= WHATSAPP INPUT STEP (DB-driven) =========
+
+function WhatsAppInputStep({
+  question,
+  progress,
+  onSubmit,
+  onSkip,
+  onBack,
+}: {
+  question: QuizQuestion;
+  progress: number;
+  onSubmit: (whatsapp?: string) => void;
+  onSkip: () => void;
+  onBack: () => void;
+}) {
+  const [number, setNumber] = useState("");
+  const config: QuizQuestionUiConfig = question.ui_config || {};
+
+  const regexStr = config.validation_regex || "^(0[789][01]\\d{8})$|^234[789][01]\\d{8}$";
+  const isValid = (num: string) => {
+    const digits = num.replace(/\D/g, "");
+    return new RegExp(regexStr).test(digits);
+  };
+  const error = number && !isValid(number) ? (config.validation_error || "Enter a valid Nigerian number (e.g. 08012345678 or +234...)") : "";
+
+  return (
+    <div className="min-h-screen bg-background pt-[68px] flex flex-col items-center px-4 md:px-10 py-10 md:py-14 pb-20 md:pb-12">
+      <div className="w-full max-w-[660px] mb-6">
+        <div className="w-full bg-border h-1.5 rounded-full overflow-hidden">
+          <div className="bg-coral h-1.5 transition-all duration-500 rounded-full" style={{ width: `${progress}%` }} />
+        </div>
+        <div className="flex justify-between mt-3">
+          <div className="text-muted-foreground text-sm font-semibold">{config.page_title || "Almost done!"}</div>
+          <button onClick={onBack} className="text-muted-foreground text-sm flex items-center gap-1 font-body hover:text-foreground"><ArrowLeft className="h-3.5 w-3.5" /> Back</button>
+        </div>
+      </div>
+
+      <div className="animate-fade-in bg-card rounded-[22px] p-7 md:p-12 shadow-card-hover w-full max-w-[660px]">
+        <div className="text-center mb-7">
+          <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-widest mb-2">{config.eyebrow || question.sub_text || "ONE LAST THING 📱"}</p>
+          <h2 className="pf text-xl md:text-[30px] leading-tight">{question.question_text}</h2>
+          {question.sub_text && <p className="text-muted-foreground text-sm mt-2">{question.sub_text}</p>}
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex flex-col gap-1">
+            <input
+              type="tel"
+              value={number}
+              onChange={e => setNumber(e.target.value)}
+              placeholder={config.placeholder || "08012345678 or +234..."}
+              className={`w-full rounded-[14px] border-2 px-4 py-3.5 text-sm bg-card font-body outline-none transition-colors ${error ? "border-destructive" : "border-border focus:border-forest"}`}
+            />
+            {error && <p className="text-destructive text-[11px]">{error}</p>}
+            <p className="text-muted-foreground text-[11px]">{config.helper_text || "Accepts 07xx, 08xx, 09xx or +234 format"}</p>
+          </div>
+
+          <button
+            onClick={() => {
+              if (number && !isValid(number)) return;
+              onSubmit(number || undefined);
+            }}
+            className="w-full rounded-pill bg-forest py-3.5 font-body font-semibold text-primary-foreground hover:bg-forest-deep interactive text-sm"
+          >
+            {number ? (config.primary_button || "Continue →") : (config.skip_label || "Continue without WhatsApp →")}
+          </button>
+
+          <button onClick={onSkip} className="w-full text-muted-foreground text-xs hover:text-forest transition-colors font-body">
+            ⏭️ {config.skip_label || "Skip"}
+          </button>
+        </div>
+      </div>
+      <p className="text-muted-foreground text-xs mt-4 text-center">{config.footer_text || "🔒 We never share your data · Results appear instantly"}</p>
+    </div>
+  );
+}
+
 // ========= MAIN QUIZ PAGE =========
 
 export default function QuizPage() {
@@ -168,15 +246,13 @@ export default function QuizPage() {
   const [currentStep, setCurrentStep] = useState<string | null>(null);
   const [showResults, setShowResults] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
-  const [showWhatsAppStep, setShowWhatsAppStep] = useState(false);
-  const [whatsappNumber, setWhatsappNumber] = useState("");
   const [quizStartTracked, setQuizStartTracked] = useState(false);
   const [recommendation, setRecommendation] = useState<RecommendationResult | null>(null);
   const [pushGiftRecommendation, setPushGiftRecommendation] = useState<RecommendedProduct[] | null>(null);
   const [story, setStory] = useState("");
   const [loadingResults, setLoadingResults] = useState(false);
-  // For "both" path: after showing push gift results, continue to family shopping
   const [bothPhase, setBothPhase] = useState<"push-gift" | "family" | null>(null);
+  const [whatsappNumber, setWhatsappNumber] = useState<string | undefined>();
   const navigate = useNavigate();
   const { addToCart, cart, setCart } = useCart();
 
@@ -218,7 +294,7 @@ export default function QuizPage() {
 
   const currentIdx = currentStep ? stepSequence.indexOf(currentStep) : 0;
   const totalSteps = stepSequence.length;
-  const progress = showResults ? 100 : showWhatsAppStep ? 95 : totalSteps > 0 ? ((currentIdx + 1) / totalSteps) * 100 : 0;
+  const progress = showResults ? 100 : totalSteps > 0 ? ((currentIdx + 1) / totalSteps) * 100 : 0;
 
   // Find current question from DB
   const currentQuestion: QuizQuestion | null = useMemo(() => {
@@ -235,25 +311,26 @@ export default function QuizPage() {
       .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
   }, [currentQuestion]);
 
-  const saveQuizCustomer = useCallback(async (whatsapp?: string) => {
-    await supabase.from("quiz_customers").insert([{
-      hospital_type: answers.hospitalType || null,
-      delivery_method: answers.deliveryMethod || null,
-      baby_gender: answers.gender || null,
-      budget_tier: answers.budget || null,
-      whatsapp_number: whatsapp || null,
-      session_id: getSessionId(),
-      page_url: window.location.pathname,
-      referral_source: getReferralSource(),
-      has_purchased: false,
-    }]);
-  }, [answers]);
-
-  // Determine if this is a dad path
+  // Determine path info
   const isDadPath = answers.shopper === "dad";
   const dadPurpose = answers.dadPurpose;
   const isBothPath = isDadPath && dadPurpose === "both";
   const isFamilyShoppingPath = isDadPath && (dadPurpose === "family-shopping" || (dadPurpose === "both" && bothPhase === "family"));
+
+  // ========= SAVE QUIZ LEAD =========
+  const saveQuizCustomer = useCallback(async (whatsapp?: string) => {
+    await supabase.from("quiz_customers").insert([{
+      session_id: getSessionId(),
+      hospital_type: answers.hospitalType || null,
+      delivery_method: answers.deliveryMethod || null,
+      baby_gender: answers.gender || null,
+      budget_tier: answers.budget || answers.pushGiftBudget || null,
+      whatsapp_number: whatsapp || null,
+      referral_source: document.referrer || "direct",
+      page_url: window.location.href,
+      has_purchased: false,
+    }]);
+  }, [answers]);
 
   // ========= PUSH GIFT RECOMMENDATION =========
   const fetchPushGiftResults = useCallback(async () => {
@@ -286,6 +363,7 @@ export default function QuizPage() {
 
   const finishQuiz = useCallback(async (whatsapp?: string) => {
     setLoadingResults(true);
+    setWhatsappNumber(whatsapp);
     trackEvent("quiz_completed", {
       hospital_type: answers.hospitalType,
       delivery_method: answers.deliveryMethod,
@@ -298,26 +376,17 @@ export default function QuizPage() {
 
     try {
       if (isBothPath && bothPhase !== "family") {
-        // Both path — first show push gift results
         const pushProducts = await fetchPushGiftResults();
         setPushGiftRecommendation(pushProducts as RecommendedProduct[]);
         setBothPhase("push-gift");
-        setShowWhatsAppStep(false);
         setShowResults(true);
         setLoadingResults(false);
         return;
       }
 
-      // Standard or family-shopping path
       const rec = await fetchFamilyResults();
       setRecommendation(rec);
 
-      // If both path and we already have push gift results, keep them
-      if (isBothPath && bothPhase === "family") {
-        // Already have push gift results, just add family results
-      }
-
-      // Call story generator
       const { data: storyData } = await supabase.rpc("generate_quiz_story", {
         p_shopper_type: isDadPath ? "dad" : (answers.shopper || "self"),
         p_budget_tier: answers.budget || "standard",
@@ -333,13 +402,12 @@ export default function QuizPage() {
       });
       setStory((storyData as string) || "Your personalised bundle is ready!");
 
-      await completeQuizSession(answers, rec, whatsapp);
+      await completeQuizSession(answers, rec.product_count, rec.budget_tier);
     } catch (err) {
       console.error("Recommendation engine error:", err);
       toast.error("Something went wrong generating your bundle. Please try again.");
     }
 
-    setShowWhatsAppStep(false);
     setShowResults(true);
     setLoadingResults(false);
   }, [answers, saveQuizCustomer, dadPurpose, isBothPath, bothPhase, fetchPushGiftResults, fetchFamilyResults, isDadPath]);
@@ -348,7 +416,6 @@ export default function QuizPage() {
   const continueToBothFamilyShopping = useCallback(() => {
     setBothPhase("family");
     setShowResults(false);
-    // Reset to budget step for family shopping
     setCurrentStep("budget");
     setHistory(prev => [...prev, "pushGiftResults"]);
   }, []);
@@ -374,16 +441,16 @@ export default function QuizPage() {
         p_product_count: rec.product_count,
       });
       setStory((storyData as string) || "Your personalised bundle is ready!");
-      await completeQuizSession(answers, rec, whatsapp);
+      await completeQuizSession(answers, rec.product_count, rec.budget_tier);
     } catch (err) {
       console.error("Family recommendation error:", err);
       toast.error("Something went wrong. Please try again.");
     }
-    setShowWhatsAppStep(false);
     setShowResults(true);
     setLoadingResults(false);
   }, [answers, fetchFamilyResults]);
 
+  // ========= ANSWER HANDLER (fully DB-driven) =========
   const handleAnswer = useCallback((stepId: string, optionId: string) => {
     const newAnswers = { ...answers, [stepId]: optionId };
     setAnswers(newAnswers);
@@ -396,40 +463,50 @@ export default function QuizPage() {
     setTimeout(() => {
       const next = getNextStep(stepId, optionId, newAnswers, routingRules, questions);
       const newSteps = [...history, stepId];
-      
-      // Skip the whatsapp_consent DB step — we have a hardcoded WhatsApp capture instead
-      if (!next || next === "whatsapp_consent") {
-        setShowWhatsAppStep(true);
+
+      if (!next) {
+        // Quiz is done — go to results
+        setHistory(newSteps);
+        if (isBothPath && bothPhase === "family") {
+          finishBothFamilyPath();
+        } else {
+          finishQuiz();
+        }
       } else {
         setHistory(newSteps);
         setCurrentStep(next);
       }
 
-      // Track session
-      updateQuizSession(newAnswers, next || stepId, newSteps);
+      // Track session after every answer
+      updateQuizSession(newAnswers, next || null, newSteps);
     }, 320);
-  }, [answers, routingRules, questions, history]);
+  }, [answers, routingRules, questions, history, isBothPath, bothPhase, finishQuiz, finishBothFamilyPath]);
 
   const handleSkip = useCallback((stepId: string) => {
     const newAnswers = { ...answers, [stepId]: "skip" };
     setAnswers(newAnswers);
     const next = getNextStep(stepId, "skip", newAnswers, routingRules, questions);
-    if (!next || next === "whatsapp_consent") {
-      setShowWhatsAppStep(true);
+    if (!next) {
+      setHistory(h => [...h, currentStep!]);
+      if (isBothPath && bothPhase === "family") {
+        finishBothFamilyPath();
+      } else {
+        finishQuiz();
+      }
     } else {
       setHistory(h => [...h, currentStep!]);
       setCurrentStep(next);
     }
-  }, [answers, routingRules, questions, currentStep]);
+    updateQuizSession(newAnswers, next || null, [...history, currentStep!]);
+  }, [answers, routingRules, questions, currentStep, history, isBothPath, bothPhase, finishQuiz, finishBothFamilyPath]);
 
   const handleBack = useCallback(() => {
     if (showResults) { setShowResults(false); return; }
-    if (showWhatsAppStep) { setShowWhatsAppStep(false); return; }
     if (history.length === 0) return;
     const prev = history[history.length - 1];
     setHistory(h => h.slice(0, -1));
     setCurrentStep(prev);
-  }, [showResults, showWhatsAppStep, history]);
+  }, [showResults, history]);
 
   const goToStep = useCallback((stepId: string) => {
     const idx = history.indexOf(stepId);
@@ -526,7 +603,6 @@ export default function QuizPage() {
             ))}
           </div>
 
-          {/* Continue to family shopping button */}
           <div className="bg-forest rounded-card p-6 md:p-8 text-center">
             <h3 className="pf text-xl text-primary-foreground mb-2">Now Shop the Family Essentials</h3>
             <p className="text-primary-foreground/70 text-sm mb-4 max-w-[400px] mx-auto">
@@ -564,7 +640,6 @@ export default function QuizPage() {
     const budgetLabel = budget === "starter" ? "Starter" : budget === "premium" ? "Premium" : "Standard";
     const isFallback = recommendation.engine_version?.includes("fallback");
 
-    // Heading logic
     let heading: string;
     if (isBothPath && pushGiftRecommendation) {
       heading = "Your Complete Order 💙💝";
@@ -681,7 +756,6 @@ export default function QuizPage() {
         </div>
 
         <div id="quiz-results-items" className="max-w-[1000px] mx-auto px-4 md:px-10 py-8 md:py-10">
-          {/* Push Gift Section (for "both" path) */}
           {pushGiftRecommendation && pushGiftRecommendation.length > 0 && (
             <div className="mb-10">
               <h2 className="pf text-lg md:text-xl text-coral mb-4">💝 Push Gift for Her</h2>
@@ -699,7 +773,6 @@ export default function QuizPage() {
             </div>
           )}
 
-          {/* Family Bundle Section */}
           {babyItems.length > 0 && (
             <div className="mb-10">
               <h2 className="pf text-lg md:text-xl text-forest mb-4">{isGift ? "🎁 Gift for Baby" : isBothPath ? "👶 Family Bundle — Baby" : "👶 For Baby"}</h2>
@@ -800,79 +873,49 @@ export default function QuizPage() {
     );
   }
 
-  // ========= WHATSAPP CAPTURE STEP =========
-  if (showWhatsAppStep) {
-    const isValidNigerian = (num: string) => {
-      const digits = num.replace(/\D/g, "");
-      return /^(0[789][01]\d{8})$/.test(digits) || /^234[789][01]\d{8}$/.test(digits);
-    };
-    const whatsappError = whatsappNumber && !isValidNigerian(whatsappNumber) ? "Enter a valid Nigerian number (e.g. 08012345678 or +234...)" : "";
-
-    const handleFinish = () => {
-      if (whatsappNumber && !isValidNigerian(whatsappNumber)) return;
-      // For "both" path in family phase, use the family finish
-      if (isBothPath && bothPhase === "family") {
-        finishBothFamilyPath(whatsappNumber || undefined);
-      } else {
-        finishQuiz(whatsappNumber || undefined);
-      }
-    };
-
+  // ========= WHATSAPP INPUT STEP (DB-driven) =========
+  if (currentQuestion && currentQuestion.input_type === "whatsapp_input") {
     return (
-      <div className="min-h-screen bg-background pt-[68px] flex flex-col items-center px-4 md:px-10 py-10 md:py-14 pb-20 md:pb-12">
-        <div className="w-full max-w-[660px] mb-6">
-          <div className="w-full bg-border h-1.5 rounded-full overflow-hidden">
-            <div className="bg-coral h-1.5 transition-all duration-500 rounded-full" style={{ width: `${progress}%` }} />
-          </div>
-          <div className="flex justify-between mt-3">
-            <div className="text-muted-foreground text-sm font-semibold">Almost done!</div>
-            <button onClick={handleBack} className="text-muted-foreground text-sm flex items-center gap-1 font-body hover:text-foreground"><ArrowLeft className="h-3.5 w-3.5" /> Back</button>
-          </div>
-        </div>
-
-        <div className="animate-fade-in bg-card rounded-[22px] p-7 md:p-12 shadow-card-hover w-full max-w-[660px]">
-          <div className="text-center mb-7">
-            <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-widest mb-2">ONE LAST THING 📱</p>
-            <h2 className="pf text-xl md:text-[30px] leading-tight">WhatsApp Number (optional)</h2>
-            <p className="text-muted-foreground text-sm mt-2">We will only use this to follow up on this order if necessary</p>
-          </div>
-
-          <div className="space-y-4">
-            <div className="flex flex-col gap-1">
-              <input
-                type="tel"
-                value={whatsappNumber}
-                onChange={e => setWhatsappNumber(e.target.value)}
-                placeholder="08012345678 or +234..."
-                className={`w-full rounded-[14px] border-2 px-4 py-3.5 text-sm bg-card font-body outline-none transition-colors ${whatsappError ? "border-destructive" : "border-border focus:border-forest"}`}
-              />
-              {whatsappError && <p className="text-destructive text-[11px]">{whatsappError}</p>}
-              <p className="text-muted-foreground text-[11px]">Accepts 07xx, 08xx, 09xx or +234 format</p>
-            </div>
-
-            <button
-              onClick={handleFinish}
-              className="w-full rounded-pill bg-forest py-3.5 font-body font-semibold text-primary-foreground hover:bg-forest-deep interactive text-sm"
-            >
-              {whatsappNumber ? "Continue →" : "Continue without WhatsApp →"}
-            </button>
-
-            <button
-              onClick={() => {
-                if (isBothPath && bothPhase === "family") {
-                  finishBothFamilyPath();
-                } else {
-                  finishQuiz();
-                }
-              }}
-              className="w-full text-muted-foreground text-xs hover:text-forest transition-colors font-body"
-            >
-              ⏭️ Skip
-            </button>
-          </div>
-        </div>
-        <p className="text-muted-foreground text-xs mt-4 text-center">🔒 We never share your data · Results appear instantly</p>
-      </div>
+      <WhatsAppInputStep
+        question={currentQuestion}
+        progress={progress}
+        onSubmit={(whatsapp) => {
+          const newAnswers = { ...answers, [currentQuestion.step_id]: whatsapp || "skip" };
+          setAnswers(newAnswers);
+          // This was the last step before results — check routing
+          const next = getNextStep(currentQuestion.step_id, whatsapp || "skip", newAnswers, routingRules, questions);
+          if (!next) {
+            setHistory(h => [...h, currentQuestion.step_id]);
+            if (isBothPath && bothPhase === "family") {
+              finishBothFamilyPath(whatsapp);
+            } else {
+              finishQuiz(whatsapp);
+            }
+          } else {
+            setHistory(h => [...h, currentQuestion.step_id]);
+            setCurrentStep(next);
+          }
+          updateQuizSession(newAnswers, next || null, [...history, currentQuestion.step_id]);
+        }}
+        onSkip={() => {
+          const newAnswers = { ...answers, [currentQuestion.step_id]: "skip" };
+          setAnswers(newAnswers);
+          const next = getNextStep(currentQuestion.step_id, "skip", newAnswers, routingRules, questions);
+          if (!next) {
+            setHistory(h => [...h, currentQuestion.step_id]);
+            if (isBothPath && bothPhase === "family") {
+              finishBothFamilyPath();
+            } else {
+              finishQuiz();
+            }
+          } else {
+            setHistory(h => [...h, currentQuestion.step_id]);
+            setCurrentStep(next);
+          }
+          updateQuizSession(newAnswers, next || null, [...history, currentQuestion.step_id]);
+        }}
+        onBack={handleBack}
+      />
     );
   }
 

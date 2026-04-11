@@ -13,6 +13,18 @@ export interface QuizOption {
   is_active: boolean | null;
 }
 
+export interface QuizQuestionUiConfig {
+  page_title?: string;
+  eyebrow?: string;
+  placeholder?: string;
+  helper_text?: string;
+  primary_button?: string;
+  skip_label?: string;
+  footer_text?: string;
+  validation_regex?: string;
+  validation_error?: string;
+}
+
 export interface QuizQuestion {
   id: string;
   step_id: string;
@@ -24,6 +36,7 @@ export interface QuizQuestion {
   step_order: number;
   step_label: string;
   is_active: boolean | null;
+  ui_config: QuizQuestionUiConfig | null;
   quiz_options: QuizOption[];
 }
 
