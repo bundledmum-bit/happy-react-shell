@@ -2205,6 +2205,7 @@ export type Database = {
           step_label: string
           step_order: number
           sub_text: string | null
+          ui_config: Json | null
           updated_at: string | null
         }
         Insert: {
@@ -2219,6 +2220,7 @@ export type Database = {
           step_label: string
           step_order: number
           sub_text?: string | null
+          ui_config?: Json | null
           updated_at?: string | null
         }
         Update: {
@@ -2233,6 +2235,7 @@ export type Database = {
           step_label?: string
           step_order?: number
           sub_text?: string | null
+          ui_config?: Json | null
           updated_at?: string | null
         }
         Relationships: []
