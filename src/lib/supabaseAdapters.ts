@@ -31,7 +31,7 @@ export interface Product {
   tags: string[];
   badge: string | null;
   brands: Brand[];
-  category: "baby" | "mum";
+  category: string;
   subcategory?: string | null;
   stage: string[];
   priority: "essential" | "recommended" | "nice-to-have";
