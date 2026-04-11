@@ -109,7 +109,10 @@ export default function AdminLayout() {
   if (!isAdmin) return null;
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
-  const visibleNav = NAV.filter(item => canViewSection(adminUser, item.section));
+  const visibleNav = NAV.filter(item => {
+    if ((item as any).superAdminOnly && adminUser?.role !== "super_admin") return false;
+    return canViewSection(adminUser, item.section);
+  });
 
   return (
     <div className="min-h-screen flex bg-muted/30">
