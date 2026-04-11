@@ -104,6 +104,7 @@ export default function AdminProductForm({ product, onClose, onSaved }: Props) {
           display_order: i, image_url: b.image_url || null, logo_url: b.logo_url || null,
           thumbnail_url: b.thumbnail_url || null, compare_at_price: b.compare_at_price || null,
           stock_quantity: b.stock_quantity, in_stock: b.in_stock ?? true,
+          cost_price: b.cost_price || 0,
         }));
         const { error } = await supabase.from("brands").insert(brandRows);
         if (error) throw error;
