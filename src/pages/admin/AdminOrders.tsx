@@ -192,6 +192,12 @@ export default function AdminOrders() {
         ))}
       </div>
 
+      {isPaidOnlyRestricted && (
+        <div className="flex items-center gap-2 mb-4 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 font-medium">
+          🔒 Showing paid orders only
+        </div>
+      )}
+
       <div className="flex gap-2 mb-4 flex-wrap">
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -202,10 +208,12 @@ export default function AdminOrders() {
           <option value="all">All statuses</option>
           {ORDER_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
-        <select value={paymentFilter} onChange={e => setPaymentFilter(e.target.value)} className="border border-input rounded-lg px-3 py-2 text-xs bg-background">
-          <option value="all">All payments</option>
-          {PAYMENT_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
+        {!isPaidOnlyRestricted && (
+          <select value={paymentFilter} onChange={e => setPaymentFilter(e.target.value)} className="border border-input rounded-lg px-3 py-2 text-xs bg-background">
+            <option value="all">All payments</option>
+            {PAYMENT_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        )}
         <select value={methodFilter} onChange={e => setMethodFilter(e.target.value)} className="border border-input rounded-lg px-3 py-2 text-xs bg-background">
           <option value="all">All methods</option>
           {PAYMENT_METHODS.map(s => <option key={s} value={s}>{s}</option>)}
