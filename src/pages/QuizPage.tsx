@@ -319,17 +319,19 @@ export default function QuizPage() {
 
   // ========= SAVE QUIZ LEAD =========
   const saveQuizCustomer = useCallback(async (whatsapp?: string) => {
-    await supabase.from("quiz_customers").insert([{
-      session_id: getSessionId(),
+    const sessionId = getSessionId();
+    const whatsappVal = whatsapp || answers.whatsapp || null;
+    await supabase.from("quiz_customers").upsert({
+      session_id: sessionId,
       hospital_type: answers.hospitalType || null,
       delivery_method: answers.deliveryMethod || null,
       baby_gender: answers.gender || null,
       budget_tier: answers.budget || answers.pushGiftBudget || null,
-      whatsapp_number: whatsapp || null,
+      whatsapp_number: whatsappVal === "skip" ? null : whatsappVal,
       referral_source: document.referrer || "direct",
       page_url: window.location.href,
       has_purchased: false,
-    }]);
+    }, { onConflict: "session_id" });
   }, [answers]);
 
   // ========= PUSH GIFT RECOMMENDATION =========
@@ -874,7 +876,7 @@ export default function QuizPage() {
   }
 
   // ========= WHATSAPP INPUT STEP (DB-driven) =========
-  if (currentQuestion && currentQuestion.input_type === "whatsapp_input") {
+  if (currentQuestion && currentQuestion.input_type === "optional_text") {
     return (
       <WhatsAppInputStep
         question={currentQuestion}
