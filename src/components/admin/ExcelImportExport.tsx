@@ -10,11 +10,11 @@ interface Props {
 }
 
 const EXPORT_COLUMNS = [
-  "Product ID", "Product Name", "Slug", "Description", "Category", "Priority", "Badge",
+  "Product ID", "SKU", "Product Name", "Slug", "Description", "Category", "Subcategory", "Priority", "Badge",
   "Pack Info", "Material", "Contents", "Allergen Info", "Safety Info", "Why Mums Love This",
   "Rating", "Review Count", "Gender Relevant", "Multiples Bump", "First Baby",
   "Display Order", "Active", "Emoji", "Image URL",
-  "Brand Name", "Brand Tier", "Brand Price", "Compare-at Price",
+  "Brand Name", "Brand Tier", "Brand Price", "Compare-at Price", "Cost Price (COGS)", "COGS %",
   "Brand Image URL", "Brand Logo URL", "Size Variant", "Stock Quantity", "In Stock",
   "Sizes", "Colours", "Tags", "Meta Title", "Meta Description",
 ];
@@ -31,23 +31,24 @@ export function ExportButton({ products }: Props) {
 
       if (brands.length === 0) {
         rows.push([
-          p.id, p.name, p.slug, p.description, p.category, p.priority, p.badge || "",
+          p.id, p.sku || "", p.name, p.slug, p.description, p.category, p.subcategory || "", p.priority, p.badge || "",
           p.pack_count || "", p.material || "", p.contents || "", p.allergen_info || "",
           p.safety_info || "", p.why_included || "", p.rating, p.review_count,
           p.gender_relevant ? "Yes" : "No", p.multiples_bump, p.first_baby === true ? "Yes" : p.first_baby === false ? "No" : "",
           p.display_order, p.is_active ? "Yes" : "No", p.emoji || "", p.image_url || "",
-          "", "", "", "", "", "", "", "", "",
+          "", "", "", "", "", "",
+          "", "", "", "", "",
           sizes, colours, tags, p.meta_title || "", p.meta_description || "",
         ]);
       } else {
         for (const b of brands) {
           rows.push([
-            p.id, p.name, p.slug, p.description, p.category, p.priority, p.badge || "",
+            p.id, p.sku || "", p.name, p.slug, p.description, p.category, p.subcategory || "", p.priority, p.badge || "",
             p.pack_count || "", p.material || "", p.contents || "", p.allergen_info || "",
             p.safety_info || "", p.why_included || "", p.rating, p.review_count,
             p.gender_relevant ? "Yes" : "No", p.multiples_bump, p.first_baby === true ? "Yes" : p.first_baby === false ? "No" : "",
             p.display_order, p.is_active ? "Yes" : "No", p.emoji || "", p.image_url || "",
-            b.brand_name, b.tier, b.price, b.compare_at_price || "",
+            b.brand_name, b.tier, b.price, b.compare_at_price || "", b.cost_price || 0, b.cogs_percent ?? 40,
             b.image_url || "", b.logo_url || "", b.size_variant || "",
             b.stock_quantity ?? "", b.in_stock !== false ? "Yes" : "No",
             sizes, colours, tags, p.meta_title || "", p.meta_description || "",
@@ -60,8 +61,8 @@ export function ExportButton({ products }: Props) {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Products");
 
-    // Auto-width
-    ws["!cols"] = EXPORT_COLUMNS.map((_, i) => ({ wch: Math.max(12, EXPORT_COLUMNS[i].length + 2) }));
+    // Branded header styling
+    ws["!cols"] = EXPORT_COLUMNS.map((_, i) => ({ wch: Math.max(14, EXPORT_COLUMNS[i].length + 2) }));
 
     XLSX.writeFile(wb, `BundledMum_Products_${new Date().toISOString().slice(0, 10)}.xlsx`);
     toast.success(`Exported ${products.length} products`);
@@ -116,6 +117,9 @@ export function ImportButton() {
       if (!raw["Product Name"]) errors.push("Missing Product Name");
       if (!raw["Category"] || !["baby", "mum", "both"].includes(raw["Category"])) errors.push("Invalid Category");
       if (!raw["Priority"] || !["essential", "recommended", "nice-to-have"].includes(raw["Priority"])) errors.push("Invalid Priority");
+      const costPrice = parseFloat(raw["Cost Price (COGS)"]);
+      const brandPrice = parseFloat(raw["Brand Price"]);
+      if (costPrice && brandPrice && costPrice > brandPrice) errors.push("COGS > Price");
       const hasMatch = existingMap.has(raw["Slug"]) || existingMap.has(raw["Product ID"]);
       return { raw, action: hasMatch ? "update" : "create", errors };
     });
@@ -150,6 +154,7 @@ export function ImportButton() {
           description: first["Description"] || "",
           category: first["Category"], priority: first["Priority"],
           badge: first["Badge"] || null,
+          subcategory: first["Subcategory"] || null,
           pack_count: first["Pack Info"] || null, material: first["Material"] || null,
           contents: first["Contents"] || null, allergen_info: first["Allergen Info"] || null,
           safety_info: first["Safety Info"] || null, why_included: first["Why Mums Love This"] || null,
@@ -185,6 +190,8 @@ export function ImportButton() {
           tier: r.raw["Brand Tier"] || "standard",
           price: parseInt(r.raw["Brand Price"]) || 0,
           compare_at_price: parseInt(r.raw["Compare-at Price"]) || null,
+          cost_price: parseInt(r.raw["Cost Price (COGS)"]) || 0,
+          cogs_percent: parseFloat(r.raw["COGS %"]) || 40,
           image_url: r.raw["Brand Image URL"] || null,
           logo_url: r.raw["Brand Logo URL"] || null,
           size_variant: r.raw["Size Variant"] || null,
@@ -224,12 +231,12 @@ export function ImportButton() {
 
             {step === "upload" && (
               <div className="p-8 text-center">
-                <p className="text-text-med text-sm mb-4">Upload an .xlsx or .csv file with product data</p>
+                <p className="text-muted-foreground text-sm mb-4">Upload an .xlsx or .csv file with product data</p>
                 <button onClick={() => fileRef.current?.click()}
                   className="bg-forest text-primary-foreground px-6 py-3 rounded-lg font-semibold hover:bg-forest-deep">
                   Choose File
                 </button>
-                <p className="text-text-light text-xs mt-3">Matching products by Slug or Product ID will be updated</p>
+                <p className="text-muted-foreground text-xs mt-3">Matching products by Slug or Product ID will be updated. Includes COGS fields.</p>
               </div>
             )}
 
@@ -256,6 +263,7 @@ export function ImportButton() {
                         <th className="px-3 py-2 text-left">Product</th>
                         <th className="px-3 py-2 text-left">Brand</th>
                         <th className="px-3 py-2 text-right">Price</th>
+                        <th className="px-3 py-2 text-right">COGS</th>
                         <th className="px-3 py-2 text-left">Issues</th>
                       </tr>
                     </thead>
@@ -268,6 +276,7 @@ export function ImportButton() {
                           <td className="px-3 py-2 font-semibold">{r.raw["Product Name"]}</td>
                           <td className="px-3 py-2">{r.raw["Brand Name"] || "—"}</td>
                           <td className="px-3 py-2 text-right">₦{parseInt(r.raw["Brand Price"] || 0).toLocaleString()}</td>
+                          <td className="px-3 py-2 text-right">₦{parseInt(r.raw["Cost Price (COGS)"] || 0).toLocaleString()}</td>
                           <td className="px-3 py-2 text-red-600">{r.errors.join(", ")}</td>
                         </tr>
                       ))}
@@ -289,7 +298,7 @@ export function ImportButton() {
                 <div className="w-full bg-muted rounded-full h-3 mb-4">
                   <div className="bg-forest h-3 rounded-full transition-all" style={{ width: `${progress}%` }} />
                 </div>
-                <p className="text-sm text-text-med">Importing... {progress}%</p>
+                <p className="text-sm text-muted-foreground">Importing... {progress}%</p>
               </div>
             )}
 
