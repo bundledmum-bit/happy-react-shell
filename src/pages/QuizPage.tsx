@@ -322,7 +322,8 @@ export default function QuizPage() {
       const next = getNextStep(stepId, optionId, newAnswers, routingRules, questions);
       const newSteps = [...history, stepId];
       
-      if (!next) {
+      // Skip the whatsapp_consent DB step — we have a hardcoded WhatsApp capture instead
+      if (!next || next === "whatsapp_consent") {
         setShowWhatsAppStep(true);
       } else {
         setHistory(newSteps);
@@ -338,7 +339,7 @@ export default function QuizPage() {
     const newAnswers = { ...answers, [stepId]: "skip" };
     setAnswers(newAnswers);
     const next = getNextStep(stepId, "skip", newAnswers, routingRules, questions);
-    if (!next) {
+    if (!next || next === "whatsapp_consent") {
       setShowWhatsAppStep(true);
     } else {
       setHistory(h => [...h, currentStep!]);
@@ -631,14 +632,14 @@ export default function QuizPage() {
     const whatsappError = whatsappNumber && !isValidNigerian(whatsappNumber) ? "Enter a valid Nigerian number (e.g. 08012345678 or +234...)" : "";
 
     return (
-      <div className="min-h-screen bg-background pt-[68px] flex flex-col items-center px-4 md:px-10 py-8 md:py-12 pb-20 md:pb-12">
+      <div className="min-h-screen bg-background pt-[68px] flex flex-col items-center px-4 md:px-10 py-10 md:py-14 pb-20 md:pb-12">
         <div className="w-full max-w-[660px] mb-6">
           <div className="w-full bg-border h-1.5 rounded-full overflow-hidden">
             <div className="bg-coral h-1.5 transition-all duration-500 rounded-full" style={{ width: `${progress}%` }} />
           </div>
-          <div className="flex justify-between mt-2">
-            <div className="text-muted-foreground text-xs">Almost done!</div>
-            <button onClick={handleBack} className="text-muted-foreground text-xs flex items-center gap-1 font-body hover:text-foreground"><ArrowLeft className="h-3 w-3" /> Back</button>
+          <div className="flex justify-between mt-3">
+            <div className="text-muted-foreground text-sm font-semibold">Almost done!</div>
+            <button onClick={handleBack} className="text-muted-foreground text-sm flex items-center gap-1 font-body hover:text-foreground"><ArrowLeft className="h-3.5 w-3.5" /> Back</button>
           </div>
         </div>
 
@@ -646,7 +647,7 @@ export default function QuizPage() {
           <div className="text-center mb-7">
             <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-widest mb-2">ONE LAST THING 📱</p>
             <h2 className="pf text-xl md:text-[30px] leading-tight">WhatsApp Number (optional)</h2>
-            <p className="text-muted-foreground text-sm mt-2">So we can send your bundle summary</p>
+            <p className="text-muted-foreground text-sm mt-2">We will only use this to follow up on this order if necessary</p>
           </div>
 
           <div className="space-y-4">
@@ -731,7 +732,7 @@ export default function QuizPage() {
               <div className="flex-1">
                 <div className="font-bold text-[13px] md:text-[15px] flex items-center gap-2 flex-wrap">
                   {opt.option_label}
-                  {opt.price_modifier && opt.price_modifier > 0 && (
+                  {opt.price_modifier != null && opt.price_modifier > 0 && (
                     <span className="text-coral text-[10px] font-semibold">+{fmt(opt.price_modifier)}</span>
                   )}
                 </div>
