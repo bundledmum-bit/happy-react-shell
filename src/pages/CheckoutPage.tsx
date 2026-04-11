@@ -7,7 +7,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { useShippingZones, calculateDeliveryFee } from "@/hooks/useShippingZones";
 import { useSiteSettings } from "@/hooks/useSupabaseData";
 import { useSpendThresholds, getSpendPrompt } from "@/hooks/useSpendThresholds";
-import { trackEvent, getSessionId } from "@/lib/analytics";
+import { trackEvent, getSessionId, getAttribution, markSessionConverted } from "@/lib/analytics";
 
 const NIGERIAN_STATES = ["Lagos", "Abuja", "Rivers", "Ogun", "Oyo", "Kano", "Kaduna", "Anambra", "Enugu", "Delta", "Edo", "Imo", "Osun", "Kwara", "Benue"];
 const GIFT_WRAP_FEE = 3500;
@@ -210,6 +210,22 @@ export default function CheckoutPage() {
         }
       } catch {}
 
+      // Check if this is a quiz order
+      const sessionId = getSessionId();
+      let isQuizOrder = false;
+      try {
+        const { data: quizMatch } = await supabase
+          .from("quiz_customers")
+          .select("id")
+          .eq("session_id", sessionId)
+          .limit(1)
+          .maybeSingle();
+        isQuizOrder = !!quizMatch;
+      } catch {}
+
+      // Get traffic attribution
+      const attribution = getAttribution();
+
       const { data: order, error: orderError } = await supabase
         .from("orders")
         .insert({
@@ -238,6 +254,15 @@ export default function CheckoutPage() {
           estimated_delivery_start: fromDate.toISOString().split("T")[0],
           estimated_delivery_end: toDate.toISOString().split("T")[0],
           quiz_answers: quizAnswers,
+          is_quiz_order: isQuizOrder,
+          utm_source: attribution.utm_source,
+          utm_medium: attribution.utm_medium,
+          utm_campaign: attribution.utm_campaign,
+          utm_content: attribution.utm_content,
+          utm_term: attribution.utm_term,
+          traffic_source: attribution.traffic_source,
+          referrer: attribution.referrer,
+          landing_page: attribution.landing_page,
         })
         .select("id, order_number")
         .single();
@@ -290,9 +315,11 @@ export default function CheckoutPage() {
         }
       } catch (e) { console.error("Customer upsert failed:", e); }
 
+      // Mark session as converted
+      markSessionConverted();
+
       // Mark quiz_customers as purchased — session_id match first, then whatsapp fallback
       try {
-        const sessionId = getSessionId();
         const { data: sessionMatch } = await supabase
           .from("quiz_customers")
           .select("id")
