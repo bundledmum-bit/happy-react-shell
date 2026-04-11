@@ -32,6 +32,7 @@ interface RecommendedProduct {
     tier: string;
     image_url: string | null;
     in_stock: boolean;
+    logo_url?: string | null;
   };
 }
 
@@ -171,8 +172,11 @@ export default function QuizPage() {
   const [whatsappNumber, setWhatsappNumber] = useState("");
   const [quizStartTracked, setQuizStartTracked] = useState(false);
   const [recommendation, setRecommendation] = useState<RecommendationResult | null>(null);
+  const [pushGiftRecommendation, setPushGiftRecommendation] = useState<RecommendedProduct[] | null>(null);
   const [story, setStory] = useState("");
   const [loadingResults, setLoadingResults] = useState(false);
+  // For "both" path: after showing push gift results, continue to family shopping
+  const [bothPhase, setBothPhase] = useState<"push-gift" | "family" | null>(null);
   const navigate = useNavigate();
   const { addToCart, cart, setCart } = useCart();
 
@@ -245,6 +249,41 @@ export default function QuizPage() {
     }]);
   }, [answers]);
 
+  // Determine if this is a dad path
+  const isDadPath = answers.shopper === "dad";
+  const dadPurpose = answers.dadPurpose;
+  const isBothPath = isDadPath && dadPurpose === "both";
+  const isFamilyShoppingPath = isDadPath && (dadPurpose === "family-shopping" || (dadPurpose === "both" && bothPhase === "family"));
+
+  // ========= PUSH GIFT RECOMMENDATION =========
+  const fetchPushGiftResults = useCallback(async () => {
+    const { data, error } = await supabase.rpc("run_push_gift_recommendation", {
+      p_budget_tier: answers.pushGiftBudget || "push-standard",
+      p_category: answers.pushGiftCategory || null,
+      p_timing: answers.pushGiftTiming || null,
+    });
+    if (error) throw error;
+    return (data as any)?.products || data || [];
+  }, [answers]);
+
+  // ========= FAMILY SHOPPING RECOMMENDATION =========
+  const fetchFamilyResults = useCallback(async () => {
+    const { data, error } = await supabase.rpc("run_quiz_recommendation", {
+      p_budget_tier: answers.budget || "standard",
+      p_scope: answers.scope || "hospital-bag+general",
+      p_stage: answers.wifeStage || answers.stage || answers.giftAge || "expecting",
+      p_hospital_type: answers.hospitalType || "both",
+      p_delivery_method: answers.deliveryMethod || "both",
+      p_multiples: parseInt(answers.multiples || "1"),
+      p_gender: answers.gender || "neutral",
+      p_first_baby: answers.firstBaby === "yes",
+      p_shopper_type: isDadPath ? "dad" : (answers.shopper || "self"),
+      p_gift_for: answers.giftFor || null,
+    });
+    if (error) throw error;
+    return data as unknown as RecommendationResult;
+  }, [answers, isDadPath]);
+
   const finishQuiz = useCallback(async (whatsapp?: string) => {
     setLoadingResults(true);
     trackEvent("quiz_completed", {
@@ -252,52 +291,48 @@ export default function QuizPage() {
       delivery_method: answers.deliveryMethod,
       baby_gender: answers.gender,
       budget_tier: answers.budget,
+      dad_purpose: dadPurpose,
     });
 
     await saveQuizCustomer(whatsapp);
 
     try {
-      // Call server-side recommendation engine
-      const { data: recData, error: recError } = await supabase.rpc(
-        "run_quiz_recommendation",
-        {
-          p_budget_tier: answers.budget || "standard",
-          p_scope: answers.scope || "hospital-bag+general",
-          p_stage: answers.stage || answers.giftAge || "expecting",
-          p_hospital_type: answers.hospitalType || "both",
-          p_delivery_method: answers.deliveryMethod || "both",
-          p_multiples: parseInt(answers.multiples || "1"),
-          p_gender: answers.gender || "neutral",
-          p_first_baby: answers.firstBaby === "yes",
-          p_shopper_type: answers.shopper || "self",
-          p_gift_for: answers.giftFor || null,
-        }
-      );
+      if (isBothPath && bothPhase !== "family") {
+        // Both path — first show push gift results
+        const pushProducts = await fetchPushGiftResults();
+        setPushGiftRecommendation(pushProducts as RecommendedProduct[]);
+        setBothPhase("push-gift");
+        setShowWhatsAppStep(false);
+        setShowResults(true);
+        setLoadingResults(false);
+        return;
+      }
 
-      if (recError) throw recError;
-      const rec = recData as unknown as RecommendationResult;
+      // Standard or family-shopping path
+      const rec = await fetchFamilyResults();
       setRecommendation(rec);
 
+      // If both path and we already have push gift results, keep them
+      if (isBothPath && bothPhase === "family") {
+        // Already have push gift results, just add family results
+      }
+
       // Call story generator
-      const { data: storyData } = await supabase.rpc(
-        "generate_quiz_story",
-        {
-          p_shopper_type: answers.shopper || "self",
-          p_budget_tier: answers.budget || "standard",
-          p_gender: answers.gender || "neutral",
-          p_multiples: parseInt(answers.multiples || "1"),
-          p_delivery_method: answers.deliveryMethod || "vaginal",
-          p_hospital_type: answers.hospitalType || "public",
-          p_first_baby: answers.firstBaby === "yes",
-          p_gift_relationship: answers.giftRelationship || null,
-          p_gift_occasion: answers.giftOccasion || null,
-          p_gift_wrap: answers.giftWrap === "yes",
-          p_product_count: rec.product_count,
-        }
-      );
+      const { data: storyData } = await supabase.rpc("generate_quiz_story", {
+        p_shopper_type: isDadPath ? "dad" : (answers.shopper || "self"),
+        p_budget_tier: answers.budget || "standard",
+        p_gender: answers.gender || "neutral",
+        p_multiples: parseInt(answers.multiples || "1"),
+        p_delivery_method: answers.deliveryMethod || "vaginal",
+        p_hospital_type: answers.hospitalType || "public",
+        p_first_baby: answers.firstBaby === "yes",
+        p_gift_relationship: answers.giftRelationship || null,
+        p_gift_occasion: answers.giftOccasion || null,
+        p_gift_wrap: answers.giftWrap === "yes",
+        p_product_count: rec.product_count,
+      });
       setStory((storyData as string) || "Your personalised bundle is ready!");
 
-      // Update quiz session
       await completeQuizSession(answers, rec, whatsapp);
     } catch (err) {
       console.error("Recommendation engine error:", err);
@@ -307,7 +342,47 @@ export default function QuizPage() {
     setShowWhatsAppStep(false);
     setShowResults(true);
     setLoadingResults(false);
-  }, [answers, saveQuizCustomer]);
+  }, [answers, saveQuizCustomer, dadPurpose, isBothPath, bothPhase, fetchPushGiftResults, fetchFamilyResults, isDadPath]);
+
+  // Continue to family shopping from push gift results (both path)
+  const continueToBothFamilyShopping = useCallback(() => {
+    setBothPhase("family");
+    setShowResults(false);
+    // Reset to budget step for family shopping
+    setCurrentStep("budget");
+    setHistory(prev => [...prev, "pushGiftResults"]);
+  }, []);
+
+  // Finish the family portion of the both path
+  const finishBothFamilyPath = useCallback(async (whatsapp?: string) => {
+    setLoadingResults(true);
+    try {
+      const rec = await fetchFamilyResults();
+      setRecommendation(rec);
+      
+      const { data: storyData } = await supabase.rpc("generate_quiz_story", {
+        p_shopper_type: "dad",
+        p_budget_tier: answers.budget || "standard",
+        p_gender: answers.gender || "neutral",
+        p_multiples: parseInt(answers.multiples || "1"),
+        p_delivery_method: answers.deliveryMethod || "vaginal",
+        p_hospital_type: answers.hospitalType || "public",
+        p_first_baby: answers.firstBaby === "yes",
+        p_gift_relationship: null,
+        p_gift_occasion: null,
+        p_gift_wrap: false,
+        p_product_count: rec.product_count,
+      });
+      setStory((storyData as string) || "Your personalised bundle is ready!");
+      await completeQuizSession(answers, rec, whatsapp);
+    } catch (err) {
+      console.error("Family recommendation error:", err);
+      toast.error("Something went wrong. Please try again.");
+    }
+    setShowWhatsAppStep(false);
+    setShowResults(true);
+    setLoadingResults(false);
+  }, [answers, fetchFamilyResults]);
 
   const handleAnswer = useCallback((stepId: string, optionId: string) => {
     const newAnswers = { ...answers, [stepId]: optionId };
@@ -376,26 +451,142 @@ export default function QuizPage() {
     );
   }
 
+  // ========= HELPER: Add product to cart =========
+  const handleAddProduct = (item: RecommendedProduct) => {
+    addToCart({
+      id: item.product_id,
+      name: `${item.name} (${item.brand.brand_name})`,
+      baseImg: item.emoji || "📦",
+      imageUrl: item.brand.image_url || item.image_url || undefined,
+      price: item.brand.price,
+      selectedBrand: { id: item.brand.id, label: item.brand.brand_name, price: item.brand.price, img: item.emoji || "📦", imageUrl: item.brand.image_url, tier: 1, color: "#E8F5E9" },
+      brands: [],
+      category: item.category as any,
+      rating: 4.5,
+      reviews: 0,
+      tags: [],
+      badge: null,
+      stage: [],
+      priority: item.priority as any,
+      tier: [],
+      hospitalType: [],
+      deliveryMethod: [],
+      genderRelevant: false,
+      multiplesBump: 1,
+      scope: [],
+      firstBaby: null,
+      description: "",
+      whyIncluded: item.why_included,
+    });
+    toast.success(`✓ ${item.name} added to cart`);
+  };
+
+  const handleRemoveProduct = (item: RecommendedProduct) => {
+    setCart(prev => prev.filter(c => c.id !== item.product_id));
+    toast("Removed from cart");
+  };
+
+  const addedIds = new Set(cart.map(c => c.id));
+
+  // ========= PUSH GIFT ONLY RESULTS (both path phase 1) =========
+  if (showResults && bothPhase === "push-gift" && pushGiftRecommendation && !recommendation) {
+    const pushProducts = pushGiftRecommendation;
+    const pushTotal = pushProducts.reduce((s, r) => s + r.brand.price * r.quantity, 0);
+    const budgetLabel = answers.pushGiftBudget === "push-starter" ? "Thoughtful" : answers.pushGiftBudget === "push-premium" ? "Go All Out" : "Generous";
+
+    return (
+      <div className="min-h-screen bg-background pt-[68px] pb-16 md:pb-0">
+        <div style={{ background: "linear-gradient(135deg, #F4845F, #D4613C)" }} className="px-4 md:px-10 py-8 md:py-14">
+          <div className="max-w-[880px] mx-auto text-center">
+            <div className="animate-fade-in inline-flex items-center gap-2 bg-primary-foreground/20 border border-primary-foreground/40 rounded-pill px-4 py-1.5 mb-3.5">
+              <span className="text-primary-foreground text-[13px] font-semibold">💝 Her Perfect Push Gift</span>
+            </div>
+            <h1 className="pf text-2xl md:text-[40px] text-primary-foreground mb-3">She Deserves This</h1>
+            <p className="text-primary-foreground/80 text-sm md:text-[15px] leading-[1.8] mb-4 max-w-[660px] mx-auto">
+              You picked a {budgetLabel} push gift — here's what we recommend for her.
+            </p>
+            <div className="flex flex-wrap gap-3 justify-center text-primary-foreground/60 text-xs mb-5">
+              <span>💝 {pushProducts.length} items</span><span>·</span>
+              <span className="text-primary-foreground font-bold">{fmt(pushTotal)}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-[1000px] mx-auto px-4 md:px-10 py-8 md:py-10">
+          <h2 className="pf text-lg md:text-xl text-coral mb-4">💝 Push Gift for Her</h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5 mb-10">
+            {pushProducts.map(item => (
+              <ResultProductCard
+                key={item.product_id}
+                item={item}
+                isInCart={addedIds.has(item.product_id)}
+                onAdd={() => handleAddProduct(item)}
+                onRemove={() => handleRemoveProduct(item)}
+              />
+            ))}
+          </div>
+
+          {/* Continue to family shopping button */}
+          <div className="bg-forest rounded-card p-6 md:p-8 text-center">
+            <h3 className="pf text-xl text-primary-foreground mb-2">Now Shop the Family Essentials</h3>
+            <p className="text-primary-foreground/70 text-sm mb-4 max-w-[400px] mx-auto">
+              You've picked her push gift — now let's build the family's hospital bag bundle.
+            </p>
+            <button
+              onClick={continueToBothFamilyShopping}
+              className="rounded-pill bg-coral px-8 py-3 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-sm md:text-[15px]"
+            >
+              Now Shop the Family Essentials →
+            </button>
+          </div>
+        </div>
+
+        <div className="fixed bottom-14 left-0 right-0 z-[80] bg-card border-t border-border p-3 md:hidden">
+          <button onClick={continueToBothFamilyShopping} className="w-full rounded-pill bg-forest py-3 font-body font-semibold text-primary-foreground text-sm">
+            Now Shop the Family Essentials →
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // ========= RESULTS =========
   if (showResults && recommendation) {
     const results = recommendation.products;
     const babyItems = results.filter(r => r.category === "baby");
     const mumItems = results.filter(r => r.category === "mum");
     const totalValue = results.reduce((s, r) => s + r.brand.price * r.quantity, 0);
+    const pushTotal = pushGiftRecommendation ? pushGiftRecommendation.reduce((s, r) => s + r.brand.price * r.quantity, 0) : 0;
+    const grandTotal = totalValue + pushTotal;
     const isGift = answers.shopper === "gift";
     const budget = answers.budget || "standard";
     const multiples = parseInt(answers.multiples || "1");
     const budgetLabel = budget === "starter" ? "Starter" : budget === "premium" ? "Premium" : "Standard";
     const isFallback = recommendation.engine_version?.includes("fallback");
 
-    const scope = answers.scope || "";
-    const heading = isGift ? "Your Perfect Gift Bundle 🎁" : scope === "hospital-bag" ? "Your Perfect Hospital Bag" : scope.includes("general") && scope.includes("hospital") ? "Your Hospital Bag + Baby Essentials" : scope === "general" ? "Your Baby Essentials Bundle" : "Your Perfect Bundle";
+    // Heading logic
+    let heading: string;
+    if (isBothPath && pushGiftRecommendation) {
+      heading = "Your Complete Order 💙💝";
+    } else if (isFamilyShoppingPath || (isDadPath && dadPurpose === "family-shopping")) {
+      heading = "Here's What Your Family Needs 💙";
+    } else if (isGift) {
+      heading = "Your Perfect Gift Bundle 🎁";
+    } else {
+      const scope = answers.scope || "";
+      heading = scope === "hospital-bag" ? "Your Perfect Hospital Bag" : scope.includes("general") && scope.includes("hospital") ? "Your Hospital Bag + Baby Essentials" : scope === "general" ? "Your Baby Essentials Bundle" : "Your Perfect Bundle";
+    }
 
-    const curationSaving = Math.round(totalValue * 0.15);
+    let subHeading = story;
+    if (isDadPath && dadPurpose === "family-shopping") {
+      subHeading = "You're doing a great thing — here's the full bundle based on what you told us.";
+    }
+
+    const curationSaving = Math.round(grandTotal * 0.15);
 
     const pillData = [
       answers.gender && answers.gender !== "neutral" ? { emoji: answers.gender === "boy" ? "👦" : "👧", label: answers.gender === "boy" ? "Boy" : "Girl", step: "gender" } : { emoji: "🌈", label: "Neutral", step: "gender" },
-      answers.stage ? { emoji: "🤰", label: answers.stage === "expecting" ? "Still Expecting" : answers.stage === "newborn" ? "Newborn" : answers.stage, step: "stage" } : null,
+      answers.stage || answers.wifeStage ? { emoji: "🤰", label: (answers.wifeStage || answers.stage) === "expecting" ? "Still Expecting" : (answers.wifeStage || answers.stage) === "newborn" ? "Newborn" : (answers.wifeStage || answers.stage), step: "wifeStage" } : null,
       answers.giftAge ? { emoji: "🤰", label: answers.giftAge, step: "giftAge" } : null,
       answers.hospitalType ? { emoji: "🏥", label: answers.hospitalType === "public" ? "Public Hospital" : answers.hospitalType === "private" ? "Private Hospital" : "Any Hospital", step: "hospitalType" } : null,
       answers.deliveryMethod ? { emoji: "🤱", label: answers.deliveryMethod === "vaginal" ? "Vaginal" : answers.deliveryMethod === "csection" ? "C-Section" : "Either", step: "deliveryMethod" } : null,
@@ -404,44 +595,9 @@ export default function QuizPage() {
       isGift && answers.giftWrap === "yes" ? { emoji: "🎀", label: "Gift Wrapped", step: "giftWrap" } : null,
     ].filter(Boolean) as { emoji: string; label: string; step: string }[];
 
-    const addedIds = new Set(cart.map(c => c.id));
-
-    const handleAddProduct = (item: RecommendedProduct) => {
-      addToCart({
-        id: item.product_id,
-        name: `${item.name} (${item.brand.brand_name})`,
-        baseImg: item.emoji || "📦",
-        imageUrl: item.brand.image_url || item.image_url || undefined,
-        price: item.brand.price,
-        selectedBrand: { id: item.brand.id, label: item.brand.brand_name, price: item.brand.price, img: item.emoji || "📦", imageUrl: item.brand.image_url, tier: 1, color: "#E8F5E9" },
-        brands: [],
-        category: item.category as any,
-        rating: 4.5,
-        reviews: 0,
-        tags: [],
-        badge: null,
-        stage: [],
-        priority: item.priority as any,
-        tier: [],
-        hospitalType: [],
-        deliveryMethod: [],
-        genderRelevant: false,
-        multiplesBump: 1,
-        scope: [],
-        firstBaby: null,
-        description: "",
-        whyIncluded: item.why_included,
-      });
-      toast.success(`✓ ${item.name} added to cart`);
-    };
-
-    const handleRemoveProduct = (item: RecommendedProduct) => {
-      setCart(prev => prev.filter(c => c.id !== item.product_id));
-      toast("Removed from cart");
-    };
-
     const handleAddAll = () => {
-      results.forEach(item => {
+      const allProducts = [...results, ...(pushGiftRecommendation || [])];
+      allProducts.forEach(item => {
         for (let i = 0; i < item.quantity; i++) {
           handleAddProduct(item);
         }
@@ -452,12 +608,13 @@ export default function QuizPage() {
 
     const handleShare = () => setShowShareModal(true);
     const handleCopyChecklist = () => {
-      const list = results.map(r => `${r.quantity > 1 ? `×${r.quantity} ` : ""}${r.name} (${r.brand.brand_name}) — ${fmt(r.brand.price * r.quantity)}`).join("\n");
-      const text = `My BundledMum ${budgetLabel} Bundle\n${"=".repeat(30)}\n\n${list}\n\nTotal: ${fmt(totalValue)}\n\nBuild yours: https://bundledmum.lovable.app/quiz`;
+      const allProducts = [...(pushGiftRecommendation || []), ...results];
+      const list = allProducts.map(r => `${r.quantity > 1 ? `×${r.quantity} ` : ""}${r.name} (${r.brand.brand_name}) — ${fmt(r.brand.price * r.quantity)}`).join("\n");
+      const text = `My BundledMum ${budgetLabel} Bundle\n${"=".repeat(30)}\n\n${list}\n\nTotal: ${fmt(grandTotal)}\n\nBuild yours: https://bundledmum.lovable.app/quiz`;
       navigator.clipboard.writeText(text).then(() => toast.success("Checklist copied to clipboard!"));
     };
 
-    const shareItems = results.map(r => ({ name: r.name, price: r.brand.price * r.quantity }));
+    const shareItems = [...(pushGiftRecommendation || []), ...results].map(r => ({ name: r.name, price: r.brand.price * r.quantity }));
 
     return (
       <div className="min-h-screen bg-background pt-[68px] pb-16 md:pb-0">
@@ -469,10 +626,10 @@ export default function QuizPage() {
               </div>
             )}
             <div className="animate-fade-in inline-flex items-center gap-2 bg-coral/20 border border-coral/40 rounded-pill px-4 py-1.5 mb-3.5">
-              <span className="text-coral text-[13px] font-semibold">{isGift ? "🎁 Perfect Gift Bundle Ready!" : "✨ Your Personalised Bundle is Ready!"}</span>
+              <span className="text-coral text-[13px] font-semibold">{isGift ? "🎁 Perfect Gift Bundle Ready!" : isDadPath ? "💙 Your Bundle is Ready!" : "✨ Your Personalised Bundle is Ready!"}</span>
             </div>
             <h1 className="pf text-2xl md:text-[40px] text-primary-foreground mb-3">{heading}</h1>
-            <p className="text-primary-foreground/80 text-sm md:text-[15px] leading-[1.8] mb-4 max-w-[660px] mx-auto">{story}</p>
+            <p className="text-primary-foreground/80 text-sm md:text-[15px] leading-[1.8] mb-4 max-w-[660px] mx-auto">{subHeading}</p>
 
             <div className="flex flex-wrap gap-2 justify-center mb-5">
               {pillData.map(p => (
@@ -483,16 +640,17 @@ export default function QuizPage() {
             </div>
 
             <div className="flex flex-wrap gap-3 justify-center text-primary-foreground/60 text-xs mb-5">
+              {pushGiftRecommendation && <><span>💝 {pushGiftRecommendation.length} push gift items</span><span>·</span></>}
               <span>👶 {babyItems.length} baby items</span><span>·</span>
               <span>💛 {mumItems.length} mum items</span><span>·</span>
-              <span>Total: {results.length} items</span><span>·</span>
-              <span className="text-coral font-bold">{fmt(totalValue)}</span>
+              <span>Total: {results.length + (pushGiftRecommendation?.length || 0)} items</span><span>·</span>
+              <span className="text-coral font-bold">{fmt(grandTotal)}</span>
               {multiples > 1 && <><span>·</span><span>👶👶 Quantities adjusted for your {multiples === 2 ? "twins" : "triplets"}!</span></>}
             </div>
 
             <div className="bg-primary-foreground/[0.08] rounded-xl p-3 max-w-[400px] mx-auto mb-5">
               <div className="text-primary-foreground text-xs space-y-1">
-                <div className="flex justify-between"><span>Your bundle:</span><span className="font-bold">{fmt(totalValue)}</span></div>
+                <div className="flex justify-between"><span>Your bundle:</span><span className="font-bold">{fmt(grandTotal)}</span></div>
                 <div className="flex justify-between"><span>Free curation value:</span><span className="text-coral font-bold">~{fmt(curationSaving)}</span></div>
                 <div className="flex justify-between text-primary-foreground/50"><span>+ Free delivery over ₦30,000</span><span>🚚</span></div>
               </div>
@@ -504,7 +662,7 @@ export default function QuizPage() {
                 👇 See Your Items Below
               </button>
               <button onClick={handleAddAll} className="rounded-pill bg-coral px-6 sm:px-8 py-3 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-sm sm:text-[15px] w-full sm:w-auto">
-                {isGift ? "🎁 Get Gift Bundle" : "Get Complete Bundle"} — {fmt(totalValue)} →
+                {isGift ? "🎁 Get Gift Bundle" : "Get Complete Bundle"} — {fmt(grandTotal)} →
               </button>
               <button onClick={handleBack} className="rounded-pill border-2 border-primary-foreground/30 px-6 py-3 font-body font-semibold text-primary-foreground/80 hover:bg-primary-foreground/10 interactive text-sm sm:text-[15px] w-full sm:w-auto">
                 ← Retake Quiz
@@ -523,9 +681,28 @@ export default function QuizPage() {
         </div>
 
         <div id="quiz-results-items" className="max-w-[1000px] mx-auto px-4 md:px-10 py-8 md:py-10">
+          {/* Push Gift Section (for "both" path) */}
+          {pushGiftRecommendation && pushGiftRecommendation.length > 0 && (
+            <div className="mb-10">
+              <h2 className="pf text-lg md:text-xl text-coral mb-4">💝 Push Gift for Her</h2>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
+                {pushGiftRecommendation.map(item => (
+                  <ResultProductCard
+                    key={item.product_id}
+                    item={item}
+                    isInCart={addedIds.has(item.product_id)}
+                    onAdd={() => handleAddProduct(item)}
+                    onRemove={() => handleRemoveProduct(item)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Family Bundle Section */}
           {babyItems.length > 0 && (
             <div className="mb-10">
-              <h2 className="pf text-lg md:text-xl text-forest mb-4">{isGift ? "🎁 Gift for Baby" : "👶 For Baby"}</h2>
+              <h2 className="pf text-lg md:text-xl text-forest mb-4">{isGift ? "🎁 Gift for Baby" : isBothPath ? "👶 Family Bundle — Baby" : "👶 For Baby"}</h2>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
                 {babyItems.map(item => (
                   <ResultProductCard
@@ -541,7 +718,7 @@ export default function QuizPage() {
           )}
           {mumItems.length > 0 && (
             <div className="mb-10">
-              <h2 className="pf text-lg md:text-xl text-forest mb-4">{isGift ? "🎁 Gift for Mum" : "💛 For Mum"}</h2>
+              <h2 className="pf text-lg md:text-xl text-forest mb-4">{isGift ? "🎁 Gift for Mum" : isBothPath ? "💛 Family Bundle — Mum" : "💛 For Mum"}</h2>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
                 {mumItems.map(item => (
                   <ResultProductCard
@@ -590,20 +767,20 @@ export default function QuizPage() {
             title="My Perfect Hospital Bag"
             subtitle={`${budgetLabel} Bundle · ${results.length} items`}
             items={shareItems}
-            totalPrice={totalValue}
+            totalPrice={grandTotal}
             badge={isGift ? "GIFT BUNDLE" : undefined}
             shareUrl="https://bundledmum.lovable.app/quiz?ref=share"
-            shareText={`Check out my BundledMum ${budgetLabel} bundle! ${results.length} items for ${fmt(totalValue)}. Build yours FREE!`}
+            shareText={`Check out my BundledMum ${budgetLabel} bundle! ${results.length + (pushGiftRecommendation?.length || 0)} items for ${fmt(grandTotal)}. Build yours FREE!`}
             gender={answers.gender}
             hospitalType={answers.hospitalType === "public" ? "Public Hospital" : answers.hospitalType === "private" ? "Private Hospital" : undefined}
             budgetLabel={budgetLabel}
-            itemCount={results.length}
+            itemCount={results.length + (pushGiftRecommendation?.length || 0)}
           />
         )}
 
         <div className="fixed bottom-14 left-0 right-0 z-[80] bg-card border-t border-border p-3 md:hidden">
           <button onClick={handleAddAll} className="w-full rounded-pill bg-coral py-3 font-body font-semibold text-primary-foreground text-sm">
-            Get Complete Bundle — {fmt(totalValue)} →
+            Get Complete Bundle — {fmt(grandTotal)} →
           </button>
         </div>
       </div>
@@ -630,6 +807,16 @@ export default function QuizPage() {
       return /^(0[789][01]\d{8})$/.test(digits) || /^234[789][01]\d{8}$/.test(digits);
     };
     const whatsappError = whatsappNumber && !isValidNigerian(whatsappNumber) ? "Enter a valid Nigerian number (e.g. 08012345678 or +234...)" : "";
+
+    const handleFinish = () => {
+      if (whatsappNumber && !isValidNigerian(whatsappNumber)) return;
+      // For "both" path in family phase, use the family finish
+      if (isBothPath && bothPhase === "family") {
+        finishBothFamilyPath(whatsappNumber || undefined);
+      } else {
+        finishQuiz(whatsappNumber || undefined);
+      }
+    };
 
     return (
       <div className="min-h-screen bg-background pt-[68px] flex flex-col items-center px-4 md:px-10 py-10 md:py-14 pb-20 md:pb-12">
@@ -664,17 +851,20 @@ export default function QuizPage() {
             </div>
 
             <button
-              onClick={() => {
-                if (whatsappNumber && !isValidNigerian(whatsappNumber)) return;
-                finishQuiz(whatsappNumber || undefined);
-              }}
+              onClick={handleFinish}
               className="w-full rounded-pill bg-forest py-3.5 font-body font-semibold text-primary-foreground hover:bg-forest-deep interactive text-sm"
             >
               {whatsappNumber ? "Continue →" : "Continue without WhatsApp →"}
             </button>
 
             <button
-              onClick={() => finishQuiz()}
+              onClick={() => {
+                if (isBothPath && bothPhase === "family") {
+                  finishBothFamilyPath();
+                } else {
+                  finishQuiz();
+                }
+              }}
               className="w-full text-muted-foreground text-xs hover:text-forest transition-colors font-body"
             >
               ⏭️ Skip
@@ -748,7 +938,7 @@ export default function QuizPage() {
           </button>
         )}
       </div>
-      <p className="text-muted-foreground text-xs mt-4 text-center">🔒 We never share your data · Results appear instantly</p>
+      <p className="text-muted-foreground text-xs mt-4 text-center">🔒 No login needed · Free forever</p>
     </div>
   );
 }
