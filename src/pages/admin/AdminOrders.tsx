@@ -60,28 +60,34 @@ export default function AdminOrders() {
     return preset ? preset.getValue() : new Date(0).toISOString();
   }, [datePreset]);
 
-  const { data: orders, isLoading } = useQuery({
-    queryKey: ["admin-orders"],
+  const [currentPage, setCurrentPage] = useState(0);
+
+  const { data: rpcResult, isLoading } = useQuery({
+    queryKey: ["admin-orders", currentPage, statusFilter, paymentFilter, search],
     queryFn: async () => {
-      const { data, error } = await supabase.from("orders").select("*, order_items(*)").order("created_at", { ascending: false });
+      const { data, error } = await supabase.rpc("get_admin_orders", {
+        p_limit: 50,
+        p_offset: currentPage * 50,
+        p_status: statusFilter !== "all" ? statusFilter : null,
+        p_payment_status: paymentFilter !== "all" ? paymentFilter : null,
+        p_search: search || null,
+      });
       if (error) throw error;
-      return data;
+      return data as any;
     },
   });
 
+  const orders = rpcResult?.orders || [];
+  const totalCount = rpcResult?.total || 0;
+  const isPaidOnlyRestricted = rpcResult?.paid_only_restricted || false;
+
   const filtered = useMemo(() => {
     return (orders || []).filter((o: any) => {
-      if (statusFilter !== "all" && o.order_status !== statusFilter) return false;
-      if (paymentFilter !== "all" && o.payment_status !== paymentFilter) return false;
       if (methodFilter !== "all" && o.payment_method !== methodFilter) return false;
       if (o.created_at < dateFrom) return false;
-      if (search) {
-        const s = search.toLowerCase();
-        return (o.order_number || "").toLowerCase().includes(s) || (o.customer_name || "").toLowerCase().includes(s) || (o.customer_phone || "").includes(s);
-      }
       return true;
     });
-  }, [orders, statusFilter, paymentFilter, methodFilter, dateFrom, search]);
+  }, [orders, methodFilter, dateFrom]);
 
   const stats = useMemo(() => {
     const f = filtered;
@@ -135,10 +141,21 @@ export default function AdminOrders() {
     ...(can("orders", "export") ? [{ label: "Export selected CSV", value: "export" }] : []),
   ];
 
+  // Fetch full order with items when detail view is open
+  const { data: detailOrderData } = useQuery({
+    queryKey: ["admin-order-detail", detailOrder],
+    queryFn: async () => {
+      if (!detailOrder) return null;
+      const { data, error } = await supabase.from("orders").select("*, order_items(*)").eq("id", detailOrder).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!detailOrder,
+  });
+
   if (detailOrder) {
-    const order = (orders || []).find((o: any) => o.id === detailOrder);
-    if (!order) { setDetailOrder(null); return null; }
-    return <OrderDetailPage order={order} adminUser={adminUser} can={can} isSuperAdmin={isSuperAdmin} onBack={() => setDetailOrder(null)} onPrint={() => openBrandedInvoice(order, adminUser?.id)} />;
+    if (!detailOrderData) return <div className="flex justify-center py-20"><Skeleton className="h-8 w-48" /></div>;
+    return <OrderDetailPage order={detailOrderData} adminUser={adminUser} can={can} isSuperAdmin={isSuperAdmin} onBack={() => setDetailOrder(null)} onPrint={() => openBrandedInvoice(detailOrderData, adminUser?.id)} />;
   }
 
   const showFinance = can("finance", "view");
@@ -186,6 +203,12 @@ export default function AdminOrders() {
         ))}
       </div>
 
+      {isPaidOnlyRestricted && (
+        <div className="flex items-center gap-2 mb-4 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 font-medium">
+          🔒 Showing paid orders only
+        </div>
+      )}
+
       <div className="flex gap-2 mb-4 flex-wrap">
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -196,10 +219,12 @@ export default function AdminOrders() {
           <option value="all">All statuses</option>
           {ORDER_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
-        <select value={paymentFilter} onChange={e => setPaymentFilter(e.target.value)} className="border border-input rounded-lg px-3 py-2 text-xs bg-background">
-          <option value="all">All payments</option>
-          {PAYMENT_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
+        {!isPaidOnlyRestricted && (
+          <select value={paymentFilter} onChange={e => setPaymentFilter(e.target.value)} className="border border-input rounded-lg px-3 py-2 text-xs bg-background">
+            <option value="all">All payments</option>
+            {PAYMENT_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        )}
         <select value={methodFilter} onChange={e => setMethodFilter(e.target.value)} className="border border-input rounded-lg px-3 py-2 text-xs bg-background">
           <option value="all">All methods</option>
           {PAYMENT_METHODS.map(s => <option key={s} value={s}>{s}</option>)}

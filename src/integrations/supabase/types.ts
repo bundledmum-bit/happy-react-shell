@@ -3166,6 +3166,16 @@ export type Database = {
         }
         Returns: string
       }
+      get_admin_orders: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_payment_status?: string
+          p_search?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
       get_delivery_fee: {
         Args: { p_city: string; p_state: string; p_subtotal: number }
         Returns: {
@@ -3182,6 +3192,7 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
       is_admin_user: { Args: never; Returns: boolean }
       is_sensitive_realtime_topic: { Args: { topic: string }; Returns: boolean }
+      orders_paid_only_restricted: { Args: never; Returns: boolean }
       run_push_gift_recommendation: {
         Args: { p_budget_tier: string; p_category: string; p_timing: string }
         Returns: Json
