@@ -97,21 +97,39 @@ function QuizFlowchart({ questions, routingRules }: { questions: QuizQuestion[];
       const isAlways = rule.condition_operator === "always";
       const label = isAlways ? "" : `${rule.condition_answer || ""}`;
       const isGiftRule = questions.find(q => q.step_id === rule.from_step_id)?.applies_to_path?.includes("gift");
+      const isDadBoth = rule.from_step_id === "dadPurpose" && rule.condition_answer === "both";
 
       e.push({
         id: rule.id,
         source: rule.from_step_id,
         target: target,
         label: label ? label.slice(0, 20) : undefined,
-        animated: isAlways,
+        animated: isAlways || isDadBoth,
         style: {
-          stroke: isGiftRule ? "#7c3aed" : "#3b82f6",
+          stroke: isDadBoth ? "#f97316" : isGiftRule ? "#7c3aed" : "#3b82f6",
           strokeDasharray: isAlways ? undefined : "5 5",
+          strokeWidth: isDadBoth ? 2 : 1,
         },
         markerEnd: { type: MarkerType.ArrowClosed },
-        labelStyle: { fontSize: 9, fill: "#666" },
+        labelStyle: { fontSize: 9, fill: isDadBoth ? "#f97316" : "#666" },
       });
     });
+
+    // Special "both" path return arrow: push gift results → budget (family shopping)
+    const hasDadPurpose = questions.some(q => q.step_id === "dadPurpose");
+    const hasBudget = questions.some(q => q.step_id === "budget");
+    if (hasDadPurpose && hasBudget) {
+      e.push({
+        id: "both-return-arrow",
+        source: "__end__",
+        target: "budget",
+        label: "Then shop family →",
+        animated: true,
+        style: { stroke: "#f97316", strokeDasharray: "8 4", strokeWidth: 2 },
+        markerEnd: { type: MarkerType.ArrowClosed },
+        labelStyle: { fontSize: 9, fill: "#f97316", fontWeight: 700 },
+      });
+    }
 
     return e;
   }, [routingRules, questions]);
