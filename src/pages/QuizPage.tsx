@@ -184,7 +184,7 @@ function ResultProductCard({ item, onAdd, onRemove, isInCart, fullProduct, onVie
       <div className="p-3.5 md:p-4">
         <h3 className="pf text-sm md:text-[15px] font-bold leading-tight mb-1 cursor-pointer hover:text-forest transition-colors" onClick={onViewDetail}>{item.name}</h3>
         {item.selected_color && <p className="text-muted-foreground text-[10px] mb-1">Colour: {item.selected_color}</p>}
-        <p className="text-forest bg-forest-light rounded-lg px-2 py-1.5 text-[10px] leading-relaxed italic mb-2 line-clamp-2">💡 {item.why_included}</p>
+        <div className="text-forest bg-forest-light rounded-lg px-2 py-1.5 text-[10px] leading-relaxed italic mb-2 max-h-16 overflow-y-auto scrollbar-hide">💡 {item.why_included}</div>
         {fullProduct && fullProduct.packInfo && <p className="text-muted-foreground text-[10px] mb-1">📦 {fullProduct.packInfo}</p>}
 
         {/* Brand selector */}
