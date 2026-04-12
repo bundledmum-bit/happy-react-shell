@@ -938,7 +938,7 @@ export default function QuizPage() {
 
             <div className="flex gap-3 justify-center mt-4 flex-wrap">
               <button onClick={handleShare} className="flex items-center gap-1.5 text-primary-foreground/50 text-xs hover:text-primary-foreground/80 transition-colors">
-                <Share2 className="h-3.5 w-3.5" /> Share Bundle
+                <Share2 className="h-3.5 w-3.5" /> Share List
               </button>
               <button onClick={handleCopyChecklist} className="flex items-center gap-1.5 text-primary-foreground/50 text-xs hover:text-primary-foreground/80 transition-colors">
                 <ClipboardCopy className="h-3.5 w-3.5" /> Copy checklist
