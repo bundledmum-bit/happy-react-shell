@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { X, Copy, Download, Check } from "lucide-react";
 import { toast } from "sonner";
+import brandLogoWhite from "@/assets/logos/BM-LOGO-WHITE.png";
 
 interface ShareModalProps {
   onClose: () => void;
@@ -33,6 +34,15 @@ export default function ShareModal({ onClose, title, subtitle, items, totalPrice
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    // Load brand logo then draw everything
+    const logoImg = new Image();
+    logoImg.crossOrigin = "anonymous";
+    logoImg.onload = () => drawCanvas(ctx, canvas, logoImg);
+    logoImg.onerror = () => drawCanvas(ctx, canvas, null);
+    logoImg.src = brandLogoWhite;
+  }, [title, items, totalPrice, badge, gender, hospitalType, budgetLabel, itemCount]);
+
+  const drawCanvas = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, logoImg: HTMLImageElement | null) => {
     canvas.width = 1080;
     canvas.height = 1350;
 
@@ -49,10 +59,17 @@ export default function ShareModal({ onClose, title, subtitle, items, totalPrice
     ctx.arc(150, 1100, 200, 0, Math.PI * 2);
     ctx.fill();
 
-    // Logo text
-    ctx.fillStyle = "#FFF8F4";
-    ctx.font = "bold 32px 'DM Sans', sans-serif";
-    ctx.fillText("BundledMum", 60, 80);
+    // Brand logo image
+    if (logoImg) {
+      const logoHeight = 55;
+      const logoWidth = (logoImg.naturalWidth / logoImg.naturalHeight) * logoHeight;
+      ctx.drawImage(logoImg, 60, 35, logoWidth, logoHeight);
+    } else {
+      // Fallback text
+      ctx.fillStyle = "#FFF8F4";
+      ctx.font = "bold 32px 'DM Sans', sans-serif";
+      ctx.fillText("BundledMum", 60, 80);
+    }
 
     // Tagline under logo
     ctx.fillStyle = "rgba(255,248,244,0.5)";
@@ -142,7 +159,7 @@ export default function ShareModal({ onClose, title, subtitle, items, totalPrice
     ctx.fillText("⭐ 4.9/5 · 200+ mums served · Free quiz · No login needed", 60, footerY + 185);
 
     setImageUrl(canvas.toDataURL("image/png"));
-  }, [title, items, totalPrice, badge, gender, hospitalType, budgetLabel, itemCount]);
+  };
 
   const fullShareText = `${shareText}\n\n${BRAND_CTA}\n\n${BRAND_INVITE} ${shareUrl}`;
 
