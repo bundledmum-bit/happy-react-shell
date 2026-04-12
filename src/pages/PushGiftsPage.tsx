@@ -21,7 +21,9 @@ function usePushGiftProducts() {
         .is("deleted_at", null)
         .order("display_order");
       if (error) throw error;
-      return adaptProducts(data);
+      // Attach raw row data so we can access push_gift_categories
+      const adapted = adaptProducts(data);
+      return adapted.map((p, i) => ({ ...p, _raw: data?.[i] }));
     },
     staleTime: 5 * 60 * 1000,
   });
