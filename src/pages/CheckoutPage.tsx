@@ -8,6 +8,7 @@ import { useShippingZones, calculateDeliveryFee } from "@/hooks/useShippingZones
 import { useSiteSettings } from "@/hooks/useSupabaseData";
 import { useSpendThresholds, getSpendPrompt } from "@/hooks/useSpendThresholds";
 import { trackEvent, getSessionId, getAttribution, markSessionConverted } from "@/lib/analytics";
+import { syncOrderToSheets } from "@/lib/googleSheets";
 
 const NIGERIAN_STATES = ["Lagos", "Abuja", "Rivers", "Ogun", "Oyo", "Kano", "Kaduna", "Anambra", "Enugu", "Delta", "Edo", "Imo", "Osun", "Kwara", "Benue"];
 const GIFT_WRAP_FEE = 3500;
@@ -17,34 +18,7 @@ interface FormData {
   address: string; city: string; state: string; notes: string;
 }
 
-async function logOrderToSheets(orderData: Record<string, unknown>) {
-  const url = import.meta.env.VITE_SHEETS_WEBHOOK_URL || "https://script.google.com/macros/s/AKfycby3mFQQ9oORQeiCKyd1hWaxx0m9n6T4mSQl3hb1DgyD--0UrKiUE_Qvnh0pV4Jp_janXw/exec";
-  if (!url) return;
-  try {
-    const payload = {
-      order_id: orderData.orderNumber,
-      date_time: orderData.timestamp,
-      payment_status: orderData.paymentStatus,
-      payment_method: orderData.paymentMethod,
-      paystack_ref: orderData.paystackRef || "N/A",
-      customer_name: orderData.customerName,
-      email: orderData.email,
-      phone: orderData.phone,
-      delivery_address: `${orderData.address}`,
-      city: orderData.city,
-      state: orderData.state,
-      notes: orderData.deliveryNotes || "None",
-      items: orderData.itemsSummary,
-      subtotal: orderData.subtotal,
-      delivery_fee: orderData.deliveryFee,
-      service_fee: orderData.serviceFee,
-      gift_wrap_fee: orderData.giftWrap ? orderData.giftWrapFee || 0 : 0,
-      total: orderData.total,
-      order_status: "confirmed",
-    };
-    await fetch(url, { method: "POST", body: JSON.stringify(payload) });
-  } catch (err) { console.error("Sheet logging failed:", err); }
-}
+type SavedOrderResult = { id: string; orderNumber: string | null };
 
 export default function CheckoutPage() {
   const { cart, subtotal, clearCart, totalItems } = useCart();
@@ -208,7 +182,7 @@ export default function CheckoutPage() {
     giftWrap, notes: "",
   });
 
-  const saveOrderToDb = async (orderData: ReturnType<typeof buildOrderData>) => {
+  const saveOrderToDb = async (orderData: ReturnType<typeof buildOrderData>): Promise<SavedOrderResult | null> => {
     try {
       // Get quiz answers from localStorage saved bundle if available
       let quizAnswers: any = null;
@@ -378,7 +352,7 @@ export default function CheckoutPage() {
         item_count: cart.length,
       });
 
-      return finalOrderNumber;
+      return { id: order.id, orderNumber: finalOrderNumber };
     } catch (e) {
       console.error("DB save failed:", e);
       return null;
@@ -391,10 +365,19 @@ export default function CheckoutPage() {
 
     if (payment === "transfer") {
       const orderData = buildOrderData();
-      const dbOrderNumber = await saveOrderToDb(orderData);
-      await logOrderToSheets({ ...orderData, orderNumber: dbOrderNumber });
+      const savedOrder = await saveOrderToDb(orderData);
+      if (!savedOrder) {
+        setProcessing(false);
+        toast.error("We couldn't place your order. Please try again.");
+        return;
+      }
+      await syncOrderToSheets({
+        orderId: savedOrder.id,
+        orderNumber: savedOrder.orderNumber,
+        fallbackData: orderData,
+      });
       clearCart();
-      navigate(`/order-confirmed?order=${encodeURIComponent(dbOrderNumber || "")}`);
+      navigate(`/order-confirmed?order=${encodeURIComponent(savedOrder.orderNumber || "")}`);
       return;
     }
 
@@ -409,10 +392,15 @@ export default function CheckoutPage() {
         channels: payment === "ussd" ? ["ussd"] : ["card", "bank_transfer", "ussd", "qr", "mobile_money", "bank"],
         onSuccess: async (transaction: { reference: string; status: string }) => {
           const orderData = buildOrderData(transaction.reference, "pending");
-          const dbOrderNumber = await saveOrderToDb(orderData);
+          const savedOrder = await saveOrderToDb(orderData);
+          if (!savedOrder) {
+            setProcessing(false);
+            toast.error("We couldn't place your order. Please try again.");
+            return;
+          }
 
           const { data: verification, error: verifyError } = await supabase.functions.invoke("process-payment", {
-            body: { reference: transaction.reference, order_id: dbOrderNumber },
+            body: { reference: transaction.reference, order_id: savedOrder.orderNumber },
           });
 
           if (verifyError || !verification?.verified) {
@@ -421,18 +409,31 @@ export default function CheckoutPage() {
             return;
           }
 
-          await logOrderToSheets({ ...orderData, orderNumber: dbOrderNumber });
+          await syncOrderToSheets({
+            orderId: savedOrder.id,
+            orderNumber: savedOrder.orderNumber,
+            fallbackData: orderData,
+          });
           clearCart();
-          navigate(`/order-confirmed?order=${encodeURIComponent(dbOrderNumber || "")}`);
+          navigate(`/order-confirmed?order=${encodeURIComponent(savedOrder.orderNumber || "")}`);
         },
         onCancel: () => { setProcessing(false); toast.error("Payment cancelled"); },
       });
     } catch {
       const orderData = buildOrderData("DEMO-" + Date.now(), "success");
-      const dbOrderNumber = await saveOrderToDb(orderData);
-      await logOrderToSheets({ ...orderData, orderNumber: dbOrderNumber });
+      const savedOrder = await saveOrderToDb(orderData);
+      if (!savedOrder) {
+        setProcessing(false);
+        toast.error("We couldn't place your order. Please try again.");
+        return;
+      }
+      await syncOrderToSheets({
+        orderId: savedOrder.id,
+        orderNumber: savedOrder.orderNumber,
+        fallbackData: orderData,
+      });
       clearCart();
-      navigate(`/order-confirmed?order=${encodeURIComponent(dbOrderNumber || "")}`);
+      navigate(`/order-confirmed?order=${encodeURIComponent(savedOrder.orderNumber || "")}`);
     }
   };
 
