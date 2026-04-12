@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCart, fmt } from "@/lib/cart";
+import { useAllProducts } from "@/hooks/useSupabaseData";
+import type { Product, Brand } from "@/lib/supabaseAdapters";
 import { toast } from "sonner";
 import { ArrowLeft, Check, Share2, ClipboardCopy, Loader2 } from "lucide-react";
 import ShareModal from "@/components/ShareModal";
@@ -122,14 +124,41 @@ async function completeQuizSession(answers: Answers, productCount: number, budge
 
 // ========= RESULT PRODUCT CARD =========
 
-function ResultProductCard({ item, onAdd, onRemove, isInCart }: {
+function ResultProductCard({ item, onAdd, onRemove, isInCart, fullProduct }: {
   item: RecommendedProduct;
-  onAdd: () => void;
+  onAdd: (overrideBrand?: any, overrideSize?: string) => void;
   onRemove: () => void;
   isInCart: boolean;
+  fullProduct?: Product | null;
 }) {
+  const brands = fullProduct?.brands || [];
+  const sizes = fullProduct?.sizes || [];
+
+  // Default to the recommended brand, allow switching
+  const recommendedBrandId = item.brand?.id;
+  const [selectedBrandId, setSelectedBrandId] = useState(recommendedBrandId || "");
+  const [selectedSize, setSelectedSize] = useState(sizes?.[0] || "");
+
+  const selectedBrand = brands.find(b => b.id === selectedBrandId) || (brands.length > 0 ? brands[0] : null);
+  const displayImage = selectedBrand?.imageUrl || item.brand?.image_url || item.image_url;
+  const displayPrice = selectedBrand?.price ?? item.brand?.price ?? 0;
+  const brandOos = selectedBrand ? (selectedBrand.inStock === false || selectedBrand.stockQuantity === 0) : false;
+  const isLowStock = selectedBrand?.stockQuantity != null && selectedBrand.stockQuantity > 0 && selectedBrand.stockQuantity <= 5;
+  const showSale = selectedBrand?.compareAtPrice && selectedBrand.compareAtPrice > (selectedBrand?.price || 0);
+
+  const showAllBrands = brands.length <= 3;
+  const visibleBrands = showAllBrands ? brands : brands.slice(0, 2);
+  const hiddenCount = brands.length - visibleBrands.length;
+  const [showMore, setShowMore] = useState(false);
+  const displayBrands = showMore ? brands : visibleBrands;
+
+  const handleAdd = () => {
+    if (brandOos) return;
+    onAdd(selectedBrand, selectedSize);
+  };
+
   return (
-    <div className="bg-card rounded-card shadow-card overflow-hidden hover:shadow-card-hover transition-all group">
+    <div className={`bg-card rounded-card shadow-card overflow-hidden hover:shadow-card-hover transition-all group ${brandOos ? "opacity-60" : ""}`}>
       <div className="relative h-36 md:h-44 flex items-center justify-center overflow-hidden bg-muted/30">
         {item.priority === "essential" && (
           <span className="absolute top-2.5 left-2.5 bg-coral text-primary-foreground text-[10px] font-bold px-2.5 py-1 rounded-pill uppercase tracking-wide z-10">Essential</span>
@@ -137,8 +166,13 @@ function ResultProductCard({ item, onAdd, onRemove, isInCart }: {
         {item.quantity > 1 && (
           <span className="absolute top-2.5 right-2.5 bg-forest text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-pill z-10">×{item.quantity}</span>
         )}
+        {showSale && (
+          <span className="absolute top-2.5 right-2.5 bg-destructive text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill z-10">
+            Save {Math.round(((selectedBrand!.compareAtPrice! - selectedBrand!.price) / selectedBrand!.compareAtPrice!) * 100)}%
+          </span>
+        )}
         <ProductImage
-          imageUrl={item.brand?.image_url || item.image_url}
+          imageUrl={displayImage}
           emoji={item.emoji || "📦"}
           alt={item.name}
           className="w-full h-full group-hover:scale-110 transition-transform duration-300"
@@ -148,20 +182,65 @@ function ResultProductCard({ item, onAdd, onRemove, isInCart }: {
       <div className="p-3.5 md:p-4">
         <h3 className="pf text-sm md:text-[15px] font-bold leading-tight mb-1">{item.name}</h3>
         {item.selected_color && <p className="text-muted-foreground text-[10px] mb-1">Colour: {item.selected_color}</p>}
-        <p className="text-muted-foreground text-[11px] leading-relaxed italic mb-2 line-clamp-2">{item.why_included}</p>
-        <div className="mb-2.5">
-          <p className="text-muted-foreground text-[10px] font-semibold uppercase tracking-wider mb-1">
-            {item.brand?.brand_name || "Standard"} · {item.brand?.tier || "standard"}
-          </p>
-        </div>
-        <div className="flex items-end justify-between">
-          <p className="pf text-lg font-bold text-foreground">{fmt((item.brand?.price || 0) * (item.quantity || 1))}</p>
-          {isInCart ? (
+        <p className="text-forest-light bg-forest/10 rounded-lg px-2 py-1.5 text-[10px] leading-relaxed italic mb-2 line-clamp-2">💡 {item.why_included}</p>
+        {fullProduct && fullProduct.packInfo && <p className="text-muted-foreground text-[10px] mb-1">📦 {fullProduct.packInfo}</p>}
+
+        {/* Brand selector */}
+        {brands.length > 0 && (
+          <div className="mb-2">
+            <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">Brand</div>
+            <div className="flex flex-wrap gap-1">
+              {displayBrands.map(b => {
+                const bOos = b.inStock === false || b.stockQuantity === 0;
+                return (
+                  <button key={b.id} onClick={() => setSelectedBrandId(b.id)}
+                    className={`px-2 py-0.5 rounded-pill text-[10px] font-semibold border-[1.5px] transition-all font-body ${bOos ? "opacity-50" : ""} ${selectedBrandId === b.id ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-muted-foreground"}`}>
+                    {b.label} {fmt(b.price)}
+                    {b.id === recommendedBrandId && !bOos && <span className="text-coral ml-0.5">★</span>}
+                  </button>
+                );
+              })}
+              {hiddenCount > 0 && !showMore && (
+                <button onClick={() => setShowMore(true)}
+                  className="px-2 py-0.5 rounded-pill text-[10px] font-semibold border-[1.5px] border-border bg-card text-forest font-body hover:border-forest">
+                  +{hiddenCount} more
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Size selector */}
+        {sizes.length > 0 && (
+          <div className="mb-2">
+            <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">Size</div>
+            <div className="flex flex-wrap gap-1">
+              {sizes.map(s => (
+                <button key={s} onClick={() => setSelectedSize(s)}
+                  className={`px-2 py-0.5 rounded-pill text-[10px] font-semibold border-[1.5px] transition-all font-body ${selectedSize === s ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-muted-foreground"}`}>
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {isLowStock && <p className="text-[#E65100] text-[9px] font-semibold mb-1">🔥 Only {selectedBrand?.stockQuantity} left!</p>}
+
+        <div className="flex items-end justify-between mt-1">
+          <div>
+            <p className="pf text-lg font-bold text-forest">{fmt(displayPrice * (item.quantity || 1))}</p>
+            {showSale && <p className="text-muted-foreground text-[10px] line-through">{fmt(selectedBrand!.compareAtPrice!)}</p>}
+            {!showSale && brands.length > 1 && <p className="text-muted-foreground text-[10px]">from {fmt(Math.min(...brands.map(b => b.price)))}</p>}
+          </div>
+          {brandOos ? (
+            <span className="rounded-pill bg-border px-3 py-1.5 text-[10px] font-semibold text-muted-foreground font-body">Sold Out</span>
+          ) : isInCart ? (
             <button onClick={onRemove} className="rounded-pill bg-forest-light border border-forest text-forest px-3 py-1.5 text-[11px] font-semibold font-body interactive flex items-center gap-1">
-              ✓ Added <span className="text-destructive hover:text-destructive">×</span>
+              ✓ Added <span className="text-destructive">×</span>
             </button>
           ) : (
-            <button onClick={onAdd} className="rounded-pill bg-forest px-3 py-1.5 text-[11px] font-semibold text-primary-foreground hover:bg-forest-deep font-body interactive">+ Add</button>
+            <button onClick={handleAdd} className="rounded-pill bg-forest px-3 py-1.5 text-[11px] font-semibold text-primary-foreground hover:bg-forest-deep font-body interactive">+ Add</button>
           )}
         </div>
       </div>
@@ -290,6 +369,14 @@ export default function QuizPage() {
   // Fetch quiz config from Supabase
   const { data: questions = [], isLoading: questionsLoading } = useQuizQuestions();
   const { data: routingRules = [], isLoading: rulesLoading } = useQuizRoutingRules();
+  const { data: allProducts } = useAllProducts();
+
+  // Build a map from product_id → full Product for brand/size selectors
+  const productMap = useMemo(() => {
+    const map = new Map<string, Product>();
+    (allProducts || []).forEach(p => map.set(p.id, p));
+    return map;
+  }, [allProducts]);
 
   const configLoading = questionsLoading || rulesLoading;
 
@@ -617,14 +704,19 @@ export default function QuizPage() {
   }
 
   // ========= HELPER: Add product to cart =========
-  const handleAddProduct = (item: RecommendedProduct) => {
+  const handleAddProduct = (item: RecommendedProduct, overrideBrand?: Brand | null, overrideSize?: string) => {
+    const brandName = overrideBrand?.label || item.brand?.brand_name || "Standard";
+    const brandPrice = overrideBrand?.price ?? item.brand?.price ?? 0;
+    const brandId = overrideBrand?.id || item.brand?.id || item.product_id;
+    const brandImage = overrideBrand?.imageUrl || item.brand?.image_url || item.image_url || undefined;
     addToCart({
       id: item.product_id,
-      name: `${item.name} (${item.brand?.brand_name || "Standard"})`,
+      name: `${item.name} (${brandName})`,
       baseImg: item.emoji || "📦",
-      imageUrl: item.brand?.image_url || item.image_url || undefined,
-      price: item.brand?.price || 0,
-      selectedBrand: { id: item.brand?.id || item.product_id, label: item.brand?.brand_name || "Standard", price: item.brand?.price || 0, img: item.emoji || "📦", imageUrl: item.brand?.image_url || null, tier: 1, color: "#E8F5E9" },
+      imageUrl: brandImage,
+      price: brandPrice,
+      selectedBrand: { id: brandId, label: brandName, price: brandPrice, img: item.emoji || "📦", imageUrl: brandImage || null, tier: overrideBrand?.tier || 1, color: overrideBrand?.color || "#E8F5E9" },
+      selectedSize: overrideSize || "",
       brands: [],
       category: item.category as any,
       rating: 4.5,
@@ -685,8 +777,9 @@ export default function QuizPage() {
                 key={item.product_id}
                 item={item}
                 isInCart={addedIds.has(item.product_id)}
-                onAdd={() => handleAddProduct(item)}
+                onAdd={(brand, size) => handleAddProduct(item, brand, size)}
                 onRemove={() => handleRemoveProduct(item)}
+                fullProduct={productMap.get(item.product_id)}
               />
             ))}
           </div>
@@ -859,8 +952,9 @@ export default function QuizPage() {
                     key={item.product_id}
                     item={item}
                     isInCart={addedIds.has(item.product_id)}
-                    onAdd={() => handleAddProduct(item)}
+                    onAdd={(brand, size) => handleAddProduct(item, brand, size)}
                     onRemove={() => handleRemoveProduct(item)}
+                    fullProduct={productMap.get(item.product_id)}
                   />
                 ))}
               </div>
@@ -876,8 +970,9 @@ export default function QuizPage() {
                     key={item.product_id}
                     item={item}
                     isInCart={addedIds.has(item.product_id)}
-                    onAdd={() => handleAddProduct(item)}
+                    onAdd={(brand, size) => handleAddProduct(item, brand, size)}
                     onRemove={() => handleRemoveProduct(item)}
+                    fullProduct={productMap.get(item.product_id)}
                   />
                 ))}
               </div>
@@ -892,8 +987,9 @@ export default function QuizPage() {
                     key={item.product_id}
                     item={item}
                     isInCart={addedIds.has(item.product_id)}
-                    onAdd={() => handleAddProduct(item)}
+                    onAdd={(brand, size) => handleAddProduct(item, brand, size)}
                     onRemove={() => handleRemoveProduct(item)}
+                    fullProduct={productMap.get(item.product_id)}
                   />
                 ))}
               </div>
