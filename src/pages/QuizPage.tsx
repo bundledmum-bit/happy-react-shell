@@ -170,7 +170,9 @@ function OptionalTextStep({
   const [value, setValue] = useState("");
   const config: QuizQuestionUiConfig = question.ui_config || {};
 
-  const regexStr = config.validation_regex;
+  // For whatsapp step: no validation, accept all phone numbers
+  const isWhatsappStep = question.step_id === "whatsapp";
+  const regexStr = isWhatsappStep ? undefined : config.validation_regex;
   const isValid = (val: string) => {
     if (!regexStr) return true;
     const digits = val.replace(/\D/g, "");
@@ -179,6 +181,12 @@ function OptionalTextStep({
   const error = value && regexStr && !isValid(value)
     ? (config.validation_error || "Invalid input")
     : "";
+
+  // Dynamic placeholder & CTA for whatsapp step
+  const placeholder = isWhatsappStep ? "Enter your Phone Number" : (config.placeholder || "");
+  const ctaLabel = isWhatsappStep
+    ? (value.trim() ? "Continue" : "Continue without WhatsApp")
+    : (value ? (config.primary_button || "Continue →") : (config.skip_label || "Continue →"));
 
   return (
     <div className="min-h-screen bg-background pt-[68px] flex flex-col items-center px-4 md:px-10 py-10 md:py-14 pb-20 md:pb-12">
@@ -202,14 +210,14 @@ function OptionalTextStep({
         <div className="space-y-4">
           <div className="flex flex-col gap-1">
             <input
-              type={question.step_id === "whatsapp" ? "tel" : "text"}
+              type={isWhatsappStep ? "tel" : "text"}
               value={value}
               onChange={e => setValue(e.target.value)}
-              placeholder={config.placeholder || ""}
+              placeholder={placeholder}
               className={`w-full rounded-[14px] border-2 px-4 py-3.5 text-sm bg-card font-body outline-none transition-colors ${error ? "border-destructive" : "border-border focus:border-forest"}`}
             />
             {error && <p className="text-destructive text-[11px]">{error}</p>}
-            {config.helper_text && <p className="text-muted-foreground text-[11px]">{config.helper_text}</p>}
+            {!isWhatsappStep && config.helper_text && <p className="text-muted-foreground text-[11px]">{config.helper_text}</p>}
           </div>
 
           <button
@@ -219,9 +227,7 @@ function OptionalTextStep({
             }}
             className="w-full rounded-pill bg-forest py-3.5 font-body font-semibold text-primary-foreground hover:bg-forest-deep interactive text-sm"
           >
-            {value
-              ? (config.primary_button || "Continue →")
-              : (config.skip_label || "Continue →")}
+            {ctaLabel}
           </button>
 
           {question.is_skippable && (
