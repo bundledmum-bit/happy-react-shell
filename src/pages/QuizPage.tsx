@@ -138,7 +138,7 @@ function ResultProductCard({ item, onAdd, onRemove, isInCart }: {
           <span className="absolute top-2.5 right-2.5 bg-forest text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-pill z-10">×{item.quantity}</span>
         )}
         <ProductImage
-          imageUrl={item.brand.image_url || item.image_url}
+          imageUrl={item.brand?.image_url || item.image_url}
           emoji={item.emoji || "📦"}
           alt={item.name}
           className="w-full h-full group-hover:scale-110 transition-transform duration-300"
@@ -620,11 +620,11 @@ export default function QuizPage() {
   const handleAddProduct = (item: RecommendedProduct) => {
     addToCart({
       id: item.product_id,
-      name: `${item.name} (${item.brand.brand_name})`,
+      name: `${item.name} (${item.brand?.brand_name || "Standard"})`,
       baseImg: item.emoji || "📦",
-      imageUrl: item.brand.image_url || item.image_url || undefined,
-      price: item.brand.price,
-      selectedBrand: { id: item.brand.id, label: item.brand.brand_name, price: item.brand.price, img: item.emoji || "📦", imageUrl: item.brand.image_url, tier: 1, color: "#E8F5E9" },
+      imageUrl: item.brand?.image_url || item.image_url || undefined,
+      price: item.brand?.price || 0,
+      selectedBrand: { id: item.brand?.id || item.product_id, label: item.brand?.brand_name || "Standard", price: item.brand?.price || 0, img: item.emoji || "📦", imageUrl: item.brand?.image_url || null, tier: 1, color: "#E8F5E9" },
       brands: [],
       category: item.category as any,
       rating: 4.5,
