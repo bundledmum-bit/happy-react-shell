@@ -8,6 +8,7 @@ import { useProductCategories } from "@/hooks/useProductCategories";
 import type { Product, Brand } from "@/lib/supabaseAdapters";
 import ProductImage from "@/components/ProductImage";
 import SpendMoreBanner from "@/components/SpendMoreBanner";
+import QtyControl from "@/components/QtyControl";
 
 function ProductCard({ product, defaultBudget = "standard", forceBrand, onAdd, onViewDetail, deliveryText }: { product: Product; defaultBudget?: string; forceBrand?: string; onAdd: (item: any) => void; onViewDetail: () => void; deliveryText?: string }) {
   const defaultBrand = getBrandForBudget(product, defaultBudget);
@@ -135,11 +136,8 @@ function ProductCard({ product, defaultBudget = "standard", forceBrand, onAdd, o
               <span className="rounded-pill bg-border px-3 py-1.5 text-[10px] font-semibold text-text-light font-body block mb-1">Sold Out</span>
               <button onClick={() => toast("We'll notify you when it's back!")} className="text-forest text-[9px] font-semibold hover:underline">Notify me</button>
             </div>
-          ) : isInCart ? (
-            <button onClick={handleRemove}
-              className="rounded-pill bg-forest-light border border-forest text-forest px-3 py-1.5 text-[11px] font-semibold font-body interactive flex items-center gap-1">
-              ✓ Added <span className="text-destructive ml-0.5">×</span>
-            </button>
+          ) : isInCart && cartItem ? (
+            <QtyControl qty={cartItem.qty} onUpdate={handleQtyChange} />
           ) : (
             <button onClick={handleAdd} className="rounded-pill bg-forest px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-forest-deep font-body interactive">+ Add</button>
           )}
