@@ -1,8 +1,26 @@
 import { Link } from "react-router-dom";
 import { useEffect } from "react";
+import { useDeliverySettings, useSiteSettings } from "@/hooks/useSupabaseData";
+import { fmt } from "@/lib/cart";
 
 export default function TermsPage() {
   useEffect(() => { document.title = "Terms & Conditions | BundledMum"; }, []);
+
+  const { data: deliveryZones } = useDeliverySettings();
+  const { data: settings } = useSiteSettings();
+  const serviceFee = settings?.service_fee ? parseInt(settings.service_fee) : 1500;
+
+  // Build delivery summary from Supabase zones
+  const deliverySummary = (deliveryZones || []).map(z => {
+    const days = z.delivery_days_min === z.delivery_days_max
+      ? `${z.delivery_days_min} business day${z.delivery_days_min > 1 ? "s" : ""}`
+      : `${z.delivery_days_min}–${z.delivery_days_max} business days`;
+    const freeText = z.free_delivery_threshold
+      ? `Free delivery on orders over ${fmt(z.free_delivery_threshold)}.`
+      : "";
+    const feeText = `A delivery fee of ${fmt(z.delivery_fee)} applies${z.free_delivery_threshold ? ` to orders under ${fmt(z.free_delivery_threshold)}` : ""}.`;
+    return `${z.zone_name}: ${days}. ${freeText} ${feeText}`.trim();
+  }).join(" ");
 
   return (
     <div className="min-h-screen pt-[68px]">
@@ -17,13 +35,13 @@ export default function TermsPage() {
         <p className="mb-4 leading-relaxed">By using bundledmum.ng, you agree to these terms. BundledMum is operated by BundledMum Nigeria Ltd, registered in Lagos, Nigeria.</p>
 
         <h2 className="pf text-forest text-xl mb-3">2. Products & Pricing</h2>
-        <p className="mb-4 leading-relaxed">All prices are in Nigerian Naira (₦) and include applicable taxes. Prices may change without prior notice. A ₦1,500 service and packaging fee applies to all orders.</p>
+        <p className="mb-4 leading-relaxed">All prices are in Nigerian Naira (₦) and include applicable taxes. Prices may change without prior notice. A {fmt(serviceFee)} service and packaging fee applies to all orders.</p>
 
         <h2 className="pf text-forest text-xl mb-3">3. Orders & Payment</h2>
         <p className="mb-4 leading-relaxed">Orders are confirmed once payment is received. We accept card payments (Visa, Mastercard, Verve), bank transfers, and USSD via Paystack. Bank transfer orders must be completed within 24 hours.</p>
 
         <h2 className="pf text-forest text-xl mb-3">4. Delivery</h2>
-        <p className="mb-4 leading-relaxed">Lagos delivery: 1–2 business days. Other states: 2–4 business days. Free delivery on orders over ₦30,000. A delivery fee of ₦2,500 applies to orders under ₦30,000.</p>
+        <p className="mb-4 leading-relaxed">{deliverySummary || "Delivery details are being loaded..."}</p>
 
         <h2 className="pf text-forest text-xl mb-3">5. Returns & Exchanges</h2>
         <p className="mb-4 leading-relaxed">Unused, sealed items may be returned within 7 days of delivery. Contact us on WhatsApp to arrange a return. Refunds are processed within 5–7 business days. Opened or used items cannot be returned for hygiene reasons.</p>

@@ -9,6 +9,7 @@ import { ArrowLeft, Check, Share2, ClipboardCopy, Loader2 } from "lucide-react";
 import ShareModal from "@/components/ShareModal";
 import ExitIntentPopup from "@/components/ExitIntentPopup";
 import ProductImage from "@/components/ProductImage";
+import ProductDetailModal from "@/components/ProductDetailModal";
 import { trackEvent, getSessionId, getReferralSource } from "@/lib/analytics";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuizQuestions, useQuizRoutingRules } from "@/hooks/useQuizConfig";
@@ -124,12 +125,13 @@ async function completeQuizSession(answers: Answers, productCount: number, budge
 
 // ========= RESULT PRODUCT CARD =========
 
-function ResultProductCard({ item, onAdd, onRemove, isInCart, fullProduct }: {
+function ResultProductCard({ item, onAdd, onRemove, isInCart, fullProduct, onViewDetail }: {
   item: RecommendedProduct;
   onAdd: (overrideBrand?: any, overrideSize?: string) => void;
   onRemove: () => void;
   isInCart: boolean;
   fullProduct?: Product | null;
+  onViewDetail?: () => void;
 }) {
   const brands = fullProduct?.brands || [];
   const sizes = fullProduct?.sizes || [];
@@ -159,7 +161,7 @@ function ResultProductCard({ item, onAdd, onRemove, isInCart, fullProduct }: {
 
   return (
     <div className={`bg-card rounded-card shadow-card overflow-hidden hover:shadow-card-hover transition-all group ${brandOos ? "opacity-60" : ""}`}>
-      <div className="relative h-36 md:h-44 flex items-center justify-center overflow-hidden bg-muted/30">
+      <div className="relative h-36 md:h-44 flex items-center justify-center overflow-hidden bg-muted/30 cursor-pointer" onClick={onViewDetail}>
         {item.priority === "essential" && (
           <span className="absolute top-2.5 left-2.5 bg-coral text-primary-foreground text-[10px] font-bold px-2.5 py-1 rounded-pill uppercase tracking-wide z-10">Essential</span>
         )}
@@ -180,9 +182,9 @@ function ResultProductCard({ item, onAdd, onRemove, isInCart, fullProduct }: {
         />
       </div>
       <div className="p-3.5 md:p-4">
-        <h3 className="pf text-sm md:text-[15px] font-bold leading-tight mb-1">{item.name}</h3>
+        <h3 className="pf text-sm md:text-[15px] font-bold leading-tight mb-1 cursor-pointer hover:text-forest transition-colors" onClick={onViewDetail}>{item.name}</h3>
         {item.selected_color && <p className="text-muted-foreground text-[10px] mb-1">Colour: {item.selected_color}</p>}
-        <p className="text-forest-light bg-forest/10 rounded-lg px-2 py-1.5 text-[10px] leading-relaxed italic mb-2 line-clamp-2">💡 {item.why_included}</p>
+        <p className="text-forest bg-forest-light rounded-lg px-2 py-1.5 text-[10px] leading-relaxed italic mb-2 line-clamp-2">💡 {item.why_included}</p>
         {fullProduct && fullProduct.packInfo && <p className="text-muted-foreground text-[10px] mb-1">📦 {fullProduct.packInfo}</p>}
 
         {/* Brand selector */}
@@ -363,6 +365,7 @@ export default function QuizPage() {
   const [story, setStory] = useState("");
   const [loadingResults, setLoadingResults] = useState(false);
   const [bothPhase, setBothPhase] = useState<"push-gift" | "family" | null>(null);
+  const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const navigate = useNavigate();
   const { addToCart, cart, setCart } = useCart();
 
@@ -780,6 +783,7 @@ export default function QuizPage() {
                 onAdd={(brand, size) => handleAddProduct(item, brand, size)}
                 onRemove={() => handleRemoveProduct(item)}
                 fullProduct={productMap.get(item.product_id)}
+                onViewDetail={() => { const fp = productMap.get(item.product_id); if (fp) setDetailProduct(fp); }}
               />
             ))}
           </div>
@@ -803,6 +807,7 @@ export default function QuizPage() {
             Now Shop the Family Essentials →
           </button>
         </div>
+        {detailProduct && <ProductDetailModal product={detailProduct} defaultBudget={answers.budget || "standard"} onClose={() => setDetailProduct(null)} />}
       </div>
     );
   }
@@ -914,7 +919,7 @@ export default function QuizPage() {
               <div className="text-primary-foreground text-xs space-y-1">
                 <div className="flex justify-between"><span>Your bundle:</span><span className="font-bold">{fmt(grandTotal)}</span></div>
                 <div className="flex justify-between"><span>Free curation value:</span><span className="text-coral font-bold">~{fmt(curationSaving)}</span></div>
-                <div className="flex justify-between text-primary-foreground/50"><span>+ Free delivery over ₦30,000</span><span>🚚</span></div>
+                <div className="flex justify-between text-primary-foreground/50"><span>+ Free delivery on qualifying orders</span><span>🚚</span></div>
               </div>
               <p className="text-coral text-[11px] font-bold mt-1.5">You save time AND money with BundledMum 🎉</p>
             </div>
@@ -955,6 +960,7 @@ export default function QuizPage() {
                     onAdd={(brand, size) => handleAddProduct(item, brand, size)}
                     onRemove={() => handleRemoveProduct(item)}
                     fullProduct={productMap.get(item.product_id)}
+                    onViewDetail={() => { const fp = productMap.get(item.product_id); if (fp) setDetailProduct(fp); }}
                   />
                 ))}
               </div>
@@ -973,6 +979,7 @@ export default function QuizPage() {
                     onAdd={(brand, size) => handleAddProduct(item, brand, size)}
                     onRemove={() => handleRemoveProduct(item)}
                     fullProduct={productMap.get(item.product_id)}
+                    onViewDetail={() => { const fp = productMap.get(item.product_id); if (fp) setDetailProduct(fp); }}
                   />
                 ))}
               </div>
@@ -990,6 +997,7 @@ export default function QuizPage() {
                     onAdd={(brand, size) => handleAddProduct(item, brand, size)}
                     onRemove={() => handleRemoveProduct(item)}
                     fullProduct={productMap.get(item.product_id)}
+                    onViewDetail={() => { const fp = productMap.get(item.product_id); if (fp) setDetailProduct(fp); }}
                   />
                 ))}
               </div>
@@ -1046,6 +1054,8 @@ export default function QuizPage() {
             Get Complete Bundle — {fmt(grandTotal)} →
           </button>
         </div>
+
+        {detailProduct && <ProductDetailModal product={detailProduct} defaultBudget={answers.budget || "standard"} onClose={() => setDetailProduct(null)} />}
       </div>
     );
   }
