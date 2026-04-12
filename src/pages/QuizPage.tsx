@@ -243,7 +243,6 @@ function ResultProductCard({ item, onAdd, onRemove, isInCart, cartItem, onQtyUpd
           ) : isInCart && cartItem && onQtyUpdate ? (
             <QtyControl qty={cartItem.qty} onUpdate={(newQty) => onQtyUpdate(cartItem._key, newQty)} />
           ) : (
-          ) : (
             <button onClick={handleAdd} className="rounded-pill bg-forest px-3 py-1.5 text-[11px] font-semibold text-primary-foreground hover:bg-forest-deep font-body interactive">+ Add</button>
           )}
         </div>
