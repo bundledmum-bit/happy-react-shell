@@ -294,16 +294,16 @@ function OptionalTextStep({
           <div className="bg-coral h-1.5 transition-all duration-500 rounded-full" style={{ width: `${progress}%` }} />
         </div>
         <div className="flex justify-between mt-3">
-          <div className="text-muted-foreground text-sm font-semibold">{config.page_title || ""}</div>
-          <button onClick={onBack} className="text-muted-foreground text-sm flex items-center gap-1 font-body hover:text-foreground"><ArrowLeft className="h-3.5 w-3.5" /> Back</button>
+          <div className="text-foreground/50 text-sm font-semibold">{config.page_title || ""}</div>
+          <button onClick={onBack} className="text-foreground/50 text-sm flex items-center gap-1 font-body hover:text-foreground min-h-[44px]"><ArrowLeft className="h-3.5 w-3.5" /> Back</button>
         </div>
       </div>
 
       <div className="animate-fade-in bg-card rounded-[22px] p-7 md:p-12 shadow-card-hover w-full max-w-[660px]">
         <div className="text-center mb-7">
-          {config.eyebrow && <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-widest mb-2">{config.eyebrow}</p>}
-          <h2 className="pf text-xl md:text-[30px] leading-tight">{question.question_text}</h2>
-          {question.sub_text && <p className="text-muted-foreground text-sm mt-2">{question.sub_text}</p>}
+          {config.eyebrow && <p className="text-foreground/60 text-[11px] font-semibold uppercase tracking-widest mb-2">{config.eyebrow}</p>}
+          <h2 className="pf text-xl md:text-[30px] leading-tight text-foreground">{question.question_text}</h2>
+          {question.sub_text && <p className="text-foreground/60 text-sm mt-2">{question.sub_text}</p>}
         </div>
 
         <div className="space-y-4">

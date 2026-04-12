@@ -51,18 +51,18 @@ export default function BundlesPage() {
         <div className="max-w-[1200px] mx-auto">
           <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide">
             <div className="flex gap-2 items-center min-w-max">
-              <span className="text-text-med text-[13px] font-semibold whitespace-nowrap">Hospital:</span>
+              <span className="text-muted-foreground text-[13px] font-semibold whitespace-nowrap">Hospital:</span>
               {[["all", "All"], ["public", "🏥 Public"], ["private", "🏨 Private"], ["gift", "🎁 Gift"]].map(([v, l]) => (
-                <button key={v} onClick={() => setHospitalF(v)} className={`rounded-pill px-3 py-1.5 text-xs font-semibold border-[1.5px] transition-all font-body whitespace-nowrap ${hospitalF === v ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-text-med"}`}>{l}</button>
+                <button key={v} onClick={() => setHospitalF(v)} className={`rounded-pill px-3 py-2 text-xs font-semibold border-[1.5px] transition-all font-body whitespace-nowrap min-h-[44px] ${hospitalF === v ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-muted-foreground"}`}>{l}</button>
               ))}
               <div className="w-px h-5 bg-border mx-1 flex-shrink-0" />
-              <span className="text-text-med text-[13px] font-semibold whitespace-nowrap">Delivery:</span>
+              <span className="text-muted-foreground text-[13px] font-semibold whitespace-nowrap">Delivery:</span>
               {[["all", "All"], ["vaginal", "Vaginal"], ["csection", "C-Section"]].map(([v, l]) => (
-                <button key={v} onClick={() => setDeliveryF(v)} className={`rounded-pill px-3 py-1.5 text-xs font-semibold border-[1.5px] transition-all font-body whitespace-nowrap ${deliveryF === v ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-text-med"}`}>{l}</button>
+                <button key={v} onClick={() => setDeliveryF(v)} className={`rounded-pill px-3 py-2 text-xs font-semibold border-[1.5px] transition-all font-body whitespace-nowrap min-h-[44px] ${deliveryF === v ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-muted-foreground"}`}>{l}</button>
               ))}
               <div className="w-px h-5 bg-border mx-1 flex-shrink-0" />
               {[["all", "All Tiers"], ["basic", "Basic"], ["premium", "✨ Premium"]].map(([v, l]) => (
-                <button key={v} onClick={() => setTierF(v)} className={`rounded-pill px-3 py-1.5 text-xs font-semibold border-[1.5px] transition-all font-body whitespace-nowrap ${tierF === v ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-text-med"}`}>{l}</button>
+                <button key={v} onClick={() => setTierF(v)} className={`rounded-pill px-3 py-2 text-xs font-semibold border-[1.5px] transition-all font-body whitespace-nowrap min-h-[44px] ${tierF === v ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-muted-foreground"}`}>{l}</button>
               ))}
               {compareIds.length >= 2 && (
                 <button onClick={() => setShowCompare(true)} className="ml-2 rounded-pill bg-coral px-3 py-1.5 text-xs font-semibold text-primary-foreground font-body interactive whitespace-nowrap">
