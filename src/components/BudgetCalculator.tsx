@@ -21,9 +21,9 @@ const DELIVERY = [
 
 function calcRange(scope: string, multiples: string, delivery: string) {
   const bases: Record<string, [number, number][]> = {
-    starter: [[15000, 25000]],
-    standard: [[35000, 55000]],
-    premium: [[70000, 95000]],
+    starter: [[50000, 100000]],
+    standard: [[100000, 200000]],
+    premium: [[200000, 450000]],
   };
 
   return Object.entries(bases).map(([tier, [[lo, hi]]]) => {
@@ -133,7 +133,7 @@ export default function BudgetCalculator() {
 
       <button onClick={startQuiz}
         className="block w-full rounded-pill bg-coral py-2.5 font-body font-semibold text-sm text-primary-foreground hover:bg-coral-dark interactive text-center">
-        Build My Perfect Bundle →
+        Build My Perfect List →
       </button>
       <p className="text-primary-foreground/30 text-[10px] text-center mt-1.5">Takes 60 seconds · Your answers carry over</p>
     </div>
