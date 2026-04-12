@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { adaptProducts } from "@/lib/supabaseAdapters";
 import type { Product, Brand } from "@/lib/supabaseAdapters";
+import QtyControl from "@/components/QtyControl";
 
 function usePushGiftProducts() {
   return useQuery({
@@ -47,10 +48,11 @@ const TIER_LABELS: Record<string, string> = {
 function PushGiftCard({ product, onAdd, onViewDetail }: { product: Product; onAdd: (item: any) => void; onViewDetail: () => void }) {
   const defaultBrand = getBrandForBudget(product, "standard");
   const [selectedBrand, setSelectedBrand] = useState<Brand>(defaultBrand);
-  const { cart, setCart } = useCart();
+  const { cart, setCart, updateQty } = useCart();
 
   const cartKey = `${product.id}-${selectedBrand.id}`;
-  const isInCart = cart.some(c => c._key === cartKey || c.id === product.id);
+  const cartItem = cart.find(c => c._key === cartKey || c.id === product.id);
+  const isInCart = !!cartItem;
   const brandOos = selectedBrand.inStock === false || selectedBrand.stockQuantity === 0;
   const allBrandsOos = product.brands.every(b => b.inStock === false || b.stockQuantity === 0);
   const isOutOfStock = allBrandsOos || brandOos;
@@ -125,11 +127,8 @@ function PushGiftCard({ product, onAdd, onViewDetail }: { product: Product; onAd
           </div>
           {isOutOfStock ? (
             <span className="rounded-pill bg-border px-3 py-1.5 text-[10px] font-semibold text-text-light font-body">Sold Out</span>
-          ) : isInCart ? (
-            <button onClick={handleRemove}
-              className="rounded-pill bg-coral/10 border border-coral text-coral px-3 py-1.5 text-[11px] font-semibold font-body interactive flex items-center gap-1">
-              ✓ Added <span className="text-destructive ml-0.5">×</span>
-            </button>
+          ) : isInCart && cartItem ? (
+            <QtyControl qty={cartItem.qty} onUpdate={(newQty) => updateQty(cartItem._key, newQty)} accentColor="coral" />
           ) : (
             <button onClick={handleAdd} className="rounded-pill bg-coral px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-coral-dark font-body interactive">+ Add to Cart</button>
           )}

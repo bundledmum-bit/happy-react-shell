@@ -9,6 +9,7 @@ import { ArrowLeft, Check, Share2, ClipboardCopy, Loader2 } from "lucide-react";
 import ShareModal from "@/components/ShareModal";
 import ExitIntentPopup from "@/components/ExitIntentPopup";
 import ProductImage from "@/components/ProductImage";
+import QtyControl from "@/components/QtyControl";
 import ProductDetailModal from "@/components/ProductDetailModal";
 import { trackEvent, getSessionId, getReferralSource } from "@/lib/analytics";
 import { supabase } from "@/integrations/supabase/client";
@@ -125,11 +126,13 @@ async function completeQuizSession(answers: Answers, productCount: number, budge
 
 // ========= RESULT PRODUCT CARD =========
 
-function ResultProductCard({ item, onAdd, onRemove, isInCart, fullProduct, onViewDetail }: {
+function ResultProductCard({ item, onAdd, onRemove, isInCart, cartItem, onQtyUpdate, fullProduct, onViewDetail }: {
   item: RecommendedProduct;
   onAdd: (overrideBrand?: any, overrideSize?: string) => void;
   onRemove: () => void;
   isInCart: boolean;
+  cartItem?: { qty: number; _key: string } | null;
+  onQtyUpdate?: (key: string, qty: number) => void;
   fullProduct?: Product | null;
   onViewDetail?: () => void;
 }) {
@@ -237,10 +240,8 @@ function ResultProductCard({ item, onAdd, onRemove, isInCart, fullProduct, onVie
           </div>
           {brandOos ? (
             <span className="rounded-pill bg-border px-3 py-1.5 text-[10px] font-semibold text-muted-foreground font-body">Sold Out</span>
-          ) : isInCart ? (
-            <button onClick={onRemove} className="rounded-pill bg-forest-light border border-forest text-forest px-3 py-1.5 text-[11px] font-semibold font-body interactive flex items-center gap-1">
-              ✓ Added <span className="text-destructive">×</span>
-            </button>
+          ) : isInCart && cartItem && onQtyUpdate ? (
+            <QtyControl qty={cartItem.qty} onUpdate={(newQty) => onQtyUpdate(cartItem._key, newQty)} />
           ) : (
             <button onClick={handleAdd} className="rounded-pill bg-forest px-3 py-1.5 text-[11px] font-semibold text-primary-foreground hover:bg-forest-deep font-body interactive">+ Add</button>
           )}
@@ -367,7 +368,7 @@ export default function QuizPage() {
   const [bothPhase, setBothPhase] = useState<"push-gift" | "family" | null>(null);
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const navigate = useNavigate();
-  const { addToCart, cart, setCart } = useCart();
+  const { addToCart, cart, setCart, updateQty } = useCart();
 
   // Fetch quiz config from Supabase
   const { data: questions = [], isLoading: questionsLoading } = useQuizQuestions();
@@ -780,6 +781,8 @@ export default function QuizPage() {
                 key={item.product_id}
                 item={item}
                 isInCart={addedIds.has(item.product_id)}
+                cartItem={cart.find(c => c.id === item.product_id)}
+                onQtyUpdate={updateQty}
                 onAdd={(brand, size) => handleAddProduct(item, brand, size)}
                 onRemove={() => handleRemoveProduct(item)}
                 fullProduct={productMap.get(item.product_id)}
@@ -957,6 +960,8 @@ export default function QuizPage() {
                     key={item.product_id}
                     item={item}
                     isInCart={addedIds.has(item.product_id)}
+                    cartItem={cart.find(c => c.id === item.product_id)}
+                    onQtyUpdate={updateQty}
                     onAdd={(brand, size) => handleAddProduct(item, brand, size)}
                     onRemove={() => handleRemoveProduct(item)}
                     fullProduct={productMap.get(item.product_id)}
@@ -976,6 +981,8 @@ export default function QuizPage() {
                     key={item.product_id}
                     item={item}
                     isInCart={addedIds.has(item.product_id)}
+                    cartItem={cart.find(c => c.id === item.product_id)}
+                    onQtyUpdate={updateQty}
                     onAdd={(brand, size) => handleAddProduct(item, brand, size)}
                     onRemove={() => handleRemoveProduct(item)}
                     fullProduct={productMap.get(item.product_id)}
@@ -994,6 +1001,8 @@ export default function QuizPage() {
                     key={item.product_id}
                     item={item}
                     isInCart={addedIds.has(item.product_id)}
+                    cartItem={cart.find(c => c.id === item.product_id)}
+                    onQtyUpdate={updateQty}
                     onAdd={(brand, size) => handleAddProduct(item, brand, size)}
                     onRemove={() => handleRemoveProduct(item)}
                     fullProduct={productMap.get(item.product_id)}

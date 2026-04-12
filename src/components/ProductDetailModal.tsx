@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { X, Star, ShoppingBag } from "lucide-react";
+import QtyControl from "@/components/QtyControl";
 import { useCart, fmt, getBrandForBudget } from "@/lib/cart";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
@@ -19,8 +20,9 @@ export default function ProductDetailModal({ product, defaultBudget = "standard"
   const defaultBrand = getBrandForBudget(product, defaultBudget);
   const [selectedBrand, setSelectedBrand] = useState(defaultBrand);
   const [selectedSize, setSelectedSize] = useState(product.sizes?.[0] || "");
-  const { cart, addToCart } = useCart();
-  const isInCart = cart.some(c => c.id === product.id);
+  const { cart, addToCart, updateQty } = useCart();
+  const cartItem = cart.find(c => c.id === product.id);
+  const isInCart = !!cartItem;
   const { data: allBundles } = useBundles();
 
   // Track product view
@@ -176,10 +178,13 @@ export default function ProductDetailModal({ product, defaultBudget = "standard"
               <button className="rounded-pill bg-border px-6 py-2.5 text-sm font-semibold text-text-light cursor-not-allowed">
                 Out of Stock
               </button>
-            ) : isInCart ? (
-              <Link to="/cart" className="rounded-pill bg-forest-light border border-forest text-forest px-6 py-2.5 text-sm font-semibold font-body interactive">
-                In Cart ✓
-              </Link>
+            ) : isInCart && cartItem ? (
+              <div className="flex items-center gap-3">
+                <QtyControl qty={cartItem.qty} onUpdate={(newQty) => updateQty(cartItem._key, newQty)} size="md" />
+                <Link to="/cart" className="text-forest text-sm font-semibold hover:underline font-body">
+                  View Cart →
+                </Link>
+              </div>
             ) : (
               <button onClick={handleAdd} className="rounded-pill bg-forest px-6 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-forest-deep font-body interactive flex items-center gap-2">
                 <ShoppingBag className="h-4 w-4" /> Add to Cart
