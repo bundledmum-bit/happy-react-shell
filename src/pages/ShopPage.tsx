@@ -2,13 +2,15 @@ import { useState, useEffect, useMemo } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { useCart, fmt, getBrandForBudget } from "@/lib/cart";
 import { toast } from "sonner";
-import ProductDetailModal from "@/components/ProductDetailModal";
+import ProductDetailDrawer from "@/components/ProductDetailDrawer";
 import { useAllProducts, useSiteSettings } from "@/hooks/useSupabaseData";
 import { useProductCategories } from "@/hooks/useProductCategories";
 import type { Product, Brand } from "@/lib/supabaseAdapters";
 import ProductImage from "@/components/ProductImage";
 import SpendMoreBanner from "@/components/SpendMoreBanner";
 import QtyControl from "@/components/QtyControl";
+import ShopFilterDrawer from "@/components/ShopFilterDrawer";
+import { Filter, ArrowUpDown } from "lucide-react";
 
 function ProductCard({ product, defaultBudget = "standard", forceBrand, onAdd, onViewDetail, deliveryText }: { product: Product; defaultBudget?: string; forceBrand?: string; onAdd: (item: any) => void; onViewDetail: () => void; deliveryText?: string }) {
   const defaultBrand = getBrandForBudget(product, defaultBudget);
@@ -43,7 +45,6 @@ function ProductCard({ product, defaultBudget = "standard", forceBrand, onAdd, o
     onAdd({ ...product, selectedBrand, price: selectedBrand.price, name: `${product.name} (${selectedBrand.label})`, selectedSize, selectedColor });
   };
 
-  const handleRemove = () => { setCart(prev => prev.filter(c => c.id !== product.id)); toast("Removed from cart"); };
   const handleQtyChange = (newQty: number) => {
     if (cartItem) updateQty(cartItem._key, newQty);
   };
@@ -80,17 +81,17 @@ function ProductCard({ product, defaultBudget = "standard", forceBrand, onAdd, o
       </div>
       <div className="p-4">
         <h3 className="text-[13px] font-semibold mb-1 leading-tight min-h-[36px] cursor-pointer hover:text-forest transition-colors" onClick={() => { trackView(); onViewDetail(); }}>{product.name}</h3>
-        <p className="text-text-med text-[10px] leading-relaxed mb-2 line-clamp-2">{product.description}</p>
-        {product.packInfo && <p className="text-text-light text-[10px] mb-1">📦 {product.packInfo}</p>}
+        <p className="text-muted-foreground text-[10px] leading-relaxed mb-2 line-clamp-2">{product.description}</p>
+        {product.packInfo && <p className="text-muted-foreground text-[10px] mb-1">📦 {product.packInfo}</p>}
 
         <div className="mb-2">
-          <div className="text-[10px] font-semibold text-text-light uppercase tracking-widest mb-1">Brand</div>
+          <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">Brand</div>
           <div className="flex flex-wrap gap-1">
             {visibleBrands.map(b => {
               const bOos = b.inStock === false || b.stockQuantity === 0;
               return (
                 <button key={b.id} onClick={() => setSelectedBrand(b)}
-                  className={`px-2 py-0.5 rounded-pill text-[10px] font-semibold border-[1.5px] transition-all font-body ${bOos ? "opacity-50" : ""} ${selectedBrand.id === b.id ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-text-med"}`}>
+                  className={`px-2 py-1 rounded-pill text-[10px] font-semibold border-[1.5px] transition-all font-body min-h-[32px] ${bOos ? "opacity-50" : ""} ${selectedBrand.id === b.id ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-muted-foreground"}`}>
                   {b.label} {fmt(b.price)}
                   {b.id === defaultBrand.id && !bOos && <span className="text-coral ml-0.5">★</span>}
                 </button>
@@ -98,7 +99,7 @@ function ProductCard({ product, defaultBudget = "standard", forceBrand, onAdd, o
             })}
             {hiddenCount > 0 && (
               <button onClick={() => { trackView(); onViewDetail(); }}
-                className="px-2 py-0.5 rounded-pill text-[10px] font-semibold border-[1.5px] border-border bg-card text-forest font-body hover:border-forest">
+                className="px-2 py-1 rounded-pill text-[10px] font-semibold border-[1.5px] border-border bg-card text-forest font-body hover:border-forest min-h-[32px]">
                 +{hiddenCount} more
               </button>
             )}
@@ -107,11 +108,11 @@ function ProductCard({ product, defaultBudget = "standard", forceBrand, onAdd, o
 
         {product.sizes && product.sizes.length > 0 && (
           <div className="mb-2">
-            <div className="text-[10px] font-semibold text-text-light uppercase tracking-widest mb-1">Size</div>
+            <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">Size</div>
             <div className="flex flex-wrap gap-1">
               {product.sizes.map(s => (
                 <button key={s} onClick={() => setSelectedSize(s)}
-                  className={`px-2 py-0.5 rounded-pill text-[10px] font-semibold border-[1.5px] transition-all font-body ${selectedSize === s ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-text-med"}`}>
+                  className={`px-2 py-1 rounded-pill text-[10px] font-semibold border-[1.5px] transition-all font-body min-h-[32px] ${selectedSize === s ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-muted-foreground"}`}>
                   {s}
                 </button>
               ))}
@@ -121,31 +122,33 @@ function ProductCard({ product, defaultBudget = "standard", forceBrand, onAdd, o
 
         <div className="flex items-center gap-1.5 mb-1">
           <span className="text-coral text-xs">⭐ {product.rating}</span>
-          <span className="text-text-light text-[11px]">({product.reviews})</span>
+          <span className="text-muted-foreground text-[11px]">({product.reviews})</span>
         </div>
-        {deliveryText && <p className="text-text-light text-[9px] mb-2">{deliveryText}</p>}
+        {deliveryText && <p className="text-muted-foreground text-[9px] mb-2">{deliveryText}</p>}
 
         <div className="flex justify-between items-center">
           <div>
             <div className="text-forest font-bold text-[17px] transition-all">{fmt(selectedBrand.price)}</div>
-            {showSale && <div className="text-text-light text-[10px] line-through">{fmt(selectedBrand.compareAtPrice!)}</div>}
-            {!showSale && product.brands.length > 1 && <div className="text-text-light text-[10px] mt-0.5">from {fmt(Math.min(...product.brands.map(b => b.price)))}</div>}
+            {showSale && <div className="text-muted-foreground text-[10px] line-through">{fmt(selectedBrand.compareAtPrice!)}</div>}
+            {!showSale && product.brands.length > 1 && <div className="text-muted-foreground text-[10px] mt-0.5">from {fmt(Math.min(...product.brands.map(b => b.price)))}</div>}
           </div>
           {isOutOfStock ? (
             <div>
-              <span className="rounded-pill bg-border px-3 py-1.5 text-[10px] font-semibold text-text-light font-body block mb-1">Sold Out</span>
+              <span className="rounded-pill bg-border px-3 py-2 text-[10px] font-semibold text-muted-foreground font-body block mb-1 min-h-[44px] flex items-center">Sold Out</span>
               <button onClick={() => toast("We'll notify you when it's back!")} className="text-forest text-[9px] font-semibold hover:underline">Notify me</button>
             </div>
           ) : isInCart && cartItem ? (
             <QtyControl qty={cartItem.qty} onUpdate={handleQtyChange} maxQty={selectedBrand.stockQuantity ?? undefined} />
           ) : (
-            <button onClick={handleAdd} className="rounded-pill bg-forest px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-forest-deep font-body interactive">+ Add</button>
+            <button onClick={handleAdd} className="rounded-pill bg-forest px-4 py-2.5 text-xs font-semibold text-primary-foreground hover:bg-forest-deep font-body interactive min-h-[44px]">+ Add</button>
           )}
         </div>
       </div>
     </div>
   );
 }
+
+const ITEMS_PER_PAGE = 20;
 
 export default function ShopPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -156,6 +159,8 @@ export default function ShopPage() {
   const sortBy = searchParams.get("sort") || "popular";
   const [search, setSearch] = useState(searchParams.get("q") || "");
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
+  const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const { addToCart } = useCart();
 
   const { data: allProducts, isLoading } = useAllProducts();
@@ -167,11 +172,10 @@ export default function ShopPage() {
     const params = new URLSearchParams(searchParams);
     if (!value || value === "all") params.delete(key);
     else params.set(key, value);
-    // Clear brand filter when category changes (brands are filtered by category)
     if (key === "category") params.delete("brand");
-    // Clear category and brand when tab changes
     if (key === "tab") { params.delete("category"); params.delete("brand"); }
     setSearchParams(params, { replace: true });
+    setVisibleCount(ITEMS_PER_PAGE);
   };
 
   useEffect(() => {
@@ -179,20 +183,16 @@ export default function ShopPage() {
     document.title = `${titles[tab] || "All Products"} | BundledMum`;
   }, [tab]);
 
-  // All unique brand names — filtered by selected category and tab
   const allBrandNames = useMemo(() => {
     const names = new Set<string>();
     let pool = allProducts || [];
-    // Filter by tab
     if (tab === "baby") pool = pool.filter(p => p.category === "baby");
     else if (tab === "mum") pool = pool.filter(p => p.category === "mum");
-    // Filter by selected category
     if (categoryF) pool = pool.filter(p => p.subcategory === categoryF);
     pool.forEach(p => p.brands.forEach(b => names.add(b.label)));
     return Array.from(names).sort();
   }, [allProducts, tab, categoryF]);
 
-  // Filter categories by selected tab
   const filteredCategories = useMemo(() => {
     if (!categories) return [];
     if (tab === "baby") return categories.filter(c => c.parent_category === "baby" || c.parent_category === "both");
@@ -200,7 +200,16 @@ export default function ShopPage() {
     return categories;
   }, [categories, tab]);
 
-  // Apply all filters
+  // Category product counts for filter drawer
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    (filteredCategories || []).forEach(cat => {
+      counts[cat.slug] = (allProducts || []).filter(p => p.subcategory === cat.slug && (tab === "all" || p.category === tab)).length;
+    });
+    return counts;
+  }, [allProducts, filteredCategories, tab]);
+
+  // Apply all filters + dedup by name
   const filtered = useMemo(() => {
     let raw = (allProducts || []);
     if (tab === "baby") raw = raw.filter(p => p.category === "baby");
@@ -211,12 +220,24 @@ export default function ShopPage() {
     if (categoryF) raw = raw.filter(p => p.subcategory === categoryF);
     if (brandF) raw = raw.filter(p => p.brands.some(b => b.label.toLowerCase() === brandF.toLowerCase()));
 
+    // Dedup by product name
+    const seen = new Set<string>();
+    raw = raw.filter(p => {
+      const key = p.name.toLowerCase().trim();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
     let sorted = [...raw];
     if (sortBy === "price-low") sorted.sort((a, b) => Math.min(...a.brands.map(br => br.price)) - Math.min(...b.brands.map(br => br.price)));
     if (sortBy === "price-high") sorted.sort((a, b) => Math.min(...b.brands.map(br => br.price)) - Math.min(...a.brands.map(br => br.price)));
     if (sortBy === "rating") sorted.sort((a, b) => b.rating - a.rating);
     return sorted;
   }, [allProducts, tab, search, categoryF, brandF, sortBy]);
+
+  const visibleProducts = filtered.slice(0, visibleCount);
+  const hasMore = visibleCount < filtered.length;
 
   const recentlyViewedIds: string[] = (() => {
     try { return JSON.parse(localStorage.getItem("bm-recently-viewed") || "[]"); } catch { return []; }
@@ -226,70 +247,113 @@ export default function ShopPage() {
   const isBaby = tab === "baby";
   const isMum = tab === "mum";
 
+  const activeFilterCount = [
+    tab !== "all" ? 1 : 0,
+    budgetF !== "all" ? 1 : 0,
+    categoryF ? 1 : 0,
+    brandF ? 1 : 0,
+  ].reduce((a, b) => a + b, 0);
+
+  const sortLabel = { popular: "Popular", "price-low": "Price ↑", "price-high": "Price ↓", rating: "Top Rated" }[sortBy] || "Sort";
+
+  const handleFilterApply = (f: { tab: string; budget: string; category: string; brand: string; sort: string }) => {
+    const params = new URLSearchParams();
+    if (f.tab !== "all") params.set("tab", f.tab);
+    if (f.budget !== "all") params.set("budget", f.budget);
+    if (f.category) params.set("category", f.category);
+    if (f.brand) params.set("brand", f.brand);
+    if (f.sort !== "popular") params.set("sort", f.sort);
+    if (search) params.set("q", search);
+    setSearchParams(params, { replace: true });
+    setVisibleCount(ITEMS_PER_PAGE);
+  };
+
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
-      <div className="pt-20" style={{ background: isBaby ? "linear-gradient(135deg, #2D6A4F 0%, #1E5C44 100%)" : isMum ? "linear-gradient(135deg, #2D6A4F 0%, #1E5C44 100%)" : "linear-gradient(135deg, #1A1A2E 0%, #2D3A5C 100%)" }}>
-        <div className="max-w-[1200px] mx-auto px-4 md:px-10 py-8 md:py-14">
-          <h1 className="pf text-3xl md:text-[44px] text-primary-foreground mb-2">
+      {/* Hero - auto height, no min-h-screen */}
+      <div className="pt-[68px]" style={{ background: isBaby ? "linear-gradient(135deg, #2D6A4F 0%, #1E5C44 100%)" : isMum ? "linear-gradient(135deg, #2D6A4F 0%, #1E5C44 100%)" : "linear-gradient(135deg, #1A1A2E 0%, #2D3A5C 100%)" }}>
+        <div className="max-w-[1200px] mx-auto px-4 md:px-10 py-6 md:py-14">
+          <h1 className="pf text-2xl md:text-[44px] text-primary-foreground mb-2">
             {isBaby ? "👶 Baby Shop" : isMum ? "💛 Mum Shop" : "🛍️ All Products"}
           </h1>
           <p className="text-primary-foreground/65 text-sm md:text-[15px] max-w-[480px]">
             Shop baby essentials, mum items, and baby gifts without stepping foot in any market.
           </p>
-          <div className="mt-5 relative max-w-[480px]">
+          <div className="mt-4 relative max-w-[480px]">
             <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-base pointer-events-none">🔍</span>
             <input placeholder="Search products..." value={search} onChange={e => { setSearch(e.target.value); setFilter("q", e.target.value); }}
-              className="w-full rounded-pill border-none bg-primary-foreground/15 text-primary-foreground text-sm font-body pl-10 pr-4 py-2.5 outline-none placeholder:text-primary-foreground/40" />
+              className="w-full rounded-pill border-none bg-primary-foreground/15 text-primary-foreground text-sm font-body pl-10 pr-4 py-3 outline-none placeholder:text-primary-foreground/40 min-h-[44px]" />
           </div>
         </div>
       </div>
 
-      <div className="bg-card border-b border-border py-3 px-4 md:px-10 sticky top-[68px] z-50">
+      {/* MOBILE: Filter + Sort buttons */}
+      <div className="md:hidden bg-card border-b border-border py-2.5 px-4 sticky top-[68px] z-50">
+        <div className="flex gap-2 items-center">
+          <button onClick={() => setFilterDrawerOpen(true)}
+            className="flex-1 flex items-center justify-center gap-2 rounded-pill border-[1.5px] border-border py-2.5 text-sm font-semibold font-body min-h-[44px] relative">
+            <Filter className="h-4 w-4" /> Filter
+            {activeFilterCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-coral text-primary-foreground text-[10px] font-bold flex items-center justify-center">{activeFilterCount}</span>
+            )}
+          </button>
+          <button onClick={() => {
+            const sortOrder = ["popular", "price-low", "price-high", "rating"];
+            const nextIdx = (sortOrder.indexOf(sortBy) + 1) % sortOrder.length;
+            setFilter("sort", sortOrder[nextIdx]);
+          }}
+            className="flex-1 flex items-center justify-center gap-2 rounded-pill border-[1.5px] border-border py-2.5 text-sm font-semibold font-body min-h-[44px]">
+            <ArrowUpDown className="h-4 w-4" /> {sortLabel}
+          </button>
+          <span className="text-muted-foreground text-xs whitespace-nowrap">{filtered.length}</span>
+        </div>
+      </div>
+
+      {/* DESKTOP: Full filter bar */}
+      <div className="hidden md:block bg-card border-b border-border py-3 px-4 md:px-10 sticky top-[68px] z-50">
         <div className="max-w-[1200px] mx-auto space-y-2">
-          {/* Row 1: Shop + Budget + Sort */}
-          <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide">
+          <div className="overflow-x-auto scrollbar-hide">
             <div className="flex gap-2 items-center min-w-max">
-              <span className="text-text-med text-[13px] font-semibold mr-1">Shop:</span>
+              <span className="text-muted-foreground text-[13px] font-semibold mr-1">Shop:</span>
               {[{ key: "all", label: "All" }, { key: "baby", label: "👶 Baby" }, { key: "mum", label: "💛 Mum" }, { key: "push-gift", label: "💝 Push Gifts" }].map(t => (
                 <button key={t.key} onClick={() => setFilter("tab", t.key)}
-                  className={`rounded-pill px-3 py-1.5 text-xs font-semibold border-[1.5px] transition-all font-body whitespace-nowrap ${tab === t.key ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-text-med"}`}>
+                  className={`rounded-pill px-3 py-2 text-xs font-semibold border-[1.5px] transition-all font-body whitespace-nowrap min-h-[44px] ${tab === t.key ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-muted-foreground"}`}>
                   {t.label}
                 </button>
               ))}
               <div className="w-px h-5 bg-border mx-1 flex-shrink-0" />
-              <span className="text-text-med text-[13px] font-semibold mr-1 whitespace-nowrap">Budget:</span>
+              <span className="text-muted-foreground text-[13px] font-semibold mr-1 whitespace-nowrap">Budget:</span>
               {[["all", "All"], ["starter", "🌱 Starter"], ["standard", "🌿 Standard"], ["premium", "✨ Premium"]].map(([v, l]) => (
                 <button key={v} onClick={() => setFilter("budget", v)}
-                  className={`rounded-pill px-3 py-1.5 text-xs font-semibold border-[1.5px] transition-all font-body whitespace-nowrap ${budgetF === v ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-text-med"}`}>
+                  className={`rounded-pill px-3 py-2 text-xs font-semibold border-[1.5px] transition-all font-body whitespace-nowrap min-h-[44px] ${budgetF === v ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-muted-foreground"}`}>
                   {l}
                 </button>
               ))}
               <div className="w-px h-5 bg-border mx-1 flex-shrink-0" />
-              <select value={sortBy} onChange={e => setFilter("sort", e.target.value)} className="rounded-pill border-[1.5px] border-border px-3 py-1.5 text-xs font-semibold font-body bg-card text-text-med outline-none whitespace-nowrap flex-shrink-0">
+              <select value={sortBy} onChange={e => setFilter("sort", e.target.value)} className="rounded-pill border-[1.5px] border-border px-3 py-2 text-xs font-semibold font-body bg-card text-muted-foreground outline-none whitespace-nowrap flex-shrink-0 min-h-[44px]">
                 <option value="popular">Sort: Popular</option>
                 <option value="price-low">Price: Low → High</option>
                 <option value="price-high">Price: High → Low</option>
                 <option value="rating">Top Rated</option>
               </select>
-              <span className="text-text-light text-xs whitespace-nowrap flex-shrink-0">{filtered.length} items</span>
+              <span className="text-muted-foreground text-xs whitespace-nowrap flex-shrink-0">{filtered.length} items</span>
             </div>
           </div>
 
-          {/* Row 2: Category filter */}
           {filteredCategories.length > 0 && (
-            <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide">
+            <div className="overflow-x-auto scrollbar-hide">
               <div className="flex gap-1.5 items-center min-w-max">
-                <span className="text-text-med text-[11px] font-semibold mr-1">Category:</span>
+                <span className="text-muted-foreground text-[11px] font-semibold mr-1">Category:</span>
                 <button onClick={() => setFilter("category", "")}
-                  className={`rounded-pill px-2.5 py-1 text-[11px] font-semibold border-[1.5px] transition-all font-body whitespace-nowrap ${!categoryF ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-text-med"}`}>
+                  className={`rounded-pill px-2.5 py-1.5 text-[11px] font-semibold border-[1.5px] transition-all font-body whitespace-nowrap min-h-[36px] ${!categoryF ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-muted-foreground"}`}>
                   All
                 </button>
                 {filteredCategories.map(cat => {
-                  const count = (allProducts || []).filter(p => p.subcategory === cat.slug && (tab === "all" || p.category === tab)).length;
+                  const count = categoryCounts[cat.slug] || 0;
                   return (
                     <button key={cat.id} onClick={() => setFilter("category", cat.slug)}
-                      className={`rounded-pill px-2.5 py-1 text-[11px] font-semibold border-[1.5px] transition-all font-body whitespace-nowrap ${categoryF === cat.slug ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-text-med"}`}>
-                      {cat.icon} {cat.name} {count > 0 && <span className="text-text-light">({count})</span>}
+                      className={`rounded-pill px-2.5 py-1.5 text-[11px] font-semibold border-[1.5px] transition-all font-body whitespace-nowrap min-h-[36px] ${categoryF === cat.slug ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-muted-foreground"}`}>
+                      {cat.icon} {cat.name} {count > 0 && <span className="text-muted-foreground">({count})</span>}
                     </button>
                   );
                 })}
@@ -297,18 +361,17 @@ export default function ShopPage() {
             </div>
           )}
 
-          {/* Row 3: Brand filter */}
           {allBrandNames.length > 0 && (
-            <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide">
-              <div className="flex gap-1.5 items-center min-w-max">
-                <span className="text-text-med text-[11px] font-semibold mr-1">Brand:</span>
+            <div className="overflow-x-auto scrollbar-hide relative">
+              <div className="flex gap-1.5 items-center">
+                <span className="text-muted-foreground text-[11px] font-semibold mr-1 flex-shrink-0">Brand:</span>
                 <button onClick={() => setFilter("brand", "")}
-                  className={`rounded-pill px-2.5 py-1 text-[11px] font-semibold border-[1.5px] transition-all font-body whitespace-nowrap ${!brandF ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-text-med"}`}>
+                  className={`rounded-pill px-2.5 py-1.5 text-[11px] font-semibold border-[1.5px] transition-all font-body whitespace-nowrap flex-shrink-0 min-h-[36px] ${!brandF ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-muted-foreground"}`}>
                   All
                 </button>
                 {allBrandNames.map(name => (
                   <button key={name} onClick={() => setFilter("brand", name.toLowerCase())}
-                    className={`rounded-pill px-2.5 py-1 text-[11px] font-semibold border-[1.5px] transition-all font-body whitespace-nowrap ${brandF.toLowerCase() === name.toLowerCase() ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-text-med"}`}>
+                    className={`rounded-pill px-2.5 py-1.5 text-[11px] font-semibold border-[1.5px] transition-all font-body whitespace-nowrap flex-shrink-0 min-h-[36px] ${brandF.toLowerCase() === name.toLowerCase() ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-muted-foreground"}`}>
                     {name}
                   </button>
                 ))}
@@ -339,22 +402,37 @@ export default function ShopPage() {
           <div className="text-center py-16">
             <div className="text-4xl mb-4">🔍</div>
             <h2 className="pf text-xl mb-2">No products found</h2>
-            <p className="text-text-med text-sm">Try adjusting your filters or search term.</p>
+            <p className="text-muted-foreground text-sm">Try adjusting your filters or search term.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5 mt-4">
-            {filtered.map(p => (
-              <ProductCard
-                key={p.id}
-                product={p}
-                defaultBudget={!budgetF || budgetF === "all" ? "standard" : budgetF}
-                forceBrand={brandF || undefined}
-                deliveryText={deliveryText}
-                onAdd={item => { addToCart(item); toast.success(`✓ ${item.name} added to cart`, { action: { label: "View Cart →", onClick: () => window.location.href = "/cart" } }); }}
-                onViewDetail={() => setDetailProduct(p)}
-              />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5 mt-4">
+              {visibleProducts.map(p => (
+                <ProductCard
+                  key={p.id}
+                  product={p}
+                  defaultBudget={!budgetF || budgetF === "all" ? "standard" : budgetF}
+                  forceBrand={brandF || undefined}
+                  deliveryText={deliveryText}
+                  onAdd={item => { addToCart(item); toast.success(`✓ ${item.name} added to cart`, { action: { label: "View Cart →", onClick: () => window.location.href = "/cart" } }); }}
+                  onViewDetail={() => setDetailProduct(p)}
+                />
+              ))}
+            </div>
+
+            {/* Pagination */}
+            <div className="text-center mt-8 space-y-3">
+              <p className="text-muted-foreground text-sm font-body">
+                Showing {Math.min(visibleCount, filtered.length)} of {filtered.length} products
+              </p>
+              {hasMore && (
+                <button onClick={() => setVisibleCount(prev => prev + ITEMS_PER_PAGE)}
+                  className="rounded-pill bg-forest px-8 py-3 font-body font-semibold text-primary-foreground hover:bg-forest-deep interactive text-sm min-h-[48px]">
+                  Load More Products
+                </button>
+              )}
+            </div>
+          </>
         )}
 
         {recentlyViewed.length >= 2 && (
@@ -373,9 +451,17 @@ export default function ShopPage() {
         )}
       </div>
 
-      {detailProduct && (
-        <ProductDetailModal product={detailProduct} defaultBudget={!budgetF || budgetF === "all" ? "standard" : budgetF} onClose={() => setDetailProduct(null)} />
-      )}
+      <ProductDetailDrawer product={detailProduct} defaultBudget={!budgetF || budgetF === "all" ? "standard" : budgetF} onClose={() => setDetailProduct(null)} />
+
+      <ShopFilterDrawer
+        open={filterDrawerOpen}
+        onClose={() => setFilterDrawerOpen(false)}
+        filters={{ tab, budget: budgetF, category: categoryF, brand: brandF, sort: sortBy }}
+        onApply={handleFilterApply}
+        categories={filteredCategories}
+        brandNames={allBrandNames}
+        productCounts={categoryCounts}
+      />
     </div>
   );
 }
