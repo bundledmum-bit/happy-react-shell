@@ -14,7 +14,7 @@ function generateCode(name: string) {
 export default function ReferralSection({ customerName }: Props) {
   const [copied, setCopied] = useState(false);
   const code = generateCode(customerName || "");
-  const link = `https://bundledmum.com/?ref=${code}`;
+  const link = `https://bundledmum.lovable.app/?ref=${code}`;
 
   useEffect(() => {
     // Store referral code for this customer

@@ -207,8 +207,8 @@ export default function OrderConfirmedPage() {
       {showShareModal && (
         <ShareModal onClose={() => setShowShareModal(false)} title="Order Placed!" subtitle={`Order #${orderId}`}
           items={items.map((i: any) => ({ name: i.product_name, price: i.line_total }))} totalPrice={order.total}
-          badge="ORDER PLACED ✅" shareUrl={`https://bundledmum.com/?ref=${referralCode}`}
-          shareText={`I just packed my hospital bag with BundledMum! 🎁 Use my link for ₦2,000 off: https://bundledmum.com/?ref=${referralCode}`}
+          badge="ORDER PLACED ✅" shareUrl={`https://bundledmum.lovable.app/?ref=${referralCode}`}
+          shareText={`I just packed my hospital bag with BundledMum! 🎁 Use my link for ₦2,000 off: https://bundledmum.lovable.app/?ref=${referralCode}`}
           itemCount={items.length} />
       )}
     </div>

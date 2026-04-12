@@ -21,7 +21,7 @@ interface ShareModalProps {
 const BRAND_TAGLINE = "Get All Your Baby Things in One Place — No Market Runs & Stress";
 const BRAND_CTA = "Shop baby essentials, mum items, and baby gifts without stepping foot in any market.";
 const BRAND_INVITE = "Build your own personalised list FREE at";
-const SITE_URL = "bundledmum.com/quiz";
+const SITE_URL = "bundledmum.lovable.app/quiz";
 
 export default function ShareModal({ onClose, title, subtitle, items, totalPrice, badge, shareUrl, shareText, gender, hospitalType, budgetLabel, itemCount }: ShareModalProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
