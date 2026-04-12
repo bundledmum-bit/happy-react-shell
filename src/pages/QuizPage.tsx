@@ -1006,10 +1006,10 @@ export default function QuizPage() {
 
           <div className="bg-forest rounded-card p-6 md:p-8 text-center mb-8">
             <h3 className="pf text-xl text-primary-foreground mb-2">💬 Know Another Expecting Mum?</h3>
-            <p className="text-primary-foreground/70 text-sm mb-4 max-w-[400px] mx-auto">Share BundledMum with her — she'll thank you later!</p>
+            <p className="text-primary-foreground/70 text-sm mb-4 max-w-[400px] mx-auto">Help her shop baby essentials, mum items, and baby gifts without stepping foot in any market.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button onClick={() => {
-                const text = "Hey mama! 🤰 I just found this site that builds your hospital bag for you based on your budget and hospital type. Try the free quiz: https://bundledmum.lovable.app/quiz?ref=friend_share";
+                const text = "Hey mama! 🤰 I just used BundledMum to get all my baby things in one place — no market runs! Build your own personalised list FREE: https://bundledmum.lovable.app/quiz?ref=friend_share";
                 window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
               }} className="rounded-pill bg-[#25D366] px-6 py-2.5 font-body font-semibold text-primary-foreground text-sm interactive">
                 📱 Share on WhatsApp
@@ -1025,9 +1025,9 @@ export default function QuizPage() {
 
           <div className="bg-warm-cream rounded-card p-6 md:p-10 text-center mt-6 mb-10">
             <h3 className="pf text-xl text-forest mb-2">Want to add more items?</h3>
-            <p className="text-muted-foreground text-sm mb-5 max-w-[480px] mx-auto">Your bundle covers the essentials — but every mum is different. Browse our full shop to add anything else you need.</p>
+            <p className="text-muted-foreground text-sm mb-5 max-w-[480px] mx-auto">Your list covers the essentials — but every mum is different. Browse our full shop to add anything else you need.</p>
             <Link to="/shop" className="rounded-pill bg-forest px-8 py-3 font-body font-semibold text-primary-foreground hover:bg-forest-deep interactive text-sm inline-block mb-4">
-              Browse All Products →
+              See All Products →
             </Link>
           </div>
         </div>
