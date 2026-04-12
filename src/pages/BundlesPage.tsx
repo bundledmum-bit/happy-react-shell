@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useCart, fmt } from "@/lib/cart";
 import { toast } from "sonner";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Package } from "lucide-react";
 import { useBundles } from "@/hooks/useSupabaseData";
 import type { Bundle } from "@/lib/supabaseAdapters";
+import ProductImage from "@/components/ProductImage";
 
 export default function BundlesPage() {
   const [hospitalF, setHospitalF] = useState("all");
@@ -81,7 +82,7 @@ export default function BundlesPage() {
             {[1, 2, 3].map(i => <div key={i} className="bg-card rounded-card shadow-card h-[400px] animate-pulse" />)}
           </div>
         ) : (
-          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map(b => (
               <BundleCard key={b.id} bundle={b} compareSelected={compareIds.includes(b.id)} onToggleCompare={() => toggleCompare(b.id)} />
             ))}
@@ -135,32 +136,94 @@ function BundleCard({ bundle: b, compareSelected, onToggleCompare }: { bundle: B
   const savings = b.separateTotal - b.price;
   const savingsPercent = b.separateTotal > 0 ? Math.round((savings / b.separateTotal) * 100) : 0;
 
+  // Collect up to 4 unique product images from bundle items
+  const itemImages = [...b.babyItems, ...b.mumItems]
+    .filter(i => i.imageUrl)
+    .slice(0, 4);
+
   const handleAdd = () => {
     addToCart({ id: b.id, name: `${b.name} — ${b.tier}`, price: b.price, img: b.icon, baseImg: b.icon, brands: [{ id: "default", label: b.tier, price: b.price, img: b.icon, tier: 1 }], selectedBrand: { id: "default", label: b.tier, price: b.price, img: b.icon, tier: 1 } });
     toast.success(`✓ ${b.name} added to cart!`, { action: { label: "View Cart →", onClick: () => window.location.href = "/cart" } });
   };
 
   return (
-    <div className="bg-card rounded-card shadow-card card-hover overflow-hidden">
+    <div className="bg-card rounded-card shadow-card card-hover overflow-hidden flex flex-col">
       <Link to={`/bundles/${b.id}`} className="block">
-        <div className="w-full aspect-[4/3] relative flex flex-col items-center justify-center overflow-hidden p-4" style={{ background: `linear-gradient(145deg, ${b.color}18, ${b.color}05, #fafafa)` }}>
-          <div className="w-16 h-16 rounded-card flex items-center justify-center text-3xl mb-2.5" style={{ background: `linear-gradient(135deg, ${b.color}, ${b.color}BB)`, boxShadow: `0 8px 24px ${b.color}44` }}>
-            {b.icon}
-          </div>
-          <div className="flex gap-1 flex-wrap justify-center max-w-[130px]">
-            {(b.babyItems.concat(b.mumItems)).slice(0, 6).map((item, i) => (
-              <div key={i} className="w-6 h-6 bg-card rounded-md flex items-center justify-center text-xs shadow-sm">{item.emoji || "📦"}</div>
-            ))}
-            {totalItems > 6 && <div className="w-6 h-6 rounded-md flex items-center justify-center text-[9px] font-bold" style={{ background: b.lightColor, color: b.color }}>+{totalItems - 6}</div>}
-          </div>
-          <div className="absolute top-2 left-2 text-[8px] font-bold px-2 py-0.5 rounded-pill" style={{ background: b.tier === "Premium" ? "#FCE4EC" : "#E3F2FD", color: b.tier === "Premium" ? "#880E4F" : "#1565C0" }}>
+        {/* Visual hero area with product image collage */}
+        <div className="w-full aspect-[4/3] relative overflow-hidden" style={{ background: `linear-gradient(145deg, ${b.color}15, ${b.color}08, hsl(var(--muted)))` }}>
+          {/* Bundle image or product image grid */}
+          {b.imageUrl ? (
+            <img src={b.imageUrl} alt={b.name} className="w-full h-full object-cover" loading="lazy" />
+          ) : itemImages.length >= 4 ? (
+            /* 2x2 grid of product images */
+            <div className="w-full h-full grid grid-cols-2 grid-rows-2 gap-[2px] p-3">
+              {itemImages.slice(0, 4).map((item, i) => (
+                <div key={i} className="rounded-xl overflow-hidden bg-card shadow-sm">
+                  <ProductImage
+                    imageUrl={item.imageUrl}
+                    emoji={item.emoji}
+                    alt={item.name}
+                    className="w-full h-full"
+                    emojiClassName="text-2xl"
+                  />
+                </div>
+              ))}
+            </div>
+          ) : itemImages.length >= 1 ? (
+            /* Single featured image with mini items */
+            <div className="w-full h-full flex items-center justify-center p-4">
+              <div className="w-[65%] aspect-square rounded-2xl overflow-hidden bg-card shadow-lg">
+                <ProductImage
+                  imageUrl={itemImages[0].imageUrl}
+                  emoji={itemImages[0].emoji}
+                  alt={itemImages[0].name}
+                  className="w-full h-full"
+                  emojiClassName="text-4xl"
+                />
+              </div>
+              {/* Mini floating thumbnails */}
+              <div className="absolute bottom-3 right-3 flex gap-1.5">
+                {[...b.babyItems, ...b.mumItems].slice(1, 4).map((item, i) => (
+                  <div key={i} className="w-10 h-10 rounded-lg overflow-hidden bg-card shadow-md border-2 border-card">
+                    <ProductImage
+                      imageUrl={item.imageUrl}
+                      emoji={item.emoji}
+                      alt={item.name}
+                      className="w-full h-full"
+                      emojiClassName="text-sm"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            /* Fallback: icon centered */
+            <div className="w-full h-full flex flex-col items-center justify-center gap-3">
+              <div className="w-20 h-20 rounded-2xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${b.color}, ${b.color}BB)`, boxShadow: `0 8px 24px ${b.color}44` }}>
+                <Package className="h-10 w-10 text-primary-foreground" />
+              </div>
+              <span className="text-sm font-semibold text-muted-foreground">{totalItems} items included</span>
+            </div>
+          )}
+
+          {/* Tier badge */}
+          <div className="absolute top-2.5 left-2.5 text-[10px] font-bold px-2.5 py-1 rounded-pill backdrop-blur-sm" style={{ background: b.tier === "Premium" ? "rgba(252,228,236,0.9)" : "rgba(227,242,253,0.9)", color: b.tier === "Premium" ? "#880E4F" : "#1565C0" }}>
             {b.tier === "Premium" ? "✨ PREMIUM" : "BASIC"}
           </div>
-          <div className="absolute top-2 right-2 bg-midnight/50 text-primary-foreground text-[8px] font-semibold px-2 py-0.5 rounded-pill">{totalItems} items</div>
+          {/* Item count */}
+          <div className="absolute top-2.5 right-2.5 bg-foreground/60 backdrop-blur-sm text-primary-foreground text-[10px] font-bold px-2.5 py-1 rounded-pill">
+            {totalItems} items
+          </div>
+          {/* Savings strip */}
+          {savings > 0 && (
+            <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-foreground/60 to-transparent pt-6 pb-2 px-3">
+              <span className="text-primary-foreground text-[11px] font-bold">Save {fmt(savings)} ({savingsPercent}%)</span>
+            </div>
+          )}
         </div>
       </Link>
 
-      <div className="p-4">
+      <div className="p-4 flex flex-col flex-1">
         <div className="flex gap-1.5 flex-wrap mb-2">
           <span className="text-[9px] font-bold px-2 py-0.5 rounded-pill" style={{ background: b.lightColor, color: b.color }}>
             {b.hospitalType === "public" ? "🏥 Public" : b.hospitalType === "private" ? "🏨 Private" : "🎁 Gift"}
@@ -186,11 +249,20 @@ function BundleCard({ bundle: b, compareSelected, onToggleCompare }: { bundle: B
               <div key={label as string}>
                 <p className="font-bold text-[10px] uppercase text-text-light mb-1">{label as string}</p>
                 {(items as typeof b.babyItems).map((item, i) => (
-                  <div key={i} className="flex justify-between py-0.5 border-b border-border/30 last:border-0">
-                    <span className="text-[11px] flex items-center gap-1">
-                      <span>{item.emoji || "📦"}</span> {item.name} — <span className="text-text-light">{item.brand}</span>
+                  <div key={i} className="flex items-center gap-2 py-1 border-b border-border/30 last:border-0">
+                    <div className="w-7 h-7 rounded-md overflow-hidden bg-muted flex-shrink-0">
+                      <ProductImage
+                        imageUrl={item.imageUrl}
+                        emoji={item.emoji}
+                        alt={item.name}
+                        className="w-full h-full"
+                        emojiClassName="text-xs"
+                      />
+                    </div>
+                    <span className="text-[11px] flex-1 min-w-0 truncate">
+                      {item.name} — <span className="text-text-light">{item.brand}</span>
                     </span>
-                    <span className="text-forest font-bold text-[10px] ml-2 flex-shrink-0">{fmt(item.price)}</span>
+                    <span className="text-forest font-bold text-[10px] ml-1 flex-shrink-0">{fmt(item.price)}</span>
                   </div>
                 ))}
               </div>
@@ -208,8 +280,10 @@ function BundleCard({ bundle: b, compareSelected, onToggleCompare }: { bundle: B
         <div className="flex items-center gap-1.5 mb-2.5">
           <span className="text-coral text-[10px]">⭐ 4.9</span>
           <span className="text-text-light text-[10px]">· {totalItems} items inside</span>
-          {savings > 0 && <span className="text-forest text-[10px] font-semibold">· Save {fmt(savings)}</span>}
         </div>
+
+        {/* Spacer to push price/CTA to bottom */}
+        <div className="mt-auto" />
 
         <div className="flex justify-between items-center gap-2 mb-2">
           <div>
