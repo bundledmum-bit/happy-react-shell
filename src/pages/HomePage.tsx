@@ -9,9 +9,7 @@ import QtyControl from "@/components/QtyControl";
 import bundleHeroImg from "@/assets/bundle-hero.jpg";
 
 function HeroSection() {
-  const { data: bundles } = useBundles();
   const { data: settings } = useSiteSettings();
-  const topBundles = (bundles || []).slice(0, 3);
 
   const heroBadge = settings?.hero_badge || "";
   const heroTitle = settings?.hero_title || "";
