@@ -32,6 +32,7 @@ const FILTER_TABS = [
   { key: "jewellery", label: "💍 Jewellery" },
   { key: "pampering", label: "🧖‍♀️ Pampering" },
   { key: "keepsakes", label: "🎁 Keepsakes" },
+  { key: "experience", label: "🧖 Experiences" },
   { key: "bundles", label: "📦 Bundles" },
 ];
 
