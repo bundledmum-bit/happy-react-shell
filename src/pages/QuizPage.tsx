@@ -73,7 +73,8 @@ function resetQuizSessionId(): string {
 }
 
 async function createQuizSession(shopperType: string) {
-  const sessionId = getLocalSessionId();
+  // Reset session ID for each new quiz run so we don't overwrite old leads
+  const sessionId = resetQuizSessionId();
   const { data } = await supabase
     .from("quiz_sessions")
     .insert({
