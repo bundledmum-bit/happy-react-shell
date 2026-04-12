@@ -6,7 +6,7 @@ import { useAllProducts, useTestimonials, useSiteSettings, useBundles } from "@/
 import type { Product } from "@/lib/supabaseAdapters";
 import ProductImage from "@/components/ProductImage";
 import QtyControl from "@/components/QtyControl";
-import bundleHeroImg from "@/assets/bundle-hero.jpg";
+import bundleHeroImg from "@/assets/bundle-hero-branded.jpg";
 
 function HeroSection() {
   const { data: settings } = useSiteSettings();
