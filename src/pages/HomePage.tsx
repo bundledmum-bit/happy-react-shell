@@ -6,7 +6,7 @@ import { useAllProducts, useTestimonials, useSiteSettings, useBundles } from "@/
 import type { Product } from "@/lib/supabaseAdapters";
 import ProductImage from "@/components/ProductImage";
 import QtyControl from "@/components/QtyControl";
-import bundleHeroImg from "@/assets/bundle-hero.jpg";
+import bundleHeroImg from "@/assets/bundle-hero-branded.jpg";
 
 function HeroSection() {
   const { data: settings } = useSiteSettings();
@@ -54,8 +54,8 @@ function HeroSection() {
 
         {/* Desktop: branded bundle image + CTA */}
         <div className="hidden md:flex flex-col items-center text-center">
-          <div className="rounded-[24px] overflow-hidden shadow-2xl mb-6 max-w-[380px]">
-            <img src={bundleHeroImg} alt="Pre-packed hospital bag bundle with baby essentials" width={380} height={380} className="w-full h-auto object-cover" />
+          <div className="rounded-[24px] overflow-hidden shadow-2xl mb-6 max-w-[460px]">
+            <img src={bundleHeroImg} alt="Pre-packed hospital bag bundle with baby essentials" width={460} height={614} className="w-full h-auto object-cover" />
           </div>
           <h3 className="pf text-primary-foreground text-xl font-bold mb-2">Pre-Packed Hospital Lists</h3>
           <p className="text-primary-foreground/60 text-sm mb-4 max-w-[340px]">Browse our ready-made hospital lists based on your budget — fully customizable to fit your needs.</p>
