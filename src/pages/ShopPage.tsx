@@ -232,7 +232,7 @@ export default function ShopPage() {
             {isBaby ? "👶 Baby Shop" : isMum ? "💛 Mum Shop" : "🛍️ All Products"}
           </h1>
           <p className="text-primary-foreground/65 text-sm md:text-[15px] max-w-[480px]">
-            {isBaby ? "Everything your newborn needs — from clothing to skincare to comfort." : isMum ? "Postpartum care and comfort essentials — because mum matters too." : "Everything BundledMum offers — baby, mum, and everything in between."}
+            Shop baby essentials, mum items, and baby gifts without stepping foot in any market.
           </p>
           <div className="mt-5 relative max-w-[480px]">
             <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-base pointer-events-none">🔍</span>
