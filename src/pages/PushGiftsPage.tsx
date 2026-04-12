@@ -146,7 +146,15 @@ export default function PushGiftsPage() {
   const filtered = useMemo(() => {
     if (!products) return [];
     if (activeTab === "all") return products;
-    return products.filter(p => p.subcategory === activeTab);
+    return products.filter(p => {
+      // Check subcategory match
+      if (p.subcategory === activeTab) return true;
+      // Check push_gift_categories array from raw product data
+      const raw = (p as any)._raw;
+      const pgCats: string[] | null = raw?.push_gift_categories || null;
+      if (pgCats && pgCats.includes(activeTab)) return true;
+      return false;
+    });
   }, [products, activeTab]);
 
   const handleAdd = (item: any) => {
