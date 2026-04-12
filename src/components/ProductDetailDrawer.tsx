@@ -222,8 +222,8 @@ function DrawerInner({ product, defaultBudget, onClose }: { product: Product; de
         </div>
       </div>
 
-      {/* Sticky Bottom CTA */}
-      <div className="sticky bottom-0 bg-card border-t border-border p-4 flex items-center justify-between gap-4 z-10">
+      {/* Sticky Bottom CTA – extra bottom padding to clear MobileBottomNav */}
+      <div className="sticky bottom-0 bg-card border-t border-border p-4 pb-[calc(1rem+56px)] md:pb-4 flex items-center justify-between gap-4 z-10">
         <div>
           <p className="pf text-xl font-bold text-forest">{fmt(selectedBrand.price)}</p>
           {showSalePrice && (
