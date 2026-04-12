@@ -17,19 +17,34 @@ export default function OrderConfirmedPage() {
     queryKey: ["order-confirmed", orderNumber],
     enabled: !!orderNumber,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("orders")
-        .select("*, order_items(*)")
-        .eq("order_number", orderNumber)
-        .single();
-      if (error) throw error;
-      return data;
+      // Poll up to 10 times with 2s delay to handle race condition
+      // where the redirect arrives before the DB write commits
+      const MAX_ATTEMPTS = 10;
+      const DELAY = 2000;
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        const { data, error } = await supabase
+          .from("orders")
+          .select("*, order_items(*)")
+          .eq("order_number", orderNumber)
+          .single();
+        if (data && !error) return data;
+        // If it's a real error (not "row not found"), throw immediately
+        if (error && error.code !== "PGRST116") throw error;
+        // Wait before retrying (except on last attempt)
+        if (attempt < MAX_ATTEMPTS) {
+          await new Promise(r => setTimeout(r, DELAY));
+        }
+      }
+      // All attempts exhausted
+      return null;
     },
+    retry: false,
+    staleTime: Infinity,
   });
 
   if (isLoading) return (
     <div className="min-h-screen bg-background flex items-center justify-center">
-      <div className="text-center"><div className="mx-auto h-14 w-14 border-4 border-border border-t-forest rounded-full animate-spin mb-4" /><p className="text-muted-foreground">Loading order...</p></div>
+      <div className="text-center"><div className="mx-auto h-14 w-14 border-4 border-border border-t-forest rounded-full animate-spin mb-4" /><p className="text-muted-foreground">Loading your order details...</p></div>
     </div>
   );
 

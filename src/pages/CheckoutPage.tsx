@@ -334,19 +334,18 @@ export default function CheckoutPage() {
       // Mark quiz_customers as purchased using RPC
       try {
         const quizSessionId = localStorage.getItem("bm_quiz_session_id");
-        if (quizSessionId) {
-          await supabase.rpc("mark_quiz_lead_purchased", {
-            p_session_id: quizSessionId,
+        const targetSessionId = quizSessionId || sessionId;
+        if (targetSessionId) {
+          const { data: rpcResult, error: rpcError } = await supabase.rpc("mark_quiz_lead_purchased", {
+            p_session_id: targetSessionId,
             p_order_id: order.id,
             p_order_amount: orderData.total,
           });
-        } else {
-          // Fallback: match by session_id from analytics
-          await supabase.rpc("mark_quiz_lead_purchased", {
-            p_session_id: sessionId,
-            p_order_id: order.id,
-            p_order_amount: orderData.total,
-          });
+          if (rpcError) {
+            console.error("mark_quiz_lead_purchased RPC error:", rpcError);
+          } else {
+            console.log("mark_quiz_lead_purchased result:", rpcResult);
+          }
         }
       } catch (e) { console.error("Quiz customer update failed:", e); }
 
