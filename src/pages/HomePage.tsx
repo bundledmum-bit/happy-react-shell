@@ -280,7 +280,7 @@ function TestimonialsSection() {
           <p className="text-primary-foreground/50 text-sm">Know someone expecting? Tell them about BundledMum</p>
           <div className="flex gap-3 justify-center flex-wrap">
             <button onClick={() => {
-              const text = "Hey! I found this amazing site that curates hospital bags for Nigerian mums. Check it out: https://bundledmum.lovable.app/?ref=testimonial_share";
+              const text = "Hey! I found this amazing site that curates hospital bags for Nigerian mums. Check it out: const text = "Hey! I found this amazing site that curates hospital bags for Nigerian mums. Check it out: https://bundledmum.com/?ref=testimonial_share";";
               window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
             }} className="rounded-pill bg-[#25D366] text-primary-foreground px-5 py-2.5 text-xs font-semibold interactive">
               📱 Share on WhatsApp
