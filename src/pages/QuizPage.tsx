@@ -159,7 +159,7 @@ function ResultProductCard({ item, onAdd, onRemove, isInCart, fullProduct }: {
 
   return (
     <div className={`bg-card rounded-card shadow-card overflow-hidden hover:shadow-card-hover transition-all group ${brandOos ? "opacity-60" : ""}`}>
-      <div className="relative h-36 md:h-44 flex items-center justify-center overflow-hidden bg-muted/30">
+      <div className="relative h-36 md:h-44 flex items-center justify-center overflow-hidden bg-muted/30 cursor-pointer" onClick={onViewDetail}>
         {item.priority === "essential" && (
           <span className="absolute top-2.5 left-2.5 bg-coral text-primary-foreground text-[10px] font-bold px-2.5 py-1 rounded-pill uppercase tracking-wide z-10">Essential</span>
         )}
@@ -180,9 +180,9 @@ function ResultProductCard({ item, onAdd, onRemove, isInCart, fullProduct }: {
         />
       </div>
       <div className="p-3.5 md:p-4">
-        <h3 className="pf text-sm md:text-[15px] font-bold leading-tight mb-1">{item.name}</h3>
+        <h3 className="pf text-sm md:text-[15px] font-bold leading-tight mb-1 cursor-pointer hover:text-forest transition-colors" onClick={onViewDetail}>{item.name}</h3>
         {item.selected_color && <p className="text-muted-foreground text-[10px] mb-1">Colour: {item.selected_color}</p>}
-        <p className="text-forest-light bg-forest/10 rounded-lg px-2 py-1.5 text-[10px] leading-relaxed italic mb-2 line-clamp-2">💡 {item.why_included}</p>
+        <p className="text-forest bg-forest-light rounded-lg px-2 py-1.5 text-[10px] leading-relaxed italic mb-2 line-clamp-2">💡 {item.why_included}</p>
         {fullProduct && fullProduct.packInfo && <p className="text-muted-foreground text-[10px] mb-1">📦 {fullProduct.packInfo}</p>}
 
         {/* Brand selector */}
