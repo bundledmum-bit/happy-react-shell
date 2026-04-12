@@ -555,6 +555,12 @@ export default function QuizPage() {
   const handleSkip = useCallback((stepId: string) => {
     const newAnswers = { ...answers, [stepId]: "skip" };
     setAnswers(newAnswers);
+
+    // Save WhatsApp as null when skipped
+    if (stepId === "whatsapp") {
+      saveWhatsAppNumber(null);
+    }
+
     const next = getNextStep(stepId, "skip", newAnswers, routingRules, questions);
     if (!next) {
       setHistory(h => [...h, currentStep!]);
@@ -568,7 +574,7 @@ export default function QuizPage() {
       setCurrentStep(next);
     }
     updateQuizSession(newAnswers, next || null, [...history, currentStep!]);
-  }, [answers, routingRules, questions, currentStep, history, isBothPath, bothPhase, finishQuiz, finishBothFamilyPath]);
+  }, [answers, routingRules, questions, currentStep, history, isBothPath, bothPhase, finishQuiz, finishBothFamilyPath, saveWhatsAppNumber]);
 
   const handleBack = useCallback(() => {
     if (showResults) { setShowResults(false); return; }
