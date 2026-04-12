@@ -915,7 +915,7 @@ export default function QuizPage() {
               {multiples > 1 && <><span>·</span><span>👶👶 Quantities adjusted for your {multiples === 2 ? "twins" : "triplets"}!</span></>}
             </div>
 
-            <div className="bg-primary-foreground/[0.08] rounded-xl p-3 max-w-[400px] mx-auto mb-5">
+            <div className="hidden md:block bg-primary-foreground/[0.08] rounded-xl p-3 max-w-[400px] mx-auto mb-5">
               <div className="text-primary-foreground text-xs space-y-1">
                 <div className="flex justify-between"><span>Your bundle:</span><span className="font-bold">{fmt(grandTotal)}</span></div>
                 <div className="flex justify-between"><span>Free curation value:</span><span className="text-coral font-bold">~{fmt(curationSaving)}</span></div>
@@ -925,10 +925,10 @@ export default function QuizPage() {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center px-4 sm:px-0">
-              <button onClick={() => document.getElementById("quiz-results-items")?.scrollIntoView({ behavior: "smooth" })} className="rounded-pill bg-primary-foreground/20 border border-primary-foreground/30 px-6 py-3 font-body font-semibold text-primary-foreground hover:bg-primary-foreground/30 interactive text-sm w-full sm:hidden">
+              <button onClick={() => document.getElementById("quiz-results-items")?.scrollIntoView({ behavior: "smooth" })} className="rounded-pill bg-coral px-6 py-3 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-sm w-full sm:hidden">
                 👇 See Your Items Below
               </button>
-              <button onClick={handleAddAll} className="rounded-pill bg-coral px-6 sm:px-8 py-3 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-sm sm:text-[15px] w-full sm:w-auto">
+              <button onClick={handleAddAll} className="hidden sm:inline-flex rounded-pill bg-coral px-8 py-3 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-[15px]">
                 {isGift ? "🎁 Get Gift Bundle" : "Get Complete Bundle"} — {fmt(grandTotal)} →
               </button>
               <button onClick={handleBack} className="rounded-pill border-2 border-primary-foreground/30 px-6 py-3 font-body font-semibold text-primary-foreground/80 hover:bg-primary-foreground/10 interactive text-sm sm:text-[15px] w-full sm:w-auto">
@@ -1049,11 +1049,6 @@ export default function QuizPage() {
           />
         )}
 
-        <div className="fixed bottom-14 left-0 right-0 z-[80] bg-card border-t border-border p-3 md:hidden">
-          <button onClick={handleAddAll} className="w-full rounded-pill bg-coral py-3 font-body font-semibold text-primary-foreground text-sm">
-            Get Complete Bundle — {fmt(grandTotal)} →
-          </button>
-        </div>
 
         {detailProduct && <ProductDetailModal product={detailProduct} defaultBudget={answers.budget || "standard"} onClose={() => setDetailProduct(null)} />}
       </div>
