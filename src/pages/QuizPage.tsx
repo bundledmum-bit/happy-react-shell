@@ -704,14 +704,19 @@ export default function QuizPage() {
   }
 
   // ========= HELPER: Add product to cart =========
-  const handleAddProduct = (item: RecommendedProduct) => {
+  const handleAddProduct = (item: RecommendedProduct, overrideBrand?: Brand | null, overrideSize?: string) => {
+    const brandName = overrideBrand?.label || item.brand?.brand_name || "Standard";
+    const brandPrice = overrideBrand?.price ?? item.brand?.price ?? 0;
+    const brandId = overrideBrand?.id || item.brand?.id || item.product_id;
+    const brandImage = overrideBrand?.imageUrl || item.brand?.image_url || item.image_url || undefined;
     addToCart({
       id: item.product_id,
-      name: `${item.name} (${item.brand?.brand_name || "Standard"})`,
+      name: `${item.name} (${brandName})`,
       baseImg: item.emoji || "📦",
-      imageUrl: item.brand?.image_url || item.image_url || undefined,
-      price: item.brand?.price || 0,
-      selectedBrand: { id: item.brand?.id || item.product_id, label: item.brand?.brand_name || "Standard", price: item.brand?.price || 0, img: item.emoji || "📦", imageUrl: item.brand?.image_url || null, tier: 1, color: "#E8F5E9" },
+      imageUrl: brandImage,
+      price: brandPrice,
+      selectedBrand: { id: brandId, label: brandName, price: brandPrice, img: item.emoji || "📦", imageUrl: brandImage || null, tier: overrideBrand?.tier || 1, color: overrideBrand?.color || "#E8F5E9" },
+      selectedSize: overrideSize || "",
       brands: [],
       category: item.category as any,
       rating: 4.5,
