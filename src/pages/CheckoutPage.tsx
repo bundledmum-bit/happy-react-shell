@@ -369,12 +369,12 @@ export default function CheckoutPage() {
       // Track order_placed event
       trackEvent("order_placed", {
         order_id: order.id,
-        order_number: order.order_number,
+        order_number: finalOrderNumber,
         total: orderData.total,
         item_count: cart.length,
       });
 
-      return order.order_number;
+      return finalOrderNumber;
     } catch (e) {
       console.error("DB save failed:", e);
       return null;
