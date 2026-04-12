@@ -280,9 +280,26 @@ export default function CheckoutPage() {
         .select("id, order_number")
         .single();
 
-      if (orderError) {
+      if (orderError || !order) {
         console.error("Order insert failed:", orderError);
         return null;
+      }
+
+      // If DB trigger hasn't populated order_number yet, re-fetch it
+      let finalOrderNumber = order.order_number;
+      if (!finalOrderNumber) {
+        for (let i = 0; i < 5; i++) {
+          await new Promise(r => setTimeout(r, 1000));
+          const { data: refetched } = await supabase
+            .from("orders")
+            .select("order_number")
+            .eq("id", order.id)
+            .single();
+          if (refetched?.order_number) {
+            finalOrderNumber = refetched.order_number;
+            break;
+          }
+        }
       }
 
       // Insert order items
@@ -352,12 +369,12 @@ export default function CheckoutPage() {
       // Track order_placed event
       trackEvent("order_placed", {
         order_id: order.id,
-        order_number: order.order_number,
+        order_number: finalOrderNumber,
         total: orderData.total,
         item_count: cart.length,
       });
 
-      return order.order_number;
+      return finalOrderNumber;
     } catch (e) {
       console.error("DB save failed:", e);
       return null;
