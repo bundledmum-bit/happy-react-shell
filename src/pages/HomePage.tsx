@@ -6,6 +6,7 @@ import BudgetCalculator from "@/components/BudgetCalculator";
 import { useAllProducts, useTestimonials, useSiteSettings, useBundles } from "@/hooks/useSupabaseData";
 import type { Product } from "@/lib/supabaseAdapters";
 import ProductImage from "@/components/ProductImage";
+import QtyControl from "@/components/QtyControl";
 
 function HeroSection() {
   const { data: bundles } = useBundles();
@@ -159,7 +160,7 @@ function BundleTiers() {
 }
 
 function FeaturedProducts() {
-  const { addToCart, cart, setCart } = useCart();
+  const { addToCart, cart, setCart, updateQty } = useCart();
   const { data: allProducts, isLoading } = useAllProducts();
   const { data: settings } = useSiteSettings();
 
@@ -201,6 +202,7 @@ function FeaturedProducts() {
             const brand = getBrandForBudget(p, "standard");
             if (!brand) return null;
             const isInCart = cart.some(c => c.id === p.id);
+            const cartItem = cart.find(c => c.id === p.id);
             return (
               <div key={p.id} className="bg-card rounded-card shadow-card card-hover overflow-hidden relative">
                 <div className="h-[170px] flex items-center justify-center relative overflow-hidden" style={{ background: p.imageUrl ? '#f5f5f5' : `linear-gradient(135deg, ${brand.color}, #fff)` }}>
@@ -221,17 +223,15 @@ function FeaturedProducts() {
                       <span className="text-forest font-bold text-[17px]">{fmt(brand.price)}</span>
                       {p.brands.length > 1 && <div className="text-text-light text-[10px]">from {fmt(Math.min(...p.brands.map(b => b.price)))}</div>}
                     </div>
-                    {isInCart ? (
-                      <button onClick={() => { setCart(prev => prev.filter(c => c.id !== p.id)); toast("Removed from cart"); }}
-                        className="rounded-pill bg-forest-light border border-forest text-forest px-3 py-1.5 text-[11px] font-semibold font-body interactive flex items-center gap-1">
-                        ✓ Added <span className="text-destructive ml-1">×</span>
-                      </button>
+                    {isInCart && cartItem ? (
+                      <QtyControl qty={cartItem.qty} onUpdate={(newQty) => updateQty(cartItem._key, newQty)} />
                     ) : (
                       <button onClick={() => {
                         addToCart({ ...p, selectedBrand: brand, price: brand.price, name: `${p.name} (${brand.label})` });
                         toast.success(`✓ ${p.name} added to cart`, { action: { label: "View Cart →", onClick: () => window.location.href = "/cart" } });
                       }}
                         className="rounded-pill bg-forest px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-forest-deep font-body interactive">+ Add</button>
+                    )}
                     )}
                   </div>
                 </div>
