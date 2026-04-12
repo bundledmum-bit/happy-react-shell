@@ -21,6 +21,15 @@ export interface OrderSheetFallbackData {
   paymentMethod: string;
   paymentStatus: string;
   paystackRef: string | null;
+  items: Array<{
+    name: string;
+    qty: number;
+    price: number;
+    selectedBrand?: {
+      label?: string;
+      name?: string;
+    } | null;
+  }>;
 }
 
 interface SyncOrderToSheetsParams {
@@ -56,6 +65,7 @@ interface SheetsDbOrderItem {
   quantity: number;
   brand_name: string;
   size: string | null;
+  unit_price: number;
 }
 
 const stringifyValue = (value: unknown) => {
@@ -83,6 +93,14 @@ const formatItemsSummary = (items: SheetsDbOrderItem[]) =>
     })
     .join(", ");
 
+const formatItemsPayload = (items: SheetsDbOrderItem[]) =>
+  items.map(({ product_name, quantity, brand_name, size, unit_price }) => ({
+    name: size ? `${product_name} (${size})` : product_name,
+    qty: quantity,
+    price: unit_price,
+    selectedBrand: brand_name ? { label: brand_name } : undefined,
+  }));
+
 export async function syncOrderToSheets({ orderId, orderNumber, fallbackData }: SyncOrderToSheetsParams) {
   const url = import.meta.env.VITE_SHEETS_WEBHOOK_URL || DEFAULT_SHEETS_WEBHOOK_URL;
   if (!url) return;
@@ -101,7 +119,7 @@ export async function syncOrderToSheets({ orderId, orderNumber, fallbackData }: 
         .maybeSingle(),
       supabase
         .from("order_items")
-        .select("product_name, quantity, brand_name, size")
+        .select("product_name, quantity, brand_name, size, unit_price")
         .eq("order_id", orderId)
         .order("created_at", { ascending: true }),
     ]);
@@ -135,61 +153,43 @@ export async function syncOrderToSheets({ orderId, orderNumber, fallbackData }: 
   const resolvedState = dbOrder?.delivery_state || fallbackData.state || "";
   const resolvedNotes = dbOrder?.delivery_notes || fallbackData.deliveryNotes || "None";
   const resolvedItemsSummary = dbItems?.length ? formatItemsSummary(dbItems) : fallbackData.itemsSummary || "";
+  const resolvedItems = dbItems?.length ? formatItemsPayload(dbItems) : fallbackData.items || [];
 
   const payload = {
-    order_id: resolvedOrderNumber,
-    order_number: resolvedOrderNumber,
     orderId: resolvedOrderNumber,
-    orderNumber: resolvedOrderNumber,
-    date_time: resolvedTimestamp,
-    dateTime: resolvedTimestamp,
-    order_date: resolvedTimestamp,
-    created_at: resolvedTimestamp,
-    payment_status: resolvedPaymentStatus,
-    paymentStatus: resolvedPaymentStatus,
-    payment_method: resolvedPaymentMethod,
     paymentMethod: resolvedPaymentMethod,
-    paystack_ref: resolvedPaystackRef,
-    paystack_reference: resolvedPaystackRef,
-    payment_reference: resolvedPaystackRef,
-    customer_name: dbOrder?.customer_name || fallbackData.customerName || "",
+    paymentStatus: resolvedPaymentStatus,
+    paystackRef: resolvedPaystackRef,
+    timestamp: resolvedTimestamp,
     customerName: dbOrder?.customer_name || fallbackData.customerName || "",
-    customer_email: resolvedEmail,
-    customerEmail: resolvedEmail,
     email: resolvedEmail,
     phone: resolvedPhone,
-    customer_phone: resolvedPhone,
-    delivery_address: resolvedAddress,
-    deliveryAddress: resolvedAddress,
     address: resolvedAddress,
     city: resolvedCity,
-    delivery_city: resolvedCity,
     state: resolvedState,
-    delivery_state: resolvedState,
-    notes: resolvedNotes,
-    delivery_notes: resolvedNotes,
-    items: resolvedItemsSummary,
-    items_summary: resolvedItemsSummary,
+    deliveryNotes: resolvedNotes,
+    itemsSummary: resolvedItemsSummary,
+    items: resolvedItems,
     subtotal: dbOrder?.subtotal ?? fallbackData.subtotal ?? 0,
-    delivery_fee: dbOrder?.delivery_fee ?? fallbackData.deliveryFee ?? 0,
-    service_fee: dbOrder?.service_fee ?? fallbackData.serviceFee ?? 0,
-    gift_wrap_fee: resolvedGiftWrapFee,
+    deliveryFee: dbOrder?.delivery_fee ?? fallbackData.deliveryFee ?? 0,
+    serviceFee: dbOrder?.service_fee ?? fallbackData.serviceFee ?? 0,
     giftWrapFee: resolvedGiftWrapFee,
-    gift_wrap: resolvedGiftWrapFee,
     total: dbOrder?.total ?? fallbackData.total ?? 0,
-    order_status: dbOrder?.order_status || "confirmed",
+    giftWrap: resolvedHasGiftWrap,
   };
 
-  const targetUrl = new URL(url);
-  Object.entries(payload).forEach(([key, value]) => targetUrl.searchParams.set(key, stringifyValue(value)));
-
   try {
-    await fetch(targetUrl.toString(), {
+    const body = JSON.stringify(payload);
+
+    if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+      const sent = navigator.sendBeacon(url, new Blob([body], { type: "text/plain;charset=UTF-8" }));
+      if (sent) return;
+    }
+
+    await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
+      mode: "no-cors",
+      body,
       keepalive: true,
     });
   } catch (error) {
