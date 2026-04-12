@@ -880,7 +880,7 @@ export default function QuizPage() {
     const handleCopyChecklist = () => {
       const allProducts = [...(pushGiftRecommendation || []), ...results];
       const list = allProducts.map(r => `${r.quantity > 1 ? `×${r.quantity} ` : ""}${r.name} (${r.brand?.brand_name || "Standard"}) — ${fmt((r.brand?.price || 0) * (r.quantity || 1))}`).join("\n");
-      const text = `My BundledMum ${budgetLabel} Bundle\n${"=".repeat(30)}\n\n${list}\n\nTotal: ${fmt(grandTotal)}\n\nBuild yours: https://bundledmum.lovable.app/quiz`;
+      const text = `My BundledMum ${budgetLabel} Bundle\n${"=".repeat(30)}\n\n${list}\n\nTotal: ${fmt(grandTotal)}\n\nBuild yours: https://bundledmum.com/quiz`;`;
       navigator.clipboard.writeText(text).then(() => toast.success("Checklist copied to clipboard!"));
     };
 
@@ -1018,13 +1018,13 @@ export default function QuizPage() {
             <p className="text-primary-foreground/70 text-sm mb-4 max-w-[400px] mx-auto">Help her shop baby essentials, mum items, and baby gifts without stepping foot in any market.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button onClick={() => {
-                const text = "Hey mama! 🤰 I just used BundledMum to get all my baby things in one place — no market runs! Build your own personalised list FREE: https://bundledmum.lovable.app/quiz?ref=friend_share";
+                const text = "Hey mama! 🤰 I just used BundledMum to get all my baby things in one place — no market runs! Build your own personalised list FREE: https://bundledmum.com/quiz?ref=friend_share";
                 window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
               }} className="rounded-pill bg-[#25D366] px-6 py-2.5 font-body font-semibold text-primary-foreground text-sm interactive">
                 📱 Share on WhatsApp
               </button>
               <button onClick={() => {
-                navigator.clipboard.writeText("https://bundledmum.lovable.app/quiz?ref=friend_share");
+                navigator.clipboard.writeText("https://bundledmum.com/quiz?ref=friend_share");
                 toast.success("Quiz link copied!");
               }} className="rounded-pill border-2 border-primary-foreground/30 px-6 py-2.5 font-body font-semibold text-primary-foreground/80 text-sm interactive">
                 📋 Copy Quiz Link
@@ -1049,7 +1049,7 @@ export default function QuizPage() {
             items={shareItems}
             totalPrice={grandTotal}
             badge={isGift ? "GIFT BUNDLE" : undefined}
-            shareUrl="https://bundledmum.lovable.app/quiz?ref=share"
+            shareUrl="https://bundledmum.com/quiz?ref=share"
             shareText={`Check out my BundledMum ${budgetLabel} bundle! ${results.length + (pushGiftRecommendation?.length || 0)} items for ${fmt(grandTotal)}. Build yours FREE!`}
             gender={answers.gender}
             hospitalType={answers.hospitalType === "public" ? "Public Hospital" : answers.hospitalType === "private" ? "Private Hospital" : undefined}
