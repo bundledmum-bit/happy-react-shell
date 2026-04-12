@@ -8,7 +8,7 @@ import ScrollToTop from "@/components/ScrollToTop";
 import SkipNav from "@/components/SkipNav";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import FloatingCartBar from "@/components/FloatingCartBar";
+
 import MobileBottomNav from "@/components/MobileBottomNav";
 import { subscribeToAllChanges } from "@/lib/realtime";
 import { usePageTracking } from "@/hooks/usePageTracking";
@@ -143,7 +143,7 @@ const App = () => (
                     </Routes>
                   </main>
                   <Footer />
-                  <FloatingCartBar />
+                  
                   <MobileBottomNav />
                 </>
               } />

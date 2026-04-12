@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
-import { Star, ShoppingBag } from "lucide-react";
+import { Star, ShoppingBag, X, ZoomIn } from "lucide-react";
 import QtyControl from "@/components/QtyControl";
 import { useCart, fmt, getBrandForBudget } from "@/lib/cart";
 import { toast } from "sonner";
@@ -28,12 +28,34 @@ export default function ProductDetailDrawer({ product, defaultBudget = "standard
   );
 }
 
+/* ── Image Zoom Modal ── */
+function ImageZoomModal({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-[200] bg-black/80 flex items-center justify-center animate-fade-in" onClick={onClose}>
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 z-[210] bg-card rounded-full p-2 shadow-lg hover:bg-muted transition-colors"
+        aria-label="Close zoom"
+      >
+        <X className="h-6 w-6 text-foreground" />
+      </button>
+      <img
+        src={src}
+        alt={alt}
+        className="max-w-[95vw] max-h-[90vh] object-contain rounded-lg"
+        onClick={(e) => e.stopPropagation()}
+      />
+    </div>
+  );
+}
+
 function DrawerInner({ product, defaultBudget, onClose }: { product: Product; defaultBudget: string; onClose: () => void }) {
   const defaultBrand = getBrandForBudget(product, defaultBudget);
   const [selectedBrand, setSelectedBrand] = useState(defaultBrand);
   const [selectedSize, setSelectedSize] = useState(product.sizes?.[0] || "");
   const { cart, addToCart, updateQty } = useCart();
   const { data: settings } = useSiteSettings();
+  const [zoomImage, setZoomImage] = useState<string | null>(null);
   const cartItem = cart.find(c => c.id === product.id);
   const isInCart = !!cartItem;
 
@@ -76,10 +98,26 @@ function DrawerInner({ product, defaultBudget, onClose }: { product: Product; de
 
   return (
     <>
+      {zoomImage && <ImageZoomModal src={zoomImage} alt={product.name} onClose={() => setZoomImage(null)} />}
+
+      {/* ── Close Button ── */}
+      <div className="sticky top-0 z-20 flex justify-end p-3 pb-0">
+        <button
+          onClick={onClose}
+          className="flex items-center justify-center w-10 h-10 rounded-full bg-foreground/10 hover:bg-foreground/20 transition-colors"
+          aria-label="Close product details"
+        >
+          <X className="h-5 w-5 text-foreground" />
+        </button>
+      </div>
+
       <div className="overflow-y-auto flex-1 overscroll-contain">
         {/* Product Image */}
-        <div className="h-52 md:h-64 flex items-center justify-center relative overflow-hidden"
-          style={{ backgroundColor: displayImage ? '#f5f5f5' : (selectedBrand.color || "#F0F7F4") }}>
+        <div
+          className="h-52 md:h-64 flex items-center justify-center relative overflow-hidden cursor-zoom-in group"
+          style={{ backgroundColor: displayImage ? '#f5f5f5' : (selectedBrand.color || "#F0F7F4") }}
+          onClick={() => displayImage && setZoomImage(displayImage)}
+        >
           {product.badge && (
             <span className="absolute top-3 left-3 bg-coral text-primary-foreground text-[10px] font-bold px-2.5 py-1 rounded-pill uppercase z-10">{product.badge}</span>
           )}
@@ -89,6 +127,11 @@ function DrawerInner({ product, defaultBudget, onClose }: { product: Product; de
             </span>
           )}
           <ProductImage imageUrl={displayImage} emoji={selectedBrand.img || product.baseImg} alt={product.name} className="w-full h-full object-contain p-4" emojiClassName="text-7xl" />
+          {displayImage && (
+            <div className="absolute bottom-2 right-2 bg-card/80 rounded-full p-1.5 opacity-70 group-hover:opacity-100 transition-opacity pointer-events-none">
+              <ZoomIn className="h-4 w-4 text-foreground" />
+            </div>
+          )}
         </div>
 
         <div className="p-5">
