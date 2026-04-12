@@ -20,6 +20,9 @@ interface CartContextType {
   addToCart: (item: any) => void;
   setCart: React.Dispatch<React.SetStateAction<CartItem[]>>;
   clearCart: () => void;
+  updateQty: (key: string, newQty: number) => void;
+  removeFromCart: (key: string) => void;
+  getCartItem: (productId: string | number) => CartItem | undefined;
   totalItems: number;
   subtotal: number;
   justAdded: boolean;
@@ -63,6 +66,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const clearCart = useCallback(() => setCart([]), []);
 
+  const updateQty = useCallback((key: string, newQty: number) => {
+    if (newQty <= 0) setCart(prev => prev.filter(i => i._key !== key));
+    else setCart(prev => prev.map(i => i._key === key ? { ...i, qty: newQty } : i));
+  }, []);
+
+  const removeFromCart = useCallback((key: string) => {
+    setCart(prev => prev.filter(i => i._key !== key));
+  }, []);
+
+  const getCartItem = useCallback((productId: string | number) => {
+    return cart.find(i => i.id === productId);
+  }, [cart]);
+
   const saveForLater = useCallback((key: string) => {
     setCart(prev => {
       const item = prev.find(i => i._key === key);
@@ -90,7 +106,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const subtotal = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
 
   return (
-    <CartContext.Provider value={{ cart, addToCart, setCart, clearCart, totalItems, subtotal, justAdded, savedItems, saveForLater, moveToCart, removeSaved }}>
+    <CartContext.Provider value={{ cart, addToCart, setCart, clearCart, updateQty, removeFromCart, getCartItem, totalItems, subtotal, justAdded, savedItems, saveForLater, moveToCart, removeSaved }}>
       {children}
     </CartContext.Provider>
   );
