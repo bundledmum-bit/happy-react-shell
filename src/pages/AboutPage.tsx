@@ -13,7 +13,7 @@ export default function AboutPage() {
         <div className="max-w-[780px] mx-auto text-center">
           <div className="text-5xl mb-4">🌿</div>
           <h1 className="pf text-3xl md:text-[50px] text-primary-foreground mb-3.5">Our Story</h1>
-          <p className="text-primary-foreground/70 text-[15px] md:text-[17px] leading-[1.8]">BundledMum was born from a very real moment of overwhelm.</p>
+          <p className="text-primary-foreground/70 text-[15px] md:text-[17px] leading-[1.8]">We help mums shop baby essentials, mum items, and baby gifts without stepping foot in any market.</p>
         </div>
       </div>
       <div className="max-w-[780px] mx-auto px-5 md:px-10 py-10 md:py-[72px]">

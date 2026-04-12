@@ -17,6 +17,11 @@ interface ShareModalProps {
   itemCount?: number;
 }
 
+const BRAND_TAGLINE = "Get All Your Baby Things in One Place — No Market Runs & Stress";
+const BRAND_CTA = "Shop baby essentials, mum items, and baby gifts without stepping foot in any market.";
+const BRAND_INVITE = "Build your own personalised list FREE at";
+const SITE_URL = "bundledmum.lovable.app/quiz";
+
 export default function ShareModal({ onClose, title, subtitle, items, totalPrice, badge, shareUrl, shareText, gender, hospitalType, budgetLabel, itemCount }: ShareModalProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [imageUrl, setImageUrl] = useState<string>("");
@@ -29,78 +34,117 @@ export default function ShareModal({ onClose, title, subtitle, items, totalPrice
     if (!ctx) return;
 
     canvas.width = 1080;
-    canvas.height = 1080;
+    canvas.height = 1350;
 
     // Background
-    ctx.fillStyle = "#2D5016";
-    ctx.fillRect(0, 0, 1080, 1080);
+    ctx.fillStyle = "#2D6A4F";
+    ctx.fillRect(0, 0, 1080, 1350);
 
-    // Subtle pattern
+    // Subtle decorative circles
     ctx.fillStyle = "rgba(255,255,255,0.03)";
     ctx.beginPath();
     ctx.arc(900, 200, 300, 0, Math.PI * 2);
     ctx.fill();
+    ctx.beginPath();
+    ctx.arc(150, 1100, 200, 0, Math.PI * 2);
+    ctx.fill();
 
     // Logo text
     ctx.fillStyle = "#FFF8F4";
-    ctx.font = "bold 28px 'DM Sans', sans-serif";
+    ctx.font = "bold 32px 'DM Sans', sans-serif";
     ctx.fillText("BundledMum", 60, 80);
+
+    // Tagline under logo
+    ctx.fillStyle = "rgba(255,248,244,0.5)";
+    ctx.font = "16px 'DM Sans', sans-serif";
+    ctx.fillText("...making being a mum easier.", 60, 110);
 
     // Badge
     if (badge) {
       ctx.fillStyle = "#F4845F";
       ctx.font = "bold 20px 'DM Sans', sans-serif";
-      ctx.fillText(badge, 60, 120);
+      ctx.fillText(badge, 60, 155);
     }
 
     // Title
     ctx.fillStyle = "#FFFFFF";
-    ctx.font = "bold 48px 'DM Sans', sans-serif";
-    ctx.fillText(title, 60, 220);
+    ctx.font = "bold 44px 'DM Sans', sans-serif";
+    const titleY = badge ? 210 : 190;
+    ctx.fillText(title, 60, titleY);
 
-    // Subtitle info
+    // Subtitle info pills
     ctx.fillStyle = "#FFF8F4";
-    ctx.font = "24px 'DM Sans', sans-serif";
+    ctx.font = "22px 'DM Sans', sans-serif";
     const infoLine = [
       gender === "boy" ? "👶 Boy" : gender === "girl" ? "👧 Girl" : "🌈 Neutral",
       hospitalType ? `🏥 ${hospitalType}` : "",
-      budgetLabel ? `${budgetLabel} Bundle` : "",
+      budgetLabel ? `${budgetLabel} Budget` : "",
       itemCount ? `${itemCount} items` : "",
     ].filter(Boolean).join(" · ");
-    ctx.fillText(infoLine, 60, 280);
+    ctx.fillText(infoLine, 60, titleY + 55);
 
     // Price
     ctx.fillStyle = "#F4845F";
-    ctx.font = "bold 64px 'DM Sans', sans-serif";
-    ctx.fillText(`₦${totalPrice.toLocaleString()}`, 60, 380);
+    ctx.font = "bold 60px 'DM Sans', sans-serif";
+    ctx.fillText(`₦${totalPrice.toLocaleString()}`, 60, titleY + 140);
+
+    // Divider
+    const dividerY = titleY + 170;
+    ctx.strokeStyle = "rgba(255,248,244,0.15)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(60, dividerY);
+    ctx.lineTo(1020, dividerY);
+    ctx.stroke();
 
     // Items
     ctx.fillStyle = "#FFF8F4";
-    ctx.font = "22px 'DM Sans', sans-serif";
-    const displayItems = items.slice(0, 8);
+    ctx.font = "20px 'DM Sans', sans-serif";
+    const itemStartY = dividerY + 40;
+    const displayItems = items.slice(0, 10);
     displayItems.forEach((item, i) => {
-      const y = 440 + i * 40;
+      const y = itemStartY + i * 38;
+      ctx.fillStyle = "#FFF8F4";
       ctx.fillText(`✅ ${item.name}`, 60, y);
+      ctx.fillStyle = "rgba(255,248,244,0.5)";
+      ctx.font = "18px 'DM Sans', sans-serif";
+      ctx.fillText(`₦${item.price.toLocaleString()}`, 750, y);
+      ctx.font = "20px 'DM Sans', sans-serif";
     });
-    if (items.length > 8) {
-      ctx.fillStyle = "rgba(255,248,244,0.6)";
-      ctx.fillText(`+ ${items.length - 8} more items`, 60, 440 + 8 * 40);
+    if (items.length > 10) {
+      ctx.fillStyle = "rgba(255,248,244,0.5)";
+      ctx.fillText(`+ ${items.length - 10} more items`, 60, itemStartY + 10 * 38);
     }
 
-    // Footer
-    ctx.fillStyle = "rgba(255,248,244,0.5)";
-    ctx.font = "20px 'DM Sans', sans-serif";
-    ctx.fillText("Build yours FREE at", 60, 940);
+    // Bottom branded section with coral accent bar
+    const footerY = 1100;
+
+    // Coral accent bar
+    ctx.fillStyle = "#F4845F";
+    ctx.fillRect(60, footerY, 960, 4);
+
+    // Painpoint / value proposition
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "bold 24px 'DM Sans', sans-serif";
+    wrapText(ctx, BRAND_TAGLINE, 60, footerY + 45, 960, 30);
+
+    // CTA
+    ctx.fillStyle = "rgba(255,248,244,0.6)";
+    ctx.font = "18px 'DM Sans', sans-serif";
+    ctx.fillText(BRAND_INVITE, 60, footerY + 110);
     ctx.fillStyle = "#F4845F";
     ctx.font = "bold 22px 'DM Sans', sans-serif";
-    ctx.fillText("bundledmum.lovable.app/quiz", 60, 970);
+    ctx.fillText(SITE_URL, 60, footerY + 140);
 
+    // Social proof
     ctx.fillStyle = "rgba(255,248,244,0.4)";
-    ctx.font = "18px 'DM Sans', sans-serif";
-    ctx.fillText("⭐ 4.9/5 · 200+ mums served", 60, 1020);
+    ctx.font = "16px 'DM Sans', sans-serif";
+    ctx.fillText("⭐ 4.9/5 · 200+ mums served · Free quiz · No login needed", 60, footerY + 185);
 
     setImageUrl(canvas.toDataURL("image/png"));
   }, [title, items, totalPrice, badge, gender, hospitalType, budgetLabel, itemCount]);
+
+  const fullShareText = `${shareText}\n\n${BRAND_CTA}\n\n${BRAND_INVITE} ${shareUrl}`;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(shareUrl);
@@ -110,11 +154,11 @@ export default function ShareModal({ onClose, title, subtitle, items, totalPrice
   };
 
   const handleWhatsApp = () => {
-    window.open(`https://wa.me/?text=${encodeURIComponent(shareText + "\n\n" + shareUrl)}`, "_blank");
+    window.open(`https://wa.me/?text=${encodeURIComponent(fullShareText)}`, "_blank");
   };
 
   const handleTwitter = () => {
-    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`, "_blank");
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText + " " + BRAND_CTA)}&url=${encodeURIComponent(shareUrl)}`, "_blank");
   };
 
   const handleFacebook = () => {
@@ -125,7 +169,7 @@ export default function ShareModal({ onClose, title, subtitle, items, totalPrice
     if (!imageUrl) return;
     const a = document.createElement("a");
     a.href = imageUrl;
-    a.download = "BundledMum-Bundle.png";
+    a.download = "BundledMum-List.png";
     a.click();
     toast.success("Image saved!");
   };
@@ -138,7 +182,7 @@ export default function ShareModal({ onClose, title, subtitle, items, totalPrice
           <X className="h-4 w-4" />
         </button>
 
-        <h2 className="pf text-xl font-bold mb-3">Share Your Bundle</h2>
+        <h2 className="pf text-xl font-bold mb-3">Share Your List</h2>
 
         {/* Preview */}
         {imageUrl && (
@@ -178,4 +222,22 @@ export default function ShareModal({ onClose, title, subtitle, items, totalPrice
       </div>
     </div>
   );
+}
+
+/** Helper to wrap long text on canvas */
+function wrapText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number) {
+  const words = text.split(" ");
+  let line = "";
+  let currentY = y;
+  for (const word of words) {
+    const testLine = line + (line ? " " : "") + word;
+    if (ctx.measureText(testLine).width > maxWidth && line) {
+      ctx.fillText(line, x, currentY);
+      line = word;
+      currentY += lineHeight;
+    } else {
+      line = testLine;
+    }
+  }
+  if (line) ctx.fillText(line, x, currentY);
 }

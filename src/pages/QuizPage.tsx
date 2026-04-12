@@ -915,7 +915,7 @@ export default function QuizPage() {
               {multiples > 1 && <><span>·</span><span>👶👶 Quantities adjusted for your {multiples === 2 ? "twins" : "triplets"}!</span></>}
             </div>
 
-            <div className="bg-primary-foreground/[0.08] rounded-xl p-3 max-w-[400px] mx-auto mb-5">
+            <div className="hidden md:block bg-primary-foreground/[0.08] rounded-xl p-3 max-w-[400px] mx-auto mb-5">
               <div className="text-primary-foreground text-xs space-y-1">
                 <div className="flex justify-between"><span>Your bundle:</span><span className="font-bold">{fmt(grandTotal)}</span></div>
                 <div className="flex justify-between"><span>Free curation value:</span><span className="text-coral font-bold">~{fmt(curationSaving)}</span></div>
@@ -925,10 +925,10 @@ export default function QuizPage() {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center px-4 sm:px-0">
-              <button onClick={() => document.getElementById("quiz-results-items")?.scrollIntoView({ behavior: "smooth" })} className="rounded-pill bg-primary-foreground/20 border border-primary-foreground/30 px-6 py-3 font-body font-semibold text-primary-foreground hover:bg-primary-foreground/30 interactive text-sm w-full sm:hidden">
+              <button onClick={() => document.getElementById("quiz-results-items")?.scrollIntoView({ behavior: "smooth" })} className="rounded-pill bg-coral px-6 py-3 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-sm w-full sm:hidden">
                 👇 See Your Items Below
               </button>
-              <button onClick={handleAddAll} className="rounded-pill bg-coral px-6 sm:px-8 py-3 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-sm sm:text-[15px] w-full sm:w-auto">
+              <button onClick={handleAddAll} className="hidden sm:inline-flex rounded-pill bg-coral px-8 py-3 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-[15px]">
                 {isGift ? "🎁 Get Gift Bundle" : "Get Complete Bundle"} — {fmt(grandTotal)} →
               </button>
               <button onClick={handleBack} className="rounded-pill border-2 border-primary-foreground/30 px-6 py-3 font-body font-semibold text-primary-foreground/80 hover:bg-primary-foreground/10 interactive text-sm sm:text-[15px] w-full sm:w-auto">
@@ -938,7 +938,7 @@ export default function QuizPage() {
 
             <div className="flex gap-3 justify-center mt-4 flex-wrap">
               <button onClick={handleShare} className="flex items-center gap-1.5 text-primary-foreground/50 text-xs hover:text-primary-foreground/80 transition-colors">
-                <Share2 className="h-3.5 w-3.5" /> Share Bundle
+                <Share2 className="h-3.5 w-3.5" /> Share List
               </button>
               <button onClick={handleCopyChecklist} className="flex items-center gap-1.5 text-primary-foreground/50 text-xs hover:text-primary-foreground/80 transition-colors">
                 <ClipboardCopy className="h-3.5 w-3.5" /> Copy checklist
@@ -1006,10 +1006,10 @@ export default function QuizPage() {
 
           <div className="bg-forest rounded-card p-6 md:p-8 text-center mb-8">
             <h3 className="pf text-xl text-primary-foreground mb-2">💬 Know Another Expecting Mum?</h3>
-            <p className="text-primary-foreground/70 text-sm mb-4 max-w-[400px] mx-auto">Share BundledMum with her — she'll thank you later!</p>
+            <p className="text-primary-foreground/70 text-sm mb-4 max-w-[400px] mx-auto">Help her shop baby essentials, mum items, and baby gifts without stepping foot in any market.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button onClick={() => {
-                const text = "Hey mama! 🤰 I just found this site that builds your hospital bag for you based on your budget and hospital type. Try the free quiz: https://bundledmum.lovable.app/quiz?ref=friend_share";
+                const text = "Hey mama! 🤰 I just used BundledMum to get all my baby things in one place — no market runs! Build your own personalised list FREE: https://bundledmum.lovable.app/quiz?ref=friend_share";
                 window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
               }} className="rounded-pill bg-[#25D366] px-6 py-2.5 font-body font-semibold text-primary-foreground text-sm interactive">
                 📱 Share on WhatsApp
@@ -1025,9 +1025,9 @@ export default function QuizPage() {
 
           <div className="bg-warm-cream rounded-card p-6 md:p-10 text-center mt-6 mb-10">
             <h3 className="pf text-xl text-forest mb-2">Want to add more items?</h3>
-            <p className="text-muted-foreground text-sm mb-5 max-w-[480px] mx-auto">Your bundle covers the essentials — but every mum is different. Browse our full shop to add anything else you need.</p>
+            <p className="text-muted-foreground text-sm mb-5 max-w-[480px] mx-auto">Your list covers the essentials — but every mum is different. Browse our full shop to add anything else you need.</p>
             <Link to="/shop" className="rounded-pill bg-forest px-8 py-3 font-body font-semibold text-primary-foreground hover:bg-forest-deep interactive text-sm inline-block mb-4">
-              Browse All Products →
+              See All Products →
             </Link>
           </div>
         </div>
@@ -1049,11 +1049,6 @@ export default function QuizPage() {
           />
         )}
 
-        <div className="fixed bottom-14 left-0 right-0 z-[80] bg-card border-t border-border p-3 md:hidden">
-          <button onClick={handleAddAll} className="w-full rounded-pill bg-coral py-3 font-body font-semibold text-primary-foreground text-sm">
-            Get Complete Bundle — {fmt(grandTotal)} →
-          </button>
-        </div>
 
         {detailProduct && <ProductDetailModal product={detailProduct} defaultBudget={answers.budget || "standard"} onClose={() => setDetailProduct(null)} />}
       </div>
