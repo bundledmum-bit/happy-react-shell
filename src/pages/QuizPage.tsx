@@ -1018,7 +1018,7 @@ export default function QuizPage() {
             <p className="text-primary-foreground/70 text-sm mb-4 max-w-[400px] mx-auto">Help her shop baby essentials, mum items, and baby gifts without stepping foot in any market.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button onClick={() => {
-                const text = "Hey mama! 🤰 I just used BundledMum to get all my baby things in one place — no market runs! Build your own personalised list FREE: const text = "Hey mama! 🤰 I just used BundledMum to get all my baby things in one place — no market runs! Build your own personalised list FREE: https://bundledmum.com/quiz?ref=friend_share";
+                const text = "Hey mama! 🤰 I just used BundledMum to get all my baby things in one place — no market runs! Build your own personalised list FREE: https://bundledmum.com/quiz?ref=friend_share";
                 window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
               }} className="rounded-pill bg-[#25D366] px-6 py-2.5 font-body font-semibold text-primary-foreground text-sm interactive">
                 📱 Share on WhatsApp
