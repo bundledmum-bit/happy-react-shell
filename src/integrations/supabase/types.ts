@@ -3283,22 +3283,41 @@ export type Database = {
       }
       generate_invoice_number: { Args: never; Returns: string }
       generate_order_number: { Args: never; Returns: string }
-      generate_quiz_story: {
-        Args: {
-          p_budget_tier: string
-          p_delivery_method?: string
-          p_first_baby?: boolean
-          p_gender: string
-          p_gift_occasion?: string
-          p_gift_relationship?: string
-          p_gift_wrap?: boolean
-          p_hospital_type?: string
-          p_multiples?: number
-          p_product_count?: number
-          p_shopper_type: string
-        }
-        Returns: string
-      }
+      generate_quiz_story:
+        | {
+            Args: {
+              p_budget_tier: string
+              p_delivery_method?: string
+              p_first_baby?: boolean
+              p_gender: string
+              p_gift_occasion?: string
+              p_gift_relationship?: string
+              p_gift_wrap?: boolean
+              p_hospital_type?: string
+              p_multiples?: number
+              p_product_count?: number
+              p_shopper_type: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_budget_tier: string
+              p_delivery_method?: string
+              p_first_baby?: boolean
+              p_gender: string
+              p_gift_occasion?: string
+              p_gift_relationship?: string
+              p_gift_wrap?: boolean
+              p_hospital_type?: string
+              p_multiples?: number
+              p_product_count?: number
+              p_scope?: string
+              p_shopper_type: string
+              p_stage?: string
+            }
+            Returns: string
+          }
       get_admin_nav: { Args: never; Returns: Json }
       get_admin_orders: {
         Args: {
@@ -3339,21 +3358,37 @@ export type Database = {
         Args: { p_budget_tier: string; p_category: string; p_timing: string }
         Returns: Json
       }
-      run_quiz_recommendation: {
-        Args: {
-          p_budget_tier: string
-          p_delivery_method: string
-          p_first_baby?: boolean
-          p_gender?: string
-          p_gift_for?: string
-          p_hospital_type: string
-          p_multiples?: number
-          p_scope: string
-          p_shopper_type?: string
-          p_stage: string
-        }
-        Returns: Json
-      }
+      run_quiz_recommendation:
+        | {
+            Args: {
+              p_budget_tier: string
+              p_delivery_method: string
+              p_first_baby?: boolean
+              p_gender?: string
+              p_gift_for?: string
+              p_hospital_type: string
+              p_multiples?: number
+              p_scope: string
+              p_shopper_type?: string
+              p_stage: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_budget_tier: string
+              p_delivery_method: string
+              p_first_baby?: boolean
+              p_gender?: string
+              p_gift_relationship?: string
+              p_hospital_type: string
+              p_is_gift?: boolean
+              p_multiples?: number
+              p_scope: string
+              p_stage: string
+            }
+            Returns: Json
+          }
       save_quiz_lead: {
         Args: {
           p_baby_gender?: string

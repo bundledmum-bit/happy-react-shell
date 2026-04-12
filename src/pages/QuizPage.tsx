@@ -455,6 +455,8 @@ export default function QuizPage() {
         p_gift_occasion: answers.giftOccasion || null,
         p_gift_wrap: answers.giftWrap === "yes",
         p_product_count: rec.product_count,
+        p_stage: answers.stage || answers.wifeStage || answers.giftAge || "expecting",
+        p_scope: answers.scope || "hospital-bag",
       });
       setStory((storyData as string) || "Your personalised bundle is ready!");
 
@@ -495,6 +497,8 @@ export default function QuizPage() {
         p_gift_occasion: null,
         p_gift_wrap: false,
         p_product_count: rec.product_count,
+        p_stage: answers.stage || answers.wifeStage || "expecting",
+        p_scope: answers.scope || "hospital-bag",
       });
       setStory((storyData as string) || "Your personalised bundle is ready!");
       await completeQuizSession(answers, rec.product_count, rec.budget_tier);
@@ -724,6 +728,7 @@ export default function QuizPage() {
     const budgetLabel = budget === "starter" ? "Starter" : budget === "premium" ? "Premium" : "Standard";
     const isFallback = recommendation.engine_version?.includes("fallback");
 
+    const recScope = recommendation.scope || answers.scope || "";
     let heading: string;
     if (isBothPath && pushGiftRecommendation) {
       heading = "Your Complete Order 💙💝";
@@ -731,9 +736,14 @@ export default function QuizPage() {
       heading = "Here's What Your Family Needs 💙";
     } else if (isGift) {
       heading = "Your Perfect Gift Bundle 🎁";
+    } else if (recScope === "hospital-bag") {
+      heading = "Your Perfect Hospital Bag 🏥";
+    } else if (recScope === "general-baby-prep") {
+      heading = "Your Baby Prep Bundle 👶";
+    } else if (recScope === "hospital-bag+general") {
+      heading = "Your Hospital Bag & Baby Prep Bundle";
     } else {
-      const scope = answers.scope || "";
-      heading = scope === "hospital-bag" ? "Your Perfect Hospital Bag" : scope.includes("general") && scope.includes("hospital") ? "Your Hospital Bag + Baby Essentials" : scope === "general" ? "Your Baby Essentials Bundle" : "Your Perfect Bundle";
+      heading = "Your Perfect Bundle";
     }
 
     let subHeading = story;
