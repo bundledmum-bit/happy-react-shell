@@ -17,25 +17,19 @@ export default function OrderConfirmedPage() {
     queryKey: ["order-confirmed", orderNumber],
     enabled: !!orderNumber,
     queryFn: async () => {
-      // Poll up to 10 times with 2s delay to handle race condition
-      // where the redirect arrives before the DB write commits
+      // Use edge function to fetch order (bypasses RLS)
       const MAX_ATTEMPTS = 10;
       const DELAY = 2000;
       for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-        const { data, error } = await supabase
-          .from("orders")
-          .select("*, order_items(*)")
-          .eq("order_number", orderNumber)
-          .single();
-        if (data && !error) return data;
-        // If it's a real error (not "row not found"), throw immediately
-        if (error && error.code !== "PGRST116") throw error;
-        // Wait before retrying (except on last attempt)
+        const { data, error } = await supabase.functions.invoke("get-order-confirmation", {
+          body: { order_number: orderNumber },
+        });
+        if (data?.order) return data.order;
+        if (error) console.error("Order confirmation fetch error:", error);
         if (attempt < MAX_ATTEMPTS) {
           await new Promise(r => setTimeout(r, DELAY));
         }
       }
-      // All attempts exhausted
       return null;
     },
     retry: false,
