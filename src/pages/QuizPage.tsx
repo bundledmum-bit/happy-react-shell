@@ -880,7 +880,7 @@ export default function QuizPage() {
     const handleCopyChecklist = () => {
       const allProducts = [...(pushGiftRecommendation || []), ...results];
       const list = allProducts.map(r => `${r.quantity > 1 ? `×${r.quantity} ` : ""}${r.name} (${r.brand?.brand_name || "Standard"}) — ${fmt((r.brand?.price || 0) * (r.quantity || 1))}`).join("\n");
-      const text = `My BundledMum ${budgetLabel} Bundle\n${"=".repeat(30)}\n\n${list}\n\nTotal: ${fmt(grandTotal)}\n\nBuild yours: https://bundledmum.lovable.app/quiz`;
+      const text = `My BundledMum ${budgetLabel} Bundle\n${"=".repeat(30)}\n\n${list}\n\nTotal: ${fmt(grandTotal)}\n\nBuild yours: https://bundledmum.com/quiz`;
       navigator.clipboard.writeText(text).then(() => toast.success("Checklist copied to clipboard!"));
     };
 
