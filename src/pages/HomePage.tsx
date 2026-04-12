@@ -232,7 +232,6 @@ function FeaturedProducts() {
                       }}
                         className="rounded-pill bg-forest px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-forest-deep font-body interactive">+ Add</button>
                     )}
-                    )}
                   </div>
                 </div>
               </div>
