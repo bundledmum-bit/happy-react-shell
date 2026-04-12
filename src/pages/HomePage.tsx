@@ -66,13 +66,13 @@ function HeroSection() {
 
         {/* Mobile: compact bundle CTA (no image) */}
         <div className="md:hidden -mx-5 px-5">
-          <div className="bg-primary-foreground/[0.08] border border-primary-foreground/[0.12] rounded-[16px] p-4 text-center">
+          <Link to="/bundles" className="block bg-primary-foreground/[0.08] border border-primary-foreground/[0.12] rounded-[16px] p-4 text-center">
             <h3 className="pf text-primary-foreground text-[15px] font-bold mb-1">📦 Pre-Packed Hospital Lists</h3>
             <p className="text-primary-foreground/55 text-[12px] mb-3 leading-relaxed">Ready-made lists based on your budget — fully customizable.</p>
-            <Link to="/bundles" className="block w-full rounded-pill bg-coral py-3 font-body font-semibold text-primary-foreground text-sm hover:bg-coral-dark interactive">
+            <span className="block w-full rounded-pill bg-coral py-3 font-body font-semibold text-primary-foreground text-sm hover:bg-coral-dark interactive">
               Explore Hospital Lists →
-            </Link>
-          </div>
+            </span>
+          </Link>
         </div>
       </div>
     </section>
