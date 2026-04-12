@@ -14,10 +14,11 @@ function ProductCard({ product, defaultBudget = "standard", forceBrand, onAdd, o
   const [selectedBrand, setSelectedBrand] = useState<Brand>(defaultBrand);
   const [selectedSize, setSelectedSize] = useState(product.sizes?.[Math.floor((product.sizes?.length || 0) / 2)] || "");
   const [selectedColor, setSelectedColor] = useState("");
-  const { cart, setCart } = useCart();
+  const { cart, setCart, updateQty } = useCart();
 
   const cartKey = `${product.id}-${selectedBrand.id}-${selectedSize}`;
-  const isInCart = cart.some(c => c._key === cartKey || c.id === product.id);
+  const cartItem = cart.find(c => c._key === cartKey || c.id === product.id);
+  const isInCart = !!cartItem;
 
   const brandOos = selectedBrand.inStock === false || selectedBrand.stockQuantity === 0;
   const allBrandsOos = product.brands.every(b => b.inStock === false || b.stockQuantity === 0);
@@ -42,6 +43,9 @@ function ProductCard({ product, defaultBudget = "standard", forceBrand, onAdd, o
   };
 
   const handleRemove = () => { setCart(prev => prev.filter(c => c.id !== product.id)); toast("Removed from cart"); };
+  const handleQtyChange = (newQty: number) => {
+    if (cartItem) updateQty(cartItem._key, newQty);
+  };
 
   const trackView = () => {
     try {
