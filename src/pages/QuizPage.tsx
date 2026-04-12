@@ -59,9 +59,16 @@ let quizSessionId: string | null = null;
 function getLocalSessionId(): string {
   let id = localStorage.getItem("bm_quiz_session_id");
   if (!id) {
-    id = getSessionId();
+    id = crypto.randomUUID();
     localStorage.setItem("bm_quiz_session_id", id);
   }
+  return id;
+}
+
+/** Generate a fresh session ID for a new quiz run */
+function resetQuizSessionId(): string {
+  const id = crypto.randomUUID();
+  localStorage.setItem("bm_quiz_session_id", id);
   return id;
 }
 
