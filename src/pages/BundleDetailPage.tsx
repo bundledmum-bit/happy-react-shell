@@ -1,8 +1,8 @@
 import { useParams, Link } from "react-router-dom";
 import { useCart, fmt } from "@/lib/cart";
 import { toast } from "sonner";
-import { ArrowLeft, Share2, ArrowLeftRight, Plus, Trash2, ZoomIn } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
+import { ArrowLeft, Share2, ArrowLeftRight, Plus, Trash2, ZoomIn, X } from "lucide-react";
+import { useState, useEffect } from "react";
 import { useBundle, useBundles, useAllProducts } from "@/hooks/useSupabaseData";
 import type { BundleItem } from "@/lib/supabaseAdapters";
 import ProductImage from "@/components/ProductImage";
@@ -16,14 +16,12 @@ export default function BundleDetailPage() {
   const { data: allBundles } = useBundles();
   const { addToCart, cart } = useCart();
 
-  // Customizable items state
   const [customBabyItems, setCustomBabyItems] = useState<BundleItem[] | null>(null);
   const [customMumItems, setCustomMumItems] = useState<BundleItem[] | null>(null);
   const [swapPopup, setSwapPopup] = useState<{ open: boolean; section: "baby" | "mum"; swapIndex?: number } | null>(null);
   const [zoomImage, setZoomImage] = useState<string | null>(null);
   const [showShare, setShowShare] = useState(false);
 
-  // Initialize custom items from bundle
   useEffect(() => {
     if (bundle && !customBabyItems) {
       setCustomBabyItems([...bundle.babyItems]);
@@ -88,14 +86,12 @@ export default function BundleDetailPage() {
     });
   };
 
-  // Build shareable URL with customization params
   const shareUrl = isCustomized
     ? `https://bundledmum.com/bundles/${bundle.slug || bundle.id}?custom=1`
     : `https://bundledmum.com/bundles/${bundle.slug || bundle.id}`;
 
   const shareText = `Check out ${isCustomized ? "my customized " : "the "}${bundle.name} bundle on BundledMum! ${totalItems} items for ${fmt(displayPrice)}.`;
 
-  // Swap/Add/Remove handlers
   const handleSwap = (section: "baby" | "mum", index: number) => {
     setSwapPopup({ open: true, section, swapIndex: index });
   };
@@ -117,7 +113,6 @@ export default function BundleDetailPage() {
     if (!swapPopup) return;
     const { section, swapIndex } = swapPopup;
     if (swapIndex !== undefined) {
-      // Swapping existing item
       if (section === "baby") {
         setCustomBabyItems(prev => prev ? prev.map((item, i) => i === swapIndex ? newItem : item) : []);
       } else {
@@ -125,7 +120,6 @@ export default function BundleDetailPage() {
       }
       toast.success("Product swapped!");
     } else {
-      // Adding new item
       if (section === "baby") {
         setCustomBabyItems(prev => [...(prev || []), newItem]);
       } else {
@@ -138,11 +132,12 @@ export default function BundleDetailPage() {
   const existingNames = allItems.map(i => i.name);
 
   const renderItemRow = (item: BundleItem, index: number, section: "baby" | "mum") => (
-    <div key={`${section}-${index}`} className="flex items-center gap-2.5 py-3 border-b border-border/40 last:border-0 group">
-      {/* Product image with zoom */}
-      <div
-        className="w-11 h-11 rounded-lg overflow-hidden flex-shrink-0 bg-muted cursor-pointer relative group/img"
+    <div key={`${section}-${index}`} className="flex items-center gap-3 py-3 border-b border-border/40 last:border-0">
+      {/* Product image */}
+      <button
+        className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-muted relative group"
         onClick={() => item.imageUrl && setZoomImage(item.imageUrl)}
+        aria-label={`Zoom ${item.name}`}
       >
         <ProductImage
           imageUrl={item.imageUrl}
@@ -152,32 +147,33 @@ export default function BundleDetailPage() {
           emojiClassName="text-xl"
         />
         {item.imageUrl && (
-          <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/20 transition-colors flex items-center justify-center">
-            <ZoomIn className="h-3.5 w-3.5 text-primary-foreground opacity-0 group-hover/img:opacity-100 transition-opacity" />
+          <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/20 transition-colors flex items-center justify-center">
+            <ZoomIn className="h-3.5 w-3.5 text-primary-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
         )}
-      </div>
+      </button>
 
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold truncate">{item.name}</p>
+        <p className="text-[13px] font-semibold leading-tight truncate">{item.name}</p>
         <p className="text-muted-foreground text-[11px]">{item.brand}</p>
+        <p className="text-forest font-bold text-[12px] mt-0.5">{fmt(item.price)}</p>
       </div>
 
-      <span className="text-sm font-bold flex-shrink-0 mr-1">{fmt(item.price)}</span>
-
-      {/* Action buttons */}
-      <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+      {/* Action buttons – always visible on mobile */}
+      <div className="flex items-center gap-0.5 flex-shrink-0">
         <button
           onClick={() => handleSwap(section, index)}
-          className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-muted transition-colors"
+          className="w-9 h-9 rounded-full flex items-center justify-center bg-forest-light hover:bg-forest/20 transition-colors"
           title="Swap product"
+          aria-label="Swap product"
         >
           <ArrowLeftRight className="h-3.5 w-3.5 text-forest" />
         </button>
         <button
           onClick={() => handleRemoveItem(section, index)}
-          className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-destructive/10 transition-colors"
+          className="w-9 h-9 rounded-full flex items-center justify-center bg-destructive/10 hover:bg-destructive/20 transition-colors"
           title="Remove product"
+          aria-label="Remove product"
         >
           <Trash2 className="h-3.5 w-3.5 text-destructive" />
         </button>
@@ -186,7 +182,7 @@ export default function BundleDetailPage() {
   );
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-24 md:pb-8">
       {zoomImage && <BundleImageZoom src={zoomImage} alt="Product" onClose={() => setZoomImage(null)} />}
 
       {showShare && (
@@ -217,14 +213,14 @@ export default function BundleDetailPage() {
         />
       )}
 
-      {/* Hero Header */}
-      <div className="pt-20" style={{ background: `linear-gradient(135deg, ${bundle.color}CC, ${bundle.color}88)` }}>
-        <div className="max-w-[900px] mx-auto px-4 md:px-10 py-8 md:py-14">
-          <Link to="/bundles" className="text-primary-foreground/60 text-xs hover:text-primary-foreground/80 mb-3 inline-flex items-center gap-1">
+      {/* Hero Header – compact on mobile */}
+      <div className="pt-[68px]" style={{ background: `linear-gradient(135deg, ${bundle.color}CC, ${bundle.color}88)` }}>
+        <div className="max-w-[900px] mx-auto px-4 md:px-10 py-5 md:py-14">
+          <Link to="/bundles" className="text-primary-foreground/60 text-xs hover:text-primary-foreground/80 mb-2 inline-flex items-center gap-1">
             <ArrowLeft className="h-3 w-3" /> All Bundles
           </Link>
 
-          <nav className="text-primary-foreground/40 text-[11px] mb-4" aria-label="Breadcrumb">
+          <nav className="text-primary-foreground/40 text-[11px] mb-3" aria-label="Breadcrumb">
             <ol className="flex flex-wrap gap-1" itemScope itemType="https://schema.org/BreadcrumbList">
               <li itemProp="itemListElement" itemScope itemType="https://schema.org/ListItem">
                 <Link to="/" itemProp="item" className="hover:text-primary-foreground/60"><span itemProp="name">Home</span></Link>
@@ -243,117 +239,116 @@ export default function BundleDetailPage() {
             </ol>
           </nav>
 
-          <div className="flex flex-wrap gap-2 mb-3">
-            <span className="text-[10px] font-bold px-2.5 py-1 rounded-pill bg-primary-foreground/15 text-primary-foreground">
-              {bundle.hospitalType === "public" ? "🏥 Public" : bundle.hospitalType === "private" ? "🏨 Private" : "🎁 Gift"}
-            </span>
-            {bundle.deliveryType && (
-              <span className="text-[10px] font-bold px-2.5 py-1 rounded-pill bg-primary-foreground/15 text-primary-foreground">
-                {bundle.deliveryType === "vaginal" ? "Vaginal" : "C-Section"}
+          {/* Badges */}
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {[
+              bundle.hospitalType === "public" ? "🏥 Public" : bundle.hospitalType === "private" ? "🏨 Private" : "🎁 Gift",
+              bundle.deliveryType ? (bundle.deliveryType === "vaginal" ? "Vaginal" : "C-Section") : null,
+              bundle.tier === "Premium" ? "✨ Premium" : "Basic",
+              `${totalItems} items`,
+            ].filter(Boolean).map((label, i) => (
+              <span key={i} className="text-[10px] font-bold px-2 py-0.5 rounded-pill bg-primary-foreground/15 text-primary-foreground">
+                {label}
               </span>
-            )}
-            <span className="text-[10px] font-bold px-2.5 py-1 rounded-pill bg-primary-foreground/15 text-primary-foreground">
-              {bundle.tier === "Premium" ? "✨ Premium" : "Basic"}
-            </span>
-            <span className="text-[10px] font-bold px-2.5 py-1 rounded-pill bg-primary-foreground/15 text-primary-foreground">
-              {totalItems} items
-            </span>
+            ))}
             {isCustomized && (
-              <span className="text-[10px] font-bold px-2.5 py-1 rounded-pill bg-coral text-primary-foreground">
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-pill bg-coral text-primary-foreground">
                 ✏️ Customized
               </span>
             )}
           </div>
 
-          <div className="flex items-start gap-3 sm:gap-4 mb-3">
-            <span className="text-4xl sm:text-5xl flex-shrink-0">{bundle.icon}</span>
-            <div className="min-w-0">
-              <h1 className="pf text-xl sm:text-2xl md:text-4xl text-primary-foreground leading-tight">{bundle.name}</h1>
-              <p className="text-primary-foreground/70 text-xs sm:text-sm mt-1">{bundle.tagline}</p>
-            </div>
-          </div>
+          <h1 className="pf text-xl md:text-3xl text-primary-foreground leading-tight mb-1">{bundle.name}</h1>
+          <p className="text-primary-foreground/70 text-xs md:text-sm mb-4 line-clamp-2">{bundle.tagline}</p>
 
-          <div className="flex items-end gap-3 flex-wrap">
-            <span className="pf text-3xl font-bold text-primary-foreground">{fmt(displayPrice)}</span>
+          {/* Price */}
+          <div className="flex items-end gap-2 flex-wrap mb-4">
+            <span className="pf text-2xl md:text-3xl font-bold text-primary-foreground">{fmt(displayPrice)}</span>
             {savings > 0 && !isCustomized && (
               <>
                 <span className="text-primary-foreground/50 line-through text-sm">{fmt(bundle.separateTotal)}</span>
-                <span className="bg-coral text-primary-foreground text-[11px] font-bold px-2.5 py-1 rounded-pill">
+                <span className="bg-coral text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-pill">
                   Save {fmt(savings)} ({savingsPercent}%)
                 </span>
               </>
             )}
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 mt-5">
+          {/* CTA row */}
+          <div className="flex gap-2">
             {isInCart ? (
-              <Link to="/cart" className="rounded-pill bg-primary-foreground text-forest px-8 py-3 font-body font-semibold text-sm interactive text-center">
+              <Link to="/cart" className="rounded-pill bg-primary-foreground text-forest px-6 py-2.5 font-body font-semibold text-sm interactive text-center flex-1 md:flex-none">
                 In Cart ✓ — View Cart
               </Link>
             ) : (
-              <button onClick={handleAdd} className="rounded-pill bg-coral px-6 sm:px-8 py-3 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-sm text-center">
-                Add {isCustomized ? "Custom " : "Full "}Bundle — {fmt(displayPrice)}
+              <button onClick={handleAdd} className="rounded-pill bg-coral px-5 py-2.5 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-sm text-center flex-1 md:flex-none">
+                Add Bundle — {fmt(displayPrice)}
               </button>
             )}
-            <button onClick={() => setShowShare(true)} className="rounded-pill border-2 border-primary-foreground/30 px-5 py-3 text-primary-foreground/80 font-body font-semibold text-sm hover:bg-primary-foreground/10 interactive flex items-center justify-center gap-2">
-              <Share2 className="h-4 w-4" /> Share Bundle
+            <button onClick={() => setShowShare(true)} className="rounded-pill border-2 border-primary-foreground/30 px-4 py-2.5 text-primary-foreground/80 font-body font-semibold text-sm hover:bg-primary-foreground/10 interactive flex items-center gap-1.5">
+              <Share2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Share</span>
             </button>
           </div>
         </div>
       </div>
 
       {/* Items Section */}
-      <div className="max-w-[900px] mx-auto px-4 md:px-10 py-8 md:py-12">
-        <div className="grid gap-6 md:grid-cols-2">
+      <div className="max-w-[900px] mx-auto px-4 md:px-10 py-6 md:py-10">
+        <div className="grid gap-4 md:grid-cols-2">
           {/* Baby Items */}
-          <div className="bg-card rounded-card shadow-card p-5 md:p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="pf text-lg text-forest">👶 For Baby ({babyItems.length})</h3>
+          <div className="bg-card rounded-card shadow-card overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
+              <h3 className="pf text-base text-forest">👶 For Baby ({babyItems.length})</h3>
               <button
                 onClick={() => handleAddNew("baby")}
-                className="flex items-center gap-1 text-xs font-semibold text-forest hover:text-forest-deep transition-colors min-h-[44px] px-2"
+                className="flex items-center gap-1.5 text-xs font-semibold text-forest bg-forest-light hover:bg-forest/20 rounded-pill px-3 py-1.5 transition-colors"
               >
-                <Plus className="h-3.5 w-3.5" /> Add Item
+                <Plus className="h-3.5 w-3.5" /> Add
               </button>
             </div>
-            {babyItems.map((item, i) => renderItemRow(item, i, "baby"))}
-            {babyItems.length === 0 && (
-              <p className="text-muted-foreground text-sm text-center py-4">No items yet</p>
-            )}
+            <div className="px-4">
+              {babyItems.map((item, i) => renderItemRow(item, i, "baby"))}
+              {babyItems.length === 0 && (
+                <p className="text-muted-foreground text-sm text-center py-6">No items yet — tap "Add" above</p>
+              )}
+            </div>
           </div>
 
           {/* Mum Items */}
-          <div className="bg-card rounded-card shadow-card p-5 md:p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="pf text-lg text-forest">💛 For Mum ({mumItems.length})</h3>
+          <div className="bg-card rounded-card shadow-card overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
+              <h3 className="pf text-base text-forest">💛 For Mum ({mumItems.length})</h3>
               <button
                 onClick={() => handleAddNew("mum")}
-                className="flex items-center gap-1 text-xs font-semibold text-forest hover:text-forest-deep transition-colors min-h-[44px] px-2"
+                className="flex items-center gap-1.5 text-xs font-semibold text-forest bg-forest-light hover:bg-forest/20 rounded-pill px-3 py-1.5 transition-colors"
               >
-                <Plus className="h-3.5 w-3.5" /> Add Item
+                <Plus className="h-3.5 w-3.5" /> Add
               </button>
             </div>
-            {mumItems.map((item, i) => renderItemRow(item, i, "mum"))}
-            {mumItems.length === 0 && (
-              <p className="text-muted-foreground text-sm text-center py-4">No items yet</p>
-            )}
+            <div className="px-4">
+              {mumItems.map((item, i) => renderItemRow(item, i, "mum"))}
+              {mumItems.length === 0 && (
+                <p className="text-muted-foreground text-sm text-center py-6">No items yet — tap "Add" above</p>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Price Summary */}
-        <div className="bg-forest-light rounded-card p-5 mt-6 text-center">
+        <div className="bg-forest-light rounded-card p-4 mt-5 text-center">
           <p className="text-forest text-sm font-semibold">
-            {isCustomized ? "Custom bundle" : "Bundle"} price: <span className="text-lg font-bold">{fmt(displayPrice)}</span>
+            {isCustomized ? "Custom bundle" : "Bundle"} total: <span className="text-lg font-bold">{fmt(displayPrice)}</span>
             {savings > 0 && !isCustomized && (
               <span className="text-muted-foreground text-xs ml-2">
-                (Items separately: {fmt(bundle.separateTotal)} — You save <span className="text-forest font-bold">{fmt(savings)}</span>)
+                (Save <span className="text-forest font-bold">{fmt(savings)}</span>)
               </span>
             )}
           </p>
           {isCustomized && (
             <button
               onClick={() => { setCustomBabyItems([...bundle.babyItems]); setCustomMumItems([...bundle.mumItems]); }}
-              className="text-xs text-forest hover:underline mt-2"
+              className="text-xs text-forest hover:underline mt-1.5"
             >
               Reset to original bundle
             </button>
@@ -362,29 +357,29 @@ export default function BundleDetailPage() {
 
         {/* Upsell */}
         {upgradable && (
-          <div className="bg-warm-cream border-2 border-coral/30 rounded-card p-5 mt-6">
-            <h3 className="pf text-lg text-coral mb-2">✨ Upgrade to Premium?</h3>
-            <p className="text-muted-foreground text-sm mb-3">
-              {bundle.upsellText || `For ${fmt(upgradable.price - bundle.price)} more, get the Premium version with ${upgradable.babyItems.length + upgradable.mumItems.length} items and top-tier brands.`}
+          <div className="bg-warm-cream border-2 border-coral/30 rounded-card p-4 mt-5">
+            <h3 className="pf text-base text-coral mb-1.5">✨ Upgrade to Premium?</h3>
+            <p className="text-muted-foreground text-xs mb-3">
+              {bundle.upsellText || `For ${fmt(upgradable.price - bundle.price)} more, get ${upgradable.babyItems.length + upgradable.mumItems.length} items with top-tier brands.`}
             </p>
-            <Link to={`/bundles/${upgradable.id}`} className="rounded-pill bg-coral px-6 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-coral-dark inline-block interactive">
-              View Premium Bundle →
+            <Link to={`/bundles/${upgradable.id}`} className="rounded-pill bg-coral px-5 py-2 text-sm font-semibold text-primary-foreground hover:bg-coral-dark inline-block interactive">
+              View Premium →
             </Link>
           </div>
         )}
+      </div>
 
-        {/* Bottom CTA */}
-        <div className="mt-8 text-center">
-          {isInCart ? (
-            <Link to="/cart" className="rounded-pill bg-forest px-10 py-4 font-body font-semibold text-primary-foreground text-[15px] interactive inline-block">
-              Go to Cart →
-            </Link>
-          ) : (
-            <button onClick={handleAdd} className="rounded-pill bg-forest px-10 py-4 font-body font-semibold text-primary-foreground hover:bg-forest-deep interactive text-[15px]">
-              Add {isCustomized ? "Custom " : "Full "}Bundle to Cart — {fmt(displayPrice)} 🔒
-            </button>
-          )}
-        </div>
+      {/* Mobile sticky bottom CTA */}
+      <div className="fixed bottom-[56px] md:bottom-0 inset-x-0 z-40 md:hidden bg-card border-t border-border px-4 py-3 safe-area-bottom">
+        {isInCart ? (
+          <Link to="/cart" className="block w-full rounded-pill bg-forest text-center py-3 font-body font-semibold text-primary-foreground text-sm interactive">
+            In Cart ✓ — View Cart
+          </Link>
+        ) : (
+          <button onClick={handleAdd} className="w-full rounded-pill bg-coral py-3 font-body font-semibold text-primary-foreground text-sm hover:bg-coral-dark interactive">
+            Add Bundle — {fmt(displayPrice)}
+          </button>
+        )}
       </div>
     </div>
   );
