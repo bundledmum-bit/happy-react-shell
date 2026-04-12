@@ -331,38 +331,22 @@ export default function CheckoutPage() {
       // Mark session as converted
       markSessionConverted();
 
-      // Mark quiz_customers as purchased — session_id match first, then whatsapp fallback
+      // Mark quiz_customers as purchased using RPC
       try {
-        const { data: sessionMatch } = await supabase
-          .from("quiz_customers")
-          .select("id")
-          .eq("session_id", sessionId)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (sessionMatch) {
-          await supabase.from("quiz_customers")
-            .update({ has_purchased: true, order_id: order.id } as any)
-            .eq("id", sessionMatch.id);
+        const quizSessionId = localStorage.getItem("bm_quiz_session_id");
+        if (quizSessionId) {
+          await supabase.rpc("mark_quiz_lead_purchased", {
+            p_session_id: quizSessionId,
+            p_order_id: order.id,
+            p_order_amount: orderData.total,
+          });
         } else {
-          // Fallback: match by whatsapp_number using customer phone
-          const phone = form.phone.replace(/\D/g, "");
-          if (phone) {
-            const { data: waMatch } = await supabase
-              .from("quiz_customers")
-              .select("id")
-              .or(`whatsapp_number.eq.${form.phone},whatsapp_number.eq.0${phone.slice(-10)},whatsapp_number.eq.+234${phone.slice(-10)}`)
-              .eq("has_purchased", false)
-              .order("created_at", { ascending: false })
-              .limit(1)
-              .maybeSingle();
-            if (waMatch) {
-              await supabase.from("quiz_customers")
-                .update({ has_purchased: true, order_id: order.id } as any)
-                .eq("id", waMatch.id);
-            }
-          }
+          // Fallback: match by session_id from analytics
+          await supabase.rpc("mark_quiz_lead_purchased", {
+            p_session_id: sessionId,
+            p_order_id: order.id,
+            p_order_amount: orderData.total,
+          });
         }
       } catch (e) { console.error("Quiz customer update failed:", e); }
 

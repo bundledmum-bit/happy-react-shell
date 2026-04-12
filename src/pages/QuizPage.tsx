@@ -56,8 +56,17 @@ interface RecommendationResult {
 
 let quizSessionId: string | null = null;
 
+function getLocalSessionId(): string {
+  let id = localStorage.getItem("bm_quiz_session_id");
+  if (!id) {
+    id = getSessionId();
+    localStorage.setItem("bm_quiz_session_id", id);
+  }
+  return id;
+}
+
 async function createQuizSession(shopperType: string) {
-  const sessionId = getSessionId();
+  const sessionId = getLocalSessionId();
   const { data } = await supabase
     .from("quiz_sessions")
     .insert({
@@ -337,20 +346,40 @@ export default function QuizPage() {
 
   // ========= SAVE QUIZ LEAD =========
   const saveQuizCustomer = useCallback(async (whatsappVal?: string) => {
-    const sessionId = getSessionId();
+    const sessionId = getLocalSessionId();
     const whatsapp = whatsappVal || answers.whatsapp || null;
-    await supabase.from("quiz_customers").upsert({
-      session_id: sessionId,
-      hospital_type: answers.hospitalType || null,
-      delivery_method: answers.deliveryMethod || null,
-      baby_gender: answers.gender || null,
-      budget_tier: answers.budget || answers.pushGiftBudget || null,
-      whatsapp_number: whatsapp === "skip" ? null : whatsapp,
-      referral_source: document.referrer || "direct",
-      page_url: window.location.href,
-      has_purchased: false,
-    }, { onConflict: "session_id" });
+    await supabase.rpc("save_quiz_lead", {
+      p_session_id: sessionId,
+      p_shopper_type: answers.shopper || null,
+      p_whatsapp_number: whatsapp === "skip" ? null : whatsapp,
+      p_hospital_type: answers.hospitalType || null,
+      p_delivery_method: answers.deliveryMethod || null,
+      p_baby_gender: answers.gender || null,
+      p_budget_tier: answers.budget || answers.pushGiftBudget || null,
+      p_scope: answers.scope || null,
+      p_stage: answers.stage || answers.wifeStage || answers.giftAge || null,
+      p_multiples: answers.multiples || "1",
+      p_first_baby: answers.firstBaby === "yes",
+      p_gift_wrap: answers.giftWrap === "yes",
+      p_gift_message: answers.giftMessage || null,
+      p_dad_purpose: answers.dadPurpose || null,
+      p_push_gift_category: answers.pushGiftCategory || null,
+      p_push_gift_timing: answers.pushGiftTiming || null,
+      p_push_gift_budget: answers.pushGiftBudget || null,
+      p_full_answers: answers as any,
+      p_referral_source: document.referrer || "direct",
+      p_page_url: window.location.href,
+    });
   }, [answers]);
+
+  // Save WhatsApp number separately (called from whatsapp step)
+  const saveWhatsAppNumber = useCallback(async (phoneNumber: string | null) => {
+    const sessionId = getLocalSessionId();
+    await supabase.rpc("save_quiz_lead", {
+      p_session_id: sessionId,
+      p_whatsapp_number: phoneNumber,
+    });
+  }, []);
 
   // ========= PUSH GIFT RECOMMENDATION =========
   const fetchPushGiftResults = useCallback(async () => {
@@ -502,6 +531,12 @@ export default function QuizPage() {
   const handleOptionalTextSubmit = useCallback((stepId: string, value?: string) => {
     const newAnswers = { ...answers, [stepId]: value || "skip" };
     setAnswers(newAnswers);
+
+    // Save WhatsApp number separately when on whatsapp step
+    if (stepId === "whatsapp") {
+      saveWhatsAppNumber(value || null);
+    }
+
     const next = getNextStep(stepId, value || "skip", newAnswers, routingRules, questions);
     if (!next) {
       setHistory(h => [...h, stepId]);
@@ -515,11 +550,17 @@ export default function QuizPage() {
       setCurrentStep(next);
     }
     updateQuizSession(newAnswers, next || null, [...history, stepId]);
-  }, [answers, routingRules, questions, history, isBothPath, bothPhase, finishQuiz, finishBothFamilyPath]);
+  }, [answers, routingRules, questions, history, isBothPath, bothPhase, finishQuiz, finishBothFamilyPath, saveWhatsAppNumber]);
 
   const handleSkip = useCallback((stepId: string) => {
     const newAnswers = { ...answers, [stepId]: "skip" };
     setAnswers(newAnswers);
+
+    // Save WhatsApp as null when skipped
+    if (stepId === "whatsapp") {
+      saveWhatsAppNumber(null);
+    }
+
     const next = getNextStep(stepId, "skip", newAnswers, routingRules, questions);
     if (!next) {
       setHistory(h => [...h, currentStep!]);
@@ -533,7 +574,7 @@ export default function QuizPage() {
       setCurrentStep(next);
     }
     updateQuizSession(newAnswers, next || null, [...history, currentStep!]);
-  }, [answers, routingRules, questions, currentStep, history, isBothPath, bothPhase, finishQuiz, finishBothFamilyPath]);
+  }, [answers, routingRules, questions, currentStep, history, isBothPath, bothPhase, finishQuiz, finishBothFamilyPath, saveWhatsAppNumber]);
 
   const handleBack = useCallback(() => {
     if (showResults) { setShowResults(false); return; }
