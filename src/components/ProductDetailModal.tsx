@@ -180,7 +180,7 @@ export default function ProductDetailModal({ product, defaultBudget = "standard"
               </button>
             ) : isInCart && cartItem ? (
               <div className="flex items-center gap-3">
-                <QtyControl qty={cartItem.qty} onUpdate={(newQty) => updateQty(cartItem._key, newQty)} size="md" />
+                <QtyControl qty={cartItem.qty} onUpdate={(newQty) => updateQty(cartItem._key, newQty)} size="md" maxQty={selectedBrand.stockQuantity ?? undefined} />
                 <Link to="/cart" className="text-forest text-sm font-semibold hover:underline font-body">
                   View Cart →
                 </Link>
