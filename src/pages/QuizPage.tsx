@@ -531,6 +531,12 @@ export default function QuizPage() {
   const handleOptionalTextSubmit = useCallback((stepId: string, value?: string) => {
     const newAnswers = { ...answers, [stepId]: value || "skip" };
     setAnswers(newAnswers);
+
+    // Save WhatsApp number separately when on whatsapp step
+    if (stepId === "whatsapp") {
+      saveWhatsAppNumber(value || null);
+    }
+
     const next = getNextStep(stepId, value || "skip", newAnswers, routingRules, questions);
     if (!next) {
       setHistory(h => [...h, stepId]);
@@ -544,7 +550,7 @@ export default function QuizPage() {
       setCurrentStep(next);
     }
     updateQuizSession(newAnswers, next || null, [...history, stepId]);
-  }, [answers, routingRules, questions, history, isBothPath, bothPhase, finishQuiz, finishBothFamilyPath]);
+  }, [answers, routingRules, questions, history, isBothPath, bothPhase, finishQuiz, finishBothFamilyPath, saveWhatsAppNumber]);
 
   const handleSkip = useCallback((stepId: string) => {
     const newAnswers = { ...answers, [stepId]: "skip" };
