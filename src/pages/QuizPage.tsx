@@ -719,8 +719,8 @@ export default function QuizPage() {
     const results = recommendation.products;
     const babyItems = results.filter(r => r.category === "baby");
     const mumItems = results.filter(r => r.category === "mum");
-    const totalValue = results.reduce((s, r) => s + r.brand.price * r.quantity, 0);
-    const pushTotal = pushGiftRecommendation ? pushGiftRecommendation.reduce((s, r) => s + r.brand.price * r.quantity, 0) : 0;
+    const totalValue = results.reduce((s, r) => s + (r.brand?.price || 0) * (r.quantity || 1), 0);
+    const pushTotal = pushGiftRecommendation ? pushGiftRecommendation.reduce((s, r) => s + (r.brand?.price || 0) * (r.quantity || 1), 0) : 0;
     const grandTotal = totalValue + pushTotal;
     const isGift = answers.shopper === "gift";
     const budget = answers.budget || "standard";
