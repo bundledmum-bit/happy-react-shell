@@ -14,7 +14,6 @@ function HeroSection() {
 
   const heroBadge = settings?.hero_badge || "";
   const heroTitle = settings?.hero_title || "";
-  const heroSubtitle = settings?.hero_subtitle || "";
   const trustStats: string[][] = Array.isArray(settings?.trust_stats) ? settings.trust_stats : [];
 
   return (
@@ -38,14 +37,12 @@ function HeroSection() {
               )}
             </h1>
           )}
-          {heroSubtitle && (
-            <p className="animate-fade-up-3 text-primary-foreground/70 text-[15px] md:text-[17px] leading-[1.75] mb-7 max-w-[480px] font-body">
-              {heroSubtitle}
-            </p>
-          )}
+          <p className="animate-fade-up-3 text-primary-foreground/70 text-[15px] md:text-[17px] leading-[1.75] mb-7 max-w-[480px] font-body">
+            Shop baby essentials, mum items, and baby gifts without stepping foot in any market.
+          </p>
           <div className="animate-fade-up-4 flex gap-3 flex-wrap">
-            <Link to="/quiz" className="rounded-pill bg-coral px-7 py-3.5 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-sm md:text-[15px] w-full md:w-auto text-center">Build My Bundle →</Link>
-            <Link to="/shop" className="rounded-pill border-2 border-primary-foreground/30 px-7 py-3.5 font-body font-semibold text-primary-foreground/80 hover:bg-primary-foreground/10 interactive w-full md:w-auto text-center">Browse All Products</Link>
+            <Link to="/quiz" className="rounded-pill bg-coral px-7 py-3.5 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-sm md:text-[15px] w-full md:w-auto text-center">Build My List →</Link>
+            <Link to="/shop" className="rounded-pill border-2 border-primary-foreground/30 px-7 py-3.5 font-body font-semibold text-primary-foreground/80 hover:bg-primary-foreground/10 interactive w-full md:w-auto text-center">See All Products</Link>
           </div>
           {trustStats.length > 0 && (
             <div className="animate-fade-up-4 flex gap-6 md:gap-9 mt-8 md:mt-12 pt-6 md:pt-9 border-t border-primary-foreground/10">
@@ -135,17 +132,19 @@ function BundleTiers() {
       <div className="max-w-[1100px] mx-auto px-5 md:px-10">
         <div className="text-center mb-10 md:mb-14">
           <span className="text-coral text-xs font-semibold uppercase tracking-widest">Our Kits</span>
-          <h2 className="pf text-2xl md:text-[42px] text-primary-foreground mt-2">Choose Your Bundle Tier</h2>
+          <h2 className="pf text-2xl md:text-[42px] text-primary-foreground mt-2">Shop by Budget</h2>
         </div>
         <div className="grid gap-4 md:grid-cols-3 items-end">
-          {tiers.map(t => (
+          {tiers.map((t, idx) => (
             <div key={t.name} className={`rounded-[20px] p-6 md:p-8 text-center relative ${t.popular ? "bg-forest-light md:scale-105 md:-my-2 border-2 border-forest" : "bg-primary-foreground/[0.07] border border-primary-foreground/10"}`}>
               {t.popular && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-coral text-primary-foreground text-[10px] font-bold px-3 py-1 rounded-pill">✦ Most Popular</div>
               )}
               <div className="text-4xl mb-3">{t.icon}</div>
               <h3 className={`pf text-xl font-bold mb-1 ${t.popular ? "text-forest" : "text-primary-foreground"}`}>{t.name}</h3>
-              <div className={`text-2xl font-bold pf mb-2 ${t.popular ? "text-forest" : "text-coral"}`}>{t.range}</div>
+              <div className={`text-2xl font-bold pf mb-2 ${t.popular ? "text-forest" : "text-coral"}`}>
+                {idx === 0 ? "₦50,000 – ₦100,000" : idx === 1 ? "₦100,000 – ₦200,000" : "₦200,000 – ₦450,000"}
+              </div>
               <p className={`text-sm mb-1 ${t.popular ? "text-text-med" : "text-primary-foreground/60"}`}>{t.tagline}</p>
               <p className={`text-xs mb-4 ${t.popular ? "text-text-light" : "text-primary-foreground/40"}`}>{t.items}</p>
               <Link to="/quiz" className={`inline-block rounded-pill px-6 py-2.5 font-body font-semibold text-sm interactive ${t.popular ? "bg-forest text-primary-foreground hover:bg-forest-deep" : "bg-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/30"}`}>
@@ -330,7 +329,7 @@ function StickyMobileCTA() {
   if (!show) return null;
   return (
     <div className="fixed bottom-14 left-0 right-0 z-[80] bg-card border-t border-border p-3 md:hidden animate-slide-up">
-      <Link to="/quiz" className="block w-full rounded-pill bg-coral py-3.5 text-center font-body font-semibold text-primary-foreground text-sm">Build My Bundle →</Link>
+      <Link to="/quiz" className="block w-full rounded-pill bg-coral py-3.5 text-center font-body font-semibold text-primary-foreground text-sm">Build My List →</Link>
     </div>
   );
 }
