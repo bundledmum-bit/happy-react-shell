@@ -159,7 +159,7 @@ export default function ShareModal({ onClose, title, subtitle, items, totalPrice
     ctx.fillText("⭐ 4.9/5 · 200+ mums served · Free quiz · No login needed", 60, footerY + 185);
 
     setImageUrl(canvas.toDataURL("image/png"));
-  }, [title, items, totalPrice, badge, gender, hospitalType, budgetLabel, itemCount]);
+  };
 
   const fullShareText = `${shareText}\n\n${BRAND_CTA}\n\n${BRAND_INVITE} ${shareUrl}`;
 
