@@ -241,7 +241,7 @@ function ResultProductCard({ item, onAdd, onRemove, isInCart, cartItem, onQtyUpd
           {brandOos ? (
             <span className="rounded-pill bg-border px-3 py-1.5 text-[10px] font-semibold text-muted-foreground font-body">Sold Out</span>
           ) : isInCart && cartItem && onQtyUpdate ? (
-            <QtyControl qty={cartItem.qty} onUpdate={(newQty) => onQtyUpdate(cartItem._key, newQty)} />
+            <QtyControl qty={cartItem.qty} onUpdate={(newQty) => onQtyUpdate(cartItem._key, newQty)} maxQty={selectedBrand?.stockQuantity ?? undefined} />
           ) : (
             <button onClick={handleAdd} className="rounded-pill bg-forest px-3 py-1.5 text-[11px] font-semibold text-primary-foreground hover:bg-forest-deep font-body interactive">+ Add</button>
           )}

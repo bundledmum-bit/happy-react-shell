@@ -224,7 +224,7 @@ function FeaturedProducts() {
                       {p.brands.length > 1 && <div className="text-text-light text-[10px]">from {fmt(Math.min(...p.brands.map(b => b.price)))}</div>}
                     </div>
                     {isInCart && cartItem ? (
-                      <QtyControl qty={cartItem.qty} onUpdate={(newQty) => updateQty(cartItem._key, newQty)} />
+                      <QtyControl qty={cartItem.qty} onUpdate={(newQty) => updateQty(cartItem._key, newQty)} maxQty={brand.stockQuantity ?? undefined} />
                     ) : (
                       <button onClick={() => {
                         addToCart({ ...p, selectedBrand: brand, price: brand.price, name: `${p.name} (${brand.label})` });

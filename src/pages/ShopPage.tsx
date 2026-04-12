@@ -137,7 +137,7 @@ function ProductCard({ product, defaultBudget = "standard", forceBrand, onAdd, o
               <button onClick={() => toast("We'll notify you when it's back!")} className="text-forest text-[9px] font-semibold hover:underline">Notify me</button>
             </div>
           ) : isInCart && cartItem ? (
-            <QtyControl qty={cartItem.qty} onUpdate={handleQtyChange} />
+            <QtyControl qty={cartItem.qty} onUpdate={handleQtyChange} maxQty={selectedBrand.stockQuantity ?? undefined} />
           ) : (
             <button onClick={handleAdd} className="rounded-pill bg-forest px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-forest-deep font-body interactive">+ Add</button>
           )}

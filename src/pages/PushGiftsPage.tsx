@@ -128,7 +128,7 @@ function PushGiftCard({ product, onAdd, onViewDetail }: { product: Product; onAd
           {isOutOfStock ? (
             <span className="rounded-pill bg-border px-3 py-1.5 text-[10px] font-semibold text-text-light font-body">Sold Out</span>
           ) : isInCart && cartItem ? (
-            <QtyControl qty={cartItem.qty} onUpdate={(newQty) => updateQty(cartItem._key, newQty)} accentColor="coral" />
+            <QtyControl qty={cartItem.qty} onUpdate={(newQty) => updateQty(cartItem._key, newQty)} accentColor="coral" maxQty={selectedBrand.stockQuantity ?? undefined} />
           ) : (
             <button onClick={handleAdd} className="rounded-pill bg-coral px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-coral-dark font-body interactive">+ Add to Cart</button>
           )}
