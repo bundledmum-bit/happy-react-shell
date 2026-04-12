@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { X, Copy, Download, Check } from "lucide-react";
 import { toast } from "sonner";
+import brandLogoWhite from "@/assets/logos/BM-LOGO-WHITE.png";
 
 interface ShareModalProps {
   onClose: () => void;
