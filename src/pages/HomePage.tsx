@@ -18,7 +18,7 @@ function HeroSection() {
   const trustStats: string[][] = Array.isArray(settings?.trust_stats) ? settings.trust_stats : [];
 
   return (
-    <section className="min-h-screen flex items-center relative overflow-hidden" style={{ background: "linear-gradient(135deg, #2D6A4F 0%, #1E5C44 55%, #163D2E 100%)" }}>
+    <section className="md:min-h-screen flex items-center relative overflow-hidden" style={{ background: "linear-gradient(135deg, #2D6A4F 0%, #1E5C44 55%, #163D2E 100%)" }}>
       <div className="absolute w-[700px] h-[700px] rounded-full bg-primary-foreground/[0.025] -top-[250px] -right-[250px]" />
       <div className="absolute w-[350px] h-[350px] rounded-full bg-coral/[0.07] -bottom-[80px] -left-[80px]" />
 

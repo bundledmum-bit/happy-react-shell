@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useCart, fmt, getBrandForBudget } from "@/lib/cart";
 import { toast } from "sonner";
-import ProductDetailModal from "@/components/ProductDetailModal";
+import ProductDetailDrawer from "@/components/ProductDetailDrawer";
 import ProductImage from "@/components/ProductImage";
 import SpendMoreBanner from "@/components/SpendMoreBanner";
 import { supabase } from "@/integrations/supabase/client";
@@ -217,9 +217,7 @@ export default function PushGiftsPage() {
         )}
       </div>
 
-      {detailProduct && (
-        <ProductDetailModal product={detailProduct} onClose={() => setDetailProduct(null)} />
-      )}
+      <ProductDetailDrawer product={detailProduct} onClose={() => setDetailProduct(null)} />
     </div>
   );
 }

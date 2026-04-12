@@ -10,7 +10,7 @@ import ShareModal from "@/components/ShareModal";
 import ExitIntentPopup from "@/components/ExitIntentPopup";
 import ProductImage from "@/components/ProductImage";
 import QtyControl from "@/components/QtyControl";
-import ProductDetailModal from "@/components/ProductDetailModal";
+import ProductDetailDrawer from "@/components/ProductDetailDrawer";
 import { trackEvent, getSessionId, getReferralSource } from "@/lib/analytics";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuizQuestions, useQuizRoutingRules } from "@/hooks/useQuizConfig";
@@ -810,7 +810,7 @@ export default function QuizPage() {
             Now Shop the Family Essentials →
           </button>
         </div>
-        {detailProduct && <ProductDetailModal product={detailProduct} defaultBudget={answers.budget || "standard"} onClose={() => setDetailProduct(null)} />}
+        <ProductDetailDrawer product={detailProduct} defaultBudget={answers.budget || "standard"} onClose={() => setDetailProduct(null)} />
       </div>
     );
   }
@@ -1059,7 +1059,7 @@ export default function QuizPage() {
         )}
 
 
-        {detailProduct && <ProductDetailModal product={detailProduct} defaultBudget={answers.budget || "standard"} onClose={() => setDetailProduct(null)} />}
+        <ProductDetailDrawer product={detailProduct} defaultBudget={answers.budget || "standard"} onClose={() => setDetailProduct(null)} />
       </div>
     );
   }
@@ -1116,43 +1116,43 @@ export default function QuizPage() {
           </span>
         </div>
         <div className="flex justify-between mt-2">
-          <div className="text-muted-foreground text-xs">Step {currentIdx + 1} of {totalSteps}</div>
+          <div className="text-foreground/50 text-xs font-semibold">Step {currentIdx + 1} of {totalSteps}</div>
           {history.length > 0 && (
-            <button onClick={handleBack} className="text-muted-foreground text-xs flex items-center gap-1 font-body hover:text-foreground"><ArrowLeft className="h-3 w-3" /> Back</button>
+            <button onClick={handleBack} className="text-foreground/50 text-xs flex items-center gap-1 font-body hover:text-foreground min-h-[44px]"><ArrowLeft className="h-3 w-3" /> Back</button>
           )}
         </div>
       </div>
 
       <div className="animate-fade-in bg-card rounded-[22px] p-7 md:p-12 shadow-card-hover w-full max-w-[660px]" key={currentStep}>
         <div className="text-center mb-7">
-          <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-widest mb-2">{currentQuestion.sub_text || ""}</p>
-          <h2 className="pf text-xl md:text-[30px] leading-tight">{currentQuestion.question_text}</h2>
+          <p className="text-foreground/60 text-[11px] font-semibold uppercase tracking-widest mb-2">{currentQuestion.sub_text || ""}</p>
+          <h2 className="pf text-xl md:text-[30px] leading-tight text-foreground">{currentQuestion.question_text}</h2>
         </div>
         <div className="flex flex-col gap-2.5">
           {sortedOptions.map(opt => (
             <button key={opt.option_value} onClick={() => handleAnswer(currentQuestion.step_id, opt.option_value)}
-              className="flex items-center gap-3 p-3 md:p-4 rounded-[14px] border-2 text-left transition-all font-body border-border bg-card hover:border-forest hover:bg-forest-light">
+              className="flex items-center gap-3 p-3 md:p-4 rounded-[14px] border-2 text-left transition-all font-body border-border bg-card hover:border-forest hover:bg-forest-light min-h-[56px]">
               <div className="w-10 h-10 md:w-12 md:h-12 bg-warm-cream rounded-[13px] flex items-center justify-center text-xl md:text-2xl flex-shrink-0">{opt.option_emoji || "📋"}</div>
               <div className="flex-1">
-                <div className="font-bold text-[13px] md:text-[15px] flex items-center gap-2 flex-wrap">
+                <div className="font-bold text-[13px] md:text-[15px] flex items-center gap-2 flex-wrap text-foreground">
                   {opt.option_label}
                   {opt.price_modifier != null && opt.price_modifier > 0 && (
                     <span className="text-coral text-[10px] font-semibold">+{fmt(opt.price_modifier)}</span>
                   )}
                 </div>
-                {opt.option_description && <div className="text-muted-foreground text-xs mt-0.5">{opt.option_description}</div>}
+                {opt.option_description && <div className="text-foreground/60 text-xs mt-0.5">{opt.option_description}</div>}
               </div>
               <div className="w-4 h-4 rounded-full border-2 border-border flex-shrink-0" />
             </button>
           ))}
         </div>
         {currentQuestion.is_skippable && (
-          <button onClick={() => handleSkip(currentQuestion.step_id)} className="w-full mt-3 text-muted-foreground text-xs hover:text-forest transition-colors font-body">
+          <button onClick={() => handleSkip(currentQuestion.step_id)} className="w-full mt-3 text-foreground/50 text-xs hover:text-forest transition-colors font-body min-h-[44px]">
             ⏭️ Skip this question
           </button>
         )}
       </div>
-      <p className="text-muted-foreground text-xs mt-4 text-center">🔒 No login needed · Free forever</p>
+      <p className="text-foreground/50 text-xs mt-4 text-center">🔒 No login needed · Free forever</p>
     </div>
   );
 }
