@@ -18,7 +18,7 @@ function HeroSection() {
   return (
     <section className="md:min-h-screen flex items-center relative overflow-hidden" style={{ background: "linear-gradient(135deg, #2D6A4F 0%, #1E5C44 55%, #163D2E 100%)" }}>
       <div className="absolute w-[700px] h-[700px] rounded-full bg-primary-foreground/[0.025] -top-[250px] -right-[250px]" />
-      <div className="absolute w-[350px] h-[350px] rounded-full bg-coral/[0.07] -bottom-[80px] -left-[80px]" />
+      
 
       <div className="max-w-[1200px] mx-auto px-5 md:px-10 pt-24 md:pt-32 pb-16 md:pb-20 grid md:grid-cols-2 gap-10 md:gap-[72px] items-center w-full">
         <div>
