@@ -807,6 +807,7 @@ export default function QuizPage() {
             Now Shop the Family Essentials →
           </button>
         </div>
+        {detailProduct && <ProductDetailModal product={detailProduct} defaultBudget={answers.budget || "standard"} onClose={() => setDetailProduct(null)} />}
       </div>
     );
   }
@@ -1053,6 +1054,8 @@ export default function QuizPage() {
             Get Complete Bundle — {fmt(grandTotal)} →
           </button>
         </div>
+
+        {detailProduct && <ProductDetailModal product={detailProduct} defaultBudget={answers.budget || "standard"} onClose={() => setDetailProduct(null)} />}
       </div>
     );
   }
