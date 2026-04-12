@@ -126,12 +126,13 @@ async function completeQuizSession(answers: Answers, productCount: number, budge
 
 // ========= RESULT PRODUCT CARD =========
 
-function ResultProductCard({ item, onAdd, onRemove, isInCart, cartItem, fullProduct, onViewDetail }: {
+function ResultProductCard({ item, onAdd, onRemove, isInCart, cartItem, onQtyUpdate, fullProduct, onViewDetail }: {
   item: RecommendedProduct;
   onAdd: (overrideBrand?: any, overrideSize?: string) => void;
   onRemove: () => void;
   isInCart: boolean;
   cartItem?: { qty: number; _key: string } | null;
+  onQtyUpdate?: (key: string, qty: number) => void;
   fullProduct?: Product | null;
   onViewDetail?: () => void;
 }) {
@@ -239,10 +240,9 @@ function ResultProductCard({ item, onAdd, onRemove, isInCart, cartItem, fullProd
           </div>
           {brandOos ? (
             <span className="rounded-pill bg-border px-3 py-1.5 text-[10px] font-semibold text-muted-foreground font-body">Sold Out</span>
-          ) : isInCart && cartItem ? (
-            <QtyControl qty={cartItem.qty} onUpdate={(newQty) => {
-              const { updateQty } = require("@/lib/cart");
-            }} />
+          ) : isInCart && cartItem && onQtyUpdate ? (
+            <QtyControl qty={cartItem.qty} onUpdate={(newQty) => onQtyUpdate(cartItem._key, newQty)} />
+          ) : (
           ) : (
             <button onClick={handleAdd} className="rounded-pill bg-forest px-3 py-1.5 text-[11px] font-semibold text-primary-foreground hover:bg-forest-deep font-body interactive">+ Add</button>
           )}
