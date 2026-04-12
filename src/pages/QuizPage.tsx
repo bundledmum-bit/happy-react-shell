@@ -783,6 +783,7 @@ export default function QuizPage() {
                 onAdd={(brand, size) => handleAddProduct(item, brand, size)}
                 onRemove={() => handleRemoveProduct(item)}
                 fullProduct={productMap.get(item.product_id)}
+                onViewDetail={() => { const fp = productMap.get(item.product_id); if (fp) setDetailProduct(fp); }}
               />
             ))}
           </div>
@@ -958,6 +959,7 @@ export default function QuizPage() {
                     onAdd={(brand, size) => handleAddProduct(item, brand, size)}
                     onRemove={() => handleRemoveProduct(item)}
                     fullProduct={productMap.get(item.product_id)}
+                    onViewDetail={() => { const fp = productMap.get(item.product_id); if (fp) setDetailProduct(fp); }}
                   />
                 ))}
               </div>
@@ -976,6 +978,7 @@ export default function QuizPage() {
                     onAdd={(brand, size) => handleAddProduct(item, brand, size)}
                     onRemove={() => handleRemoveProduct(item)}
                     fullProduct={productMap.get(item.product_id)}
+                    onViewDetail={() => { const fp = productMap.get(item.product_id); if (fp) setDetailProduct(fp); }}
                   />
                 ))}
               </div>
@@ -993,6 +996,7 @@ export default function QuizPage() {
                     onAdd={(brand, size) => handleAddProduct(item, brand, size)}
                     onRemove={() => handleRemoveProduct(item)}
                     fullProduct={productMap.get(item.product_id)}
+                    onViewDetail={() => { const fp = productMap.get(item.product_id); if (fp) setDetailProduct(fp); }}
                   />
                 ))}
               </div>
