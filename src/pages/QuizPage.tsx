@@ -368,7 +368,7 @@ export default function QuizPage() {
   const [bothPhase, setBothPhase] = useState<"push-gift" | "family" | null>(null);
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const navigate = useNavigate();
-  const { addToCart, cart, setCart } = useCart();
+  const { addToCart, cart, setCart, updateQty } = useCart();
 
   // Fetch quiz config from Supabase
   const { data: questions = [], isLoading: questionsLoading } = useQuizQuestions();
