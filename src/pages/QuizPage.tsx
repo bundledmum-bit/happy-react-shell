@@ -369,6 +369,14 @@ export default function QuizPage() {
   // Fetch quiz config from Supabase
   const { data: questions = [], isLoading: questionsLoading } = useQuizQuestions();
   const { data: routingRules = [], isLoading: rulesLoading } = useQuizRoutingRules();
+  const { data: allProducts } = useAllProducts();
+
+  // Build a map from product_id → full Product for brand/size selectors
+  const productMap = useMemo(() => {
+    const map = new Map<string, Product>();
+    (allProducts || []).forEach(p => map.set(p.id, p));
+    return map;
+  }, [allProducts]);
 
   const configLoading = questionsLoading || rulesLoading;
 
