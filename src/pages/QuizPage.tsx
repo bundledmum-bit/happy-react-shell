@@ -138,7 +138,7 @@ function ResultProductCard({ item, onAdd, onRemove, isInCart }: {
           <span className="absolute top-2.5 right-2.5 bg-forest text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-pill z-10">×{item.quantity}</span>
         )}
         <ProductImage
-          imageUrl={item.brand.image_url || item.image_url}
+          imageUrl={item.brand?.image_url || item.image_url}
           emoji={item.emoji || "📦"}
           alt={item.name}
           className="w-full h-full group-hover:scale-110 transition-transform duration-300"
@@ -151,11 +151,11 @@ function ResultProductCard({ item, onAdd, onRemove, isInCart }: {
         <p className="text-muted-foreground text-[11px] leading-relaxed italic mb-2 line-clamp-2">{item.why_included}</p>
         <div className="mb-2.5">
           <p className="text-muted-foreground text-[10px] font-semibold uppercase tracking-wider mb-1">
-            {item.brand.brand_name} · {item.brand.tier}
+            {item.brand?.brand_name || "Standard"} · {item.brand?.tier || "standard"}
           </p>
         </div>
         <div className="flex items-end justify-between">
-          <p className="pf text-lg font-bold text-foreground">{fmt(item.brand.price * item.quantity)}</p>
+          <p className="pf text-lg font-bold text-foreground">{fmt((item.brand?.price || 0) * (item.quantity || 1))}</p>
           {isInCart ? (
             <button onClick={onRemove} className="rounded-pill bg-forest-light border border-forest text-forest px-3 py-1.5 text-[11px] font-semibold font-body interactive flex items-center gap-1">
               ✓ Added <span className="text-destructive hover:text-destructive">×</span>
@@ -620,11 +620,11 @@ export default function QuizPage() {
   const handleAddProduct = (item: RecommendedProduct) => {
     addToCart({
       id: item.product_id,
-      name: `${item.name} (${item.brand.brand_name})`,
+      name: `${item.name} (${item.brand?.brand_name || "Standard"})`,
       baseImg: item.emoji || "📦",
-      imageUrl: item.brand.image_url || item.image_url || undefined,
-      price: item.brand.price,
-      selectedBrand: { id: item.brand.id, label: item.brand.brand_name, price: item.brand.price, img: item.emoji || "📦", imageUrl: item.brand.image_url, tier: 1, color: "#E8F5E9" },
+      imageUrl: item.brand?.image_url || item.image_url || undefined,
+      price: item.brand?.price || 0,
+      selectedBrand: { id: item.brand?.id || item.product_id, label: item.brand?.brand_name || "Standard", price: item.brand?.price || 0, img: item.emoji || "📦", imageUrl: item.brand?.image_url || null, tier: 1, color: "#E8F5E9" },
       brands: [],
       category: item.category as any,
       rating: 4.5,
@@ -656,7 +656,7 @@ export default function QuizPage() {
   // ========= PUSH GIFT ONLY RESULTS (both path phase 1) =========
   if (showResults && bothPhase === "push-gift" && pushGiftRecommendation && !recommendation) {
     const pushProducts = pushGiftRecommendation;
-    const pushTotal = pushProducts.reduce((s, r) => s + r.brand.price * r.quantity, 0);
+    const pushTotal = pushProducts.reduce((s, r) => s + (r.brand?.price || 0) * (r.quantity || 1), 0);
     const budgetLabel = answers.pushGiftBudget === "push-starter" ? "Thoughtful" : answers.pushGiftBudget === "push-premium" ? "Go All Out" : "Generous";
 
     return (
@@ -719,8 +719,8 @@ export default function QuizPage() {
     const results = recommendation.products;
     const babyItems = results.filter(r => r.category === "baby");
     const mumItems = results.filter(r => r.category === "mum");
-    const totalValue = results.reduce((s, r) => s + r.brand.price * r.quantity, 0);
-    const pushTotal = pushGiftRecommendation ? pushGiftRecommendation.reduce((s, r) => s + r.brand.price * r.quantity, 0) : 0;
+    const totalValue = results.reduce((s, r) => s + (r.brand?.price || 0) * (r.quantity || 1), 0);
+    const pushTotal = pushGiftRecommendation ? pushGiftRecommendation.reduce((s, r) => s + (r.brand?.price || 0) * (r.quantity || 1), 0) : 0;
     const grandTotal = totalValue + pushTotal;
     const isGift = answers.shopper === "gift";
     const budget = answers.budget || "standard";
@@ -778,12 +778,12 @@ export default function QuizPage() {
     const handleShare = () => setShowShareModal(true);
     const handleCopyChecklist = () => {
       const allProducts = [...(pushGiftRecommendation || []), ...results];
-      const list = allProducts.map(r => `${r.quantity > 1 ? `×${r.quantity} ` : ""}${r.name} (${r.brand.brand_name}) — ${fmt(r.brand.price * r.quantity)}`).join("\n");
+      const list = allProducts.map(r => `${r.quantity > 1 ? `×${r.quantity} ` : ""}${r.name} (${r.brand?.brand_name || "Standard"}) — ${fmt((r.brand?.price || 0) * (r.quantity || 1))}`).join("\n");
       const text = `My BundledMum ${budgetLabel} Bundle\n${"=".repeat(30)}\n\n${list}\n\nTotal: ${fmt(grandTotal)}\n\nBuild yours: https://bundledmum.lovable.app/quiz`;
       navigator.clipboard.writeText(text).then(() => toast.success("Checklist copied to clipboard!"));
     };
 
-    const shareItems = [...(pushGiftRecommendation || []), ...results].map(r => ({ name: r.name, price: r.brand.price * r.quantity }));
+    const shareItems = [...(pushGiftRecommendation || []), ...results].map(r => ({ name: r.name, price: (r.brand?.price || 0) * (r.quantity || 1) }));
 
     return (
       <div className="min-h-screen bg-background pt-[68px] pb-16 md:pb-0">
