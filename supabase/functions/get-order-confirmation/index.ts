@@ -12,7 +12,28 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { order_number } = await req.json();
+    const body = await req.json();
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+    // Handle customer phone lookup
+    if (body.lookup_customer_phone) {
+      const { data } = await supabase
+        .from("customers")
+        .select("full_name, delivery_address, delivery_area, delivery_state")
+        .eq("phone", body.lookup_customer_phone)
+        .maybeSingle();
+
+      return new Response(
+        JSON.stringify({ customer: data }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Handle order confirmation lookup
+    const { order_number } = body;
 
     if (!order_number || typeof order_number !== "string") {
       return new Response(
@@ -20,10 +41,6 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     const { data, error } = await supabase
       .from("orders")
