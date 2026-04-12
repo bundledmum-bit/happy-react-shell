@@ -9,6 +9,7 @@ import { ArrowLeft, Check, Share2, ClipboardCopy, Loader2 } from "lucide-react";
 import ShareModal from "@/components/ShareModal";
 import ExitIntentPopup from "@/components/ExitIntentPopup";
 import ProductImage from "@/components/ProductImage";
+import ProductDetailModal from "@/components/ProductDetailModal";
 import { trackEvent, getSessionId, getReferralSource } from "@/lib/analytics";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuizQuestions, useQuizRoutingRules } from "@/hooks/useQuizConfig";
@@ -364,6 +365,7 @@ export default function QuizPage() {
   const [story, setStory] = useState("");
   const [loadingResults, setLoadingResults] = useState(false);
   const [bothPhase, setBothPhase] = useState<"push-gift" | "family" | null>(null);
+  const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const navigate = useNavigate();
   const { addToCart, cart, setCart } = useCart();
 
@@ -915,7 +917,7 @@ export default function QuizPage() {
               <div className="text-primary-foreground text-xs space-y-1">
                 <div className="flex justify-between"><span>Your bundle:</span><span className="font-bold">{fmt(grandTotal)}</span></div>
                 <div className="flex justify-between"><span>Free curation value:</span><span className="text-coral font-bold">~{fmt(curationSaving)}</span></div>
-                <div className="flex justify-between text-primary-foreground/50"><span>+ Free delivery over ₦30,000</span><span>🚚</span></div>
+                <div className="flex justify-between text-primary-foreground/50"><span>+ Free delivery on qualifying orders</span><span>🚚</span></div>
               </div>
               <p className="text-coral text-[11px] font-bold mt-1.5">You save time AND money with BundledMum 🎉</p>
             </div>
