@@ -656,7 +656,7 @@ export default function QuizPage() {
   // ========= PUSH GIFT ONLY RESULTS (both path phase 1) =========
   if (showResults && bothPhase === "push-gift" && pushGiftRecommendation && !recommendation) {
     const pushProducts = pushGiftRecommendation;
-    const pushTotal = pushProducts.reduce((s, r) => s + r.brand.price * r.quantity, 0);
+    const pushTotal = pushProducts.reduce((s, r) => s + (r.brand?.price || 0) * (r.quantity || 1), 0);
     const budgetLabel = answers.pushGiftBudget === "push-starter" ? "Thoughtful" : answers.pushGiftBudget === "push-premium" ? "Go All Out" : "Generous";
 
     return (
@@ -778,12 +778,12 @@ export default function QuizPage() {
     const handleShare = () => setShowShareModal(true);
     const handleCopyChecklist = () => {
       const allProducts = [...(pushGiftRecommendation || []), ...results];
-      const list = allProducts.map(r => `${r.quantity > 1 ? `×${r.quantity} ` : ""}${r.name} (${r.brand.brand_name}) — ${fmt(r.brand.price * r.quantity)}`).join("\n");
+      const list = allProducts.map(r => `${r.quantity > 1 ? `×${r.quantity} ` : ""}${r.name} (${r.brand?.brand_name || "Standard"}) — ${fmt((r.brand?.price || 0) * (r.quantity || 1))}`).join("\n");
       const text = `My BundledMum ${budgetLabel} Bundle\n${"=".repeat(30)}\n\n${list}\n\nTotal: ${fmt(grandTotal)}\n\nBuild yours: https://bundledmum.lovable.app/quiz`;
       navigator.clipboard.writeText(text).then(() => toast.success("Checklist copied to clipboard!"));
     };
 
-    const shareItems = [...(pushGiftRecommendation || []), ...results].map(r => ({ name: r.name, price: r.brand.price * r.quantity }));
+    const shareItems = [...(pushGiftRecommendation || []), ...results].map(r => ({ name: r.name, price: (r.brand?.price || 0) * (r.quantity || 1) }));
 
     return (
       <div className="min-h-screen bg-background pt-[68px] pb-16 md:pb-0">
