@@ -124,12 +124,13 @@ async function completeQuizSession(answers: Answers, productCount: number, budge
 
 // ========= RESULT PRODUCT CARD =========
 
-function ResultProductCard({ item, onAdd, onRemove, isInCart, fullProduct }: {
+function ResultProductCard({ item, onAdd, onRemove, isInCart, fullProduct, onViewDetail }: {
   item: RecommendedProduct;
   onAdd: (overrideBrand?: any, overrideSize?: string) => void;
   onRemove: () => void;
   isInCart: boolean;
   fullProduct?: Product | null;
+  onViewDetail?: () => void;
 }) {
   const brands = fullProduct?.brands || [];
   const sizes = fullProduct?.sizes || [];
