@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCart, fmt } from "@/lib/cart";
+import { useCart, fmt, getBrandForBudget } from "@/lib/cart";
+import { useAllProducts } from "@/hooks/useSupabaseData";
+import type { Product, Brand } from "@/lib/supabaseAdapters";
 import { toast } from "sonner";
 import { ArrowLeft, Check, Share2, ClipboardCopy, Loader2 } from "lucide-react";
 import ShareModal from "@/components/ShareModal";
