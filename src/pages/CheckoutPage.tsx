@@ -22,21 +22,25 @@ async function logOrderToSheets(orderData: Record<string, unknown>) {
   if (!url) return;
   try {
     const payload = {
-      orderNumber: orderData.orderNumber,
-      customerName: orderData.customerName,
+      order_id: orderData.orderNumber,
+      date_time: orderData.timestamp,
+      payment_status: orderData.paymentStatus,
+      payment_method: orderData.paymentMethod,
+      paystack_ref: orderData.paystackRef || "N/A",
+      customer_name: orderData.customerName,
+      email: orderData.email,
       phone: orderData.phone,
-      deliveryAddress: orderData.address,
+      delivery_address: `${orderData.address}`,
       city: orderData.city,
       state: orderData.state,
-      itemsOrdered: orderData.itemsSummary,
+      notes: orderData.deliveryNotes || "None",
+      items: orderData.itemsSummary,
       subtotal: orderData.subtotal,
-      deliveryFee: orderData.deliveryFee,
-      serviceFee: orderData.serviceFee,
+      delivery_fee: orderData.deliveryFee,
+      service_fee: orderData.serviceFee,
+      gift_wrap_fee: orderData.giftWrap ? orderData.giftWrapFee || 0 : 0,
       total: orderData.total,
-      paymentMethod: orderData.paymentMethod,
-      paymentStatus: orderData.paymentStatus,
-      orderStatus: "confirmed",
-      date: orderData.timestamp,
+      order_status: "confirmed",
     };
     await fetch(url, { method: "POST", body: JSON.stringify(payload) });
   } catch (err) { console.error("Sheet logging failed:", err); }
