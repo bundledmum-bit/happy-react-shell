@@ -51,11 +51,22 @@ export default function CheckoutPage() {
     const phone = form.phone.replace(/\D/g, "");
     if (phone.length >= 10 && !customerLookedUp) {
       setCustomerLookedUp(true);
-      // Use direct RPC-style fetch — customers table doesn't allow public SELECT
       supabase.functions.invoke("get-order-confirmation", {
         body: { lookup_customer_phone: form.phone },
       }).then(({ data }) => {
-        // Fallback: the edge function won't handle this, so silently skip
+        if (data?.customer) {
+          const c = data.customer;
+          const [first, ...rest] = (c.full_name || "").split(" ");
+          setForm(prev => ({
+            ...prev,
+            firstName: prev.firstName || first || "",
+            lastName: prev.lastName || rest.join(" ") || "",
+            address: prev.address || c.delivery_address || "",
+            city: prev.city || c.delivery_area || "",
+            state: prev.state || c.delivery_state || prev.state,
+          }));
+          toast.success("Welcome back! We've pre-filled your details.");
+        }
       }).catch(() => {});
     }
   }, [form.phone]);
