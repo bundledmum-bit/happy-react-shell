@@ -151,11 +151,11 @@ function ResultProductCard({ item, onAdd, onRemove, isInCart }: {
         <p className="text-muted-foreground text-[11px] leading-relaxed italic mb-2 line-clamp-2">{item.why_included}</p>
         <div className="mb-2.5">
           <p className="text-muted-foreground text-[10px] font-semibold uppercase tracking-wider mb-1">
-            {item.brand.brand_name} · {item.brand.tier}
+            {item.brand?.brand_name || "Standard"} · {item.brand?.tier || "standard"}
           </p>
         </div>
         <div className="flex items-end justify-between">
-          <p className="pf text-lg font-bold text-foreground">{fmt(item.brand.price * item.quantity)}</p>
+          <p className="pf text-lg font-bold text-foreground">{fmt((item.brand?.price || 0) * (item.quantity || 1))}</p>
           {isInCart ? (
             <button onClick={onRemove} className="rounded-pill bg-forest-light border border-forest text-forest px-3 py-1.5 text-[11px] font-semibold font-body interactive flex items-center gap-1">
               ✓ Added <span className="text-destructive hover:text-destructive">×</span>
