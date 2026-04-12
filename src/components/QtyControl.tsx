@@ -11,10 +11,10 @@ interface QtyControlProps {
 export default function QtyControl({ qty, onUpdate, maxQty, size = "sm", accentColor = "forest" }: QtyControlProps) {
   const isForest = accentColor === "forest";
   const btnBase = size === "sm"
-    ? "w-6 h-6 rounded-full flex items-center justify-center transition-colors"
-    : "w-8 h-8 rounded-full flex items-center justify-center transition-colors";
-  const iconSize = size === "sm" ? "h-3 w-3" : "h-4 w-4";
-  const textSize = size === "sm" ? "text-xs" : "text-sm";
+    ? "w-9 h-9 rounded-full flex items-center justify-center transition-colors"
+    : "w-11 h-11 rounded-full flex items-center justify-center transition-colors";
+  const iconSize = size === "sm" ? "h-3.5 w-3.5" : "h-4 w-4";
+  const textSize = size === "sm" ? "text-sm" : "text-base";
 
   const borderColor = isForest ? "border-forest" : "border-coral";
   const bgLight = isForest ? "bg-forest-light" : "bg-coral/10";
@@ -32,7 +32,7 @@ export default function QtyControl({ qty, onUpdate, maxQty, size = "sm", accentC
       >
         <Minus className={iconSize} />
       </button>
-      <span className={`${textSize} font-bold ${textColor} min-w-[20px] text-center select-none`}>{qty}</span>
+      <span className={`${textSize} font-bold ${textColor} min-w-[24px] text-center select-none`}>{qty}</span>
       <button
         onClick={() => { if (!atMax) onUpdate(qty + 1); }}
         className={`${btnBase} ${atMax ? "bg-border cursor-not-allowed text-muted-foreground" : `${bgSolid} text-primary-foreground`}`}

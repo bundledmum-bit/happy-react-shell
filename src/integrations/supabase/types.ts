@@ -3418,6 +3418,10 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: undefined
       }
+      stock_notification_rate_ok: {
+        Args: { p_email: string }
+        Returns: boolean
+      }
       validate_coupon: {
         Args: { coupon_code: string; order_amount: number }
         Returns: Json

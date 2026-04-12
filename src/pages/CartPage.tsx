@@ -60,14 +60,47 @@ export default function CartPage() {
 
   if (!totalItems && savedItems.length === 0) {
     return (
-      <div className="min-h-screen bg-background pt-20 flex items-center justify-center">
-        <div className="text-center animate-fade-up">
-          <ShoppingBag className="mx-auto h-16 w-16 text-text-light mb-4" />
+      <div className="min-h-screen bg-background pt-20 pb-20">
+        <div className="max-w-[600px] mx-auto px-4 text-center animate-fade-up pt-10">
+          <ShoppingBag className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
           <h1 className="pf text-2xl mb-2">Your cart is empty 🛍️</h1>
-          <p className="font-body text-text-med mb-6">Start building your perfect hospital bag</p>
-          <Link to="/bundles" className="rounded-pill bg-coral px-8 py-3 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive inline-block">
-            Browse Bundles →
-          </Link>
+          <p className="font-body text-muted-foreground mb-6">Start building your perfect hospital bag</p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center mb-10">
+            <Link to="/bundles" className="rounded-pill bg-coral px-8 py-3 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive inline-block min-h-[48px] flex items-center justify-center">
+              Browse Bundles →
+            </Link>
+            <Link to="/quiz" className="rounded-pill border-2 border-forest text-forest px-8 py-3 font-body font-semibold hover:bg-forest/5 interactive inline-block min-h-[48px] flex items-center justify-center">
+              Take the Quiz →
+            </Link>
+          </div>
+
+          {/* Trust badges */}
+          <div className="flex flex-wrap gap-3 justify-center mb-10">
+            <div className="bg-forest-light rounded-lg px-4 py-3 text-xs text-forest font-semibold">🚚 Free delivery over ₦30,000</div>
+            <div className="bg-forest-light rounded-lg px-4 py-3 text-xs text-forest font-semibold">🔒 Secure Paystack checkout</div>
+            <div className="bg-forest-light rounded-lg px-4 py-3 text-xs text-forest font-semibold">💬 WhatsApp support</div>
+          </div>
+
+          {/* Popular items */}
+          {ALL_PRODUCTS.length > 0 && (
+            <div>
+              <h3 className="pf text-lg text-forest mb-4">✨ Popular Items</h3>
+              <div className="overflow-x-auto -mx-4 px-4 scrollbar-hide">
+                <div className="flex gap-3" style={{ minWidth: "max-content" }}>
+                  {ALL_PRODUCTS.filter(p => p.badge || p.rating >= 4.8).slice(0, 6).map(p => {
+                    const brand = p.brands[Math.min(1, p.brands.length - 1)];
+                    return (
+                      <Link to="/shop" key={p.id} className="bg-card rounded-card shadow-card p-3 text-center min-w-[140px] max-w-[160px]">
+                        <ProductImage imageUrl={p.imageUrl} emoji={p.baseImg} alt={p.name} className="h-20 w-full rounded-lg mb-2" emojiClassName="text-3xl" bgColor={brand?.color} />
+                        <p className="text-[11px] font-semibold truncate mb-1">{p.name}</p>
+                        <p className="text-forest text-xs font-bold">{fmt(brand?.price || 0)}</p>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );

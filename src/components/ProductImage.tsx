@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 
 interface ProductImageProps {
   imageUrl?: string | null;
@@ -11,8 +12,8 @@ interface ProductImageProps {
 }
 
 /**
- * Renders a product image with emoji fallback.
- * Chain: imageUrl → emoji → 📦
+ * Renders a product image with skeleton loading and emoji fallback.
+ * Chain: imageUrl (with skeleton) → emoji → 📦
  */
 export default function ProductImage({
   imageUrl,
@@ -24,13 +25,14 @@ export default function ProductImage({
   bgColor,
 }: ProductImageProps) {
   const [broken, setBroken] = useState(false);
+  const [loading, setLoading] = useState(!!imageUrl);
 
   const fallbackEmoji = emoji || "📦";
 
   if (!imageUrl || broken) {
     return (
       <div
-        className={`flex items-center justify-center ${className}`}
+        className={cn("flex items-center justify-center", className)}
         style={bgColor ? { backgroundColor: bgColor } : undefined}
       >
         <span className={emojiClassName}>{fallbackEmoji}</span>
@@ -39,12 +41,18 @@ export default function ProductImage({
   }
 
   return (
-    <img
-      src={imageUrl}
-      alt={alt}
-      className={`object-cover ${className}`}
-      loading="lazy"
-      onError={() => setBroken(true)}
-    />
+    <div className={cn("relative", className)} style={bgColor ? { backgroundColor: bgColor } : undefined}>
+      {loading && (
+        <div className="absolute inset-0 animate-pulse bg-muted rounded-md" />
+      )}
+      <img
+        src={imageUrl}
+        alt={alt}
+        className={cn("object-cover w-full h-full", loading ? "opacity-0" : "opacity-100 transition-opacity duration-300")}
+        loading="lazy"
+        onLoad={() => setLoading(false)}
+        onError={() => { setBroken(true); setLoading(false); }}
+      />
+    </div>
   );
 }
