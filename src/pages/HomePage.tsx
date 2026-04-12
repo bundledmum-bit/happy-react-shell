@@ -2,16 +2,14 @@ import { Link } from "react-router-dom";
 import { useCart, fmt, getBrandForBudget } from "@/lib/cart";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
-import BudgetCalculator from "@/components/BudgetCalculator";
 import { useAllProducts, useTestimonials, useSiteSettings, useBundles } from "@/hooks/useSupabaseData";
 import type { Product } from "@/lib/supabaseAdapters";
 import ProductImage from "@/components/ProductImage";
 import QtyControl from "@/components/QtyControl";
+import bundleHeroImg from "@/assets/bundle-hero.jpg";
 
 function HeroSection() {
-  const { data: bundles } = useBundles();
   const { data: settings } = useSiteSettings();
-  const topBundles = (bundles || []).slice(0, 3);
 
   const heroBadge = settings?.hero_badge || "";
   const heroTitle = settings?.hero_title || "";
@@ -54,19 +52,29 @@ function HeroSection() {
           )}
         </div>
 
-        <div className="hidden md:block">
-          <BudgetCalculator />
+        {/* Desktop: branded bundle image + CTA */}
+        <div className="hidden md:flex flex-col items-center text-center">
+          <div className="rounded-[24px] overflow-hidden shadow-2xl mb-6 max-w-[380px]">
+            <img src={bundleHeroImg} alt="Pre-packed hospital bag bundle with baby essentials" width={380} height={380} className="w-full h-auto object-cover" />
+          </div>
+          <h3 className="pf text-primary-foreground text-xl font-bold mb-2">Pre-Packed Hospital Lists</h3>
+          <p className="text-primary-foreground/60 text-sm mb-4 max-w-[340px]">Browse our ready-made hospital lists based on your budget — fully customizable to fit your needs.</p>
+          <Link to="/bundles" className="rounded-pill bg-coral px-8 py-3.5 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-sm">
+            Explore Hospital Lists →
+          </Link>
         </div>
 
-        <div className="md:hidden overflow-x-auto -mx-5 px-5">
-          <div className="flex gap-3" style={{ minWidth: "max-content" }}>
-            {topBundles.map(c => (
-              <Link to="/bundles" key={c.id} className="rounded-xl p-3 text-center min-w-[130px]" style={{ background: `${c.color}26` }}>
-                <div className="text-2xl">{c.icon}</div>
-                <div className="text-primary-foreground text-[10px] font-semibold mt-1">{c.name.split("·").slice(0, 2).join("·").trim()}</div>
-                <div className="text-coral font-bold text-[11px] mt-0.5">{fmt(c.price)}</div>
-              </Link>
-            ))}
+        {/* Mobile: compact bundle CTA */}
+        <div className="md:hidden -mx-5 px-5">
+          <div className="bg-primary-foreground/[0.08] border border-primary-foreground/[0.12] rounded-[20px] p-5 text-center">
+            <div className="w-20 h-20 rounded-2xl overflow-hidden mx-auto mb-3 shadow-lg">
+              <img src={bundleHeroImg} alt="Pre-packed hospital bag bundle" width={80} height={80} className="w-full h-full object-cover" />
+            </div>
+            <h3 className="pf text-primary-foreground text-[15px] font-bold mb-1.5">Pre-Packed Hospital Lists</h3>
+            <p className="text-primary-foreground/55 text-[12px] mb-3 leading-relaxed">Ready-made lists based on your budget — fully customizable.</p>
+            <Link to="/bundles" className="block w-full rounded-pill bg-coral py-3 font-body font-semibold text-primary-foreground text-sm hover:bg-coral-dark interactive">
+              Explore Hospital Lists →
+            </Link>
           </div>
         </div>
       </div>
