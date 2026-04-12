@@ -51,25 +51,23 @@ export default function CheckoutPage() {
     const phone = form.phone.replace(/\D/g, "");
     if (phone.length >= 10 && !customerLookedUp) {
       setCustomerLookedUp(true);
-      supabase
-        .from("customers")
-        .select("full_name, delivery_address, delivery_area, delivery_state")
-        .eq("phone", form.phone)
-        .maybeSingle()
-        .then(({ data }) => {
-          if (data) {
-            const [first, ...rest] = (data.full_name || "").split(" ");
-            setForm(prev => ({
-              ...prev,
-              firstName: prev.firstName || first || "",
-              lastName: prev.lastName || rest.join(" ") || "",
-              address: prev.address || data.delivery_address || "",
-              city: prev.city || data.delivery_area || "",
-              state: prev.state || data.delivery_state || prev.state,
-            }));
-            toast.success("Welcome back! We've pre-filled your details.");
-          }
-        });
+      supabase.functions.invoke("get-order-confirmation", {
+        body: { lookup_customer_phone: form.phone },
+      }).then(({ data }) => {
+        if (data?.customer) {
+          const c = data.customer;
+          const [first, ...rest] = (c.full_name || "").split(" ");
+          setForm(prev => ({
+            ...prev,
+            firstName: prev.firstName || first || "",
+            lastName: prev.lastName || rest.join(" ") || "",
+            address: prev.address || c.delivery_address || "",
+            city: prev.city || c.delivery_area || "",
+            state: prev.state || c.delivery_state || prev.state,
+          }));
+          toast.success("Welcome back! We've pre-filled your details.");
+        }
+      }).catch(() => {});
     }
   }, [form.phone]);
 
@@ -217,144 +215,85 @@ export default function CheckoutPage() {
       // Get traffic attribution
       const attribution = getAttribution();
 
-      const { data: order, error: orderError } = await supabase
-        .from("orders")
-        .insert({
-          customer_name: `${form.firstName} ${form.lastName}`,
-          customer_email: form.email,
-          customer_phone: form.phone,
-          delivery_address: form.address,
-          delivery_city: form.city,
-          delivery_state: form.state,
-          delivery_notes: form.notes || null,
-          subtotal: orderData.subtotal,
-          delivery_fee: orderData.deliveryFee,
-          service_fee: orderData.serviceFee,
-          total: orderData.total,
-          discount: 0,
-          discount_amount: couponDiscount > 0 ? couponDiscount : 0,
-          coupon_id: appliedCoupon?.id || null,
-          spend_discount_amount: spendDiscount > 0 ? spendDiscount : 0,
-          spend_discount_percent: spendPrompt?.currentDiscount?.discount_percent || null,
-          referral_code_used: null,
-          payment_reference: orderData.paystackRef,
-          payment_status: orderData.paymentStatus === "PAID" ? "paid" : "pending",
-          payment_method: orderData.paymentMethod,
-          order_status: "confirmed",
-          gift_wrapping: orderData.giftWrap,
-          estimated_delivery_start: fromDate.toISOString().split("T")[0],
-          estimated_delivery_end: toDate.toISOString().split("T")[0],
-          quiz_answers: quizAnswers,
-          is_quiz_order: isQuizOrder,
-          utm_source: attribution.utm_source,
-          utm_medium: attribution.utm_medium,
-          utm_campaign: attribution.utm_campaign,
-          utm_content: attribution.utm_content,
-          utm_term: attribution.utm_term,
-          traffic_source: attribution.traffic_source,
-          referrer: attribution.referrer,
-          landing_page: attribution.landing_page,
-        })
-        .select("id, order_number")
-        .single();
+      // Use edge function to place order (bypasses RLS SELECT restriction)
+      const quizSessionId = localStorage.getItem("bm_quiz_session_id");
+      const { data: result, error: fnError } = await supabase.functions.invoke("place-order", {
+        body: {
+          order: {
+            customer_name: `${form.firstName} ${form.lastName}`,
+            customer_email: form.email,
+            customer_phone: form.phone,
+            delivery_address: form.address,
+            delivery_city: form.city,
+            delivery_state: form.state,
+            delivery_notes: form.notes || null,
+            subtotal: orderData.subtotal,
+            delivery_fee: orderData.deliveryFee,
+            service_fee: orderData.serviceFee,
+            total: orderData.total,
+            discount: 0,
+            discount_amount: couponDiscount > 0 ? couponDiscount : 0,
+            coupon_id: appliedCoupon?.id || null,
+            spend_discount_amount: spendDiscount > 0 ? spendDiscount : 0,
+            spend_discount_percent: spendPrompt?.currentDiscount?.discount_percent || null,
+            payment_reference: orderData.paystackRef,
+            payment_status: orderData.paymentStatus === "PAID" ? "paid" : "pending",
+            payment_method: orderData.paymentMethod,
+            order_status: "confirmed",
+            gift_wrapping: orderData.giftWrap,
+            estimated_delivery_start: fromDate.toISOString().split("T")[0],
+            estimated_delivery_end: toDate.toISOString().split("T")[0],
+            quiz_answers: quizAnswers,
+            is_quiz_order: isQuizOrder,
+            utm_source: attribution.utm_source,
+            utm_medium: attribution.utm_medium,
+            utm_campaign: attribution.utm_campaign,
+            utm_content: attribution.utm_content,
+            utm_term: attribution.utm_term,
+            traffic_source: attribution.traffic_source,
+            referrer: attribution.referrer,
+            landing_page: attribution.landing_page,
+          },
+          items: cart.map(item => ({
+            name: item.name,
+            brandName: item.selectedBrand?.label || "Standard",
+            qty: item.qty,
+            price: item.price,
+            size: item.selectedSize || null,
+            color: item.selectedColor || null,
+          })),
+          customer: {
+            email: form.email,
+            name: `${form.firstName} ${form.lastName}`,
+            phone: form.phone,
+            address: form.address,
+            city: form.city,
+            state: form.state,
+          },
+          quiz: {
+            sessionId: quizSessionId || sessionId,
+          },
+        },
+      });
 
-      if (orderError || !order) {
-        console.error("Order insert failed:", orderError);
-        console.error("Order insert error details:", JSON.stringify(orderError));
-        toast.error(`Order failed: ${orderError?.message || "Unknown error"}`);
+      if (fnError || !result?.id) {
+        console.error("place-order failed:", fnError, result);
+        toast.error(`Order failed: ${fnError?.message || result?.error || "Unknown error"}`);
         return null;
       }
-
-      // If DB trigger hasn't populated order_number yet, re-fetch it
-      let finalOrderNumber = order.order_number;
-      if (!finalOrderNumber) {
-        for (let i = 0; i < 5; i++) {
-          await new Promise(r => setTimeout(r, 1000));
-          const { data: refetched } = await supabase
-            .from("orders")
-            .select("order_number")
-            .eq("id", order.id)
-            .single();
-          if (refetched?.order_number) {
-            finalOrderNumber = refetched.order_number;
-            break;
-          }
-        }
-      }
-
-      // Insert order items
-      const orderItems = cart.map(item => ({
-        order_id: order.id,
-        product_name: item.name,
-        brand_name: item.selectedBrand?.label || "Standard",
-        quantity: item.qty,
-        unit_price: item.price,
-        line_total: item.price * item.qty,
-        size: item.selectedSize || null,
-      }));
-
-      await supabase.from("order_items").insert(orderItems);
-
-      // Upsert customer record
-      try {
-        const customerName = `${form.firstName} ${form.lastName}`;
-        const { data: existing } = await supabase.from("customers").select("id, total_orders, total_spent").eq("email", form.email).maybeSingle();
-        if (existing) {
-          await supabase.from("customers").update({
-            full_name: customerName,
-            phone: form.phone,
-            delivery_address: form.address,
-            delivery_area: form.city,
-            delivery_state: form.state,
-            total_orders: (existing.total_orders || 0) + 1,
-            total_spent: (existing.total_spent || 0) + orderData.total,
-            last_order_at: new Date().toISOString(),
-          }).eq("id", existing.id);
-        } else {
-          await supabase.from("customers").insert({
-            email: form.email,
-            full_name: customerName,
-            phone: form.phone,
-            delivery_address: form.address,
-            delivery_area: form.city,
-            delivery_state: form.state,
-            total_orders: 1,
-            total_spent: orderData.total,
-            last_order_at: new Date().toISOString(),
-          });
-        }
-      } catch (e) { console.error("Customer upsert failed:", e); }
 
       // Mark session as converted
       markSessionConverted();
 
-      // Mark quiz_customers as purchased using RPC
-      try {
-        const quizSessionId = localStorage.getItem("bm_quiz_session_id");
-        const targetSessionId = quizSessionId || sessionId;
-        if (targetSessionId) {
-          const { data: rpcResult, error: rpcError } = await supabase.rpc("mark_quiz_lead_purchased", {
-            p_session_id: targetSessionId,
-            p_order_id: order.id,
-            p_order_amount: orderData.total,
-          });
-          if (rpcError) {
-            console.error("mark_quiz_lead_purchased RPC error:", rpcError);
-          } else {
-            console.log("mark_quiz_lead_purchased result:", rpcResult);
-          }
-        }
-      } catch (e) { console.error("Quiz customer update failed:", e); }
-
       // Track order_placed event
       trackEvent("order_placed", {
-        order_id: order.id,
-        order_number: finalOrderNumber,
+        order_id: result.id,
+        order_number: result.order_number,
         total: orderData.total,
         item_count: cart.length,
       });
 
-      return { id: order.id, orderNumber: finalOrderNumber };
+      return { id: result.id, orderNumber: result.order_number };
     } catch (e) {
       console.error("DB save failed:", e);
       return null;
