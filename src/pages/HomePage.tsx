@@ -54,23 +54,20 @@ function HeroSection() {
 
         {/* Desktop: branded bundle image + CTA */}
         <div className="hidden md:flex flex-col items-center text-center">
-          <div className="rounded-[24px] overflow-hidden shadow-2xl mb-6 max-w-[460px]">
-            <img src={bundleHeroImg} alt="Pre-packed hospital bag bundle with baby essentials" width={460} height={614} className="w-full h-auto object-cover" />
+          <div className="rounded-[24px] overflow-hidden shadow-2xl mb-5 max-w-[340px]">
+            <img src={bundleHeroImg} alt="Pre-packed hospital bag bundle with baby essentials" width={340} height={453} className="w-full h-auto object-cover" />
           </div>
-          <h3 className="pf text-primary-foreground text-xl font-bold mb-2">Pre-Packed Hospital Lists</h3>
-          <p className="text-primary-foreground/60 text-sm mb-4 max-w-[340px]">Browse our ready-made hospital lists based on your budget — fully customizable to fit your needs.</p>
-          <Link to="/bundles" className="rounded-pill bg-coral px-8 py-3.5 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-sm">
+          <h3 className="pf text-primary-foreground text-lg font-bold mb-1.5">Pre-Packed Hospital Lists</h3>
+          <p className="text-primary-foreground/60 text-[13px] mb-3 max-w-[320px]">Browse our ready-made hospital lists based on your budget — fully customizable.</p>
+          <Link to="/bundles" className="rounded-pill bg-coral px-7 py-3 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-sm">
             Explore Hospital Lists →
           </Link>
         </div>
 
-        {/* Mobile: compact bundle CTA */}
+        {/* Mobile: compact bundle CTA (no image) */}
         <div className="md:hidden -mx-5 px-5">
-          <div className="bg-primary-foreground/[0.08] border border-primary-foreground/[0.12] rounded-[20px] p-5 text-center">
-            <div className="w-20 h-20 rounded-2xl overflow-hidden mx-auto mb-3 shadow-lg">
-              <img src={bundleHeroImg} alt="Pre-packed hospital bag bundle" width={80} height={80} className="w-full h-full object-cover" />
-            </div>
-            <h3 className="pf text-primary-foreground text-[15px] font-bold mb-1.5">Pre-Packed Hospital Lists</h3>
+          <div className="bg-primary-foreground/[0.08] border border-primary-foreground/[0.12] rounded-[16px] p-4 text-center">
+            <h3 className="pf text-primary-foreground text-[15px] font-bold mb-1">📦 Pre-Packed Hospital Lists</h3>
             <p className="text-primary-foreground/55 text-[12px] mb-3 leading-relaxed">Ready-made lists based on your budget — fully customizable.</p>
             <Link to="/bundles" className="block w-full rounded-pill bg-coral py-3 font-body font-semibold text-primary-foreground text-sm hover:bg-coral-dark interactive">
               Explore Hospital Lists →
