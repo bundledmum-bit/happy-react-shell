@@ -260,6 +260,8 @@ export default function CheckoutPage() {
 
       if (orderError || !order) {
         console.error("Order insert failed:", orderError);
+        console.error("Order insert error details:", JSON.stringify(orderError));
+        toast.error(`Order failed: ${orderError?.message || "Unknown error"}`);
         return null;
       }
 
