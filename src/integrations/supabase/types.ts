@@ -2171,14 +2171,28 @@ export type Database = {
           baby_gender: string | null
           budget_tier: string | null
           created_at: string | null
+          dad_purpose: string | null
           delivery_method: string | null
+          first_baby: boolean | null
+          full_answers: Json | null
+          gift_message: string | null
+          gift_wrap: boolean | null
           has_purchased: boolean | null
           hospital_type: string | null
           id: string
+          multiples: string | null
           order_id: string | null
           page_url: string | null
+          purchase_amount: number | null
+          purchased_at: string | null
+          push_gift_budget: string | null
+          push_gift_category: string | null
+          push_gift_timing: string | null
           referral_source: string | null
+          scope: string | null
           session_id: string | null
+          shopper_type: string | null
+          stage: string | null
           updated_at: string | null
           whatsapp_number: string | null
         }
@@ -2186,14 +2200,28 @@ export type Database = {
           baby_gender?: string | null
           budget_tier?: string | null
           created_at?: string | null
+          dad_purpose?: string | null
           delivery_method?: string | null
+          first_baby?: boolean | null
+          full_answers?: Json | null
+          gift_message?: string | null
+          gift_wrap?: boolean | null
           has_purchased?: boolean | null
           hospital_type?: string | null
           id?: string
+          multiples?: string | null
           order_id?: string | null
           page_url?: string | null
+          purchase_amount?: number | null
+          purchased_at?: string | null
+          push_gift_budget?: string | null
+          push_gift_category?: string | null
+          push_gift_timing?: string | null
           referral_source?: string | null
+          scope?: string | null
           session_id?: string | null
+          shopper_type?: string | null
+          stage?: string | null
           updated_at?: string | null
           whatsapp_number?: string | null
         }
@@ -2201,14 +2229,28 @@ export type Database = {
           baby_gender?: string | null
           budget_tier?: string | null
           created_at?: string | null
+          dad_purpose?: string | null
           delivery_method?: string | null
+          first_baby?: boolean | null
+          full_answers?: Json | null
+          gift_message?: string | null
+          gift_wrap?: boolean | null
           has_purchased?: boolean | null
           hospital_type?: string | null
           id?: string
+          multiples?: string | null
           order_id?: string | null
           page_url?: string | null
+          purchase_amount?: number | null
+          purchased_at?: string | null
+          push_gift_budget?: string | null
+          push_gift_category?: string | null
+          push_gift_timing?: string | null
           referral_source?: string | null
+          scope?: string | null
           session_id?: string | null
+          shopper_type?: string | null
+          stage?: string | null
           updated_at?: string | null
           whatsapp_number?: string | null
         }
@@ -3284,6 +3326,14 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
       is_admin_user: { Args: never; Returns: boolean }
       is_sensitive_realtime_topic: { Args: { topic: string }; Returns: boolean }
+      mark_quiz_lead_purchased: {
+        Args: {
+          p_order_amount?: number
+          p_order_id: string
+          p_session_id: string
+        }
+        Returns: boolean
+      }
       orders_paid_only_restricted: { Args: never; Returns: boolean }
       run_push_gift_recommendation: {
         Args: { p_budget_tier: string; p_category: string; p_timing: string }
@@ -3301,6 +3351,31 @@ export type Database = {
           p_scope: string
           p_shopper_type?: string
           p_stage: string
+        }
+        Returns: Json
+      }
+      save_quiz_lead: {
+        Args: {
+          p_baby_gender?: string
+          p_budget_tier?: string
+          p_dad_purpose?: string
+          p_delivery_method?: string
+          p_first_baby?: boolean
+          p_full_answers?: Json
+          p_gift_message?: string
+          p_gift_wrap?: boolean
+          p_hospital_type?: string
+          p_multiples?: string
+          p_page_url?: string
+          p_push_gift_budget?: string
+          p_push_gift_category?: string
+          p_push_gift_timing?: string
+          p_referral_source?: string
+          p_scope?: string
+          p_session_id: string
+          p_shopper_type?: string
+          p_stage?: string
+          p_whatsapp_number?: string
         }
         Returns: Json
       }
