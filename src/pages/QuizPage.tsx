@@ -1001,6 +1001,8 @@ export default function QuizPage() {
                     key={item.product_id}
                     item={item}
                     isInCart={addedIds.has(item.product_id)}
+                    cartItem={cart.find(c => c.id === item.product_id)}
+                    onQtyUpdate={updateQty}
                     onAdd={(brand, size) => handleAddProduct(item, brand, size)}
                     onRemove={() => handleRemoveProduct(item)}
                     fullProduct={productMap.get(item.product_id)}
