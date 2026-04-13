@@ -492,8 +492,11 @@ function OrderDetailPage({ order: o, adminUser, can, isSuperAdmin, onBack, onPri
         <div className="space-y-1">
           {(o.order_items || []).map((item: any) => (
             <div key={item.id} className="flex justify-between text-xs bg-muted/30 rounded p-2">
-              <span>{item.bundle_name ? `${item.bundle_name} — ` : ""}{item.product_name} ({item.brand_name}){item.size ? ` · ${item.size}` : ""}{item.color ? ` · ${item.color}` : ""} × {item.quantity}</span>
-              {showFinance && <span className="font-semibold">{fmt(item.line_total || 0)}</span>}
+              <div className="min-w-0">
+                {item.bundle_name && <div className="text-[10px] font-bold text-coral mb-0.5">📦 {item.bundle_name}</div>}
+                <span>{item.product_name} ({item.brand_name}){item.size ? ` · ${item.size}` : ""}{item.color ? ` · ${item.color}` : ""} × {item.quantity}</span>
+              </div>
+              {showFinance && <span className="font-semibold flex-shrink-0 ml-2">{fmt(item.line_total || 0)}</span>}
             </div>
           ))}
         </div>
