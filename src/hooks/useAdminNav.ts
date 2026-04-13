@@ -19,7 +19,7 @@ export function useAdminNav() {
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_admin_nav");
       if (error) throw error;
-      return (data || []) as AdminNavItem[];
+      return (data || []) as unknown as AdminNavItem[];
     },
     enabled: !!user,
     staleTime: 60_000,

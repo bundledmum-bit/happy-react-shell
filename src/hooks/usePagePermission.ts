@@ -13,7 +13,7 @@ export function usePagePermission(module: string, action: string) {
     queryKey: ["admin-permission", user?.id, module, action],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("has_admin_permission", {
-        p_module: module,
+        p_section: module,
         p_action: action,
       });
       if (error) throw error;
