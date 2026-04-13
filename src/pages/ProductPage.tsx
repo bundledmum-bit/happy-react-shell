@@ -317,7 +317,7 @@ function ProductPageContent({ product, raw, settings }: { product: Product; raw:
                   <Link to="/cart" className="text-forest text-sm font-semibold hover:underline font-body">View Cart →</Link>
                 </div>
               ) : (
-                <button onClick={handleAdd} className="rounded-pill bg-forest px-8 py-3.5 text-sm font-semibold text-primary-foreground hover:bg-forest-deep font-body interactive flex items-center gap-2 min-h-[48px] flex-1 justify-center">
+                <button onClick={handleAdd} className="rounded-pill px-8 py-3.5 text-sm font-semibold text-primary-foreground font-body interactive flex items-center gap-2 min-h-[48px] flex-1 justify-center" style={{ backgroundColor: "#F4845F" }}>
                   <ShoppingBag className="h-5 w-5" /> Add to Cart
                 </button>
               )}
@@ -469,7 +469,7 @@ function ProductPageContent({ product, raw, settings }: { product: Product; raw:
             <Link to="/cart" className="text-forest text-sm font-semibold">Cart →</Link>
           </div>
         ) : (
-          <button onClick={handleAdd} className="rounded-pill bg-forest px-6 py-3 text-sm font-semibold text-primary-foreground hover:bg-forest-deep font-body flex items-center gap-2 min-h-[44px]">
+          <button onClick={handleAdd} className="rounded-pill px-6 py-3 text-sm font-semibold text-primary-foreground font-body flex items-center gap-2 min-h-[44px]" style={{ backgroundColor: "#F4845F" }}>
             <ShoppingBag className="h-4 w-4" /> Add to Cart
           </button>
         )}

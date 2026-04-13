@@ -359,6 +359,19 @@ export default function BundleDetailPage() {
           )}
         </div>
 
+        {/* Proceed to Checkout CTA */}
+        <div className="mt-5 text-center">
+          {isInCart ? (
+            <Link to="/cart" className="inline-block w-full rounded-pill py-3.5 font-body font-semibold text-primary-foreground text-sm interactive text-center" style={{ backgroundColor: "#F4845F" }}>
+              Proceed to Checkout — {fmt(displayPrice)}
+            </Link>
+          ) : (
+            <button onClick={handleAdd} className="w-full rounded-pill py-3.5 font-body font-semibold text-primary-foreground text-sm interactive" style={{ backgroundColor: "#F4845F" }}>
+              Add to Cart — {fmt(displayPrice)}
+            </button>
+          )}
+        </div>
+
         {/* Upsell */}
         {upgradable && (
           <div className="bg-warm-cream border-2 border-coral/30 rounded-card p-4 mt-5">
