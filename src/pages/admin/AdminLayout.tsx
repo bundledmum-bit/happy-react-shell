@@ -41,7 +41,7 @@ const NAV: NavItem[] = [
   { to: "/admin/quiz-leads", label: "Quiz Leads", icon: MessageCircleQuestion, navKey: "quiz_leads" },
   { to: "/admin/quiz-engine", label: "Quiz Engine", icon: Workflow, navKey: "quiz_engine" },
   { to: "/admin/analytics", label: "Analytics", icon: BarChart3, navKey: "analytics" },
-  { to: "/admin/users", label: "Users", icon: Users, navKey: "users" },
+  { to: "/admin/users", label: "Users", icon: Users, navKey: "admin_users" },
   { to: "/admin/settings", label: "Settings", icon: Settings, navKey: "settings" },
 ];
 
