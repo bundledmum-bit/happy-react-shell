@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import logoWhite from "@/assets/logos/BM-LOGO-WHITE.svg";
+import logoWhite from "@/assets/logos/footer-logo.png";
 import { Facebook, Instagram, MessageCircle } from "lucide-react";
 import { useSiteSettings } from "@/hooks/useSupabaseData";
 
