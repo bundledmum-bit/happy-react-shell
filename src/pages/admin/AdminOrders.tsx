@@ -35,7 +35,13 @@ const fmt = (n: number) => `₦${n.toLocaleString()}`;
 
 export default function AdminOrders() {
   const queryClient = useQueryClient();
-  const { can, adminUser, isSuperAdmin } = usePermissions();
+  const { can, adminUser, isSuperAdmin, loading: permLoading } = usePermissions();
+
+  if (!permLoading && !can("orders", "view")) {
+    const AccessDenied = require("@/components/admin/AccessDenied").default;
+    return <AccessDenied />;
+  }
+
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [paymentFilter, setPaymentFilter] = useState("all");

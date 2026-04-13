@@ -9,7 +9,13 @@ const TYPES = ["percentage", "fixed_amount", "free_delivery"] as const;
 
 export default function AdminCoupons() {
   const queryClient = useQueryClient();
-  const { can } = usePermissions();
+  const { can, loading: permLoading } = usePermissions();
+
+  if (!permLoading && !can("coupons", "view")) {
+    const AccessDenied = require("@/components/admin/AccessDenied").default;
+    return <AccessDenied />;
+  }
+
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<any>(null);
   const [showForm, setShowForm] = useState(false);

@@ -12,7 +12,13 @@ import { usePermissions } from "@/hooks/useAdminPermissionsContext";
 
 export default function AdminProducts() {
   const queryClient = useQueryClient();
-  const { can } = usePermissions();
+  const { can, loading: permLoading } = usePermissions();
+
+  if (!permLoading && !can("products", "view")) {
+    const AccessDenied = require("@/components/admin/AccessDenied").default;
+    return <AccessDenied />;
+  }
+
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
   const [editingProduct, setEditingProduct] = useState<any>(null);
