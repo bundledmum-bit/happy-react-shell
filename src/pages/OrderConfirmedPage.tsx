@@ -121,6 +121,7 @@ export default function OrderConfirmedPage() {
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 bg-warm-cream rounded-lg flex items-center justify-center text-lg flex-shrink-0">📦</div>
                     <div>
+                      {item.bundle_name && <div className="text-[10px] font-bold text-coral">📦 {item.bundle_name}</div>}
                       <div className="text-sm font-semibold">{item.product_name}</div>
                       <div className="text-text-light text-xs flex flex-wrap gap-2">
                         {item.brand_name && <span>Brand: {item.brand_name}</span>}
