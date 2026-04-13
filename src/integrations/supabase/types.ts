@@ -2009,10 +2009,12 @@ export type Database = {
           gender_colors: Json | null
           gender_relevant: boolean | null
           hospital_types: string[] | null
+          how_to_use: string | null
           id: string
           image_url: string | null
           is_active: boolean | null
           is_push_gift_eligible: boolean | null
+          long_description: string | null
           material: string | null
           meta_description: string | null
           meta_title: string | null
@@ -2033,6 +2035,7 @@ export type Database = {
           stages: string[] | null
           subcategory: string | null
           updated_at: string | null
+          video_url: string | null
           why_included: string | null
           why_included_variants: Json | null
         }
@@ -2052,10 +2055,12 @@ export type Database = {
           gender_colors?: Json | null
           gender_relevant?: boolean | null
           hospital_types?: string[] | null
+          how_to_use?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean | null
           is_push_gift_eligible?: boolean | null
+          long_description?: string | null
           material?: string | null
           meta_description?: string | null
           meta_title?: string | null
@@ -2076,6 +2081,7 @@ export type Database = {
           stages?: string[] | null
           subcategory?: string | null
           updated_at?: string | null
+          video_url?: string | null
           why_included?: string | null
           why_included_variants?: Json | null
         }
@@ -2095,10 +2101,12 @@ export type Database = {
           gender_colors?: Json | null
           gender_relevant?: boolean | null
           hospital_types?: string[] | null
+          how_to_use?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean | null
           is_push_gift_eligible?: boolean | null
+          long_description?: string | null
           material?: string | null
           meta_description?: string | null
           meta_title?: string | null
@@ -2119,6 +2127,7 @@ export type Database = {
           stages?: string[] | null
           subcategory?: string | null
           updated_at?: string | null
+          video_url?: string | null
           why_included?: string | null
           why_included_variants?: Json | null
         }
