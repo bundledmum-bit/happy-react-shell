@@ -100,8 +100,8 @@ function DrawerInner({ product, defaultBudget, onClose }: { product: Product; de
     <>
       {zoomImage && <ImageZoomModal src={zoomImage} alt={product.name} onClose={() => setZoomImage(null)} />}
 
-      {/* ── Close Button ── */}
-      <div className="sticky top-0 z-20 flex justify-end p-3 pb-0">
+      {/* ── Close Button – always visible with safe top margin ── */}
+      <div className="sticky top-0 z-20 flex justify-end p-3 pb-0 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <button
           onClick={onClose}
           className="flex items-center justify-center w-10 h-10 rounded-full bg-foreground/10 hover:bg-foreground/20 transition-colors"
@@ -219,33 +219,53 @@ function DrawerInner({ product, defaultBudget, onClose }: { product: Product; de
               <span className="font-semibold">💡 Why mums love this: </span>{getWhyText()}
             </div>
           )}
+
+          {/* See Full Product Page link */}
+          {product.slug && (
+            <Link
+              to={`/products/${product.slug}`}
+              onClick={onClose}
+              className="block text-center text-forest font-semibold text-sm py-3 border border-forest/20 rounded-xl hover:bg-forest-light transition-colors mb-3"
+            >
+              See Full Product Page →
+            </Link>
+          )}
         </div>
       </div>
 
       {/* Sticky Bottom CTA – extra bottom padding to clear MobileBottomNav */}
-      <div className="sticky bottom-0 bg-card border-t border-border p-4 pb-[calc(1rem+56px)] md:pb-4 flex items-center justify-between gap-4 z-10">
-        <div>
-          <p className="pf text-xl font-bold text-forest">{fmt(selectedBrand.price)}</p>
-          {showSalePrice && (
-            <p className="text-muted-foreground text-xs line-through">{fmt(selectedBrand.compareAtPrice!)}</p>
+      <div className="sticky bottom-0 bg-card border-t border-border p-4 pb-[calc(1rem+56px)] md:pb-4 z-10">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="pf text-xl font-bold text-forest">{fmt(selectedBrand.price)}</p>
+            {showSalePrice && (
+              <p className="text-muted-foreground text-xs line-through">{fmt(selectedBrand.compareAtPrice!)}</p>
+            )}
+          </div>
+          {isOutOfStock ? (
+            <button className="rounded-pill bg-border px-6 py-3 text-sm font-semibold text-muted-foreground cursor-not-allowed min-h-[44px]">
+              Out of Stock
+            </button>
+          ) : isInCart && cartItem ? (
+            <div className="flex items-center gap-3">
+              <QtyControl qty={cartItem.qty} onUpdate={(newQty) => updateQty(cartItem._key, newQty)} size="md" maxQty={selectedBrand.stockQuantity ?? undefined} />
+              <Link to="/cart" className="text-forest text-sm font-semibold hover:underline font-body">
+                Cart →
+              </Link>
+            </div>
+          ) : (
+            <button onClick={handleAdd} className="rounded-pill bg-forest px-6 py-3 text-sm font-semibold text-primary-foreground hover:bg-forest-deep font-body interactive flex items-center gap-2 min-h-[44px]">
+              <ShoppingBag className="h-4 w-4" /> Add to Cart
+            </button>
           )}
         </div>
-        {isOutOfStock ? (
-          <button className="rounded-pill bg-border px-6 py-3 text-sm font-semibold text-muted-foreground cursor-not-allowed min-h-[44px]">
-            Out of Stock
-          </button>
-        ) : isInCart && cartItem ? (
-          <div className="flex items-center gap-3">
-            <QtyControl qty={cartItem.qty} onUpdate={(newQty) => updateQty(cartItem._key, newQty)} size="md" maxQty={selectedBrand.stockQuantity ?? undefined} />
-            <Link to="/cart" className="text-forest text-sm font-semibold hover:underline font-body">
-              Cart →
-            </Link>
-          </div>
-        ) : (
-          <button onClick={handleAdd} className="rounded-pill bg-forest px-6 py-3 text-sm font-semibold text-primary-foreground hover:bg-forest-deep font-body interactive flex items-center gap-2 min-h-[44px]">
-            <ShoppingBag className="h-4 w-4" /> Add to Cart
-          </button>
-        )}
+        {/* Bottom close button */}
+        <button
+          onClick={onClose}
+          className="w-full mt-3 py-2.5 text-sm font-semibold text-muted-foreground hover:text-foreground border border-border rounded-xl transition-colors min-h-[44px]"
+        >
+          Close
+        </button>
       </div>
     </>
   );
