@@ -92,11 +92,11 @@ export default function AdminProductForm({ product, onClose, onSaved }: Props) {
 
       let productId: string;
       if (isEdit) {
-        const { error } = await supabase.from("products").update(productData).eq("id", product.id);
+        const { error } = await supabase.from("products").update(productData as any).eq("id", product.id);
         if (error) throw error;
         productId = product.id;
       } else {
-        const { data, error } = await supabase.from("products").insert(productData).select("id").single();
+        const { data, error } = await supabase.from("products").insert(productData as any).select("id").single();
         if (error) throw error;
         productId = data.id;
       }
