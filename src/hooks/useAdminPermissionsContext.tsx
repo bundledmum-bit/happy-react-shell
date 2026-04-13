@@ -107,7 +107,7 @@ export function AdminPermissionsProvider({ children }: { children: ReactNode }) 
 
   const can = useCallback((module: string, action: string): boolean => {
     if (!adminUser || !adminUser.is_active) return false;
-    if (adminUser.role === "super_admin") return true;
+    if (adminUser.role === "super_admin" || adminUser.role === "admin") return true;
     return permissions[module]?.[action] === true;
   }, [permissions, adminUser]);
 
