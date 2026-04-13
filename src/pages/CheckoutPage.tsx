@@ -257,6 +257,8 @@ export default function CheckoutPage() {
           items: cart.map(item => ({
             name: item.name,
             brandName: item.selectedBrand?.label || "Standard",
+            brandId: item.selectedBrand?.id || null,
+            productId: item.id || null,
             qty: item.qty,
             price: item.price,
             size: item.selectedSize || null,

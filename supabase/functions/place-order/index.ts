@@ -63,6 +63,8 @@ Deno.serve(async (req) => {
       order_id: orderData.id,
       product_name: item.name,
       brand_name: item.brandName || "Standard",
+      brand_id: item.brandId || null,
+      product_id: item.productId || null,
       quantity: item.qty,
       unit_price: item.price,
       line_total: item.price * item.qty,
