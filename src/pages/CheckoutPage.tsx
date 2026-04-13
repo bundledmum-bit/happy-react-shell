@@ -277,17 +277,7 @@ export default function CheckoutPage() {
             referrer: attribution.referrer,
             landing_page: attribution.landing_page,
           },
-          items: cart.map(item => ({
-            name: item.name,
-            brandName: item.selectedBrand?.label || "Standard",
-            brandId: item.selectedBrand?.id || null,
-            productId: item.id || null,
-            qty: item.qty,
-            price: item.price,
-            size: item.selectedSize || null,
-            color: item.selectedColor || null,
-            bundleName: item.bundleName || null,
-          })),
+          items: orderItemsPayload,
           customer: {
             email: form.email,
             name: `${form.firstName} ${form.lastName}`,

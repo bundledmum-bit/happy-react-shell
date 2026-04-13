@@ -59,6 +59,7 @@ Deno.serve(async (req) => {
     }
 
     // 3. Insert order items
+    console.log(`[place-order] items received: ${items?.length}`, JSON.stringify(items?.slice(0, 2)));
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const toUuidOrNull = (val: unknown): string | null => {
       if (typeof val === "string" && uuidRegex.test(val)) return val;
