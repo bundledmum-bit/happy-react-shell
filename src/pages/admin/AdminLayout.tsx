@@ -9,41 +9,33 @@ import {
   Package, ShoppingBag, ClipboardList, Truck, MessageSquare, Settings,
   BarChart3, Gift, LogOut, LayoutDashboard, FileText, Users, Image, Bell,
   Search, X, Menu, ChevronLeft, MessageCircleQuestion, Workflow,
+  type LucideIcon,
 } from "lucide-react";
 import { Tag, Boxes, MapPin, FileText as PageIcon } from "lucide-react";
 import logoWhite from "@/assets/logos/BM-LOGO-WHITE.svg";
 import iconCoral from "@/assets/logos/BM-ICON-CORAL.svg";
 
-interface NavItem {
-  to: string;
-  label: string;
-  icon: any;
-  exact?: boolean;
-  navKey?: string;
+// Map icon name strings from DB to lucide components
+const ICON_MAP: Record<string, LucideIcon> = {
+  LayoutDashboard, Package, Boxes, ShoppingBag, ClipboardList, Users, Tag,
+  Gift, Truck, MapPin, MessageSquare, FileText, Image, MessageCircleQuestion,
+  Workflow, BarChart3, Settings,
+  PageIcon, // alias
+};
+
+function getIcon(iconName: string | null): LucideIcon {
+  if (!iconName) return Package;
+  return ICON_MAP[iconName] || Package;
 }
 
-const NAV: NavItem[] = [
-  { to: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true, navKey: "dashboard" },
-  { to: "/admin/products", label: "Products", icon: Package, navKey: "products" },
-  { to: "/admin/inventory", label: "Inventory", icon: Boxes, navKey: "inventory" },
-  { to: "/admin/bundles", label: "Bundles", icon: ShoppingBag, navKey: "bundles" },
-  { to: "/admin/orders", label: "Orders", icon: ClipboardList, navKey: "orders" },
-  { to: "/admin/customers", label: "Customers", icon: Users, navKey: "customers" },
-  { to: "/admin/coupons", label: "Coupons", icon: Tag, navKey: "coupons" },
-  { to: "/admin/promotions", label: "Promotions", icon: Gift, navKey: "promotions" },
-  { to: "/admin/delivery", label: "Delivery", icon: Truck, navKey: "delivery" },
-  { to: "/admin/shipping-zones", label: "Shipping Zones", icon: MapPin, navKey: "shipping_zones" },
-  { to: "/admin/content", label: "Content", icon: MessageSquare, navKey: "content" },
-  { to: "/admin/blog", label: "Blog", icon: FileText, navKey: "blog" },
-  { to: "/admin/pages", label: "Pages", icon: PageIcon, navKey: "pages" },
-  { to: "/admin/media", label: "Media", icon: Image, navKey: "media" },
-  { to: "/admin/referrals", label: "Referrals", icon: Gift, navKey: "referrals" },
-  { to: "/admin/quiz-leads", label: "Quiz Leads", icon: MessageCircleQuestion, navKey: "quiz_leads" },
-  { to: "/admin/quiz-engine", label: "Quiz Engine", icon: Workflow, navKey: "quiz_engine" },
-  { to: "/admin/analytics", label: "Analytics", icon: BarChart3, navKey: "analytics" },
-  { to: "/admin/users", label: "Users", icon: Users, navKey: "admin_users" },
-  { to: "/admin/settings", label: "Settings", icon: Settings, navKey: "settings" },
-];
+interface NavItemFromDB {
+  nav_key: string;
+  label: string;
+  icon: string | null;
+  path: string;
+  parent_key: string | null;
+  display_order: number;
+}
 
 function AdminLayoutInner() {
   const { isAdmin, loading, signOut, user } = useAdmin();
@@ -58,29 +50,30 @@ function AdminLayoutInner() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
 
-  // Fetch nav visibility from get_admin_nav RPC
+  // Fetch nav items exclusively from get_admin_nav RPC
   const { data: dbNavItems } = useQuery({
     queryKey: ["admin-nav-items", adminUser?.id],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_admin_nav");
       if (error) throw error;
-      return data as any[];
+      return (data as unknown as NavItemFromDB[]) || [];
     },
     enabled: !!adminUser,
   });
 
-  const allowedNavKeys = useMemo(() => {
-    if (!dbNavItems) return null;
-    return new Set((dbNavItems || []).map((n: any) => n.nav_key));
-  }, [dbNavItems]);
-
+  // Build visible nav exclusively from DB results
   const visibleNav = useMemo(() => {
-    if (!allowedNavKeys) return [];
-    return NAV.filter(item => {
-      if (!item.navKey) return true;
-      return allowedNavKeys.has(item.navKey);
-    });
-  }, [allowedNavKeys]);
+    if (!dbNavItems) return [];
+    return [...dbNavItems]
+      .sort((a, b) => (a.display_order || 0) - (b.display_order || 0))
+      .map(item => ({
+        to: item.path,
+        label: item.label,
+        icon: getIcon(item.icon),
+        exact: item.path === "/admin",
+        navKey: item.nav_key,
+      }));
+  }, [dbNavItems]);
 
   useEffect(() => {
     if (!adminUser) return;

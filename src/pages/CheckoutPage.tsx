@@ -217,6 +217,28 @@ export default function CheckoutPage() {
 
       // Use edge function to place order (bypasses RLS SELECT restriction)
       const quizSessionId = localStorage.getItem("bm_quiz_session_id");
+
+      // Build items array and validate before sending
+      const orderItemsPayload = cart.map(item => ({
+        name: item.name,
+        brandName: item.selectedBrand?.label || "Standard",
+        brandId: item.selectedBrand?.id || null,
+        productId: item.id || null,
+        qty: item.qty,
+        price: item.price,
+        size: item.selectedSize || null,
+        color: item.selectedColor || null,
+        bundleName: item.bundleName || null,
+      }));
+
+      if (!orderItemsPayload.length) {
+        console.error("[checkout] items array is empty — cart:", cart);
+        toast.error("Your cart appears to be empty. Please add items before checking out.");
+        return null;
+      }
+
+      console.log(`[checkout] sending ${orderItemsPayload.length} items to place-order`);
+
       const { data: result, error: fnError } = await supabase.functions.invoke("place-order", {
         body: {
           order: {
@@ -255,17 +277,7 @@ export default function CheckoutPage() {
             referrer: attribution.referrer,
             landing_page: attribution.landing_page,
           },
-          items: cart.map(item => ({
-            name: item.name,
-            brandName: item.selectedBrand?.label || "Standard",
-            brandId: item.selectedBrand?.id || null,
-            productId: item.id || null,
-            qty: item.qty,
-            price: item.price,
-            size: item.selectedSize || null,
-            color: item.selectedColor || null,
-            bundleName: item.bundleName || null,
-          })),
+          items: orderItemsPayload,
           customer: {
             email: form.email,
             name: `${form.firstName} ${form.lastName}`,

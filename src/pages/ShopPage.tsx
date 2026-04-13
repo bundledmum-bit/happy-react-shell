@@ -140,7 +140,7 @@ function ProductCard({ product, defaultBudget = "standard", forceBrand, onAdd, o
           ) : isInCart && cartItem ? (
             <QtyControl qty={cartItem.qty} onUpdate={handleQtyChange} maxQty={selectedBrand.stockQuantity ?? undefined} />
           ) : (
-            <button onClick={handleAdd} className="rounded-pill bg-forest px-4 py-2.5 text-xs font-semibold text-primary-foreground hover:bg-forest-deep font-body interactive min-h-[44px]">+ Add</button>
+            <button onClick={handleAdd} className="rounded-pill px-4 py-2.5 text-xs font-semibold text-primary-foreground font-body interactive min-h-[44px]" style={{ backgroundColor: "#F4845F" }}>Add to Cart</button>
           )}
         </div>
       </div>

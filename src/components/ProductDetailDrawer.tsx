@@ -254,7 +254,7 @@ function DrawerInner({ product, defaultBudget, onClose }: { product: Product; de
               </Link>
             </div>
           ) : (
-            <button onClick={handleAdd} className="rounded-pill bg-forest px-6 py-3 text-sm font-semibold text-primary-foreground hover:bg-forest-deep font-body interactive flex items-center gap-2 min-h-[44px]">
+            <button onClick={handleAdd} className="rounded-pill px-6 py-3 text-sm font-semibold text-primary-foreground font-body interactive flex items-center gap-2 min-h-[44px]" style={{ backgroundColor: "#F4845F" }}>
               <ShoppingBag className="h-4 w-4" /> Add to Cart
             </button>
           )}
