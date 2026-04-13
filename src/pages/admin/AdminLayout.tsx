@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdmin } from "@/hooks/useAdmin";
 import { AdminPermissionsProvider, usePermissions } from "@/hooks/useAdminPermissionsContext";
 import { useIdleTimeout } from "@/hooks/useIdleTimeout";
+import { useQuery } from "@tanstack/react-query";
 import {
   Package, ShoppingBag, ClipboardList, Truck, MessageSquare, Settings,
   BarChart3, Gift, LogOut, LayoutDashboard, FileText, Users, Image, Bell,
@@ -18,32 +19,30 @@ interface NavItem {
   label: string;
   icon: any;
   exact?: boolean;
-  /** module.action required — e.g. "orders.view" */
-  permission?: string;
-  superAdminOnly?: boolean;
+  navKey?: string;
 }
 
 const NAV: NavItem[] = [
-  { to: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { to: "/admin/products", label: "Products", icon: Package, permission: "products.view" },
-  { to: "/admin/inventory", label: "Inventory", icon: Boxes, permission: "products.view" },
-  { to: "/admin/bundles", label: "Bundles", icon: ShoppingBag, permission: "products.view" },
-  { to: "/admin/orders", label: "Orders", icon: ClipboardList, permission: "orders.view" },
-  { to: "/admin/customers", label: "Customers", icon: Users, permission: "customers.view" },
-  { to: "/admin/coupons", label: "Coupons", icon: Tag, permission: "coupons.view" },
-  { to: "/admin/promotions", label: "Promotions", icon: Gift, permission: "products.view" },
-  { to: "/admin/delivery", label: "Delivery", icon: Truck, permission: "fulfilment.view_address" },
-  { to: "/admin/shipping-zones", label: "Shipping Zones", icon: MapPin, permission: "fulfilment.view_address" },
-  { to: "/admin/content", label: "Content", icon: MessageSquare, permission: "content.view" },
-  { to: "/admin/blog", label: "Blog", icon: FileText, permission: "content.view" },
-  { to: "/admin/pages", label: "Pages", icon: PageIcon, permission: "content.view" },
-  { to: "/admin/media", label: "Media", icon: Image, permission: "content.view" },
-  { to: "/admin/referrals", label: "Referrals", icon: Gift, permission: "analytics.view" },
-  { to: "/admin/quiz-leads", label: "Quiz Leads", icon: MessageCircleQuestion, permission: "orders.view" },
-  { to: "/admin/quiz-engine", label: "Quiz Engine", icon: Workflow, permission: "content.manage_quiz" },
-  { to: "/admin/analytics", label: "Analytics", icon: BarChart3, permission: "analytics.view" },
-  { to: "/admin/users", label: "Users", icon: Users, permission: "admin.view_users" },
-  { to: "/admin/settings", label: "Settings", icon: Settings, permission: "content.edit_settings" },
+  { to: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true, navKey: "dashboard" },
+  { to: "/admin/products", label: "Products", icon: Package, navKey: "products" },
+  { to: "/admin/inventory", label: "Inventory", icon: Boxes, navKey: "inventory" },
+  { to: "/admin/bundles", label: "Bundles", icon: ShoppingBag, navKey: "bundles" },
+  { to: "/admin/orders", label: "Orders", icon: ClipboardList, navKey: "orders" },
+  { to: "/admin/customers", label: "Customers", icon: Users, navKey: "customers" },
+  { to: "/admin/coupons", label: "Coupons", icon: Tag, navKey: "coupons" },
+  { to: "/admin/promotions", label: "Promotions", icon: Gift, navKey: "promotions" },
+  { to: "/admin/delivery", label: "Delivery", icon: Truck, navKey: "delivery" },
+  { to: "/admin/shipping-zones", label: "Shipping Zones", icon: MapPin, navKey: "shipping_zones" },
+  { to: "/admin/content", label: "Content", icon: MessageSquare, navKey: "content" },
+  { to: "/admin/blog", label: "Blog", icon: FileText, navKey: "blog" },
+  { to: "/admin/pages", label: "Pages", icon: PageIcon, navKey: "pages" },
+  { to: "/admin/media", label: "Media", icon: Image, navKey: "media" },
+  { to: "/admin/referrals", label: "Referrals", icon: Gift, navKey: "referrals" },
+  { to: "/admin/quiz-leads", label: "Quiz Leads", icon: MessageCircleQuestion, navKey: "quiz_leads" },
+  { to: "/admin/quiz-engine", label: "Quiz Engine", icon: Workflow, navKey: "quiz_engine" },
+  { to: "/admin/analytics", label: "Analytics", icon: BarChart3, navKey: "analytics" },
+  { to: "/admin/users", label: "Users", icon: Users, navKey: "users" },
+  { to: "/admin/settings", label: "Settings", icon: Settings, navKey: "settings" },
 ];
 
 function AdminLayoutInner() {
@@ -58,6 +57,30 @@ function AdminLayoutInner() {
   const [searchQuery, setSearchQuery] = useState("");
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
+
+  // Fetch nav visibility from get_admin_nav RPC
+  const { data: dbNavItems } = useQuery({
+    queryKey: ["admin-nav-items", adminUser?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_admin_nav");
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: !!adminUser,
+  });
+
+  const allowedNavKeys = useMemo(() => {
+    if (!dbNavItems) return null;
+    return new Set((dbNavItems || []).map((n: any) => n.nav_key));
+  }, [dbNavItems]);
+
+  const visibleNav = useMemo(() => {
+    if (!allowedNavKeys) return [];
+    return NAV.filter(item => {
+      if (!item.navKey) return true;
+      return allowedNavKeys.has(item.navKey);
+    });
+  }, [allowedNavKeys]);
 
   useEffect(() => {
     if (!adminUser) return;
@@ -119,11 +142,6 @@ function AdminLayoutInner() {
   if (!isAdmin) return null;
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
-
-  const visibleNav = NAV.filter(item => {
-    if (item.superAdminOnly && !isSuperAdmin) return false;
-    return true;
-  });
 
   return (
     <div className="min-h-screen flex bg-muted/30">
