@@ -918,21 +918,13 @@ export default function QuizPage() {
               {multiples > 1 && <><span>·</span><span>👶👶 Quantities adjusted for your {multiples === 2 ? "twins" : "triplets"}!</span></>}
             </div>
 
-            <div className="hidden md:block bg-primary-foreground/[0.08] rounded-xl p-3 max-w-[400px] mx-auto mb-5">
-              <div className="text-primary-foreground text-xs space-y-1">
-                <div className="flex justify-between"><span>Your bundle:</span><span className="font-bold">{fmt(grandTotal)}</span></div>
-                <div className="flex justify-between"><span>Free curation value:</span><span className="text-coral font-bold">~{fmt(curationSaving)}</span></div>
-                <div className="flex justify-between text-primary-foreground/50"><span>+ Free delivery on qualifying orders</span><span>🚚</span></div>
-              </div>
-              <p className="text-coral text-[11px] font-bold mt-1.5">You save time AND money with BundledMum 🎉</p>
-            </div>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center px-4 sm:px-0">
               <button onClick={() => document.getElementById("quiz-results-items")?.scrollIntoView({ behavior: "smooth" })} className="rounded-pill bg-coral px-6 py-3 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-sm w-full sm:hidden">
                 👇 See Your Items Below
               </button>
               <button onClick={handleAddAll} className="hidden sm:inline-flex rounded-pill bg-coral px-8 py-3 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-[15px]">
-                {isGift ? "🎁 Get Gift Bundle" : "Get Complete Bundle"} — {fmt(grandTotal)} →
+                {isGift ? "🎁 Get Gift Bundle" : "Proceed to Checkout"} — {fmt(grandTotal)} →
               </button>
               <button onClick={handleBack} className="rounded-pill border-2 border-primary-foreground/30 px-6 py-3 font-body font-semibold text-primary-foreground/80 hover:bg-primary-foreground/10 interactive text-sm sm:text-[15px] w-full sm:w-auto">
                 ← Retake Quiz
@@ -1013,6 +1005,15 @@ export default function QuizPage() {
             </div>
           )}
 
+          <div className="flex flex-col sm:flex-row gap-3 justify-center mb-8">
+            <button onClick={handleAddAll} className="rounded-pill bg-coral px-8 py-3 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-sm sm:text-[15px]">
+              Proceed to Checkout — {fmt(grandTotal)}
+            </button>
+            <Link to="/shop" className="rounded-pill border-2 border-forest px-8 py-3 font-body font-semibold text-forest hover:bg-forest hover:text-primary-foreground interactive text-sm sm:text-[15px] text-center">
+              Browse for More Products
+            </Link>
+          </div>
+
           <div className="bg-forest rounded-card p-6 md:p-8 text-center mb-8">
             <h3 className="pf text-xl text-primary-foreground mb-2">💬 Know Another Expecting Mum?</h3>
             <p className="text-primary-foreground/70 text-sm mb-4 max-w-[400px] mx-auto">Help her shop baby essentials, mum items, and baby gifts without stepping foot in any market.</p>
@@ -1030,14 +1031,6 @@ export default function QuizPage() {
                 📋 Copy Quiz Link
               </button>
             </div>
-          </div>
-
-          <div className="bg-warm-cream rounded-card p-6 md:p-10 text-center mt-6 mb-10">
-            <h3 className="pf text-xl text-forest mb-2">Want to add more items?</h3>
-            <p className="text-muted-foreground text-sm mb-5 max-w-[480px] mx-auto">Your list covers the essentials — but every mum is different. Browse our full shop to add anything else you need.</p>
-            <Link to="/shop" className="rounded-pill bg-forest px-8 py-3 font-body font-semibold text-primary-foreground hover:bg-forest-deep interactive text-sm inline-block mb-4">
-              See All Products →
-            </Link>
           </div>
         </div>
 
