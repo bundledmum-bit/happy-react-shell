@@ -131,7 +131,7 @@ export default function BundlesPage() {
 function BundleCard({ bundle: b, compareSelected, onToggleCompare }: { bundle: Bundle; compareSelected: boolean; onToggleCompare: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const { addToCart, cart } = useCart();
-  const isInCart = cart.some(c => c.id === b.id);
+  const isInCart = [...b.babyItems, ...b.mumItems].length > 0 && [...b.babyItems, ...b.mumItems].some(item => cart.some(c => c.bundleName === b.name));
   const totalItems = b.babyItems.length + b.mumItems.length;
   const savings = b.separateTotal - b.price;
   const savingsPercent = b.separateTotal > 0 ? Math.round((savings / b.separateTotal) * 100) : 0;

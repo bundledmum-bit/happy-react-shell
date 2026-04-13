@@ -63,7 +63,7 @@ export default function BundleDetailPage() {
   const separateTotal = isCustomized ? customTotal : bundle.separateTotal;
   const savings = separateTotal - displayPrice;
   const savingsPercent = separateTotal > 0 ? Math.round((savings / separateTotal) * 100) : 0;
-  const isInCart = cart.some(c => c.id === bundle.id);
+  const isInCart = allItems.length > 0 && allItems.every(item => cart.some(c => c.bundleName === bundle.name && (c.id === item.productId || c.id === item.name)));
 
   const upgradable = bundle.upsellBundleId && allBundles
     ? allBundles.find(b => b.id === bundle.upsellBundleId || b.slug === bundle.upsellBundleId)
