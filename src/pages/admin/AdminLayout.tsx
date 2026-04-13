@@ -22,12 +22,6 @@ interface NavItem {
   navKey?: string;
 }
 
-const ICON_MAP: Record<string, any> = {
-  LayoutDashboard, Package, Boxes, ShoppingBag, ClipboardList, Users, Tag,
-  Gift, Truck, MapPin, MessageSquare, FileText, PageIcon, Image,
-  MessageCircleQuestion, Workflow, BarChart3, Settings,
-};
-
 const NAV: NavItem[] = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true, navKey: "dashboard" },
   { to: "/admin/products", label: "Products", icon: Package, navKey: "products" },
@@ -63,6 +57,30 @@ function AdminLayoutInner() {
   const [searchQuery, setSearchQuery] = useState("");
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
+
+  // Fetch nav visibility from get_admin_nav RPC
+  const { data: dbNavItems } = useQuery({
+    queryKey: ["admin-nav-items", adminUser?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_admin_nav");
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: !!adminUser,
+  });
+
+  const allowedNavKeys = useMemo(() => {
+    if (!dbNavItems) return null;
+    return new Set((dbNavItems || []).map((n: any) => n.nav_key));
+  }, [dbNavItems]);
+
+  const visibleNav = useMemo(() => {
+    if (!allowedNavKeys) return [];
+    return NAV.filter(item => {
+      if (!item.navKey) return true;
+      return allowedNavKeys.has(item.navKey);
+    });
+  }, [allowedNavKeys]);
 
   useEffect(() => {
     if (!adminUser) return;
@@ -124,30 +142,6 @@ function AdminLayoutInner() {
   if (!isAdmin) return null;
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
-
-  // Fetch nav visibility from get_admin_nav RPC
-  const { data: dbNavItems } = useQuery({
-    queryKey: ["admin-nav-items", adminUser?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_admin_nav");
-      if (error) throw error;
-      return data as any[];
-    },
-    enabled: !!adminUser,
-  });
-
-  const allowedNavKeys = useMemo(() => {
-    if (!dbNavItems) return null; // still loading, show nothing yet
-    return new Set((dbNavItems || []).map((n: any) => n.nav_key));
-  }, [dbNavItems]);
-
-  const visibleNav = useMemo(() => {
-    if (!allowedNavKeys) return []; // loading
-    return NAV.filter(item => {
-      if (!item.navKey) return true;
-      return allowedNavKeys.has(item.navKey);
-    });
-  }, [allowedNavKeys]);
 
   return (
     <div className="min-h-screen flex bg-muted/30">
