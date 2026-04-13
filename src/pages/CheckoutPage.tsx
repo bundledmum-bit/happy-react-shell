@@ -428,7 +428,7 @@ export default function CheckoutPage() {
                 <div key={item._key} className="flex items-center justify-between gap-2 text-xs">
                   <div className="flex items-center gap-2">
                     {(item.img && item.img.startsWith("http")) ? <img src={item.img} alt={item.name} className="w-6 h-6 rounded object-cover flex-shrink-0" /> : <span className="text-lg">{item.img || "📦"}</span>}
-                    <span className="truncate max-w-[180px]">{item.name} ×{item.qty}</span>
+                    <span className="truncate max-w-[180px]">{item.bundleName ? `[${item.bundleName}] ` : ""}{item.name} ×{item.qty}</span>
                   </div>
                   <span className="font-bold">{fmt(item.price * item.qty)}</span>
                 </div>
@@ -573,6 +573,7 @@ export default function CheckoutPage() {
                   <div key={item._key} className="flex items-center gap-3 pb-3 border-b border-border/50">
                     <div className="w-11 h-11 bg-warm-cream rounded-lg flex items-center justify-center text-xl flex-shrink-0 overflow-hidden">{(item.img && item.img.startsWith("http")) ? <img src={item.img} alt={item.name} className="w-full h-full object-cover" /> : (item.img || "📦")}</div>
                     <div className="flex-1 min-w-0">
+                      {item.bundleName && <div className="text-[9px] font-bold text-coral mb-0.5 truncate">📦 {item.bundleName}</div>}
                       <div className="text-xs font-semibold leading-tight truncate">{item.name}</div>
                       {item.selectedBrand && <div className="text-forest text-[10px] mt-0.5">{item.selectedBrand.label} · Qty {item.qty}</div>}
                     </div>
