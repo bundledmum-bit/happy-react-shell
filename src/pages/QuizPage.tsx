@@ -243,7 +243,7 @@ function ResultProductCard({ item, onAdd, onRemove, isInCart, cartItem, onQtyUpd
           ) : isInCart && cartItem && onQtyUpdate ? (
             <QtyControl qty={cartItem.qty} onUpdate={(newQty) => onQtyUpdate(cartItem._key, newQty)} maxQty={selectedBrand?.stockQuantity ?? undefined} />
           ) : (
-            <button onClick={handleAdd} className="rounded-pill bg-forest px-3 py-1.5 text-[11px] font-semibold text-primary-foreground hover:bg-forest-deep font-body interactive">+ Add</button>
+            <button onClick={handleAdd} className="rounded-pill px-3 py-1.5 text-[11px] font-semibold text-primary-foreground font-body interactive" style={{ backgroundColor: "#F4845F" }}>Add to Cart</button>
           )}
         </div>
       </div>
