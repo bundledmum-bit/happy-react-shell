@@ -238,7 +238,18 @@ export default function AdminProductForm({ product, onClose, onSaved }: Props) {
                   placeholder='{"csection": "...", "vaginal": "..."}' /></div>
             </TabsContent>
 
-            <TabsContent value="brands" className="space-y-3 mt-0">
+            <TabsContent value="rich-content" className="space-y-3 mt-0">
+              <div><label className={labelCls}>Long Description (shown on full product page)</label>
+                <textarea value={form.long_description} onChange={e => setForm(f => ({ ...f, long_description: e.target.value }))} rows={5} className={inputCls}
+                  placeholder="Detailed product description for the full product page..." /></div>
+              <div><label className={labelCls}>How to Use</label>
+                <textarea value={form.how_to_use} onChange={e => setForm(f => ({ ...f, how_to_use: e.target.value }))} rows={4} className={inputCls}
+                  placeholder="Step-by-step instructions on how to use this product..." /></div>
+              <div><label className={labelCls}>Video URL (YouTube or direct link)</label>
+                <input value={form.video_url} onChange={e => setForm(f => ({ ...f, video_url: e.target.value }))} className={inputCls}
+                  placeholder="https://youtube.com/watch?v=..." /></div>
+            </TabsContent>
+
               <div className="flex items-center justify-between">
                 <label className="text-sm font-semibold">Brand Variants</label>
                 <button type="button" onClick={() => setBrands(b => [...b, { brand_name: "", price: 0, tier: "standard", is_default_for_tier: false, compare_at_price: null, stock_quantity: null, in_stock: true, image_url: null, logo_url: null }])}
