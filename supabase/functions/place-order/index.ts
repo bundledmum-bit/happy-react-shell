@@ -59,12 +59,18 @@ Deno.serve(async (req) => {
     }
 
     // 3. Insert order items
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const toUuidOrNull = (val: unknown): string | null => {
+      if (typeof val === "string" && uuidRegex.test(val)) return val;
+      return null;
+    };
+
     const orderItems = items.map((item: any) => ({
       order_id: orderData.id,
       product_name: item.name,
       brand_name: item.brandName || "Standard",
-      brand_id: item.brandId || null,
-      product_id: item.productId || null,
+      brand_id: toUuidOrNull(item.brandId),
+      product_id: toUuidOrNull(item.productId),
       quantity: item.qty,
       unit_price: item.price,
       line_total: item.price * item.qty,
@@ -73,7 +79,13 @@ Deno.serve(async (req) => {
     }));
 
     const { error: itemsError } = await supabase.from("order_items").insert(orderItems);
-    if (itemsError) console.error("Order items insert failed:", itemsError);
+    if (itemsError) {
+      console.error("Order items insert failed:", itemsError);
+      return new Response(
+        JSON.stringify({ error: "Failed to insert order items", details: itemsError.message }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // 4. Upsert customer
     try {
