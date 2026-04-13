@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { usePermissions } from "@/hooks/useAdminPermissionsContext";
+import { usePagePermission } from "@/hooks/usePagePermission";
 import AccessDenied from "@/components/admin/AccessDenied";
 
 interface Props {
@@ -9,9 +9,9 @@ interface Props {
 }
 
 export default function PermissionGate({ module, action, children }: Props) {
-  const { can, loading } = usePermissions();
+  const { loading, allowed } = usePagePermission(module, action);
 
   if (loading) return null;
-  if (!can(module, action)) return <AccessDenied />;
+  if (!allowed) return <AccessDenied />;
   return <>{children}</>;
 }
