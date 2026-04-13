@@ -2,9 +2,10 @@ import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
-import { Package, ClipboardList, TrendingUp, AlertTriangle, Activity, Plus, FileText, Settings, DollarSign, XCircle, RotateCcw, Clock } from "lucide-react";
+import { Package, ClipboardList, TrendingUp, AlertTriangle, Activity, Plus, FileText, Settings, DollarSign, XCircle, RotateCcw, Clock, ShieldX } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { usePermissions } from "@/hooks/useAdminPermissionsContext";
 
 const DATE_PRESETS = [
   { label: "Today", getDates: () => { const s = new Date(); s.setHours(0,0,0,0); const e = new Date(s); e.setDate(e.getDate()+1); const ps = new Date(s); ps.setDate(ps.getDate()-1); return { start: s, end: e, prevStart: ps, prevEnd: s }; }},
