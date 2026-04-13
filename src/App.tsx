@@ -56,6 +56,7 @@ import AdminPages from "@/pages/admin/AdminPages";
 import AdminPromotions from "@/pages/admin/AdminPromotions";
 import AdminQuizLeads from "@/pages/admin/AdminQuizLeads";
 import AdminQuizEngine from "@/pages/admin/AdminQuizEngine";
+import PermissionGate from "@/components/admin/PermissionGate";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -94,26 +95,26 @@ const App = () => (
               {/* Admin routes */}
               <Route path="/admin/login" element={<AdminLogin />} />
               <Route path="/admin" element={<AdminLayout />}>
-                <Route index element={<AdminDashboard />} />
-                <Route path="products" element={<AdminProducts />} />
-                <Route path="bundles" element={<AdminBundles />} />
-                <Route path="orders" element={<AdminOrders />} />
-                <Route path="delivery" element={<AdminDelivery />} />
-                <Route path="content" element={<AdminContent />} />
-                <Route path="blog" element={<AdminBlog />} />
-                <Route path="settings" element={<AdminSettings />} />
-                <Route path="referrals" element={<AdminReferrals />} />
-                <Route path="analytics" element={<AdminAnalytics />} />
-                <Route path="users" element={<AdminUsers />} />
-                <Route path="media" element={<AdminMedia />} />
-                <Route path="coupons" element={<AdminCoupons />} />
-                <Route path="customers" element={<AdminCustomers />} />
-                <Route path="inventory" element={<AdminInventory />} />
-                <Route path="shipping-zones" element={<AdminShippingZones />} />
-                <Route path="pages" element={<AdminPages />} />
-                <Route path="promotions" element={<AdminPromotions />} />
-                <Route path="quiz-leads" element={<AdminQuizLeads />} />
-                <Route path="quiz-engine" element={<AdminQuizEngine />} />
+                <Route index element={<PermissionGate module="dashboard" action="view"><AdminDashboard /></PermissionGate>} />
+                <Route path="products" element={<PermissionGate module="products" action="view"><AdminProducts /></PermissionGate>} />
+                <Route path="bundles" element={<PermissionGate module="products" action="view"><AdminBundles /></PermissionGate>} />
+                <Route path="orders" element={<PermissionGate module="orders" action="view"><AdminOrders /></PermissionGate>} />
+                <Route path="delivery" element={<PermissionGate module="delivery" action="view"><AdminDelivery /></PermissionGate>} />
+                <Route path="content" element={<PermissionGate module="content" action="view"><AdminContent /></PermissionGate>} />
+                <Route path="blog" element={<PermissionGate module="content" action="view"><AdminBlog /></PermissionGate>} />
+                <Route path="settings" element={<PermissionGate module="content" action="edit_settings"><AdminSettings /></PermissionGate>} />
+                <Route path="referrals" element={<PermissionGate module="analytics" action="view"><AdminReferrals /></PermissionGate>} />
+                <Route path="analytics" element={<PermissionGate module="analytics" action="view"><AdminAnalytics /></PermissionGate>} />
+                <Route path="users" element={<PermissionGate module="admin" action="view_users"><AdminUsers /></PermissionGate>} />
+                <Route path="media" element={<PermissionGate module="content" action="view"><AdminMedia /></PermissionGate>} />
+                <Route path="coupons" element={<PermissionGate module="coupons" action="view"><AdminCoupons /></PermissionGate>} />
+                <Route path="customers" element={<PermissionGate module="customers" action="view"><AdminCustomers /></PermissionGate>} />
+                <Route path="inventory" element={<PermissionGate module="inventory" action="view"><AdminInventory /></PermissionGate>} />
+                <Route path="shipping-zones" element={<PermissionGate module="delivery" action="view"><AdminShippingZones /></PermissionGate>} />
+                <Route path="pages" element={<PermissionGate module="content" action="view"><AdminPages /></PermissionGate>} />
+                <Route path="promotions" element={<PermissionGate module="products" action="view"><AdminPromotions /></PermissionGate>} />
+                <Route path="quiz-leads" element={<PermissionGate module="orders" action="view"><AdminQuizLeads /></PermissionGate>} />
+                <Route path="quiz-engine" element={<PermissionGate module="content" action="manage_quiz"><AdminQuizEngine /></PermissionGate>} />
               </Route>
 
               {/* Storefront routes */}
