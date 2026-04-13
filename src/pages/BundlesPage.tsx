@@ -131,7 +131,7 @@ export default function BundlesPage() {
 function BundleCard({ bundle: b, compareSelected, onToggleCompare }: { bundle: Bundle; compareSelected: boolean; onToggleCompare: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const { addToCart, cart } = useCart();
-  const isInCart = cart.some(c => c.id === b.id);
+  const isInCart = [...b.babyItems, ...b.mumItems].length > 0 && [...b.babyItems, ...b.mumItems].some(item => cart.some(c => c.bundleName === b.name));
   const totalItems = b.babyItems.length + b.mumItems.length;
   const savings = b.separateTotal - b.price;
   const savingsPercent = b.separateTotal > 0 ? Math.round((savings / b.separateTotal) * 100) : 0;
@@ -142,8 +142,20 @@ function BundleCard({ bundle: b, compareSelected, onToggleCompare }: { bundle: B
     .slice(0, 4);
 
   const handleAdd = () => {
-    addToCart({ id: b.id, name: `${b.name} — ${b.tier}`, price: b.price, img: b.icon, baseImg: b.icon, brands: [{ id: "default", label: b.tier, price: b.price, img: b.icon, tier: 1 }], selectedBrand: { id: "default", label: b.tier, price: b.price, img: b.icon, tier: 1 } });
-    toast.success(`✓ ${b.name} added to cart!`, { action: { label: "View Cart →", onClick: () => window.location.href = "/cart" } });
+    const allItems = [...b.babyItems, ...b.mumItems];
+    allItems.forEach(item => {
+      addToCart({
+        id: item.productId || item.name,
+        name: item.name,
+        price: item.price,
+        img: item.imageUrl || item.emoji || "📦",
+        baseImg: item.imageUrl || item.emoji || "📦",
+        brands: [{ id: item.brandId || "default", label: item.brand, price: item.price, img: item.imageUrl || item.emoji || "📦", tier: 1 }],
+        selectedBrand: { id: item.brandId || "default", label: item.brand, price: item.price, img: item.imageUrl || item.emoji || "📦", tier: 1 },
+        bundleName: b.name,
+      });
+    });
+    toast.success(`✓ ${b.name} (${allItems.length} items) added to cart!`, { action: { label: "View Cart →", onClick: () => window.location.href = "/cart" } });
   };
 
   return (

@@ -62,6 +62,8 @@ export interface BundleItem {
   price: number;
   emoji?: string;
   imageUrl?: string | null;
+  productId?: string | null;
+  brandId?: string | null;
 }
 
 export interface Bundle {
@@ -213,6 +215,8 @@ export function adaptBundle(row: any): Bundle {
       price: (brand?.price || 0) * (bi.quantity || 1),
       emoji: prod?.emoji || "📦",
       imageUrl: brand?.image_url || prod?.image_url || null,
+      productId: bi.product_id || prod?.id || null,
+      brandId: bi.brand_id || brand?.id || null,
     };
     if (item.forWhom === "mum") mumItems.push(item);
     else babyItems.push(item);

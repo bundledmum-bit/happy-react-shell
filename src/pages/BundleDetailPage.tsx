@@ -63,7 +63,7 @@ export default function BundleDetailPage() {
   const separateTotal = isCustomized ? customTotal : bundle.separateTotal;
   const savings = separateTotal - displayPrice;
   const savingsPercent = separateTotal > 0 ? Math.round((savings / separateTotal) * 100) : 0;
-  const isInCart = cart.some(c => c.id === bundle.id);
+  const isInCart = allItems.length > 0 && allItems.every(item => cart.some(c => c.bundleName === bundle.name && (c.id === item.productId || c.id === item.name)));
 
   const upgradable = bundle.upsellBundleId && allBundles
     ? allBundles.find(b => b.id === bundle.upsellBundleId || b.slug === bundle.upsellBundleId)
@@ -72,17 +72,20 @@ export default function BundleDetailPage() {
       : null);
 
   const handleAdd = () => {
-    addToCart({
-      id: bundle.id,
-      name: `${bundle.name}${isCustomized ? " (Customized)" : ""} — ${bundle.tier}`,
-      price: displayPrice,
-      img: bundle.icon,
-      baseImg: bundle.icon,
-      brands: [{ id: "default", label: bundle.tier, price: displayPrice, img: bundle.icon, tier: 1 }],
-      selectedBrand: { id: "default", label: bundle.tier, price: displayPrice, img: bundle.icon, tier: 1 },
-      bundleName: bundle.name,
+    // Add each individual product as a separate cart item
+    allItems.forEach(item => {
+      addToCart({
+        id: item.productId || item.name,
+        name: item.name,
+        price: item.price,
+        img: item.imageUrl || item.emoji || "📦",
+        baseImg: item.imageUrl || item.emoji || "📦",
+        brands: [{ id: item.brandId || "default", label: item.brand, price: item.price, img: item.imageUrl || item.emoji || "📦", tier: 1 }],
+        selectedBrand: { id: item.brandId || "default", label: item.brand, price: item.price, img: item.imageUrl || item.emoji || "📦", tier: 1 },
+        bundleName: bundle.name,
+      });
     });
-    toast.success(`✓ ${bundle.name} added to cart!`, {
+    toast.success(`✓ ${bundle.name} (${allItems.length} items) added to cart!`, {
       action: { label: "View Cart →", onClick: () => (window.location.href = "/cart") },
     });
   };
