@@ -7,7 +7,7 @@ export default function Footer() {
   const { data: settings } = useSiteSettings();
 
   const whatsapp = settings?.whatsapp_number || "";
-  const tagline = settings?.footer_tagline || "";
+  const tagline = "​...making being a mum easier.";
   const social = (typeof settings?.social_links === "object" && settings.social_links) ? settings.social_links as Record<string, string> : {};
 
   return (
