@@ -99,20 +99,29 @@ function ProductPageContent({ product, raw, settings }: { product: Product; raw:
   const savings = showSalePrice ? selectedBrand.compareAtPrice! - selectedBrand.price : 0;
   const savingsPercent = showSalePrice ? Math.round((savings / selectedBrand.compareAtPrice!) * 100) : 0;
 
-  // Gather all images
-  const allImages: { url: string; alt: string }[] = [];
-  if (selectedBrand?.imageUrl) allImages.push({ url: selectedBrand.imageUrl, alt: `${product.name} - ${selectedBrand.label}` });
-  const productImages = (raw?.product_images || []).sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0));
-  productImages.forEach((img: any) => {
-    if (img.image_url && !allImages.some(i => i.url === img.image_url)) {
-      allImages.push({ url: img.image_url, alt: img.alt_text || product.name });
+  // Build image gallery from brand images (each brand with an image = one slide)
+  const brandImages: { url: string; alt: string; brandId: string }[] = [];
+  product.brands.forEach(b => {
+    if (b.imageUrl) {
+      brandImages.push({ url: b.imageUrl, alt: `${product.name} - ${b.label}`, brandId: b.id });
     }
   });
-  if (product.imageUrl && !allImages.some(i => i.url === product.imageUrl)) {
-    allImages.push({ url: product.imageUrl, alt: product.name });
+  // Fallback: if no brand images, use product-level images
+  if (brandImages.length === 0) {
+    const productImages = (raw?.product_images || []).sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0));
+    productImages.forEach((img: any) => {
+      if (img.image_url) brandImages.push({ url: img.image_url, alt: img.alt_text || product.name, brandId: "" });
+    });
+    if (product.imageUrl) brandImages.push({ url: product.imageUrl, alt: product.name, brandId: "" });
   }
 
-  const displayImage = allImages[activeImageIdx]?.url || selectedBrand?.imageUrl || product.imageUrl;
+  // Sync active image to selected brand
+  useEffect(() => {
+    const idx = brandImages.findIndex(img => img.brandId === selectedBrand.id);
+    if (idx >= 0) setActiveImageIdx(idx);
+  }, [selectedBrand.id]);
+
+  const displayImage = brandImages[activeImageIdx]?.url || selectedBrand?.imageUrl || product.imageUrl;
   const longDescription = raw?.long_description || "";
   const howToUse = raw?.how_to_use || "";
   const videoUrl = raw?.video_url || "";
@@ -146,13 +155,24 @@ function ProductPageContent({ product, raw, settings }: { product: Product; raw:
     if (navigator.share) {
       try { await navigator.share({ title: product.name, url }); } catch {}
     } else {
-      navigator.clipboard.writeText(url);
-      toast.success("Link copied!");
+      try {
+        await navigator.clipboard.writeText(url);
+        toast.success("Link copied!");
+      } catch {
+        // Fallback for non-secure contexts
+        const input = document.createElement("input");
+        input.value = url;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand("copy");
+        document.body.removeChild(input);
+        toast.success("Link copied!");
+      }
     }
   };
 
   return (
-    <div className="min-h-screen pb-24 md:pb-8">
+    <div className="min-h-screen pb-24 md:pb-8 pt-20 md:pt-24">
       {zoomImage && <ImageZoomModal src={zoomImage} alt={product.name} onClose={() => setZoomImage(null)} />}
 
       {/* Breadcrumb */}
@@ -193,10 +213,17 @@ function ProductPageContent({ product, raw, settings }: { product: Product; raw:
             </div>
 
             {/* Thumbnail Gallery */}
-            {allImages.length > 1 && (
+            {brandImages.length > 1 && (
               <div className="flex gap-2 mt-3 overflow-x-auto pb-1">
-                {allImages.map((img, i) => (
-                  <button key={i} onClick={() => setActiveImageIdx(i)}
+                {brandImages.map((img, i) => (
+                  <button key={i} onClick={() => {
+                    setActiveImageIdx(i);
+                    // Auto-select brand when clicking its image
+                    if (img.brandId) {
+                      const brand = product.brands.find(b => b.id === img.brandId);
+                      if (brand) setSelectedBrand(brand);
+                    }
+                  }}
                     className={`w-16 h-16 md:w-20 md:h-20 rounded-lg overflow-hidden border-2 flex-shrink-0 transition-all ${activeImageIdx === i ? "border-forest" : "border-transparent hover:border-border"}`}>
                     <img src={img.url} alt={img.alt} className="w-full h-full object-contain bg-muted/30 p-1" />
                   </button>
