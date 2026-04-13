@@ -73,7 +73,7 @@ export default function AdminProductForm({ product, onClose, onSaved }: Props) {
       if (form.why_included_variants) {
         try { parsedVariants = JSON.parse(form.why_included_variants); } catch { /* ignore */ }
       }
-      const productData = {
+      const productData: Record<string, any> = {
         name: form.name, slug, emoji: form.emoji || null, description: form.description,
         category: form.category, priority: form.priority, badge: form.badge || null,
         display_order: form.display_order, pack_count: form.pack_count || null,
