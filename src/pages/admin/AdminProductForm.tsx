@@ -40,6 +40,9 @@ export default function AdminProductForm({ product, onClose, onSaved }: Props) {
     why_included: product?.why_included || "", why_included_variants: product?.why_included_variants ? JSON.stringify(product.why_included_variants) : "",
     meta_title: product?.meta_title || "", meta_description: product?.meta_description || "", og_image_url: product?.og_image_url || "",
     scheduled_for: product?.scheduled_for || "",
+    long_description: product?.long_description || "",
+    how_to_use: product?.how_to_use || "",
+    video_url: product?.video_url || "",
   });
 
   const [brands, setBrands] = useState<any[]>(product?.brands?.map((b: any) => ({ ...b })) || []);
@@ -80,6 +83,9 @@ export default function AdminProductForm({ product, onClose, onSaved }: Props) {
         multiples_bump: form.multiples_bump, first_baby: form.first_baby,
         why_included: form.why_included || null, why_included_variants: parsedVariants,
         meta_title: form.meta_title || null, meta_description: form.meta_description || null, og_image_url: form.og_image_url || null,
+        long_description: form.long_description || null,
+        how_to_use: form.how_to_use || null,
+        video_url: form.video_url || null,
         is_active: publishMode === "active",
         scheduled_for: publishMode === "schedule" ? form.scheduled_for : null,
       };
@@ -163,8 +169,8 @@ export default function AdminProductForm({ product, onClose, onSaved }: Props) {
 
         <Tabs defaultValue="general" className="w-full">
           <TabsList className="w-full justify-start px-4 pt-2 bg-transparent gap-1 flex-wrap h-auto">
-            {["general", "details", "brands", "sizes", "tags", "ratings", "images", "seo"].map(t => (
-              <TabsTrigger key={t} value={t} className="text-xs capitalize">{t === "sizes" ? "Sizes & Colours" : t}</TabsTrigger>
+            {["general", "details", "rich-content", "brands", "sizes", "tags", "ratings", "images", "seo"].map(t => (
+              <TabsTrigger key={t} value={t} className="text-xs capitalize">{t === "sizes" ? "Sizes & Colours" : t === "rich-content" ? "Rich Content" : t}</TabsTrigger>
             ))}
           </TabsList>
 
