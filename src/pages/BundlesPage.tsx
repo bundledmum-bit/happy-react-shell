@@ -142,8 +142,20 @@ function BundleCard({ bundle: b, compareSelected, onToggleCompare }: { bundle: B
     .slice(0, 4);
 
   const handleAdd = () => {
-    addToCart({ id: b.id, name: `${b.name} — ${b.tier}`, price: b.price, img: b.icon, baseImg: b.icon, brands: [{ id: "default", label: b.tier, price: b.price, img: b.icon, tier: 1 }], selectedBrand: { id: "default", label: b.tier, price: b.price, img: b.icon, tier: 1 } });
-    toast.success(`✓ ${b.name} added to cart!`, { action: { label: "View Cart →", onClick: () => window.location.href = "/cart" } });
+    const allItems = [...b.babyItems, ...b.mumItems];
+    allItems.forEach(item => {
+      addToCart({
+        id: item.productId || item.name,
+        name: item.name,
+        price: item.price,
+        img: item.imageUrl || item.emoji || "📦",
+        baseImg: item.imageUrl || item.emoji || "📦",
+        brands: [{ id: item.brandId || "default", label: item.brand, price: item.price, img: item.imageUrl || item.emoji || "📦", tier: 1 }],
+        selectedBrand: { id: item.brandId || "default", label: item.brand, price: item.price, img: item.imageUrl || item.emoji || "📦", tier: 1 },
+        bundleName: b.name,
+      });
+    });
+    toast.success(`✓ ${b.name} (${allItems.length} items) added to cart!`, { action: { label: "View Cart →", onClick: () => window.location.href = "/cart" } });
   };
 
   return (
