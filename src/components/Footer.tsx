@@ -16,7 +16,7 @@ export default function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-[2fr_1fr_1fr_1fr] gap-7 md:gap-14 mb-8 md:mb-12">
           <div className="col-span-2 md:col-span-1">
             <img src={logoWhite} alt="BundledMum" className="h-11 w-auto mb-3.5" />
-            {tagline && <p className="text-primary-foreground/45 text-[13px] leading-[1.8] max-w-[260px]">...making being a mum easier.</p>}
+            {tagline && <p className="text-primary-foreground/45 text-[13px] leading-[1.8] max-w-[260px]">{tagline}</p>}
             <div className="flex gap-2.5 mt-4">
               {social.facebook && (
                 <a href={social.facebook} target="_blank" rel="noopener noreferrer" aria-label="Follow us on Facebook" className="w-8 h-8 bg-primary-foreground/[0.08] rounded-full flex items-center justify-center cursor-pointer hover:bg-primary-foreground/20 transition-colors">
