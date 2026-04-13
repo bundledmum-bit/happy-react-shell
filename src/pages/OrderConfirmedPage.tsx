@@ -67,7 +67,7 @@ export default function OrderConfirmedPage() {
       `Customer: ${order.customer_name}`, `Email: ${order.customer_email}`, `Phone: ${order.customer_phone}`,
       `Address: ${order.delivery_address}, ${order.delivery_city}, ${order.delivery_state}`, ``,
       `Items:`,
-      ...items.map((i: any) => `  ${i.product_name} × ${i.quantity} — ${fmt(i.line_total)}${i.brand_name ? ` (${i.brand_name})` : ""}${i.size ? ` Size: ${i.size}` : ""}`),
+      ...items.map((i: any) => `  ${i.bundle_name ? `[${i.bundle_name}] ` : ""}${i.product_name} × ${i.quantity} — ${fmt(i.line_total)}${i.brand_name ? ` (${i.brand_name})` : ""}${i.size ? ` Size: ${i.size}` : ""}`),
       ``, `Subtotal: ${fmt(order.subtotal)}`, `Delivery: ${order.delivery_fee === 0 ? "FREE" : fmt(order.delivery_fee)}`,
       `Service & Packaging: ${fmt(order.service_fee)}`, `Total: ${fmt(order.total)}`, ``, `Payment: ${payLabels[order.payment_method] || ""}`,
     ].filter(Boolean);
