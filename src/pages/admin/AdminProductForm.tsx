@@ -250,6 +250,7 @@ export default function AdminProductForm({ product, onClose, onSaved }: Props) {
                   placeholder="https://youtube.com/watch?v=..." /></div>
             </TabsContent>
 
+            <TabsContent value="brands" className="space-y-3 mt-0">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-semibold">Brand Variants</label>
                 <button type="button" onClick={() => setBrands(b => [...b, { brand_name: "", price: 0, tier: "standard", is_default_for_tier: false, compare_at_price: null, stock_quantity: null, in_stock: true, image_url: null, logo_url: null }])}
