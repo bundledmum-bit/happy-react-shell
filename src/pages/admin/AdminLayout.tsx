@@ -1,54 +1,36 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdmin } from "@/hooks/useAdmin";
 import { AdminPermissionsProvider, usePermissions } from "@/hooks/useAdminPermissionsContext";
+import { useAdminNav, type AdminNavItem } from "@/hooks/useAdminNav";
 import { useIdleTimeout } from "@/hooks/useIdleTimeout";
 import {
   Package, ShoppingBag, ClipboardList, Truck, MessageSquare, Settings,
   BarChart3, Gift, LogOut, LayoutDashboard, FileText, Users, Image, Bell,
-  Search, X, Menu, ChevronLeft, MessageCircleQuestion, Workflow,
+  Search, X, Menu, ChevronLeft, MessageCircleQuestion, Workflow, LucideIcon,
+  Boxes, MapPin, Tag, FileText as PageIcon, Activity, Megaphone, HelpCircle,
 } from "lucide-react";
-import { Tag, Boxes, MapPin, FileText as PageIcon } from "lucide-react";
 import logoWhite from "@/assets/logos/BM-LOGO-WHITE.svg";
 import iconCoral from "@/assets/logos/BM-ICON-CORAL.svg";
 
-interface NavItem {
-  to: string;
-  label: string;
-  icon: any;
-  exact?: boolean;
-  /** module.action required — e.g. "orders.view" */
-  permission?: string;
-  superAdminOnly?: boolean;
-}
+/** Map icon string from DB to Lucide component */
+const ICON_MAP: Record<string, LucideIcon> = {
+  LayoutDashboard, Package, ShoppingBag, ClipboardList, Truck, MessageSquare,
+  Settings, BarChart3, Gift, FileText, Users, Image, Boxes, MapPin, Tag,
+  MessageCircleQuestion, Workflow, Activity, Megaphone, HelpCircle,
+  PageIcon, "FileText": FileText,
+};
 
-const NAV: NavItem[] = [
-  { to: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { to: "/admin/products", label: "Products", icon: Package, permission: "products.view" },
-  { to: "/admin/inventory", label: "Inventory", icon: Boxes, permission: "products.view" },
-  { to: "/admin/bundles", label: "Bundles", icon: ShoppingBag, permission: "products.view" },
-  { to: "/admin/orders", label: "Orders", icon: ClipboardList, permission: "orders.view" },
-  { to: "/admin/customers", label: "Customers", icon: Users, permission: "customers.view" },
-  { to: "/admin/coupons", label: "Coupons", icon: Tag, permission: "coupons.view" },
-  { to: "/admin/promotions", label: "Promotions", icon: Gift, permission: "products.view" },
-  { to: "/admin/delivery", label: "Delivery", icon: Truck, permission: "fulfilment.view_address" },
-  { to: "/admin/shipping-zones", label: "Shipping Zones", icon: MapPin, permission: "fulfilment.view_address" },
-  { to: "/admin/content", label: "Content", icon: MessageSquare, permission: "content.view" },
-  { to: "/admin/blog", label: "Blog", icon: FileText, permission: "content.view" },
-  { to: "/admin/pages", label: "Pages", icon: PageIcon, permission: "content.view" },
-  { to: "/admin/media", label: "Media", icon: Image, permission: "content.view" },
-  { to: "/admin/referrals", label: "Referrals", icon: Gift, permission: "analytics.view" },
-  { to: "/admin/quiz-leads", label: "Quiz Leads", icon: MessageCircleQuestion, permission: "orders.view" },
-  { to: "/admin/quiz-engine", label: "Quiz Engine", icon: Workflow, permission: "content.manage_quiz" },
-  { to: "/admin/analytics", label: "Analytics", icon: BarChart3, permission: "analytics.view" },
-  { to: "/admin/users", label: "Users", icon: Users, permission: "admin.view_users" },
-  { to: "/admin/settings", label: "Settings", icon: Settings, permission: "content.edit_settings" },
-];
+function getIcon(iconName: string | null): LucideIcon {
+  if (!iconName) return HelpCircle;
+  return ICON_MAP[iconName] || HelpCircle;
+}
 
 function AdminLayoutInner() {
   const { isAdmin, loading, signOut, user } = useAdmin();
-  const { can, adminUser, isSuperAdmin } = usePermissions();
+  const { adminUser } = usePermissions();
+  const { data: navItems, isLoading: navLoading } = useAdminNav();
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -58,6 +40,21 @@ function AdminLayoutInner() {
   const [searchQuery, setSearchQuery] = useState("");
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
+
+  // Build nav structure: top-level items and sub-items
+  const { topLevelNav, subItemsByParent } = useMemo(() => {
+    const items = navItems || [];
+    const topLevel = items
+      .filter(i => !i.parent_key)
+      .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+    const subs: Record<string, AdminNavItem[]> = {};
+    items.filter(i => !!i.parent_key).forEach(i => {
+      if (!subs[i.parent_key!]) subs[i.parent_key!] = [];
+      subs[i.parent_key!].push(i);
+    });
+    Object.values(subs).forEach(arr => arr.sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0)));
+    return { topLevelNav: topLevel, subItemsByParent: subs };
+  }, [navItems]);
 
   useEffect(() => {
     if (!adminUser) return;
@@ -108,7 +105,7 @@ function AdminLayoutInner() {
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
   };
 
-  if (loading) return (
+  if (loading || navLoading) return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: "linear-gradient(135deg, #2D6A4F 0%, #1A4A33 100%)" }}>
       <div className="text-center">
         <img src={iconCoral} alt="BundledMum" className="w-12 h-12 mx-auto mb-3 animate-pulse" />
@@ -119,11 +116,6 @@ function AdminLayoutInner() {
   if (!isAdmin) return null;
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
-
-  const visibleNav = NAV.filter(item => {
-    if (item.superAdminOnly && !isSuperAdmin) return false;
-    return true;
-  });
 
   return (
     <div className="min-h-screen flex bg-muted/30">
@@ -145,23 +137,45 @@ function AdminLayoutInner() {
           <div className="px-4 mb-2">
             <span className="text-[10px] font-bold text-white/30 uppercase tracking-[2px]">Menu</span>
           </div>
-          {visibleNav.map(item => {
-            const isActive = item.exact
-              ? location.pathname === item.to
-              : location.pathname.startsWith(item.to) && item.to !== "/admin";
-            const activeExact = item.exact && location.pathname === item.to;
-            const active = item.exact ? activeExact : isActive;
+          {topLevelNav.map(item => {
+            const Icon = getIcon(item.icon);
+            const itemPath = item.path.startsWith("/") ? item.path : `/${item.path}`;
+            const isExact = itemPath === "/admin";
+            const isActive = isExact
+              ? location.pathname === itemPath
+              : location.pathname.startsWith(itemPath) && itemPath !== "/admin";
+            const subs = subItemsByParent[item.nav_key] || [];
+
             return (
-              <Link key={item.to} to={item.to}
-                className={`flex items-center gap-2.5 px-5 py-2 text-[13px] transition-all mx-2 rounded-lg font-body ${
-                  active
-                    ? "bg-white/15 text-white font-semibold shadow-sm"
-                    : "text-white/60 hover:bg-white/8 hover:text-white/90"
-                }`}>
-                <item.icon className={`w-4 h-4 ${active ? "text-coral" : ""}`} />
-                {item.label}
-                {active && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-coral" />}
-              </Link>
+              <div key={item.nav_key}>
+                <Link to={itemPath}
+                  className={`flex items-center gap-2.5 px-5 py-2 text-[13px] transition-all mx-2 rounded-lg font-body ${
+                    isActive
+                      ? "bg-white/15 text-white font-semibold shadow-sm"
+                      : "text-white/60 hover:bg-white/8 hover:text-white/90"
+                  }`}>
+                  <Icon className={`w-4 h-4 ${isActive ? "text-coral" : ""}`} />
+                  {item.label}
+                  {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-coral" />}
+                </Link>
+                {/* Sub-items */}
+                {isActive && subs.length > 0 && (
+                  <div className="ml-9 mt-0.5 mb-1 space-y-0.5">
+                    {subs.map(sub => {
+                      const subPath = sub.path.startsWith("/") ? sub.path : `/${sub.path}`;
+                      const subActive = location.pathname === subPath;
+                      return (
+                        <Link key={sub.nav_key} to={subPath}
+                          className={`block px-3 py-1.5 text-[11px] rounded-md transition-colors ${
+                            subActive ? "text-white font-semibold bg-white/10" : "text-white/40 hover:text-white/70"
+                          }`}>
+                          {sub.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             );
           })}
         </nav>
@@ -248,15 +262,19 @@ function AdminLayoutInner() {
               <div className="p-4 text-xs text-text-light">
                 {searchQuery.length < 2 ? "Type at least 2 characters to search..." : (
                   <div className="space-y-1">
-                    {visibleNav.filter(item =>
+                    {topLevelNav.filter(item =>
                       item.label.toLowerCase().includes(searchQuery.toLowerCase())
-                    ).map(item => (
-                      <Link key={item.to} to={item.to} onClick={() => setSearchOpen(false)}
-                        className="flex items-center gap-2 p-2.5 hover:bg-muted rounded-lg transition-colors">
-                        <item.icon className="w-4 h-4 text-forest" />
-                        <span className="font-semibold">{item.label}</span>
-                      </Link>
-                    ))}
+                    ).map(item => {
+                      const Icon = getIcon(item.icon);
+                      const itemPath = item.path.startsWith("/") ? item.path : `/${item.path}`;
+                      return (
+                        <Link key={item.nav_key} to={itemPath} onClick={() => setSearchOpen(false)}
+                          className="flex items-center gap-2 p-2.5 hover:bg-muted rounded-lg transition-colors">
+                          <Icon className="w-4 h-4 text-forest" />
+                          <span className="font-semibold">{item.label}</span>
+                        </Link>
+                      );
+                    })}
                   </div>
                 )}
               </div>
