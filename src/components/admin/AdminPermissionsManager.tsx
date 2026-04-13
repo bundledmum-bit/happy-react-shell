@@ -58,6 +58,28 @@ export default function AdminPermissionsManager({ users }: Props) {
     enabled: !!selectedUserId,
   });
 
+  // Sync nav visibility for custom role users
+  const syncNavVisibility = async (module: string, action: string, granted: boolean) => {
+    if (!selectedUser || selectedUser.role !== "custom" || !selectedUserId) return;
+    const { data: navItems } = await supabase
+      .from("admin_nav_items")
+      .select("nav_key")
+      .eq("requires_permission_module", module)
+      .eq("requires_permission_action", action);
+    if (!navItems || navItems.length === 0) return;
+    for (const item of navItems) {
+      await supabase
+        .from("admin_user_nav_visibility")
+        .upsert({
+          admin_user_id: selectedUserId,
+          nav_key: item.nav_key,
+          visible: granted,
+          set_by: currentAdmin?.id || null,
+          set_at: new Date().toISOString(),
+        }, { onConflict: "admin_user_id,nav_key" });
+    }
+  };
+
   // Toggle permission
   const togglePerm = useMutation({
     mutationFn: async ({ module, action, granted }: { module: string; action: string; granted: boolean }) => {
@@ -75,6 +97,8 @@ export default function AdminPermissionsManager({ users }: Props) {
         });
         if (error) throw error;
       }
+      // Sync nav visibility for custom role
+      await syncNavVisibility(module, action, granted);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["user-perms", selectedUserId] });
