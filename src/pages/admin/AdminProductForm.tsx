@@ -40,6 +40,9 @@ export default function AdminProductForm({ product, onClose, onSaved }: Props) {
     why_included: product?.why_included || "", why_included_variants: product?.why_included_variants ? JSON.stringify(product.why_included_variants) : "",
     meta_title: product?.meta_title || "", meta_description: product?.meta_description || "", og_image_url: product?.og_image_url || "",
     scheduled_for: product?.scheduled_for || "",
+    long_description: product?.long_description || "",
+    how_to_use: product?.how_to_use || "",
+    video_url: product?.video_url || "",
   });
 
   const [brands, setBrands] = useState<any[]>(product?.brands?.map((b: any) => ({ ...b })) || []);
@@ -70,7 +73,7 @@ export default function AdminProductForm({ product, onClose, onSaved }: Props) {
       if (form.why_included_variants) {
         try { parsedVariants = JSON.parse(form.why_included_variants); } catch { /* ignore */ }
       }
-      const productData = {
+      const productData: Record<string, any> = {
         name: form.name, slug, emoji: form.emoji || null, description: form.description,
         category: form.category, priority: form.priority, badge: form.badge || null,
         display_order: form.display_order, pack_count: form.pack_count || null,
@@ -80,17 +83,20 @@ export default function AdminProductForm({ product, onClose, onSaved }: Props) {
         multiples_bump: form.multiples_bump, first_baby: form.first_baby,
         why_included: form.why_included || null, why_included_variants: parsedVariants,
         meta_title: form.meta_title || null, meta_description: form.meta_description || null, og_image_url: form.og_image_url || null,
+        long_description: form.long_description || null,
+        how_to_use: form.how_to_use || null,
+        video_url: form.video_url || null,
         is_active: publishMode === "active",
         scheduled_for: publishMode === "schedule" ? form.scheduled_for : null,
       };
 
       let productId: string;
       if (isEdit) {
-        const { error } = await supabase.from("products").update(productData).eq("id", product.id);
+        const { error } = await supabase.from("products").update(productData as any).eq("id", product.id);
         if (error) throw error;
         productId = product.id;
       } else {
-        const { data, error } = await supabase.from("products").insert(productData).select("id").single();
+        const { data, error } = await supabase.from("products").insert(productData as any).select("id").single();
         if (error) throw error;
         productId = data.id;
       }
@@ -163,8 +169,8 @@ export default function AdminProductForm({ product, onClose, onSaved }: Props) {
 
         <Tabs defaultValue="general" className="w-full">
           <TabsList className="w-full justify-start px-4 pt-2 bg-transparent gap-1 flex-wrap h-auto">
-            {["general", "details", "brands", "sizes", "tags", "ratings", "images", "seo"].map(t => (
-              <TabsTrigger key={t} value={t} className="text-xs capitalize">{t === "sizes" ? "Sizes & Colours" : t}</TabsTrigger>
+            {["general", "details", "rich-content", "brands", "sizes", "tags", "ratings", "images", "seo"].map(t => (
+              <TabsTrigger key={t} value={t} className="text-xs capitalize">{t === "sizes" ? "Sizes & Colours" : t === "rich-content" ? "Rich Content" : t}</TabsTrigger>
             ))}
           </TabsList>
 
@@ -230,6 +236,18 @@ export default function AdminProductForm({ product, onClose, onSaved }: Props) {
               <div><label className={labelCls}>Why Included Variants (JSON)</label>
                 <textarea value={form.why_included_variants} onChange={e => setForm(f => ({ ...f, why_included_variants: e.target.value }))} rows={2} className={inputCls}
                   placeholder='{"csection": "...", "vaginal": "..."}' /></div>
+            </TabsContent>
+
+            <TabsContent value="rich-content" className="space-y-3 mt-0">
+              <div><label className={labelCls}>Long Description (shown on full product page)</label>
+                <textarea value={form.long_description} onChange={e => setForm(f => ({ ...f, long_description: e.target.value }))} rows={5} className={inputCls}
+                  placeholder="Detailed product description for the full product page..." /></div>
+              <div><label className={labelCls}>How to Use</label>
+                <textarea value={form.how_to_use} onChange={e => setForm(f => ({ ...f, how_to_use: e.target.value }))} rows={4} className={inputCls}
+                  placeholder="Step-by-step instructions on how to use this product..." /></div>
+              <div><label className={labelCls}>Video URL (YouTube or direct link)</label>
+                <input value={form.video_url} onChange={e => setForm(f => ({ ...f, video_url: e.target.value }))} className={inputCls}
+                  placeholder="https://youtube.com/watch?v=..." /></div>
             </TabsContent>
 
             <TabsContent value="brands" className="space-y-3 mt-0">

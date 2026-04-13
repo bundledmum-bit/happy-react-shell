@@ -30,6 +30,7 @@ import ReturnsPage from "@/pages/ReturnsPage";
 import BlogPage from "@/pages/BlogPage";
 import TrackOrderPage from "@/pages/TrackOrderPage";
 import PushGiftsPage from "@/pages/PushGiftsPage";
+import ProductPage from "@/pages/ProductPage";
 import NotFound from "./pages/NotFound.tsx";
 
 // Admin
@@ -139,6 +140,7 @@ const App = () => (
                       <Route path="/blog" element={<BlogPage />} />
                       <Route path="/track-order" element={<TrackOrderPage />} />
                       <Route path="/push-gifts" element={<PushGiftsPage />} />
+                      <Route path="/products/:slug" element={<ProductPage />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </main>
