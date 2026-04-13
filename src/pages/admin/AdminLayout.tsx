@@ -122,9 +122,7 @@ function AdminLayoutInner() {
 
   const visibleNav = NAV.filter(item => {
     if (item.superAdminOnly && !isSuperAdmin) return false;
-    if (!item.permission) return true; // Dashboard always visible
-    const [mod, act] = item.permission.split(".");
-    return can(mod, act);
+    return true;
   });
 
   return (
