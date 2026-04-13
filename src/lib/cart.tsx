@@ -13,6 +13,7 @@ export interface CartItem {
   selectedBrand?: any;
   selectedSize?: string;
   selectedColor?: string;
+  bundleName?: string;
 }
 
 interface CartContextType {
