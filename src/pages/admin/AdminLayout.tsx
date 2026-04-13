@@ -56,7 +56,7 @@ function AdminLayoutInner() {
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_admin_nav");
       if (error) throw error;
-      return (data as NavItemFromDB[]) || [];
+      return (data as unknown as NavItemFromDB[]) || [];
     },
     enabled: !!adminUser,
   });
