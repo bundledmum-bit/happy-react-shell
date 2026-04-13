@@ -7,13 +7,7 @@ import { usePermissions } from "@/hooks/useAdminPermissionsContext";
 
 export default function AdminCustomers() {
   const queryClient = useQueryClient();
-  const { can, loading: permLoading } = usePermissions();
-
-  if (!permLoading && !can("customers", "view")) {
-    const AccessDenied = require("@/components/admin/AccessDenied").default;
-    return <AccessDenied />;
-  }
-
+  const { can } = usePermissions();
   const [search, setSearch] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
 
