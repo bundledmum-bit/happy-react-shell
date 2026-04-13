@@ -245,6 +245,7 @@ export default function CheckoutPage() {
             estimated_delivery_end: toDate.toISOString().split("T")[0],
             quiz_answers: quizAnswers,
             is_quiz_order: isQuizOrder,
+            is_bundle_order: cart.some(i => !!i.bundleName),
             utm_source: attribution.utm_source,
             utm_medium: attribution.utm_medium,
             utm_campaign: attribution.utm_campaign,
@@ -263,6 +264,7 @@ export default function CheckoutPage() {
             price: item.price,
             size: item.selectedSize || null,
             color: item.selectedColor || null,
+            bundleName: item.bundleName || null,
           })),
           customer: {
             email: form.email,

@@ -76,6 +76,7 @@ Deno.serve(async (req) => {
       line_total: item.price * item.qty,
       size: item.size || null,
       color: item.color || null,
+      bundle_name: item.bundleName || null,
     }));
 
     try {
