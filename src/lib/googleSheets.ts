@@ -66,6 +66,7 @@ interface SheetsDbOrderItem {
   brand_name: string;
   size: string | null;
   unit_price: number;
+  bundle_name: string | null;
 }
 
 const stringifyValue = (value: unknown) => {
@@ -87,18 +88,20 @@ const normalizePaymentStatus = (
 
 const formatItemsSummary = (items: SheetsDbOrderItem[]) =>
   items
-    .map(({ product_name, quantity, brand_name, size }) => {
+    .map(({ product_name, quantity, brand_name, size, bundle_name }) => {
       const details = [brand_name, size ? `Size: ${size}` : ""].filter(Boolean).join(" · ");
-      return details ? `${product_name} x${quantity} (${details})` : `${product_name} x${quantity}`;
+      const prefix = bundle_name ? `[${bundle_name}] ` : "";
+      return details ? `${prefix}${product_name} x${quantity} (${details})` : `${prefix}${product_name} x${quantity}`;
     })
     .join(", ");
 
 const formatItemsPayload = (items: SheetsDbOrderItem[]) =>
-  items.map(({ product_name, quantity, brand_name, size, unit_price }) => ({
+  items.map(({ product_name, quantity, brand_name, size, unit_price, bundle_name }) => ({
     name: size ? `${product_name} (${size})` : product_name,
     qty: quantity,
     price: unit_price,
     selectedBrand: brand_name ? { label: brand_name } : undefined,
+    bundleName: bundle_name || undefined,
   }));
 
 export async function syncOrderToSheets({ orderId, orderNumber, fallbackData }: SyncOrderToSheetsParams) {
@@ -119,7 +122,7 @@ export async function syncOrderToSheets({ orderId, orderNumber, fallbackData }: 
         .maybeSingle(),
       supabase
         .from("order_items")
-        .select("product_name, quantity, brand_name, size, unit_price")
+        .select("product_name, quantity, brand_name, size, unit_price, bundle_name")
         .eq("order_id", orderId)
         .order("created_at", { ascending: true }),
     ]);

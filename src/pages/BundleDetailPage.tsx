@@ -80,6 +80,7 @@ export default function BundleDetailPage() {
       baseImg: bundle.icon,
       brands: [{ id: "default", label: bundle.tier, price: displayPrice, img: bundle.icon, tier: 1 }],
       selectedBrand: { id: "default", label: bundle.tier, price: displayPrice, img: bundle.icon, tier: 1 },
+      bundleName: bundle.name,
     });
     toast.success(`✓ ${bundle.name} added to cart!`, {
       action: { label: "View Cart →", onClick: () => (window.location.href = "/cart") },

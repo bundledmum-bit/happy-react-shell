@@ -1234,6 +1234,7 @@ export type Database = {
         Row: {
           brand_id: string | null
           brand_name: string
+          bundle_name: string | null
           cogs_amount: number | null
           color: string | null
           created_at: string | null
@@ -1255,6 +1256,7 @@ export type Database = {
         Insert: {
           brand_id?: string | null
           brand_name: string
+          bundle_name?: string | null
           cogs_amount?: number | null
           color?: string | null
           created_at?: string | null
@@ -1276,6 +1278,7 @@ export type Database = {
         Update: {
           brand_id?: string | null
           brand_name?: string
+          bundle_name?: string | null
           cogs_amount?: number | null
           color?: string | null
           created_at?: string | null
@@ -1555,6 +1558,7 @@ export type Database = {
           gift_message: string | null
           gift_wrapping: boolean | null
           id: string
+          is_bundle_order: boolean | null
           is_quiz_order: boolean | null
           landing_page: string | null
           order_number: string | null
@@ -1611,6 +1615,7 @@ export type Database = {
           gift_message?: string | null
           gift_wrapping?: boolean | null
           id?: string
+          is_bundle_order?: boolean | null
           is_quiz_order?: boolean | null
           landing_page?: string | null
           order_number?: string | null
@@ -1667,6 +1672,7 @@ export type Database = {
           gift_message?: string | null
           gift_wrapping?: boolean | null
           id?: string
+          is_bundle_order?: boolean | null
           is_quiz_order?: boolean | null
           landing_page?: string | null
           order_number?: string | null
