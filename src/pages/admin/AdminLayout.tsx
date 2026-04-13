@@ -17,9 +17,9 @@ import iconCoral from "@/assets/logos/BM-ICON-CORAL.svg";
 /** Map icon string from DB to Lucide component */
 const ICON_MAP: Record<string, LucideIcon> = {
   LayoutDashboard, Package, ShoppingBag, ClipboardList, Truck, MessageSquare,
-  Settings, BarChart3, Gift, FileText, Users, Image, Boxes, MapPin, Tag,
+  Settings, BarChart3, Gift, Users, Image, Boxes, MapPin, Tag,
   MessageCircleQuestion, Workflow, Activity, Megaphone, HelpCircle,
-  PageIcon, "FileText": FileText,
+  FileText, PageIcon,
 };
 
 function getIcon(iconName: string | null): LucideIcon {
