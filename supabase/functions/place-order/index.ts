@@ -78,13 +78,13 @@ Deno.serve(async (req) => {
       color: item.color || null,
     }));
 
-    const { error: itemsError } = await supabase.from("order_items").insert(orderItems);
-    if (itemsError) {
-      console.error("Order items insert failed:", itemsError);
-      return new Response(
-        JSON.stringify({ error: "Failed to insert order items", details: itemsError.message }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    try {
+      const { error: itemsError } = await supabase.from("order_items").insert(orderItems);
+      if (itemsError) {
+        console.error(`[place-order] order_items insert FAILED for order ${orderData.id}:`, itemsError.message, itemsError);
+      }
+    } catch (itemsCatch) {
+      console.error(`[place-order] order_items insert EXCEPTION for order ${orderData.id}:`, itemsCatch);
     }
 
     // 4. Upsert customer
