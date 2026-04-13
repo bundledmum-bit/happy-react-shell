@@ -56,6 +56,7 @@ import AdminPages from "@/pages/admin/AdminPages";
 import AdminPromotions from "@/pages/admin/AdminPromotions";
 import AdminQuizLeads from "@/pages/admin/AdminQuizLeads";
 import AdminQuizEngine from "@/pages/admin/AdminQuizEngine";
+import PermissionGate from "@/components/admin/PermissionGate";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
