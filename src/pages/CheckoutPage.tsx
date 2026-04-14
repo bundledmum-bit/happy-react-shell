@@ -175,13 +175,13 @@ export default function CheckoutPage() {
     return !Object.keys(e).length;
   };
 
-  const buildOrderData = (paystackRef?: string, paystackStatus?: string) => ({
+  const buildOrderData = (cartItems: typeof cart, paystackRef?: string, paystackStatus?: string) => ({
     timestamp: new Date().toISOString(),
     customerName: `${form.firstName} ${form.lastName}`,
     email: form.email, phone: form.phone, address: form.address, city: form.city, state: form.state,
     deliveryNotes: form.notes,
-    items: cart,
-    itemsSummary: cart.map(i => `${i.name} x${i.qty}`).join(", "),
+    items: cartItems,
+    itemsSummary: cartItems.map(i => `${i.name} x${i.qty}`).join(", "),
     subtotal, deliveryFee: delivery, serviceFee, giftWrapFee,
     total: grand,
     paymentMethod: payment,
@@ -191,7 +191,7 @@ export default function CheckoutPage() {
     giftWrap, notes: "",
   });
 
-  const saveOrderToDb = async (orderData: ReturnType<typeof buildOrderData>): Promise<SavedOrderResult | null> => {
+  const saveOrderToDb = async (orderData: ReturnType<typeof buildOrderData>, cartItems: typeof cart): Promise<SavedOrderResult | null> => {
     try {
       // Get quiz answers from localStorage saved bundle if available
       let quizAnswers: any = null;
@@ -230,7 +230,7 @@ export default function CheckoutPage() {
       const quizSessionId = localStorage.getItem("bm_quiz_session_id");
 
       // Build items array and validate before sending
-      const orderItemsPayload = (orderData.items?.length ? orderData.items : cart).map(item => ({
+      const orderItemsPayload = (orderData.items?.length ? orderData.items : cartItems).map(item => ({
         name: item.name,
         brandName: item.selectedBrand?.label || "Standard",
         brandId: item.selectedBrand?.id || null,
@@ -243,7 +243,7 @@ export default function CheckoutPage() {
       }));
 
       if (!orderItemsPayload.length) {
-        console.error("[checkout] items array is empty — cart:", cart);
+        console.error("[checkout] items array is empty — cart:", cartItems);
         toast.error("Your cart appears to be empty. Please add items before checking out.");
         return null;
       }
@@ -334,11 +334,13 @@ export default function CheckoutPage() {
       return;
     }
     if (!validate()) return;
+
+    const cartSnapshot = [...cart];
     setProcessing(true);
 
     if (payment === "transfer") {
-      const orderData = buildOrderData();
-      const savedOrder = await saveOrderToDb(orderData);
+      const orderData = buildOrderData(cartSnapshot);
+      const savedOrder = await saveOrderToDb(orderData, cartSnapshot);
       if (!savedOrder) {
         setProcessing(false);
         toast.error("We couldn't place your order. Please try again.");
@@ -364,8 +366,8 @@ export default function CheckoutPage() {
         ref: `BM-${Date.now()}`, firstname: form.firstName, lastname: form.lastName,
         channels: payment === "ussd" ? ["ussd"] : ["card", "bank_transfer", "ussd", "qr", "mobile_money", "bank"],
         onSuccess: async (transaction: { reference: string; status: string }) => {
-          const orderData = buildOrderData(transaction.reference, "pending");
-          const savedOrder = await saveOrderToDb(orderData);
+          const orderData = buildOrderData(cartSnapshot, transaction.reference, "pending");
+          const savedOrder = await saveOrderToDb(orderData, cartSnapshot);
           if (!savedOrder) {
             setProcessing(false);
             toast.error("We couldn't place your order. Please try again.");
@@ -393,8 +395,8 @@ export default function CheckoutPage() {
         onCancel: () => { setProcessing(false); toast.error("Payment cancelled"); },
       });
     } catch {
-      const orderData = buildOrderData("DEMO-" + Date.now(), "success");
-      const savedOrder = await saveOrderToDb(orderData);
+      const orderData = buildOrderData(cartSnapshot, "DEMO-" + Date.now(), "success");
+      const savedOrder = await saveOrderToDb(orderData, cartSnapshot);
       if (!savedOrder) {
         setProcessing(false);
         toast.error("We couldn't place your order. Please try again.");
