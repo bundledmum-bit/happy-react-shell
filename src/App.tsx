@@ -8,6 +8,7 @@ import ScrollToTop from "@/components/ScrollToTop";
 import SkipNav from "@/components/SkipNav";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import AnnouncementBar from "@/components/AnnouncementBar";
 
 import MobileBottomNav from "@/components/MobileBottomNav";
 import { subscribeToAllChanges } from "@/lib/realtime";
@@ -121,6 +122,7 @@ const App = () => (
               <Route path="*" element={
                 <>
                   <SkipNav />
+                  <AnnouncementBar />
                   <Navbar />
                   <main id="main-content">
                     <Routes>
