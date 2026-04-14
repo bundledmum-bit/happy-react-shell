@@ -8,7 +8,6 @@ import ScrollToTop from "@/components/ScrollToTop";
 import SkipNav from "@/components/SkipNav";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import AnnouncementBar from "@/components/AnnouncementBar";
 
 import MobileBottomNav from "@/components/MobileBottomNav";
 import { subscribeToAllChanges } from "@/lib/realtime";
@@ -57,7 +56,6 @@ import AdminPages from "@/pages/admin/AdminPages";
 import AdminPromotions from "@/pages/admin/AdminPromotions";
 import AdminQuizLeads from "@/pages/admin/AdminQuizLeads";
 import AdminQuizEngine from "@/pages/admin/AdminQuizEngine";
-import AdminAnnouncements from "@/pages/admin/AdminAnnouncements";
 import PermissionGate from "@/components/admin/PermissionGate";
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -117,14 +115,12 @@ const App = () => (
                 <Route path="promotions" element={<PermissionGate module="promotions" action="view"><AdminPromotions /></PermissionGate>} />
                 <Route path="quiz-leads" element={<PermissionGate module="content" action="manage_quiz"><AdminQuizLeads /></PermissionGate>} />
                 <Route path="quiz-engine" element={<PermissionGate module="content" action="manage_quiz"><AdminQuizEngine /></PermissionGate>} />
-                <Route path="announcements" element={<PermissionGate module="content" action="edit"><AdminAnnouncements /></PermissionGate>} />
               </Route>
 
               {/* Storefront routes */}
               <Route path="*" element={
                 <>
                   <SkipNav />
-                  <AnnouncementBar />
                   <Navbar />
                   <main id="main-content">
                     <Routes>
