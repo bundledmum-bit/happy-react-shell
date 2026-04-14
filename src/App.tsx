@@ -122,6 +122,7 @@ const App = () => (
               <Route path="*" element={
                 <>
                   <SkipNav />
+                  <AnnouncementBar />
                   <Navbar />
                   <main id="main-content">
                     <Routes>
