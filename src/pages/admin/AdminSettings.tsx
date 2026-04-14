@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Save, Plus, Trash2 } from "lucide-react";
 
-const TABS = ["General", "Homepage", "Social", "Announcement", "Fees", "SEO"];
+const TABS = ["General", "Homepage", "Social", "Fees", "SEO"];
 
 const TAB_KEYS: Record<string, { key: string; label: string; type: "text" | "textarea" | "number" | "toggle" | "color" | "url" | "email" }[]> = {
   General: [
@@ -30,13 +30,6 @@ const TAB_KEYS: Record<string, { key: string; label: string; type: "text" | "tex
     { key: "instagram_url", label: "Instagram URL", type: "url" },
     { key: "twitter_url", label: "Twitter / X URL", type: "url" },
     { key: "tiktok_url", label: "TikTok URL", type: "url" },
-  ],
-  Announcement: [
-    { key: "announcement_enabled", label: "Show Announcement Bar", type: "toggle" },
-    { key: "announcement_text", label: "Announcement Text", type: "text" },
-    { key: "announcement_link", label: "Announcement Link", type: "url" },
-    { key: "announcement_bg_color", label: "Background Color", type: "color" },
-    { key: "announcement_text_color", label: "Text Color", type: "color" },
   ],
   Fees: [
     { key: "service_fee", label: "Service & Packaging Fee", type: "number" },
