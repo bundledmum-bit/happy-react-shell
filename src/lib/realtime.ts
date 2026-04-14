@@ -38,6 +38,7 @@ const TABLE_TO_QUERY_KEYS: Record<string, string[]> = {
   pages: ["admin-pages", "pages"],
   spend_threshold_discounts: ["spend-thresholds", "admin-spend-thresholds"],
   product_categories: ["product-categories", "admin-product-categories"],
+  announcements: ["announcements", "admin-announcements"],
 };
 
 /**
