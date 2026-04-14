@@ -44,6 +44,10 @@ export default function CheckoutPage() {
     trackEvent("checkout_started", { item_count: totalItems, subtotal });
   }, []);
 
+  useEffect(() => {
+    if (cart.length === 0 && !processing) navigate("/cart");
+  }, [cart, processing]);
+
   // Returning customer recognition: pre-fill from existing customer data
   const [customerLookedUp, setCustomerLookedUp] = useState(false);
   useEffect(() => {
@@ -226,7 +230,7 @@ export default function CheckoutPage() {
       const quizSessionId = localStorage.getItem("bm_quiz_session_id");
 
       // Build items array and validate before sending
-      const orderItemsPayload = cart.map(item => ({
+      const orderItemsPayload = (orderData.items?.length ? orderData.items : cart).map(item => ({
         name: item.name,
         brandName: item.selectedBrand?.label || "Standard",
         brandId: item.selectedBrand?.id || null,
@@ -324,6 +328,11 @@ export default function CheckoutPage() {
   };
 
   const placeOrder = async () => {
+    if (!cart.length) {
+      toast.error("Your cart is empty. Please add items before checking out.");
+      navigate("/cart");
+      return;
+    }
     if (!validate()) return;
     setProcessing(true);
 
