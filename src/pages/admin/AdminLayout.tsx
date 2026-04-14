@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdmin } from "@/hooks/useAdmin";
@@ -61,44 +61,7 @@ function AdminLayoutInner() {
     enabled: !!adminUser,
   });
 
-  // Build visible nav exclusively from DB results, grouped by parent
-  const { topItems, childrenMap } = useMemo(() => {
-    if (!dbNavItems) return { topItems: [], childrenMap: {} as Record<string, typeof mapped> };
-    const sorted = [...dbNavItems].sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
-    const mapped = sorted.map(item => ({
-      to: item.path,
-      label: item.label,
-      icon: getIcon(item.icon),
-      exact: item.path === "/admin",
-      navKey: item.nav_key,
-      parentKey: item.parent_key,
-    }));
-    const top = mapped.filter(i => !i.parentKey);
-    const children: Record<string, typeof mapped> = {};
-    for (const item of mapped) {
-      if (item.parentKey) {
-        if (!children[item.parentKey]) children[item.parentKey] = [];
-        children[item.parentKey].push(item);
-      }
-    }
-    return { topItems: top, childrenMap: children };
-  }, [dbNavItems]);
-
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
-  const toggleGroup = useCallback((key: string) => {
-    setOpenGroups(prev => ({ ...prev, [key]: !prev[key] }));
-  }, []);
-
-  // Auto-open group containing the active route
-  useEffect(() => {
-    for (const [parentKey, kids] of Object.entries(childrenMap)) {
-      if (kids.some(k => location.pathname.startsWith(k.to))) {
-        setOpenGroups(prev => ({ ...prev, [parentKey]: true }));
-      }
-    }
-  }, [location.pathname, childrenMap]);
-
-  // flat list for search
+  // Build visible nav exclusively from DB results
   const visibleNav = useMemo(() => {
     if (!dbNavItems) return [];
     return [...dbNavItems]
@@ -193,63 +156,23 @@ function AdminLayoutInner() {
           <div className="px-4 mb-2">
             <span className="text-[10px] font-bold text-white/30 uppercase tracking-[2px]">Menu</span>
           </div>
-          {topItems.map(item => {
-            const kids = childrenMap[item.navKey];
+          {visibleNav.map(item => {
             const isActive = item.exact
               ? location.pathname === item.to
               : location.pathname.startsWith(item.to) && item.to !== "/admin";
-            const active = item.exact ? location.pathname === item.to : isActive;
-            const hasChildren = kids && kids.length > 0;
-            const groupOpen = openGroups[item.navKey] ?? false;
-
-            if (!hasChildren) {
-              return (
-                <Link key={item.to} to={item.to}
-                  className={`flex items-center gap-2.5 px-5 py-2 text-[13px] transition-all mx-2 rounded-lg font-body ${
-                    active
-                      ? "bg-white/15 text-white font-semibold shadow-sm"
-                      : "text-white/60 hover:bg-white/8 hover:text-white/90"
-                  }`}>
-                  <item.icon className={`w-4 h-4 ${active ? "text-coral" : ""}`} />
-                  {item.label}
-                  {active && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-coral" />}
-                </Link>
-              );
-            }
-
-            const anyChildActive = kids.some(k => location.pathname.startsWith(k.to));
+            const activeExact = item.exact && location.pathname === item.to;
+            const active = item.exact ? activeExact : isActive;
             return (
-              <div key={item.navKey}>
-                <button onClick={() => toggleGroup(item.navKey)}
-                  className={`flex items-center gap-2.5 px-5 py-2 text-[13px] transition-all mx-2 rounded-lg font-body w-[calc(100%-16px)] ${
-                    anyChildActive
-                      ? "bg-white/10 text-white font-semibold"
-                      : "text-white/60 hover:bg-white/8 hover:text-white/90"
-                  }`}>
-                  <item.icon className={`w-4 h-4 ${anyChildActive ? "text-coral" : ""}`} />
-                  {item.label}
-                  <ChevronLeft className={`ml-auto w-3.5 h-3.5 transition-transform ${groupOpen ? "-rotate-90" : "rotate-0"}`} />
-                </button>
-                {groupOpen && (
-                  <div className="ml-4">
-                    {kids.map(child => {
-                      const childActive = location.pathname.startsWith(child.to);
-                      return (
-                        <Link key={child.to} to={child.to}
-                          className={`flex items-center gap-2.5 px-5 py-1.5 text-[12px] transition-all mx-2 rounded-lg font-body ${
-                            childActive
-                              ? "bg-white/15 text-white font-semibold shadow-sm"
-                              : "text-white/40 hover:bg-white/8 hover:text-white/80"
-                          }`}>
-                          <child.icon className={`w-3.5 h-3.5 ${childActive ? "text-coral" : ""}`} />
-                          {child.label}
-                          {childActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-coral" />}
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+              <Link key={item.to} to={item.to}
+                className={`flex items-center gap-2.5 px-5 py-2 text-[13px] transition-all mx-2 rounded-lg font-body ${
+                  active
+                    ? "bg-white/15 text-white font-semibold shadow-sm"
+                    : "text-white/60 hover:bg-white/8 hover:text-white/90"
+                }`}>
+                <item.icon className={`w-4 h-4 ${active ? "text-coral" : ""}`} />
+                {item.label}
+                {active && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-coral" />}
+              </Link>
             );
           })}
         </nav>
