@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { fmt } from "@/lib/cart";
+import { useSiteSettings } from "@/hooks/useSupabaseData";
 
 const SCOPES = [
   { id: "hospital-bag", emoji: "🏥", label: "Hospital Bag", sub: "Delivery day essentials" },
@@ -19,21 +20,26 @@ const DELIVERY = [
   { id: "both", label: "Unsure", emoji: "🤷‍♀️" },
 ];
 
-function calcRange(scope: string, multiples: string, delivery: string) {
-  const bases: Record<string, [number, number][]> = {
-    starter: [[50000, 100000]],
-    standard: [[100000, 200000]],
-    premium: [[200000, 450000]],
-  };
+const DEFAULT_BASE_PRICES: Record<string, [number, number]> = {
+  starter: [50000, 100000],
+  standard: [100000, 200000],
+  premium: [200000, 450000],
+};
 
-  return Object.entries(bases).map(([tier, [[lo, hi]]]) => {
+const DEFAULT_MODIFIERS = {
+  csection_low: 8000, csection_high: 16000,
+  both_low: 5000, both_high: 10000,
+};
+
+function calcRange(scope: string, multiples: string, delivery: string, basePrices: Record<string, [number, number]>, modifiers: Record<string, number>) {
+  return Object.entries(basePrices).map(([tier, [lo, hi]]) => {
     let low = lo, high = hi;
     if (scope === "hospital-bag+general") { low *= 1.25; high *= 1.3; }
     const m = parseInt(multiples);
     if (m === 2) { low *= 1.2; high *= 1.3; }
     if (m >= 3) { low *= 1.4; high *= 1.5; }
-    if (delivery === "csection") { low += 8000; high += 16000; }
-    else if (delivery === "both") { low += 5000; high += 10000; }
+    if (delivery === "csection") { low += (modifiers.csection_low || 0); high += (modifiers.csection_high || 0); }
+    else if (delivery === "both") { low += (modifiers.both_low || 0); high += (modifiers.both_high || 0); }
     return {
       tier,
       label: tier === "starter" ? "🌱 Starter" : tier === "standard" ? "🌿 Standard" : "✨ Premium",
@@ -50,9 +56,26 @@ export default function BudgetCalculator() {
   const [multiples, setMultiples] = useState("");
   const [delivery, setDelivery] = useState("");
   const navigate = useNavigate();
+  const { data: settings } = useSiteSettings();
+
+  const basePrices: Record<string, [number, number]> = (() => {
+    try {
+      const parsed = typeof settings?.calculator_base_prices === "object" ? settings.calculator_base_prices : JSON.parse(settings?.calculator_base_prices || "null");
+      if (parsed && typeof parsed === "object") return parsed;
+    } catch {}
+    return DEFAULT_BASE_PRICES;
+  })();
+
+  const modifiers: Record<string, number> = (() => {
+    try {
+      const parsed = typeof settings?.calculator_modifiers === "object" ? settings.calculator_modifiers : JSON.parse(settings?.calculator_modifiers || "null");
+      if (parsed && typeof parsed === "object") return parsed;
+    } catch {}
+    return DEFAULT_MODIFIERS;
+  })();
 
   const allAnswered = scope && multiples && delivery;
-  const ranges = allAnswered ? calcRange(scope, multiples, delivery) : null;
+  const ranges = allAnswered ? calcRange(scope, multiples, delivery, basePrices, modifiers) : null;
 
   const startQuiz = () => {
     const params = new URLSearchParams();

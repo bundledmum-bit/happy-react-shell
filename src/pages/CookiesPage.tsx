@@ -1,8 +1,11 @@
 import { Link } from "react-router-dom";
 import { useEffect } from "react";
+import { useSiteSettings } from "@/hooks/useSupabaseData";
 
 export default function CookiesPage() {
   useEffect(() => { document.title = "Cookie Policy | BundledMum"; }, []);
+  const { data: settings } = useSiteSettings();
+  const contactEmail = settings?.contact_email || "";
 
   return (
     <div className="min-h-screen pt-[68px]">
@@ -28,7 +31,7 @@ export default function CookiesPage() {
         <p className="mb-4 leading-relaxed">You can clear your browser's local storage at any time. This will reset your cart. Most browsers allow you to manage cookie preferences in their settings.</p>
 
         <h2 className="pf text-forest text-xl mb-3">Contact</h2>
-        <p className="mb-4 leading-relaxed">Questions? Email <a href="mailto:hello@bundledmum.ng" className="text-forest underline">hello@bundledmum.ng</a>.</p>
+        <p className="mb-4 leading-relaxed">Questions? Email {contactEmail ? <a href={`mailto:${contactEmail}`} className="text-forest underline">{contactEmail}</a> : "us"}.</p>
 
         <div className="mt-8 text-center">
           <Link to="/" className="text-forest font-semibold underline">← Back to Home</Link>

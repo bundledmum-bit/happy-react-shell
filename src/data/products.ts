@@ -406,7 +406,7 @@ export const TESTIMONIALS = [
 
 export const FAQ = [
   { q: "How does the quiz work?", a: "Our quiz asks about who you're shopping for, your baby's gender, hospital type, delivery method, and your budget. We instantly recommend the perfect products — no overwhelm, no guesswork." },
-  { q: "Do you deliver across Nigeria?", a: "Yes! We deliver nationwide. Lagos orders arrive in 1–2 business days. Other states are 2–4 business days. Free delivery on orders over ₦30,000." },
+  { q: "Do you deliver across Nigeria?", a: "Yes! We deliver nationwide. Lagos orders arrive in 1–2 business days. Other states are 2–4 business days. Free delivery on qualifying orders." },
   { q: "Can I change my bundle?", a: "Absolutely. The quiz gives you a personalised starting point, but you can add or remove individual items before checkout. It's your bundle." },
   { q: "Are the products safe for newborns?", a: "Every product on BundledMum is vetted for newborn safety. We stock only certified, skin-safe, and age-appropriate items." },
   { q: "What payment methods do you accept?", a: "Card (Mastercard, Visa, Verve), bank transfers, and USSD payments via Paystack. All transactions are secure and encrypted." },

@@ -37,8 +37,8 @@ export function calculateDeliveryFee(
   customerState: string,
   zones: ShippingZone[],
   serviceFee?: number | null,
-  defaultFee = 2500,
-  defaultThreshold = 30000
+  defaultFee?: number,
+  defaultThreshold?: number
 ) {
   // Match zone: area first, then state, then wildcard
   const zone = zones.find(z =>
@@ -50,14 +50,14 @@ export function calculateDeliveryFee(
   );
 
   if (!zone) {
-    const isFree = cartTotal >= defaultThreshold;
+    const isFree = defaultThreshold != null && defaultThreshold > 0 && cartTotal >= defaultThreshold;
     return {
-      fee: isFree ? 0 : defaultFee,
+      fee: isFree ? 0 : (defaultFee || 0),
       isFree,
       zoneName: "Standard",
       daysMin: 3,
       daysMax: 5,
-      freeThreshold: defaultThreshold,
+      freeThreshold: defaultThreshold || 0,
     };
   }
 

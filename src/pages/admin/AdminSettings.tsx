@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Save, Plus, Trash2 } from "lucide-react";
 
-const TABS = ["General", "Homepage", "Social", "Announcement", "Fees", "SEO"];
+const TABS = ["General", "Homepage", "Social", "Announcement", "Fees", "Payment", "SEO"];
 
 const TAB_KEYS: Record<string, { key: string; label: string; type: "text" | "textarea" | "number" | "toggle" | "color" | "url" | "email" }[]> = {
   General: [
@@ -40,11 +40,19 @@ const TAB_KEYS: Record<string, { key: string; label: string; type: "text" | "tex
   ],
   Fees: [
     { key: "service_fee", label: "Service & Packaging Fee", type: "number" },
-    { key: "free_delivery_threshold", label: "Free Delivery Threshold", type: "number" },
+    { key: "service_fee_enabled", label: "Service Fee Enabled", type: "toggle" },
+    { key: "service_fee_label", label: "Service Fee Label", type: "text" },
+    { key: "default_delivery_fee", label: "Default Delivery Fee", type: "number" },
+    { key: "default_free_threshold", label: "Free Delivery Threshold", type: "number" },
     { key: "referral_amount", label: "Referral Amount", type: "number" },
     { key: "gift_wrapping_price", label: "Gift Wrapping Price", type: "number" },
     { key: "calculator_base_prices", label: "Calculator Base Prices (JSON)", type: "textarea" },
     { key: "calculator_modifiers", label: "Calculator Modifiers (JSON)", type: "textarea" },
+  ],
+  Payment: [
+    { key: "bank_name", label: "Bank Name", type: "text" },
+    { key: "bank_account_name", label: "Account Name", type: "text" },
+    { key: "bank_account_number", label: "Account Number", type: "text" },
   ],
   SEO: [
     { key: "meta_title", label: "Default Meta Title", type: "text" },

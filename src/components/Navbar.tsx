@@ -6,12 +6,15 @@ import logoWhite from "@/assets/logos/BM-LOGO-WHITE.svg";
 import logoGreen from "@/assets/logos/BM-LOGO-GREEN.svg";
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
+import { useSiteSettings } from "@/hooks/useSupabaseData";
 
 export default function Navbar({ topOffset = 0 }: { topOffset?: number }) {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const { totalItems, justAdded } = useCart();
   const location = useLocation();
+  const { data: settings } = useSiteSettings();
+  const contactEmail = settings?.contact_email || "";
 
   const isHome = location.pathname === "/";
 
@@ -88,7 +91,7 @@ export default function Navbar({ topOffset = 0 }: { topOffset?: number }) {
             ))}
             <div className="mt-7">
               <div className="text-text-light text-xs mb-2">Contact us</div>
-              <div className="text-text-med text-sm">hello@bundledmum.ng</div>
+              <div className="text-text-med text-sm">{contactEmail || "hello@bundledmum.com"}</div>
             </div>
           </div>
         </>

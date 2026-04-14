@@ -8,7 +8,8 @@ export default function TermsPage() {
 
   const { data: deliveryZones } = useDeliverySettings();
   const { data: settings } = useSiteSettings();
-  const serviceFee = settings?.service_fee ? parseInt(settings.service_fee) : 1500;
+  const serviceFee = parseInt(settings?.service_fee) || 0;
+  const contactEmail = settings?.contact_email || "";
 
   // Build delivery summary from Supabase zones
   const deliverySummary = (deliveryZones || []).map(z => {
@@ -50,7 +51,7 @@ export default function TermsPage() {
         <p className="mb-4 leading-relaxed">BundledMum is not liable for delays caused by courier services or events outside our control. Our maximum liability is limited to the order value.</p>
 
         <h2 className="pf text-forest text-xl mb-3">7. Contact</h2>
-        <p className="mb-4 leading-relaxed">Questions about these terms? Email <a href="mailto:hello@bundledmum.ng" className="text-forest underline">hello@bundledmum.ng</a>.</p>
+        <p className="mb-4 leading-relaxed">Questions about these terms? Email {contactEmail ? <a href={`mailto:${contactEmail}`} className="text-forest underline">{contactEmail}</a> : "us"}.</p>
 
         <div className="mt-8 text-center">
           <Link to="/" className="text-forest font-semibold underline">← Back to Home</Link>

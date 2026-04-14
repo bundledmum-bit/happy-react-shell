@@ -1,8 +1,12 @@
 import { Link } from "react-router-dom";
 import { useEffect } from "react";
+import { useSiteSettings } from "@/hooks/useSupabaseData";
 
 export default function PrivacyPage() {
   useEffect(() => { document.title = "Privacy Policy | BundledMum"; }, []);
+  const { data: settings } = useSiteSettings();
+  const whatsapp = settings?.whatsapp_number || "";
+  const contactEmail = settings?.contact_email || "";
 
   return (
     <div className="min-h-screen pt-[68px]">
@@ -26,13 +30,13 @@ export default function PrivacyPage() {
         <p className="mb-4 leading-relaxed">All payments are processed through Paystack's PCI-DSS compliant platform. We use HTTPS encryption on our website and limit access to personal data to authorised team members only.</p>
 
         <h2 className="pf text-forest text-xl mb-3">5. Your Rights</h2>
-        <p className="mb-4 leading-relaxed">You may request access to, correction of, or deletion of your personal data at any time by contacting us at hello@bundledmum.ng. We will respond within 14 business days.</p>
+        <p className="mb-4 leading-relaxed">You may request access to, correction of, or deletion of your personal data at any time by contacting us at {contactEmail || "our contact email"}. We will respond within 14 business days.</p>
 
         <h2 className="pf text-forest text-xl mb-3">6. Cookies</h2>
         <p className="mb-4 leading-relaxed">We use essential cookies to save your cart and preferences. We do not use tracking cookies or third-party analytics cookies. Your cart data is stored locally in your browser.</p>
 
         <h2 className="pf text-forest text-xl mb-3">7. Contact</h2>
-        <p className="mb-4 leading-relaxed">For any privacy-related questions, contact us at <a href="mailto:hello@bundledmum.ng" className="text-forest underline">hello@bundledmum.ng</a> or via <a href="https://wa.me/2348012345678" target="_blank" rel="noopener noreferrer" className="text-forest underline">WhatsApp</a>.</p>
+        <p className="mb-4 leading-relaxed">For any privacy-related questions, contact us at {contactEmail ? <a href={`mailto:${contactEmail}`} className="text-forest underline">{contactEmail}</a> : "our contact email"}{whatsapp ? <> or via <a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noopener noreferrer" className="text-forest underline">WhatsApp</a></> : ""}.</p>
 
         <div className="mt-8 text-center">
           <Link to="/" className="text-forest font-semibold underline">← Back to Home</Link>

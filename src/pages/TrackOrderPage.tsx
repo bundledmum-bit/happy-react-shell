@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fmt } from "@/lib/cart";
+import { useSiteSettings } from "@/hooks/useSupabaseData";
 
 export default function TrackOrderPage() {
   const [orderId, setOrderId] = useState("");
@@ -8,6 +9,8 @@ export default function TrackOrderPage() {
   const [order, setOrder] = useState<any>(null);
   const [error, setError] = useState("");
 
+  const { data: settings } = useSiteSettings();
+  const whatsapp = settings?.whatsapp_number || "";
   useEffect(() => { document.title = "Track Order | BundledMum"; }, []);
 
   const handleTrack = async () => {
@@ -111,7 +114,7 @@ export default function TrackOrderPage() {
         <div className="text-center mt-8">
           <p className="text-text-med text-sm mb-2">Need help?</p>
           <p className="text-text-light text-xs">
-            <a href={`https://wa.me/2348012345678?text=${encodeURIComponent("Hi! I need help with my order.")}`} target="_blank" rel="noopener noreferrer" className="text-forest font-semibold hover:underline">Chat with us on WhatsApp</a>
+            {whatsapp ? <a href={`https://wa.me/${whatsapp}?text=${encodeURIComponent("Hi! I need help with my order.")}`} target="_blank" rel="noopener noreferrer" className="text-forest font-semibold hover:underline">Chat with us on WhatsApp</a> : <span className="text-forest font-semibold">Contact us on WhatsApp</span>}
           </p>
         </div>
       </div>

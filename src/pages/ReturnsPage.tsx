@@ -1,8 +1,13 @@
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
+import { useSiteSettings } from "@/hooks/useSupabaseData";
+import { fmt } from "@/lib/cart";
 
 export default function ReturnsPage() {
   useEffect(() => { document.title = "Returns & Exchanges | BundledMum"; }, []);
+  const { data: settings } = useSiteSettings();
+  const whatsapp = settings?.whatsapp_number || "";
+  const giftWrapPrice = parseInt(settings?.gift_wrapping_price) || 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -25,14 +30,14 @@ export default function ReturnsPage() {
               <li>Items must be <strong>unopened and in original sealed packaging</strong></li>
               <li>Items must be in the same condition as received — no damage, stains, or alterations</li>
               <li>Skincare products and food items (e.g., Labour Snack Pack) are <strong>non-returnable</strong> once the seal is broken</li>
-              <li>Gift-wrapped bundles: the gift wrapping fee (₦3,500) is non-refundable</li>
+              <li>Gift-wrapped bundles: the gift wrapping fee ({giftWrapPrice ? fmt(giftWrapPrice) : "applied at checkout"}) is non-refundable</li>
             </ul>
           </section>
 
           <section>
             <h2 className="pf text-xl text-forest mb-3">How to Initiate a Return</h2>
             <ol className="text-text-med text-sm space-y-2 list-decimal pl-5">
-              <li>Send a WhatsApp message to <a href="https://wa.me/2348012345678" target="_blank" rel="noopener noreferrer" className="text-forest font-semibold underline">+234 801 234 5678</a> with your order number and reason for return</li>
+              <li>Send a WhatsApp message to {whatsapp ? <a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noopener noreferrer" className="text-forest font-semibold underline">{whatsapp}</a> : <span className="font-semibold">our WhatsApp</span>} with your order number and reason for return</li>
               <li>Our team will respond within 2 hours during business hours (Mon–Sat, 8am–8pm)</li>
               <li>We'll arrange a pickup from your delivery address at no extra cost (Lagos only; other states may incur a return shipping fee)</li>
               <li>Once we receive and inspect the item, your refund is processed within 3–5 business days</li>
@@ -63,11 +68,13 @@ export default function ReturnsPage() {
               <h4 className="pf text-primary-foreground text-lg mb-1">Need Help?</h4>
               <p className="text-primary-foreground/65 text-sm">Chat with us — we reply within minutes.</p>
             </div>
-            <a href="https://wa.me/2348012345678?text=Hi! I'd like to return/exchange an item from my order."
-              target="_blank" rel="noopener noreferrer"
-              className="bg-[#25D366] text-primary-foreground px-5 py-3 rounded-pill font-semibold text-sm whitespace-nowrap">
-              Chat on WhatsApp 💬
-            </a>
+            {whatsapp && (
+              <a href={`https://wa.me/${whatsapp}?text=Hi! I'd like to return/exchange an item from my order.`}
+                target="_blank" rel="noopener noreferrer"
+                className="bg-[#25D366] text-primary-foreground px-5 py-3 rounded-pill font-semibold text-sm whitespace-nowrap">
+                Chat on WhatsApp 💬
+              </a>
+            )}
           </div>
         </div>
 

@@ -11,7 +11,6 @@ import { trackEvent, getSessionId, getAttribution, markSessionConverted } from "
 import { syncOrderToSheets } from "@/lib/googleSheets";
 
 const NIGERIAN_STATES = ["Lagos", "Abuja", "Rivers", "Ogun", "Oyo", "Kano", "Kaduna", "Anambra", "Enugu", "Delta", "Edo", "Imo", "Osun", "Kwara", "Benue"];
-const GIFT_WRAP_FEE = 3500;
 
 interface FormData {
   firstName: string; lastName: string; phone: string; email: string;
@@ -72,13 +71,21 @@ export default function CheckoutPage() {
   }, [form.phone]);
 
   const serviceFeeEnabled = settings?.service_fee_enabled !== false;
-  const serviceFee = serviceFeeEnabled ? (parseInt(settings?.service_fee) || 1500) : 0;
+  const serviceFee = serviceFeeEnabled ? (parseInt(settings?.service_fee) || 0) : 0;
   const serviceFeeLabel = settings?.service_fee_label || "Service & Packaging";
+
+  const defaultDeliveryFee = parseInt(settings?.default_delivery_fee) || 0;
+  const defaultFreeThreshold = parseInt(settings?.default_free_threshold) || 0;
+  const giftWrapPrice = parseInt(settings?.gift_wrapping_price) || 0;
+
+  const bankName = settings?.bank_name || "";
+  const bankAccountName = settings?.bank_account_name || "";
+  const bankAccountNumber = settings?.bank_account_number || "";
 
   // Delivery fee from DB zones
   const deliveryCalc = zones?.length
-    ? calculateDeliveryFee(subtotal, form.city, form.state, zones, serviceFee, parseInt(settings?.default_delivery_fee) || 2500, parseInt(settings?.default_free_threshold) || 30000)
-    : { fee: subtotal >= 30000 ? 0 : 2500, isFree: subtotal >= 30000, zoneName: "Standard", daysMin: 1, daysMax: 3, freeThreshold: 30000 };
+    ? calculateDeliveryFee(subtotal, form.city, form.state, zones, serviceFee, defaultDeliveryFee, defaultFreeThreshold)
+    : { fee: defaultFreeThreshold && subtotal >= defaultFreeThreshold ? 0 : defaultDeliveryFee, isFree: defaultFreeThreshold > 0 && subtotal >= defaultFreeThreshold, zoneName: "Standard", daysMin: 1, daysMax: 3, freeThreshold: defaultFreeThreshold };
   const delivery = deliveryCalc.fee;
 
   // Spend threshold discount
@@ -88,7 +95,7 @@ export default function CheckoutPage() {
   // Coupon discount — already calculated server-side by validate_coupon RPC
   const couponDiscount = appliedCoupon?.discount_amount || 0;
 
-  const giftWrapFee = giftWrap ? GIFT_WRAP_FEE : 0;
+  const giftWrapFee = giftWrap ? giftWrapPrice : 0;
   const grand = Math.max(0, subtotal + delivery + serviceFee + giftWrapFee - couponDiscount - spendDiscount);
 
   // Delivery date estimate
@@ -449,7 +456,7 @@ export default function CheckoutPage() {
                 <div className="flex justify-between"><span className="text-text-med">Subtotal</span><span>{fmt(subtotal)}</span></div>
                 <div className="flex justify-between"><span className="text-text-med">Delivery ({deliveryCalc.zoneName})</span><span className={delivery === 0 ? "text-forest" : ""}>{delivery === 0 ? "FREE 🎉" : fmt(delivery)}</span></div>
                 <div className="flex justify-between"><span className="text-text-med">{serviceFeeLabel}</span><span>{fmt(serviceFee)}</span></div>
-                {giftWrap && <div className="flex justify-between"><span className="text-text-med">Gift Wrapping</span><span>{fmt(GIFT_WRAP_FEE)}</span></div>}
+                {giftWrap && <div className="flex justify-between"><span className="text-text-med">Gift Wrapping</span><span>{fmt(giftWrapPrice)}</span></div>}
                 {couponDiscount > 0 && <div className="flex justify-between text-forest"><span>🏷️ Coupon ({appliedCoupon?.code})</span><span>-{fmt(couponDiscount)}</span></div>}
                 {spendDiscount > 0 && <div className="flex justify-between text-forest"><span>🎉 Spend Discount</span><span>-{fmt(spendDiscount)}</span></div>}
                 <div className="flex justify-between font-bold text-sm pt-1"><span>Total</span><span className="text-forest">{fmt(grand)}</span></div>
@@ -494,7 +501,7 @@ export default function CheckoutPage() {
                   <div className="flex-1">
                     <div className="font-bold text-sm flex items-center gap-2 flex-wrap">
                       Add Gift Wrapping
-                      <span className="bg-[#FFD54F] text-[#7B5E00] text-[10px] px-2 py-0.5 rounded-[10px] font-bold">+{fmt(GIFT_WRAP_FEE)}</span>
+                      <span className="bg-[#FFD54F] text-[#7B5E00] text-[10px] px-2 py-0.5 rounded-[10px] font-bold">+{fmt(giftWrapPrice)}</span>
                     </div>
                     <div className="text-text-med text-xs mt-0.5">Premium gift box · satin ribbon · handwritten card · branded tissue paper</div>
                   </div>
@@ -559,10 +566,10 @@ export default function CheckoutPage() {
                   </div>
                 </div>
               )}
-              {payment === "transfer" && (
+              {payment === "transfer" && bankName && bankAccountNumber && (
                 <div className="mt-3 bg-warm-cream rounded-lg p-3.5 animate-fade-in">
                   <div className="font-semibold text-[13px] mb-2">Bank Transfer Details</div>
-                  {[["Bank", "GTBank"], ["Account Name", "BundledMum Nigeria Ltd"], ["Account Number", "0123456789"]].map(([k, v]) => (
+                  {[["Bank", bankName], ["Account Name", bankAccountName], ["Account Number", bankAccountNumber]].map(([k, v]) => (
                     <div key={k} className="flex gap-2 mb-1"><span className="text-text-light text-xs min-w-[90px]">{k}:</span><span className="text-xs font-semibold">{v}</span></div>
                   ))}
                   <div className="mt-2.5 text-coral text-xs">⚠️ Send exact amount, use your phone number as reference.</div>
@@ -597,7 +604,7 @@ export default function CheckoutPage() {
                 <div className="flex justify-between"><span className="text-text-med">Subtotal ({totalItems} items)</span><span>{fmt(subtotal)}</span></div>
                 <div className="flex justify-between"><span className="text-text-med">Delivery ({deliveryCalc.zoneName})</span><span className={delivery === 0 ? "text-forest" : ""}>{delivery === 0 ? "FREE 🎉" : fmt(delivery)}</span></div>
                 <div className="flex justify-between"><span className="text-text-med flex items-center gap-1">📦 {serviceFeeLabel}</span><span>{fmt(serviceFee)}</span></div>
-                {giftWrap && <div className="flex justify-between"><span className="text-text-med">🎀 Gift Wrapping</span><span className="text-[#7B5E00]">{fmt(GIFT_WRAP_FEE)}</span></div>}
+                {giftWrap && <div className="flex justify-between"><span className="text-text-med">🎀 Gift Wrapping</span><span className="text-[#7B5E00]">{fmt(giftWrapPrice)}</span></div>}
                 {couponDiscount > 0 && <div className="flex justify-between text-forest"><span className="font-semibold">🏷️ Coupon ({appliedCoupon?.code})</span><span className="font-bold">-{fmt(couponDiscount)}</span></div>}
                 {spendDiscount > 0 && <div className="flex justify-between text-forest"><span className="font-semibold">🎉 Spend Discount ({spendPrompt?.currentDiscount?.discount_percent}%)</span><span className="font-bold">-{fmt(spendDiscount)}</span></div>}
                 <div className="flex justify-between pt-2.5 border-t-2 border-border mt-0.5">

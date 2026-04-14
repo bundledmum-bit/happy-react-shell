@@ -19,12 +19,15 @@ export default function CartPage() {
   useEffect(() => { document.title = `Your Cart (${totalItems}) | BundledMum`; }, [totalItems]);
 
   const serviceFeeEnabled = settings?.service_fee_enabled !== false;
-  const serviceFee = serviceFeeEnabled ? (parseInt(settings?.service_fee) || 1500) : 0;
+  const serviceFee = serviceFeeEnabled ? (parseInt(settings?.service_fee) || 0) : 0;
   const serviceFeeLabel = settings?.service_fee_label || "Service & Packaging";
 
+  const defaultDeliveryFee = parseInt(settings?.default_delivery_fee) || 0;
+  const defaultFreeThreshold = parseInt(settings?.default_free_threshold) || 0;
+
   const deliveryCalc = zones?.length
-    ? calculateDeliveryFee(subtotal, deliveryArea, deliveryState, zones, serviceFee, parseInt(settings?.default_delivery_fee) || 2500, parseInt(settings?.default_free_threshold) || 30000)
-    : { fee: subtotal >= 30000 ? 0 : 2500, isFree: subtotal >= 30000, zoneName: "Standard", daysMin: 1, daysMax: 3, freeThreshold: 30000 };
+    ? calculateDeliveryFee(subtotal, deliveryArea, deliveryState, zones, serviceFee, defaultDeliveryFee, defaultFreeThreshold)
+    : { fee: defaultFreeThreshold && subtotal >= defaultFreeThreshold ? 0 : defaultDeliveryFee, isFree: defaultFreeThreshold > 0 && subtotal >= defaultFreeThreshold, zoneName: "Standard", daysMin: 1, daysMax: 3, freeThreshold: defaultFreeThreshold };
 
   // Spend threshold discount
   const spendPrompt = thresholds?.length ? getSpendPrompt(subtotal, thresholds) : null;
@@ -76,7 +79,7 @@ export default function CartPage() {
 
           {/* Trust badges */}
           <div className="flex flex-wrap gap-3 justify-center mb-10">
-            <div className="bg-forest-light rounded-lg px-4 py-3 text-xs text-forest font-semibold">🚚 Free delivery over ₦30,000</div>
+            <div className="bg-forest-light rounded-lg px-4 py-3 text-xs text-forest font-semibold">🚚 {defaultFreeThreshold ? `Free delivery over ${fmt(defaultFreeThreshold)}` : "Free delivery available"}</div>
             <div className="bg-forest-light rounded-lg px-4 py-3 text-xs text-forest font-semibold">🔒 Secure Paystack checkout</div>
             <div className="bg-forest-light rounded-lg px-4 py-3 text-xs text-forest font-semibold">💬 WhatsApp support</div>
           </div>

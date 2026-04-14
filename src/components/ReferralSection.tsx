@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { Copy, Check } from "lucide-react";
 import { toast } from "sonner";
+import { useSiteSettings } from "@/hooks/useSupabaseData";
+import { fmt } from "@/lib/cart";
 
 interface Props {
   customerName?: string;
@@ -13,6 +15,8 @@ function generateCode(name: string) {
 
 export default function ReferralSection({ customerName }: Props) {
   const [copied, setCopied] = useState(false);
+  const { data: settings } = useSiteSettings();
+  const referralAmount = parseInt(settings?.referral_amount) || 0;
   const code = generateCode(customerName || "");
   const link = `https://bundledmum.com/?ref=${code}`;
 
@@ -29,7 +33,7 @@ export default function ReferralSection({ customerName }: Props) {
   };
 
   const handleWhatsApp = () => {
-    const text = `I just packed my hospital bag with BundledMum and loved it! 🎁 Use my link to get ₦2,000 off your first bundle: ${link}`;
+    const text = `I just packed my hospital bag with BundledMum and loved it! 🎁 Use my link to get ${fmt(referralAmount)} off your first bundle: ${link}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
   };
 
@@ -48,7 +52,7 @@ export default function ReferralSection({ customerName }: Props) {
         <h3 className="pf text-lg md:text-xl text-forest font-bold">Share the Love</h3>
       </div>
       <p className="text-text-med text-sm mb-4">
-        Give a friend <span className="font-bold text-forest">₦2,000 off</span> their first bundle — and get <span className="font-bold text-forest">₦2,000 off</span> your next order!
+        Give a friend <span className="font-bold text-forest">{fmt(referralAmount)} off</span> their first bundle — and get <span className="font-bold text-forest">{fmt(referralAmount)} off</span> your next order!
       </p>
 
       <div className="bg-card rounded-xl p-3 mb-3">
@@ -72,7 +76,7 @@ export default function ReferralSection({ customerName }: Props) {
       </div>
 
       <div className="text-center text-text-light text-xs">
-        📊 {referralCount} friend{referralCount !== 1 ? "s" : ""} referred · ₦{(referralCount * 2000).toLocaleString()} earned
+        📊 {referralCount} friend{referralCount !== 1 ? "s" : ""} referred · {fmt(referralCount * referralAmount)} earned
       </div>
     </div>
   );

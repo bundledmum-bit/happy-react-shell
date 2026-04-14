@@ -3,6 +3,7 @@ import { fmt } from "@/lib/cart";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useSiteSettings } from "@/hooks/useSupabaseData";
 import ReferralSection from "@/components/ReferralSection";
 import ShareModal from "@/components/ShareModal";
 
@@ -10,6 +11,12 @@ export default function OrderConfirmedPage() {
   const [searchParams] = useSearchParams();
   const orderNumber = searchParams.get("order") || "";
   const [showShareModal, setShowShareModal] = useState(false);
+  const { data: settings } = useSiteSettings();
+  const whatsapp = settings?.whatsapp_number || "";
+  const bankName = settings?.bank_name || "";
+  const bankAccountName = settings?.bank_account_name || "";
+  const bankAccountNumber = settings?.bank_account_number || "";
+  const referralAmount = parseInt(settings?.referral_amount) || 0;
 
   useEffect(() => { document.title = "Order Confirmed | BundledMum"; }, []);
 
@@ -147,8 +154,8 @@ export default function OrderConfirmedPage() {
         <div className="flex gap-3 flex-col sm:flex-row mb-4">
           <button onClick={handleDownload} className="rounded-pill border-2 border-forest text-forest px-5 py-2.5 font-body font-semibold text-sm hover:bg-forest/5 interactive w-full sm:w-auto text-center">📥 Download Order Summary</button>
           <button onClick={() => setShowShareModal(true)} className="rounded-pill bg-coral text-primary-foreground px-5 py-2.5 font-body font-semibold text-sm interactive w-full sm:w-auto text-center">📱 Share Your Bundle</button>
-          <a href={`https://wa.me/2348012345678?text=${encodeURIComponent(whatsappMsg)}`} target="_blank" rel="noopener noreferrer"
-            className="rounded-pill bg-[#25D366] text-primary-foreground px-5 py-2.5 font-body font-semibold text-sm interactive w-full sm:w-auto text-center">💬 Confirm on WhatsApp</a>
+          {whatsapp && <a href={`https://wa.me/${whatsapp}?text=${encodeURIComponent(whatsappMsg)}`} target="_blank" rel="noopener noreferrer"
+            className="rounded-pill bg-[#25D366] text-primary-foreground px-5 py-2.5 font-body font-semibold text-sm interactive w-full sm:w-auto text-center">💬 Confirm on WhatsApp</a>}
         </div>
 
         {/* What Happens Next */}
@@ -174,10 +181,10 @@ export default function OrderConfirmedPage() {
 
         <div className="mb-4"><ReferralSection customerName={firstName} /></div>
 
-        {isBankTransfer && (
+        {isBankTransfer && bankName && bankAccountNumber && (
           <div className="bg-[#FFF8E1] border border-[#FFD54F] rounded-card p-5 mb-4">
             <h3 className="font-bold text-base mb-2">⏳ Awaiting Payment</h3>
-            {[["Bank", "GTBank"], ["Account Name", "BundledMum Nigeria Ltd"], ["Account Number", "0123456789"]].map(([k, v]) => (
+            {[["Bank", bankName], ["Account Name", bankAccountName], ["Account Number", bankAccountNumber]].map(([k, v]) => (
               <div key={k} className="flex gap-2 mb-1 text-sm"><span className="text-text-light min-w-[120px]">{k}:</span><span className="font-semibold">{v}</span></div>
             ))}
             <div className="flex gap-2 mt-2 text-sm"><span className="text-text-light min-w-[120px]">Amount:</span><span className="font-bold text-coral">{fmt(order.total)}</span></div>
@@ -189,8 +196,8 @@ export default function OrderConfirmedPage() {
             <h4 className="pf text-primary-foreground text-lg mb-1">💬 Questions About Your Order?</h4>
             <p className="text-primary-foreground/65 text-[13px]">Chat with us on WhatsApp — we reply within minutes.</p>
           </div>
-          <a href={`https://wa.me/2348012345678?text=Hi! My order number is ${orderId}`} target="_blank" rel="noopener noreferrer"
-            className="bg-[#25D366] text-primary-foreground px-5 py-3 rounded-pill font-semibold text-sm whitespace-nowrap w-full md:w-auto text-center">Chat on WhatsApp 💬</a>
+          {whatsapp && <a href={`https://wa.me/${whatsapp}?text=Hi! My order number is ${orderId}`} target="_blank" rel="noopener noreferrer"
+            className="bg-[#25D366] text-primary-foreground px-5 py-3 rounded-pill font-semibold text-sm whitespace-nowrap w-full md:w-auto text-center">Chat on WhatsApp 💬</a>}
         </div>
 
         <div className="flex gap-3 justify-center flex-col md:flex-row">
@@ -203,7 +210,7 @@ export default function OrderConfirmedPage() {
         <ShareModal onClose={() => setShowShareModal(false)} title="Order Placed!" subtitle={`Order #${orderId}`}
           items={items.map((i: any) => ({ name: i.product_name, price: i.line_total }))} totalPrice={order.total}
           badge="ORDER PLACED ✅" shareUrl={`https://bundledmum.com/?ref=${referralCode}`}
-          shareText={`I just packed my hospital bag with BundledMum! 🎁 Use my link for ₦2,000 off: https://bundledmum.com/?ref=${referralCode}`}
+          shareText={`I just packed my hospital bag with BundledMum! 🎁 Use my link for ${fmt(referralAmount)} off: https://bundledmum.com/?ref=${referralCode}`}
           itemCount={items.length} />
       )}
     </div>
