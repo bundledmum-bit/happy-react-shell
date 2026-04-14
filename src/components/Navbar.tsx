@@ -7,7 +7,7 @@ import logoGreen from "@/assets/logos/BM-LOGO-GREEN.svg";
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 
-export default function Navbar() {
+export default function Navbar({ topOffset = 0 }: { topOffset?: number }) {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const { totalItems, justAdded } = useCart();
@@ -38,7 +38,7 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className={`fixed top-0 left-0 right-0 z-[1000] transition-all duration-300 ${dark ? "bg-warm-cream/95 backdrop-blur-sm border-b border-border" : "bg-transparent"}`}>
+      <nav style={{ top: topOffset }} className={`fixed left-0 right-0 z-[1000] transition-all duration-300 ${dark ? "bg-warm-cream/95 backdrop-blur-sm border-b border-border" : "bg-transparent"}`}>
         <div className="max-w-[1200px] mx-auto flex items-center justify-between h-[68px] px-5 md:px-10">
           <Link to="/" className="flex-shrink-0">
             <img src={dark ? logoGreen : logoWhite} alt="BundledMum" className="h-11 w-auto transition-all" />

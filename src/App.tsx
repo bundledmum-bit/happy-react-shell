@@ -10,6 +10,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
 import MobileBottomNav from "@/components/MobileBottomNav";
+import AnnouncementBar, { useAnnouncementHeight } from "@/components/AnnouncementBar";
 import { subscribeToAllChanges } from "@/lib/realtime";
 import { usePageTracking } from "@/hooks/usePageTracking";
 
@@ -82,6 +83,43 @@ function PageTracker({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function StorefrontShell() {
+  const { height: barHeight, dismissed, setDismissed } = useAnnouncementHeight();
+  return (
+    <>
+      <SkipNav />
+      <AnnouncementBar dismissed={dismissed} onDismiss={() => setDismissed(true)} />
+      <Navbar topOffset={barHeight} />
+      <main id="main-content">
+        {barHeight > 0 && <div style={{ height: barHeight }} className="transition-all duration-300" />}
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/bundles" element={<BundlesPage />} />
+          <Route path="/bundles/:bundleId" element={<BundleDetailPage />} />
+          <Route path="/shop" element={<ShopPage />} />
+          <Route path="/quiz" element={<QuizPage />} />
+          <Route path="/cart" element={<CartPage />} />
+          <Route path="/checkout" element={<CheckoutPage />} />
+          <Route path="/order-confirmed" element={<OrderConfirmedPage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/contact" element={<ContactPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/cookies" element={<CookiesPage />} />
+          <Route path="/returns" element={<ReturnsPage />} />
+          <Route path="/blog" element={<BlogPage />} />
+          <Route path="/track-order" element={<TrackOrderPage />} />
+          <Route path="/push-gifts" element={<PushGiftsPage />} />
+          <Route path="/products/:slug" element={<ProductPage />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </main>
+      <Footer />
+      <MobileBottomNav />
+    </>
+  );
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <RealtimeProvider>
@@ -118,38 +156,7 @@ const App = () => (
               </Route>
 
               {/* Storefront routes */}
-              <Route path="*" element={
-                <>
-                  <SkipNav />
-                  <Navbar />
-                  <main id="main-content">
-                    <Routes>
-                      <Route path="/" element={<HomePage />} />
-                      <Route path="/bundles" element={<BundlesPage />} />
-                      <Route path="/bundles/:bundleId" element={<BundleDetailPage />} />
-                      <Route path="/shop" element={<ShopPage />} />
-                      <Route path="/quiz" element={<QuizPage />} />
-                      <Route path="/cart" element={<CartPage />} />
-                      <Route path="/checkout" element={<CheckoutPage />} />
-                      <Route path="/order-confirmed" element={<OrderConfirmedPage />} />
-                      <Route path="/about" element={<AboutPage />} />
-                      <Route path="/contact" element={<ContactPage />} />
-                      <Route path="/privacy" element={<PrivacyPage />} />
-                      <Route path="/terms" element={<TermsPage />} />
-                      <Route path="/cookies" element={<CookiesPage />} />
-                      <Route path="/returns" element={<ReturnsPage />} />
-                      <Route path="/blog" element={<BlogPage />} />
-                      <Route path="/track-order" element={<TrackOrderPage />} />
-                      <Route path="/push-gifts" element={<PushGiftsPage />} />
-                      <Route path="/products/:slug" element={<ProductPage />} />
-                      <Route path="*" element={<NotFound />} />
-                    </Routes>
-                  </main>
-                  <Footer />
-                  
-                  <MobileBottomNav />
-                </>
-              } />
+              <Route path="*" element={<StorefrontShell />} />
             </Routes>
             </PageTracker>
           </BrowserRouter>
