@@ -65,6 +65,7 @@ function AdminLayoutInner() {
   const visibleNav = useMemo(() => {
     if (!dbNavItems) return [];
     return [...dbNavItems]
+      .filter(item => !item.parent_key)
       .sort((a, b) => (a.display_order || 0) - (b.display_order || 0))
       .map(item => ({
         to: item.path,
