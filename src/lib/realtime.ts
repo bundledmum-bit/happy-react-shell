@@ -7,7 +7,7 @@ const PUBLIC_TABLES = new Set([
   "site_settings", "testimonials", "faq_items", "blog_posts",
   "navigation_links", "homepage_sections", "pages",
   "product_categories", "spend_threshold_discounts",
-  "shipping_zones",
+  "shipping_zones", "announcements",
 ]);
 
 const TABLE_TO_QUERY_KEYS: Record<string, string[]> = {
