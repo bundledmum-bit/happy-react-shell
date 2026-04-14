@@ -61,19 +61,27 @@ function AdminLayoutInner() {
     enabled: !!adminUser,
   });
 
+  // Path corrections for DB entries that don't match actual routes
+  const PATH_FIXES: Record<string, string> = {
+    "/admin/quiz": "/admin/quiz-engine",
+  };
+
   // Build visible nav exclusively from DB results
   const visibleNav = useMemo(() => {
     if (!dbNavItems) return [];
     return [...dbNavItems]
       .filter(item => !item.parent_key)
       .sort((a, b) => (a.display_order || 0) - (b.display_order || 0))
-      .map(item => ({
-        to: item.path,
-        label: item.label,
-        icon: getIcon(item.icon),
-        exact: item.path === "/admin",
-        navKey: item.nav_key,
-      }));
+      .map(item => {
+        const resolvedPath = PATH_FIXES[item.path] || item.path;
+        return {
+          to: resolvedPath,
+          label: item.label,
+          icon: getIcon(item.icon),
+          exact: resolvedPath === "/admin",
+          navKey: item.nav_key,
+        };
+      });
   }, [dbNavItems]);
 
   useEffect(() => {
