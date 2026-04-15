@@ -100,7 +100,39 @@ export default function OrderConfirmedPage() {
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
-      <div className="pt-20 relative overflow-hidden" style={{ background: "linear-gradient(135deg, #2D6A4F 0%, #1E5C44 100%)" }}>
+      {/* Bank transfer: urgent action banner — shown first, above the success hero */}
+      {isBankTransfer && bankName && bankAccountNumber && (
+        <div className="pt-20 bg-[#FFF4D6]">
+          <div className="max-w-[860px] mx-auto px-4 md:px-10 py-6 md:py-8">
+            <div className="bg-gradient-to-br from-[#FFF8E1] to-[#FFE9A8] border-2 border-[#F59E0B] rounded-card shadow-card p-5 md:p-7">
+              <div className="flex items-start gap-3 mb-4">
+                <div className="text-3xl md:text-4xl flex-shrink-0 animate-pulse-scale">⏳</div>
+                <div>
+                  <h2 className="pf text-lg md:text-2xl text-[#92400E] font-bold leading-tight">Action Required — Complete Your Payment</h2>
+                  <p className="text-[#78350F] text-sm md:text-[15px] mt-1">Transfer the exact amount below within <span className="font-bold">24 hours</span> to confirm your order.</p>
+                </div>
+              </div>
+              <div className="bg-card rounded-xl border border-[#F59E0B]/40 p-4 md:p-5 space-y-2.5">
+                {[["Bank", bankName], ["Account Name", bankAccountName], ["Account Number", bankAccountNumber]].map(([k, v]) => (
+                  <div key={k} className="flex gap-3 items-center">
+                    <span className="text-text-light text-xs md:text-sm min-w-[120px] md:min-w-[140px]">{k}</span>
+                    <span className="font-semibold text-sm md:text-base break-all">{v}</span>
+                  </div>
+                ))}
+                <div className="flex gap-3 items-center pt-2.5 border-t border-border">
+                  <span className="text-text-light text-xs md:text-sm min-w-[120px] md:min-w-[140px]">Amount</span>
+                  <span className="font-bold text-lg md:text-xl text-coral">{fmt(order.total)}</span>
+                </div>
+              </div>
+              <div className="mt-4 space-y-1.5 text-[13px] md:text-sm text-[#78350F]">
+                <div className="flex gap-2"><span>📌</span><span>Use your phone number as the transfer reference.</span></div>
+                <div className="flex gap-2"><span>⏱️</span><span>Your order will be confirmed within 1–2 hours of payment.</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      <div className={`${isBankTransfer && bankName && bankAccountNumber ? "" : "pt-20"} relative overflow-hidden`} style={{ background: "linear-gradient(135deg, #2D6A4F 0%, #1E5C44 100%)" }}>
         <div className="absolute top-[-60px] left-[10%] w-[200px] h-[200px] rounded-full bg-coral/[0.07]" />
         <div className="absolute bottom-[-40px] right-[8%] w-[160px] h-[160px] rounded-full bg-primary-foreground/[0.04]" />
         <div className="max-w-[860px] mx-auto px-4 md:px-10 py-12 md:py-20 text-center">
@@ -188,16 +220,6 @@ export default function OrderConfirmedPage() {
         </div>
 
         <div className="mb-4"><ReferralSection customerName={firstName} /></div>
-
-        {isBankTransfer && bankName && bankAccountNumber && (
-          <div className="bg-[#FFF8E1] border border-[#FFD54F] rounded-card p-5 mb-4">
-            <h3 className="font-bold text-base mb-2">⏳ Awaiting Payment</h3>
-            {[["Bank", bankName], ["Account Name", bankAccountName], ["Account Number", bankAccountNumber]].map(([k, v]) => (
-              <div key={k} className="flex gap-2 mb-1 text-sm"><span className="text-text-light min-w-[120px]">{k}:</span><span className="font-semibold">{v}</span></div>
-            ))}
-            <div className="flex gap-2 mt-2 text-sm"><span className="text-text-light min-w-[120px]">Amount:</span><span className="font-bold text-coral">{fmt(order.total)}</span></div>
-          </div>
-        )}
 
         <div className="bg-forest rounded-card p-5 md:p-8 flex flex-col md:flex-row justify-between items-center gap-3.5 mb-4 text-center md:text-left">
           <div>
