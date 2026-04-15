@@ -43,6 +43,14 @@ export default function OrderConfirmedPage() {
     staleTime: Infinity,
   });
 
+  // Mark this browser as having placed an order — used by AnnouncementEngine
+  // to distinguish new_visitor vs returning_visitor audience targeting.
+  useEffect(() => {
+    if (order) {
+      try { localStorage.setItem("bm-has-ordered", "1"); } catch { /* ignore */ }
+    }
+  }, [order]);
+
   if (isLoading) return (
     <div className="min-h-screen bg-background flex items-center justify-center">
       <div className="text-center"><div className="mx-auto h-14 w-14 border-4 border-border border-t-forest rounded-full animate-spin mb-4" /><p className="text-muted-foreground">Loading your order details...</p></div>
