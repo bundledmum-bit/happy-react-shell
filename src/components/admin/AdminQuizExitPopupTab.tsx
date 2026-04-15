@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Save, Eye, EyeOff, RotateCcw } from "lucide-react";
+import { Save, Eye, EyeOff, RotateCcw, Lock } from "lucide-react";
+import { usePermissions } from "@/hooks/useAdminPermissionsContext";
 
 /**
  * Rich admin UI for the Quiz Exit Intent popup.
@@ -72,6 +73,11 @@ export function readExitPopupSetting<K extends ExitPopupKey>(
 
 export default function AdminQuizExitPopupTab() {
   const queryClient = useQueryClient();
+  const { can } = usePermissions();
+
+  // Defense-in-depth: super_admin/admin are auto-allowed; other roles need
+  // the explicit content.manage_quiz_exit_popup permission.
+  const canManage = can("content", "manage_quiz_exit_popup");
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ["admin-quiz-exit-popup"],
@@ -110,6 +116,7 @@ export default function AdminQuizExitPopupTab() {
 
   const saveAll = useMutation({
     mutationFn: async () => {
+      if (!canManage) throw new Error("Not permitted to modify exit popup settings");
       const rows = dirtyKeys.map(key => ({ key, value: draft[key] }));
       const { error } = await supabase.from("site_settings").upsert(rows, { onConflict: "key" });
       if (error) throw error;
@@ -133,6 +140,20 @@ export default function AdminQuizExitPopupTab() {
   };
 
   if (isLoading) return <div className="py-10 text-center text-text-light text-sm">Loading…</div>;
+
+  if (!canManage) {
+    return (
+      <div className="bg-card border border-border rounded-xl p-10 text-center">
+        <Lock className="w-8 h-8 mx-auto text-text-light mb-3" />
+        <h3 className="text-sm font-bold mb-1">Restricted setting</h3>
+        <p className="text-xs text-text-light">
+          Only super admins, admins, or users with the
+          <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-[10px] mx-1">content.manage_quiz_exit_popup</span>
+          permission can configure this.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

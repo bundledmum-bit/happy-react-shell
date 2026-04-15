@@ -1,11 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Save, Plus, Trash2 } from "lucide-react";
+import { Save, Plus, Trash2, Lock } from "lucide-react";
 import AdminQuizExitPopupTab from "@/components/admin/AdminQuizExitPopupTab";
+import { usePermissions } from "@/hooks/useAdminPermissionsContext";
 
-const TABS = ["General", "Homepage", "Social", "Legacy Bar", "Quiz Exit Popup", "Fees", "Payment", "SEO"];
+const ALL_TABS = ["General", "Homepage", "Social", "Legacy Bar", "Quiz Exit Popup", "Fees", "Payment", "SEO"];
+const RESTRICTED_TABS: Record<string, { module: string; action: string }> = {
+  "Quiz Exit Popup": { module: "content", action: "manage_quiz_exit_popup" },
+};
 
 const TAB_KEYS: Record<string, { key: string; label: string; type: "text" | "textarea" | "number" | "toggle" | "color" | "url" | "email" }[]> = {
   General: [
@@ -64,8 +68,24 @@ const TAB_KEYS: Record<string, { key: string; label: string; type: "text" | "tex
 
 export default function AdminSettings() {
   const queryClient = useQueryClient();
+  const { can } = usePermissions();
   const [activeTab, setActiveTab] = useState("General");
   const [editValues, setEditValues] = useState<Record<string, string>>({});
+
+  // Filter tabs based on permissions. Restricted tabs are auto-allowed for
+  // super_admin + admin (handled inside can()), and require an explicit
+  // permission grant for other roles.
+  const TABS = ALL_TABS.filter(tab => {
+    const req = RESTRICTED_TABS[tab];
+    if (!req) return true;
+    return can(req.module, req.action);
+  });
+
+  // If the current tab has been restricted away (e.g. permission revoked),
+  // fall back to General.
+  useEffect(() => {
+    if (!TABS.includes(activeTab)) setActiveTab("General");
+  }, [TABS, activeTab]);
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ["admin-settings"],
@@ -118,7 +138,19 @@ export default function AdminSettings() {
       </div>
 
       {activeTab === "Quiz Exit Popup" ? (
-        <AdminQuizExitPopupTab />
+        can("content", "manage_quiz_exit_popup") ? (
+          <AdminQuizExitPopupTab />
+        ) : (
+          <div className="bg-card border border-border rounded-xl p-10 text-center">
+            <Lock className="w-8 h-8 mx-auto text-text-light mb-3" />
+            <h3 className="text-sm font-bold mb-1">Restricted setting</h3>
+            <p className="text-xs text-text-light">
+              Only super admins, admins, or users with the
+              <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-[10px] mx-1">content.manage_quiz_exit_popup</span>
+              permission can configure this.
+            </p>
+          </div>
+        )
       ) : isLoading ? (
         <div className="text-center py-10 text-text-med">Loading...</div>
       ) : (
