@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, X, ChevronDown, ChevronUp, Eye, EyeOff } from "lucide-react";
 
 type DisplayType = "bar" | "popup" | "banner";
 type Audience = "all" | "new_visitor" | "returning_visitor" | "cart_not_empty";
@@ -99,6 +99,7 @@ function AnnouncementForm({
   saving: boolean;
 }) {
   const [form, setForm] = useState<Omit<AnnouncementRow, "id">>({ ...BLANK, ...initial });
+  const [showPreview, setShowPreview] = useState(true);
 
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
     setForm(prev => ({ ...prev, [key]: value }));
@@ -106,7 +107,24 @@ function AnnouncementForm({
   const isPopup = form.display_type === "popup";
 
   return (
-    <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+    <div className="bg-card border border-border rounded-xl p-5">
+      {/* Preview toggle header */}
+      <div className="flex items-center justify-between mb-4 pb-3 border-b border-border">
+        <h3 className="text-sm font-bold text-foreground">
+          {initial && (initial as any).id ? "Edit announcement" : "New announcement"}
+        </h3>
+        <button
+          onClick={() => setShowPreview(v => !v)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-semibold text-text-med hover:bg-muted transition-colors"
+        >
+          {showPreview ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+          {showPreview ? "Hide" : "Show"} preview
+        </button>
+      </div>
+
+      <div className={`grid gap-6 ${showPreview ? "lg:grid-cols-[1fr_360px]" : "grid-cols-1"}`}>
+        {/* ── Fields column ── */}
+        <div className="space-y-4">
       {/* Row 1: title + type + priority */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="sm:col-span-2">
@@ -364,6 +382,108 @@ function AnnouncementForm({
           Cancel
         </button>
       </div>
+        </div>
+
+        {/* ── Live preview column ── */}
+        {showPreview && (
+          <div className="lg:sticky lg:top-24 lg:self-start">
+            <div className="text-[11px] font-bold text-text-light uppercase tracking-wider mb-2">Live preview</div>
+            <div className="rounded-xl bg-gradient-to-br from-forest/20 to-coral/20 p-6 border border-border min-h-[400px] flex items-center justify-center">
+              {form.message?.trim() || form.title?.trim() ? (
+                <AnnouncementPreview form={form} />
+              ) : (
+                <div className="text-center text-text-light text-xs py-12">
+                  <div className="text-3xl mb-2 opacity-40">📣</div>
+                  <p>Nothing to preview yet.</p>
+                  <p className="mt-1">Enter a title or message to see it here.</p>
+                </div>
+              )}
+            </div>
+            <div className="text-[10px] text-text-light mt-2 leading-relaxed">
+              Preview reflects unsaved changes in real time. Displayed with example styling
+              as it would appear on the live site.
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Preview component ───────────────────────────────────────────────────────
+
+function AnnouncementPreview({ form }: { form: Omit<AnnouncementRow, "id"> }) {
+  const bg = form.bg_color || "#1a2e1a";
+  const fg = form.text_color || "#ffffff";
+
+  // Bar / banner: full-width horizontal strip
+  if (form.display_type === "bar" || form.display_type === "banner") {
+    return (
+      <div className="w-full flex flex-col gap-3 items-center">
+        <div
+          className="relative w-full rounded-md flex items-center justify-center px-8 py-2.5 shadow-md"
+          style={{ backgroundColor: bg, color: fg, minHeight: 40 }}
+        >
+          <span className="text-[13px] font-medium font-body truncate">
+            {form.emoji ? `${form.emoji} ` : ""}
+            {form.message || form.title || "(empty)"}
+            {form.link_text ? (
+              <span className="ml-2 underline font-semibold">{form.link_text}</span>
+            ) : null}
+          </span>
+          <button
+            className="absolute right-2 p-1 rounded-full opacity-70"
+            aria-label="Dismiss"
+            tabIndex={-1}
+          >
+            <X size={14} style={{ color: fg }} />
+          </button>
+        </div>
+        <p className="text-[10px] text-text-light italic">
+          Stacked below the legacy AnnouncementBar at the top of every matching page
+        </p>
+      </div>
+    );
+  }
+
+  // Popup: modal card
+  return (
+    <div
+      className="relative rounded-xl shadow-2xl max-w-[320px] w-full p-6 pt-8 text-center"
+      style={{ backgroundColor: bg, color: fg }}
+    >
+      <button
+        className="absolute top-3 right-3 p-1 rounded-full opacity-70"
+        aria-label="Close"
+        tabIndex={-1}
+      >
+        <X size={18} style={{ color: fg }} />
+      </button>
+      {form.emoji && <div className="text-4xl mb-3">{form.emoji}</div>}
+      {form.title && (
+        <h2 className="pf text-xl font-bold mb-2">{form.title}</h2>
+      )}
+      {form.message && (
+        <p className="text-sm leading-relaxed mb-4 opacity-90">{form.message}</p>
+      )}
+      {form.linked_coupon_code && (
+        <div className="mb-4 text-center">
+          <div
+            className="inline-block px-4 py-2 rounded-lg border-2 border-dashed font-mono font-bold text-sm tracking-wider"
+            style={{ borderColor: fg }}
+          >
+            {form.linked_coupon_code}
+          </div>
+        </div>
+      )}
+      {(form.link_url || form.link_text) && (
+        <div
+          className="block w-full text-center px-4 py-2.5 rounded-lg font-semibold text-sm"
+          style={{ backgroundColor: fg, color: bg }}
+        >
+          {form.link_text || "Learn more"}
+        </div>
+      )}
     </div>
   );
 }
