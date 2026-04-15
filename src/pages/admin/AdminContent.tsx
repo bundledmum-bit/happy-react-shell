@@ -2,17 +2,35 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Trash2, RotateCcw } from "lucide-react";
+import { Plus, Trash2, RotateCcw, Edit2, X } from "lucide-react";
 import BulkActionsBar from "@/components/admin/BulkActionsBar";
 import TrashTabs from "@/components/admin/TrashTabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import AdminAnnouncementsTab from "@/components/admin/AdminAnnouncementsTab";
+
+const BLANK_TESTIMONIAL = {
+  customer_name: "",
+  customer_city: "",
+  customer_initial: "",
+  quote: "",
+  rating: 5,
+  display_order: 0,
+};
+
+const BLANK_FAQ = {
+  question: "",
+  answer: "",
+  category: "general",
+  display_order: 0,
+};
 
 export default function AdminContent() {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<"testimonials" | "faqs" | "announcements">("testimonials");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [trashTab, setTrashTab] = useState<"active" | "trash">("active");
+  const [editingTestimonial, setEditingTestimonial] = useState<any>(null);
+  const [editingFaq, setEditingFaq] = useState<any>(null);
 
   const { data: testimonials } = useQuery({
     queryKey: ["admin-testimonials"],
@@ -41,6 +59,58 @@ export default function AdminContent() {
       setSelected(new Set());
       toast.success("Done");
     },
+  });
+
+  const saveTestimonial = useMutation({
+    mutationFn: async (t: any) => {
+      const payload = {
+        customer_name: t.customer_name,
+        customer_city: t.customer_city || null,
+        customer_initial: t.customer_initial || (t.customer_name ? t.customer_name.charAt(0).toUpperCase() : ""),
+        quote: t.quote,
+        rating: Number(t.rating) || 5,
+        display_order: Number(t.display_order) || 0,
+      };
+      if (t.id) {
+        const { error } = await supabase.from("testimonials").update(payload).eq("id", t.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("testimonials").insert({ ...payload, is_active: true, is_featured: false });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-testimonials"] });
+      queryClient.invalidateQueries({ queryKey: ["testimonials"] });
+      setEditingTestimonial(null);
+      toast.success("Testimonial saved");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const saveFaq = useMutation({
+    mutationFn: async (f: any) => {
+      const payload = {
+        question: f.question,
+        answer: f.answer,
+        category: f.category || "general",
+        display_order: Number(f.display_order) || 0,
+      };
+      if (f.id) {
+        const { error } = await supabase.from("faq_items").update(payload).eq("id", f.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("faq_items").insert({ ...payload, is_active: true });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-faqs"] });
+      queryClient.invalidateQueries({ queryKey: ["faq_items"] });
+      setEditingFaq(null);
+      toast.success("FAQ saved");
+    },
+    onError: (e: any) => toast.error(e.message),
   });
 
   const currentTable = tab === "testimonials" ? "testimonials" : "faq_items";
@@ -76,7 +146,22 @@ export default function AdminContent() {
         <AdminAnnouncementsTab />
       ) : (
       <>
-      <TrashTabs activeTab={trashTab} onTabChange={t => { setTrashTab(t); setSelected(new Set()); }} activeCount={activeItems.length} trashCount={trashedItems.length} />
+      <div className="flex items-center justify-between mb-4">
+        <TrashTabs activeTab={trashTab} onTabChange={t => { setTrashTab(t); setSelected(new Set()); }} activeCount={activeItems.length} trashCount={trashedItems.length} />
+        {trashTab === "active" && (
+          tab === "testimonials" ? (
+            <button onClick={() => setEditingTestimonial({ ...BLANK_TESTIMONIAL })}
+              className="flex items-center gap-1.5 bg-forest text-primary-foreground px-4 py-2 rounded-lg text-sm font-semibold hover:bg-forest-deep">
+              <Plus className="w-4 h-4" /> New Testimonial
+            </button>
+          ) : (
+            <button onClick={() => setEditingFaq({ ...BLANK_FAQ })}
+              className="flex items-center gap-1.5 bg-forest text-primary-foreground px-4 py-2 rounded-lg text-sm font-semibold hover:bg-forest-deep">
+              <Plus className="w-4 h-4" /> New FAQ
+            </button>
+          )
+        )}
+      </div>
 
       <BulkActionsBar selectedCount={selected.size} actions={bulkActions}
         onApply={a => { const ids = Array.from(selected); if (a === "delete_permanent" && !confirm("Permanently delete?")) return; bulkMutation.mutate({ table: currentTable, ids, action: a }); }}
@@ -106,6 +191,8 @@ export default function AdminContent() {
                       <span className={`px-2 py-1 rounded text-[10px] font-semibold ${t.is_active ? "bg-forest/10 text-forest" : "bg-muted text-text-light"}`}>
                         {t.is_active ? "Active" : "Hidden"}
                       </span>
+                      <button onClick={() => setEditingTestimonial(t)}
+                        className="p-1 rounded hover:bg-muted text-text-med"><Edit2 className="w-3.5 h-3.5" /></button>
                       <button onClick={() => bulkMutation.mutate({ table: "testimonials", ids: [t.id], action: "trash" })}
                         className="p-1 rounded hover:bg-destructive/10 text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
                     </>
@@ -141,6 +228,8 @@ export default function AdminContent() {
                       <span className={`px-2 py-1 rounded text-[10px] font-semibold ${f.is_active ? "bg-forest/10 text-forest" : "bg-muted text-text-light"}`}>
                         {f.is_active ? "Active" : "Hidden"}
                       </span>
+                      <button onClick={() => setEditingFaq(f)}
+                        className="p-1 rounded hover:bg-muted text-text-med"><Edit2 className="w-3.5 h-3.5" /></button>
                       <button onClick={() => bulkMutation.mutate({ table: "faq_items", ids: [f.id], action: "trash" })}
                         className="p-1 rounded hover:bg-destructive/10 text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
                     </>
@@ -159,6 +248,104 @@ export default function AdminContent() {
         </div>
       )}
       </>
+      )}
+
+      {editingTestimonial && (
+        <div className="fixed inset-0 bg-foreground/50 z-[100] flex items-center justify-center" onClick={() => setEditingTestimonial(null)}>
+          <div className="bg-card border border-border rounded-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h3 className="font-bold">{editingTestimonial.id ? "Edit Testimonial" : "New Testimonial"}</h3>
+              <button onClick={() => setEditingTestimonial(null)}><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-4 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-text-med block mb-1">Customer Name *</label>
+                  <input value={editingTestimonial.customer_name} onChange={e => setEditingTestimonial((p: any) => ({ ...p, customer_name: e.target.value }))}
+                    className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-text-med block mb-1">Customer City</label>
+                  <input value={editingTestimonial.customer_city || ""} onChange={e => setEditingTestimonial((p: any) => ({ ...p, customer_city: e.target.value }))}
+                    className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background" />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-text-med block mb-1">Initial</label>
+                  <input maxLength={2} value={editingTestimonial.customer_initial || ""} onChange={e => setEditingTestimonial((p: any) => ({ ...p, customer_initial: e.target.value.toUpperCase() }))}
+                    placeholder="Auto from name" className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-text-med block mb-1">Rating</label>
+                  <select value={editingTestimonial.rating} onChange={e => setEditingTestimonial((p: any) => ({ ...p, rating: Number(e.target.value) }))}
+                    className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background">
+                    {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{"⭐".repeat(n)} ({n})</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-text-med block mb-1">Display Order</label>
+                  <input type="number" value={editingTestimonial.display_order ?? 0} onChange={e => setEditingTestimonial((p: any) => ({ ...p, display_order: e.target.value }))}
+                    className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-text-med block mb-1">Quote *</label>
+                <textarea value={editingTestimonial.quote} onChange={e => setEditingTestimonial((p: any) => ({ ...p, quote: e.target.value }))}
+                  rows={5} className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background" />
+              </div>
+            </div>
+            <div className="flex gap-2 p-4 border-t border-border">
+              <button onClick={() => setEditingTestimonial(null)} className="flex-1 px-4 py-2 border border-border rounded-lg text-sm font-semibold hover:bg-muted">Cancel</button>
+              <button onClick={() => saveTestimonial.mutate(editingTestimonial)} disabled={!editingTestimonial.customer_name || !editingTestimonial.quote || saveTestimonial.isPending}
+                className="flex-1 px-4 py-2 bg-forest text-primary-foreground rounded-lg text-sm font-semibold hover:bg-forest-deep disabled:opacity-50">
+                {saveTestimonial.isPending ? "Saving..." : "Save Testimonial"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingFaq && (
+        <div className="fixed inset-0 bg-foreground/50 z-[100] flex items-center justify-center" onClick={() => setEditingFaq(null)}>
+          <div className="bg-card border border-border rounded-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h3 className="font-bold">{editingFaq.id ? "Edit FAQ" : "New FAQ"}</h3>
+              <button onClick={() => setEditingFaq(null)}><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-4 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-text-med block mb-1">Category</label>
+                  <input value={editingFaq.category || ""} onChange={e => setEditingFaq((p: any) => ({ ...p, category: e.target.value }))}
+                    placeholder="general" className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-text-med block mb-1">Display Order</label>
+                  <input type="number" value={editingFaq.display_order ?? 0} onChange={e => setEditingFaq((p: any) => ({ ...p, display_order: e.target.value }))}
+                    className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-text-med block mb-1">Question *</label>
+                <textarea value={editingFaq.question} onChange={e => setEditingFaq((p: any) => ({ ...p, question: e.target.value }))}
+                  rows={2} className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-text-med block mb-1">Answer *</label>
+                <textarea value={editingFaq.answer} onChange={e => setEditingFaq((p: any) => ({ ...p, answer: e.target.value }))}
+                  rows={6} className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background" />
+              </div>
+            </div>
+            <div className="flex gap-2 p-4 border-t border-border">
+              <button onClick={() => setEditingFaq(null)} className="flex-1 px-4 py-2 border border-border rounded-lg text-sm font-semibold hover:bg-muted">Cancel</button>
+              <button onClick={() => saveFaq.mutate(editingFaq)} disabled={!editingFaq.question || !editingFaq.answer || saveFaq.isPending}
+                className="flex-1 px-4 py-2 bg-forest text-primary-foreground rounded-lg text-sm font-semibold hover:bg-forest-deep disabled:opacity-50">
+                {saveFaq.isPending ? "Saving..." : "Save FAQ"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
