@@ -33,6 +33,7 @@ import BlogPage from "@/pages/BlogPage";
 import TrackOrderPage from "@/pages/TrackOrderPage";
 import PushGiftsPage from "@/pages/PushGiftsPage";
 import ProductPage from "@/pages/ProductPage";
+import DynamicPage from "@/pages/DynamicPage";
 import NotFound from "./pages/NotFound.tsx";
 
 // Admin
@@ -115,6 +116,7 @@ function StorefrontShell() {
           <Route path="/track-order" element={<TrackOrderPage />} />
           <Route path="/push-gifts" element={<PushGiftsPage />} />
           <Route path="/products/:slug" element={<ProductPage />} />
+          <Route path="/p/:slug" element={<DynamicPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>

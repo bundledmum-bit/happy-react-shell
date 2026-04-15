@@ -1,12 +1,17 @@
 import { Link } from "react-router-dom";
 import { useEffect } from "react";
 import { useSiteSettings } from "@/hooks/useSupabaseData";
+import { usePage } from "@/hooks/usePage";
+import DbPageContent from "@/components/DbPageContent";
 
 export default function PrivacyPage() {
   useEffect(() => { document.title = "Privacy Policy | BundledMum"; }, []);
   const { data: settings } = useSiteSettings();
+  const { data: dbPage } = usePage("privacy");
   const whatsapp = settings?.whatsapp_number || "";
   const contactEmail = settings?.contact_email || "";
+
+  if (dbPage && dbPage.content) return <DbPageContent page={dbPage} />;
 
   return (
     <div className="min-h-screen pt-[68px]">

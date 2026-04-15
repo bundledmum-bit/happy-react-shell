@@ -7,6 +7,7 @@ import BulkActionsBar from "@/components/admin/BulkActionsBar";
 import TrashTabs from "@/components/admin/TrashTabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import AdminAnnouncementsTab from "@/components/admin/AdminAnnouncementsTab";
+import AdminPagesTab from "@/components/admin/AdminPagesTab";
 
 const BLANK_TESTIMONIAL = {
   customer_name: "",
@@ -26,7 +27,7 @@ const BLANK_FAQ = {
 
 export default function AdminContent() {
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<"testimonials" | "faqs" | "announcements">("testimonials");
+  const [tab, setTab] = useState<"testimonials" | "faqs" | "announcements" | "pages">("testimonials");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [trashTab, setTrashTab] = useState<"active" | "trash">("active");
   const [editingTestimonial, setEditingTestimonial] = useState<any>(null);
@@ -134,7 +135,7 @@ export default function AdminContent() {
     <div>
       <h1 className="pf text-2xl font-bold mb-6">Content</h1>
       <div className="flex gap-2 mb-4">
-        {(["testimonials", "faqs", "announcements"] as const).map(t => (
+        {(["testimonials", "faqs", "announcements", "pages"] as const).map(t => (
           <button key={t} onClick={() => { setTab(t); setSelected(new Set()); setTrashTab("active"); }}
             className={`px-4 py-2 rounded-lg text-sm font-semibold capitalize ${tab === t ? "bg-forest text-primary-foreground" : "border border-border text-text-med"}`}>
             {t}
@@ -144,6 +145,8 @@ export default function AdminContent() {
 
       {tab === "announcements" ? (
         <AdminAnnouncementsTab />
+      ) : tab === "pages" ? (
+        <AdminPagesTab />
       ) : (
       <>
       <div className="flex items-center justify-between mb-4">

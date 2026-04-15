@@ -1,11 +1,16 @@
 import { Link } from "react-router-dom";
 import { useSiteSettings } from "@/hooks/useSupabaseData";
+import { usePage } from "@/hooks/usePage";
+import DbPageContent from "@/components/DbPageContent";
 
 export default function AboutPage() {
   const { data: settings } = useSiteSettings();
+  const { data: dbPage } = usePage("about");
 
   const story = settings?.about_story || "";
   const values: { icon: string; t: string; d: string }[] = Array.isArray(settings?.about_values) ? settings.about_values : [];
+
+  if (dbPage && dbPage.content) return <DbPageContent page={dbPage} />;
 
   return (
     <div className="min-h-screen pt-[68px]">

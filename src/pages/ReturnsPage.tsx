@@ -1,13 +1,18 @@
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useSiteSettings } from "@/hooks/useSupabaseData";
+import { usePage } from "@/hooks/usePage";
+import DbPageContent from "@/components/DbPageContent";
 import { fmt } from "@/lib/cart";
 
 export default function ReturnsPage() {
   useEffect(() => { document.title = "Returns & Exchanges | BundledMum"; }, []);
   const { data: settings } = useSiteSettings();
+  const { data: dbPage } = usePage("returns");
   const whatsapp = settings?.whatsapp_number || "";
   const giftWrapPrice = parseInt(settings?.gift_wrapping_price) || 0;
+
+  if (dbPage && dbPage.content) return <DbPageContent page={dbPage} />;
 
   return (
     <div className="min-h-screen bg-background">

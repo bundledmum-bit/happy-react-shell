@@ -1,0 +1,1003 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>BundledMum — Mobile UI Audit · Before / After</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root {
+    --forest: #2D5F3F;
+    --forest-deep: #1E4530;
+    --forest-light: #E6F0E9;
+    --coral: #F4845F;
+    --coral-dark: #E66B4A;
+    --warm-cream: #FBF7F2;
+    --text-dark: #1F1F1F;
+    --text-med: #5B5B5B;
+    --text-light: #8E8E8E;
+    --border: #E5E2DC;
+    --destructive: #D03A2E;
+  }
+  body { background: #F4EFE9; font-family: 'DM Sans', system-ui, sans-serif; color: var(--text-dark); }
+  .pf { font-family: 'Playfair Display', Georgia, serif; }
+  .interactive { transition: transform .15s ease; }
+  .interactive:active { transform: scale(0.97); }
+  .phone {
+    width: 360px; min-height: 640px;
+    background: white;
+    border: 12px solid #1f2937;
+    border-radius: 36px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,0.25);
+  }
+  .phone::after { /* iOS home indicator simulation */
+    content: "";
+    position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%);
+    width: 110px; height: 4px; border-radius: 4px; background: #1f2937;
+    z-index: 200; pointer-events: none;
+  }
+  .phone-body { width: 100%; height: 624px; overflow-y: auto; position: relative; padding-bottom: 28px; /* simulated safe area */ }
+  .label-bad { background: #FEE2E2; color: #B91C1C; }
+  .label-good { background: #DCFCE7; color: #166534; }
+  .ruler { background-image: linear-gradient(to right, rgba(0,0,0,0.06) 1px, transparent 1px); background-size: 4px 100%; }
+  .px-overlay { position: absolute; pointer-events: none; border: 1.5px dashed #DC2626; border-radius: 9999px; }
+  .px-overlay-good { border-color: #16A34A; }
+  .px-label { position: absolute; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 6px; pointer-events: none; }
+  .pill { border-radius: 9999px; }
+  details > summary { cursor: pointer; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 9999px; display: inline-block; margin-right: 6px; vertical-align: middle; }
+</style>
+</head>
+<body class="p-6 md:p-10">
+
+<header class="max-w-6xl mx-auto mb-10">
+  <h1 class="pf text-3xl md:text-4xl font-bold text-[var(--forest)]">BundledMum — Mobile UI Audit</h1>
+  <p class="text-[var(--text-med)] mt-2">Five preview-able fixes shown side-by-side. Each "phone" is rendered at ~360px viewport with the actual production-equivalent CSS.</p>
+  <div class="mt-4 flex flex-wrap gap-3 text-xs">
+    <span class="label-bad px-3 py-1.5 rounded-full font-semibold">Before — current code</span>
+    <span class="label-good px-3 py-1.5 rounded-full font-semibold">After — proposed fix</span>
+    <span class="px-3 py-1.5 rounded-full bg-white border border-[var(--border)] font-semibold"><span class="legend-dot" style="background:#DC2626"></span>tap target &lt; 44px</span>
+    <span class="px-3 py-1.5 rounded-full bg-white border border-[var(--border)] font-semibold"><span class="legend-dot" style="background:#16A34A"></span>tap target ≥ 44px</span>
+  </div>
+</header>
+
+<!-- ────────────────────────────────────────────────────────────── -->
+<!-- PREVIEW 1 — Cart badges -->
+<!-- ────────────────────────────────────────────────────────────── -->
+<section class="max-w-6xl mx-auto mb-16">
+  <div class="mb-4">
+    <h2 class="pf text-2xl font-bold">1 · Cart badges</h2>
+    <p class="text-sm text-[var(--text-med)]">Findings #1, #2, #19 — text-[8px] / [9px] on the cart count badge in Navbar and MobileBottomNav.</p>
+  </div>
+
+  <div class="grid md:grid-cols-2 gap-8 justify-items-center">
+    <!-- BEFORE -->
+    <div>
+      <div class="mb-3 flex items-center gap-2"><span class="label-bad px-2 py-1 rounded text-xs font-bold">BEFORE</span><span class="text-xs text-[var(--text-med)]">text-[9px] / text-[8px]</span></div>
+      <div class="phone">
+        <div class="phone-body">
+          <!-- Navbar -->
+          <div class="bg-white border-b border-[var(--border)] px-4 py-3 flex items-center justify-between">
+            <div class="pf text-lg font-bold text-[var(--forest)]">BundledMum</div>
+            <div class="flex items-center gap-2">
+              <button class="p-2 relative">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+                <span class="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--coral)] text-white" style="font-size:9px; font-weight:700;">12</span>
+              </button>
+              <button class="p-2"><div class="flex flex-col gap-[5px]"><span class="block w-5 h-0.5 bg-[var(--text-dark)]"></span><span class="block w-5 h-0.5 bg-[var(--text-dark)]"></span><span class="block w-5 h-0.5 bg-[var(--text-dark)]"></span></div></button>
+            </div>
+          </div>
+          <!-- Filler -->
+          <div class="p-6 space-y-3 text-sm text-[var(--text-light)]">
+            <p>Notice both badges:</p>
+            <p>• Navbar (top right): "12" rendered at <code>text-[9px]</code></p>
+            <p>• Bottom nav cart tab: "12" rendered at <code>text-[8px]</code> in 16px circle</p>
+          </div>
+          <!-- Mobile bottom nav -->
+          <nav class="absolute bottom-0 left-0 right-0 bg-white border-t border-[var(--border)] h-14 flex items-center justify-around">
+            <button class="flex flex-col items-center gap-0.5"><span class="text-lg">🏠</span><span style="font-size:10px; font-weight:600;">Home</span></button>
+            <button class="flex flex-col items-center gap-0.5"><span class="text-lg">📋</span><span style="font-size:10px; font-weight:600;">Quiz</span></button>
+            <button class="flex flex-col items-center gap-0.5"><span class="text-lg">🛍️</span><span style="font-size:10px; font-weight:600;">Shop</span></button>
+            <button class="flex flex-col items-center gap-0.5 relative">
+              <span class="text-lg">🛒</span>
+              <span class="absolute -top-1 -right-2 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--coral)] text-white" style="font-size:8px; font-weight:700;">12</span>
+              <span style="font-size:10px; font-weight:600;">Cart</span>
+            </button>
+            <button class="flex flex-col items-center gap-0.5"><span class="text-lg">👤</span><span style="font-size:10px; font-weight:600;">Account</span></button>
+          </nav>
+        </div>
+      </div>
+    </div>
+
+    <!-- AFTER -->
+    <div>
+      <div class="mb-3 flex items-center gap-2"><span class="label-good px-2 py-1 rounded text-xs font-bold">AFTER</span><span class="text-xs text-[var(--text-med)]">text-[10px] / [11px], badge bumped to 20px</span></div>
+      <div class="phone">
+        <div class="phone-body">
+          <div class="bg-white border-b border-[var(--border)] px-4 py-3 flex items-center justify-between">
+            <div class="pf text-lg font-bold text-[var(--forest)]">BundledMum</div>
+            <div class="flex items-center gap-2">
+              <button class="p-2 relative">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+                <span class="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--coral)] text-white" style="font-size:11px; font-weight:700;">12</span>
+              </button>
+              <button class="p-2.5"><div class="flex flex-col gap-[5px]"><span class="block w-5 h-0.5 bg-[var(--text-dark)]"></span><span class="block w-5 h-0.5 bg-[var(--text-dark)]"></span><span class="block w-5 h-0.5 bg-[var(--text-dark)]"></span></div></button>
+            </div>
+          </div>
+          <div class="p-6 space-y-3 text-sm text-[var(--text-light)]">
+            <p>Both badges legible:</p>
+            <p>• Navbar: 11px in 20px badge</p>
+            <p>• Bottom nav: 10px in 20px badge — "12" fits comfortably; "9+" still fits</p>
+          </div>
+          <nav class="absolute bottom-0 left-0 right-0 bg-white border-t border-[var(--border)] h-16 flex items-center justify-around" style="padding-bottom: env(safe-area-inset-bottom);">
+            <button class="flex flex-col items-center gap-0.5"><span class="text-xl">🏠</span><span style="font-size:11px; font-weight:600;">Home</span></button>
+            <button class="flex flex-col items-center gap-0.5"><span class="text-xl">📋</span><span style="font-size:11px; font-weight:600;">Quiz</span></button>
+            <button class="flex flex-col items-center gap-0.5"><span class="text-xl">🛍️</span><span style="font-size:11px; font-weight:600;">Shop</span></button>
+            <button class="flex flex-col items-center gap-0.5 relative">
+              <span class="text-xl">🛒</span>
+              <span class="absolute -top-1 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--coral)] text-white" style="font-size:10px; font-weight:700;">12</span>
+              <span style="font-size:11px; font-weight:600;">Cart</span>
+            </button>
+            <button class="flex flex-col items-center gap-0.5"><span class="text-xl">👤</span><span style="font-size:11px; font-weight:600;">Account</span></button>
+          </nav>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ────────────────────────────────────────────────────────────── -->
+<!-- PREVIEW 2 — Quiz product card -->
+<!-- ────────────────────────────────────────────────────────────── -->
+<section class="max-w-6xl mx-auto mb-16">
+  <div class="mb-4">
+    <h2 class="pf text-2xl font-bold">2 · Quiz result product card</h2>
+    <p class="text-sm text-[var(--text-med)]">Findings #37, #38, #39, #40 — primary CTA at text-[11px], scarcity & savings at text-[9px], brand/size pills at 22px tap height.</p>
+  </div>
+
+  <div class="grid md:grid-cols-2 gap-8 justify-items-center">
+    <!-- BEFORE -->
+    <div>
+      <div class="mb-3"><span class="label-bad px-2 py-1 rounded text-xs font-bold">BEFORE</span></div>
+      <div class="phone">
+        <div class="phone-body p-4 bg-[var(--warm-cream)]">
+          <!-- Quiz card -->
+          <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div class="relative h-44 bg-[var(--forest-light)] flex items-center justify-center">
+              <span class="text-7xl">🍼</span>
+              <span class="absolute top-2.5 left-2.5 bg-[var(--coral)] text-white font-bold px-2.5 py-1 rounded-full uppercase tracking-wide" style="font-size:10px;">Essential</span>
+              <span class="absolute top-2.5 right-2.5 bg-[var(--destructive)] text-white font-bold px-2 py-0.5 rounded-full" style="font-size:9px;">Save 30%</span>
+            </div>
+            <div class="p-3.5">
+              <h3 class="pf text-sm font-bold leading-tight mb-1">Avent Anti-Colic Bottle Set (3pk)</h3>
+              <div class="text-[var(--forest)] bg-[var(--forest-light)] rounded-lg px-2 py-1.5 italic mb-2" style="font-size:10px;">💡 Recommended for first 6 months</div>
+              <p style="font-size:9px;" class="text-[#E65100] font-semibold mb-1">🔥 Only 3 left!</p>
+              <div class="mb-2">
+                <div class="font-semibold text-[var(--text-light)] uppercase tracking-widest mb-1" style="font-size:10px;">Brand</div>
+                <div class="flex flex-wrap gap-1">
+                  <button class="px-2 py-0.5 rounded-full font-semibold border-[1.5px] border-[var(--forest)] bg-[var(--forest-light)] text-[var(--forest)]" style="font-size:10px;">Avent</button>
+                  <button class="px-2 py-0.5 rounded-full font-semibold border-[1.5px] border-[var(--border)] text-[var(--text-light)]" style="font-size:10px;">Tommee Tippee</button>
+                  <button class="px-2 py-0.5 rounded-full font-semibold border-[1.5px] border-[var(--border)] text-[var(--text-light)]" style="font-size:10px;">Pigeon</button>
+                </div>
+              </div>
+              <div class="flex items-center justify-between">
+                <div>
+                  <div class="text-[var(--text-light)] line-through" style="font-size:10px;">₦12,500</div>
+                  <span class="font-bold text-base">₦8,750</span>
+                </div>
+                <button class="rounded-full px-3 py-1.5 font-semibold text-white" style="font-size:11px; background:#F4845F;">Add to Cart</button>
+              </div>
+            </div>
+          </div>
+          <p class="text-xs text-[var(--text-light)] text-center mt-4">"Save 30%" / "Only 3 left" almost invisible · CTA recedes</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- AFTER -->
+    <div>
+      <div class="mb-3"><span class="label-good px-2 py-1 rounded text-xs font-bold">AFTER</span></div>
+      <div class="phone">
+        <div class="phone-body p-4 bg-[var(--warm-cream)]">
+          <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div class="relative h-44 bg-[var(--forest-light)] flex items-center justify-center">
+              <span class="text-7xl">🍼</span>
+              <span class="absolute top-2.5 left-2.5 bg-[var(--coral)] text-white text-[11px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide">Essential</span>
+              <span class="absolute top-2.5 right-2.5 bg-[var(--destructive)] text-white text-[11px] font-bold px-2.5 py-1 rounded-full">Save 30%</span>
+            </div>
+            <div class="p-3.5">
+              <h3 class="pf text-sm font-bold leading-tight mb-1">Avent Anti-Colic Bottle Set (3pk)</h3>
+              <div class="text-[var(--forest)] bg-[var(--forest-light)] rounded-lg px-2 py-1.5 italic mb-2 text-[11px]">💡 Recommended for first 6 months</div>
+              <p class="text-[11px] text-[#E65100] font-bold mb-2">🔥 Only 3 left!</p>
+              <div class="mb-3">
+                <div class="text-xs font-semibold text-[var(--text-med)] uppercase tracking-widest mb-1.5">Brand</div>
+                <div class="flex flex-wrap gap-1.5">
+                  <button class="px-3 py-1.5 rounded-full text-xs font-semibold border-[1.5px] border-[var(--forest)] bg-[var(--forest-light)] text-[var(--forest)]">Avent</button>
+                  <button class="px-3 py-1.5 rounded-full text-xs font-semibold border-[1.5px] border-[var(--border)] text-[var(--text-med)]">Tommee Tippee</button>
+                  <button class="px-3 py-1.5 rounded-full text-xs font-semibold border-[1.5px] border-[var(--border)] text-[var(--text-med)]">Pigeon</button>
+                </div>
+              </div>
+              <div class="flex items-center justify-between">
+                <div>
+                  <div class="text-xs text-[var(--text-light)] line-through">₦12,500</div>
+                  <span class="font-bold text-base">₦8,750</span>
+                </div>
+                <button class="rounded-full px-4 py-2.5 text-sm font-semibold text-white" style="background:#F4845F;">Add to Cart</button>
+              </div>
+            </div>
+          </div>
+          <p class="text-xs text-[var(--text-light)] text-center mt-4">Scarcity + savings dominate · CTA reads as primary action</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ────────────────────────────────────────────────────────────── -->
+<!-- PREVIEW 3 — Checkout form -->
+<!-- ────────────────────────────────────────────────────────────── -->
+<section class="max-w-6xl mx-auto mb-16">
+  <div class="mb-4">
+    <h2 class="pf text-2xl font-bold">3 · Checkout form (iOS zoom + autofill)</h2>
+    <p class="text-sm text-[var(--text-med)]">Findings #26, #27, #28 — input font-size 14px triggers iOS zoom on focus. Missing autoComplete/inputMode breaks address autofill.</p>
+  </div>
+
+  <div class="grid md:grid-cols-2 gap-8 justify-items-center">
+    <!-- BEFORE -->
+    <div>
+      <div class="mb-3"><span class="label-bad px-2 py-1 rounded text-xs font-bold">BEFORE</span></div>
+      <div class="phone">
+        <div class="phone-body p-4 bg-white">
+          <h3 class="pf text-lg font-bold mb-3">Delivery details</h3>
+          <div class="space-y-3">
+            <div>
+              <label class="text-xs font-semibold text-[var(--text-med)] uppercase tracking-wide block mb-1">First Name</label>
+              <input class="w-full rounded-[10px] border-[1.5px] border-[var(--border)] px-3 py-2.5" style="font-size:14px;" value="Adaeze" />
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-[var(--text-med)] uppercase tracking-wide block mb-1">Phone Number</label>
+              <input type="tel" class="w-full rounded-[10px] border-[1.5px] border-[var(--border)] px-3 py-2.5" style="font-size:14px;" value="08012345678" />
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-[var(--text-med)] uppercase tracking-wide block mb-1">Email</label>
+              <input type="email" class="w-full rounded-[10px] border-[1.5px] border-[var(--border)] px-3 py-2.5" style="font-size:14px;" value="adaeze@example.com" />
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-[var(--text-med)] uppercase tracking-wide block mb-1">Street Address</label>
+              <input class="w-full rounded-[10px] border-[1.5px] border-[var(--border)] px-3 py-2.5" style="font-size:14px;" value="14 Adetokunbo Ademola" />
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-[var(--text-med)] uppercase tracking-wide block mb-1">State</label>
+              <select class="w-full rounded-[10px] border-[1.5px] border-[var(--border)] px-3 py-2.5 bg-white" style="font-size:14px;"><option>Lagos</option></select>
+            </div>
+          </div>
+          <div class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">
+            <strong>iOS will zoom in</strong> when any field is focused (font-size &lt; 16px). No <code>autoComplete="tel"</code> / <code>"email"</code> / <code>"street-address"</code> → no keyboard autofill suggestions.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AFTER -->
+    <div>
+      <div class="mb-3"><span class="label-good px-2 py-1 rounded text-xs font-bold">AFTER</span></div>
+      <div class="phone">
+        <div class="phone-body p-4 bg-white">
+          <h3 class="pf text-lg font-bold mb-3">Delivery details</h3>
+          <div class="space-y-3">
+            <div>
+              <label class="text-xs font-semibold text-[var(--text-med)] uppercase tracking-wide block mb-1">First Name</label>
+              <input autocomplete="given-name" class="w-full rounded-[10px] border-[1.5px] border-[var(--border)] px-3 py-3 text-base" value="Adaeze" />
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-[var(--text-med)] uppercase tracking-wide block mb-1">Phone Number</label>
+              <input type="tel" autocomplete="tel" inputmode="tel" enterkeyhint="next" class="w-full rounded-[10px] border-[1.5px] border-[var(--border)] px-3 py-3 text-base" value="08012345678" />
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-[var(--text-med)] uppercase tracking-wide block mb-1">Email</label>
+              <input type="email" autocomplete="email" inputmode="email" enterkeyhint="next" class="w-full rounded-[10px] border-[1.5px] border-[var(--border)] px-3 py-3 text-base" value="adaeze@example.com" />
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-[var(--text-med)] uppercase tracking-wide block mb-1">Street Address</label>
+              <input autocomplete="street-address" class="w-full rounded-[10px] border-[1.5px] border-[var(--border)] px-3 py-3 text-base" value="14 Adetokunbo Ademola" />
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-[var(--text-med)] uppercase tracking-wide block mb-1">State</label>
+              <select autocomplete="address-level1" class="w-full rounded-[10px] border-[1.5px] border-[var(--border)] px-3 py-3 text-base bg-white"><option>Lagos</option></select>
+            </div>
+          </div>
+          <div class="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg text-xs text-green-800">
+            <strong>No iOS zoom</strong> (font-size 16px). Each field maps to a known autofill token → iOS Contacts autofills name/phone/email/address with one tap.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ────────────────────────────────────────────────────────────── -->
+<!-- PREVIEW 4 — Qty steppers -->
+<!-- ────────────────────────────────────────────────────────────── -->
+<section class="max-w-6xl mx-auto mb-16">
+  <div class="mb-4">
+    <h2 class="pf text-2xl font-bold">4 · Quantity steppers</h2>
+    <p class="text-sm text-[var(--text-med)]">Findings #3, #4, #48 — CartPage qty buttons 28×28px, BundleDetailPage 36×36px. Apple HIG minimum is 44×44px.</p>
+  </div>
+
+  <div class="grid md:grid-cols-2 gap-8 justify-items-center">
+    <!-- BEFORE -->
+    <div>
+      <div class="mb-3"><span class="label-bad px-2 py-1 rounded text-xs font-bold">BEFORE</span></div>
+      <div class="phone">
+        <div class="phone-body p-4 bg-white">
+          <h3 class="pf text-base font-bold mb-3">Your cart</h3>
+
+          <!-- Cart row -->
+          <div class="border border-[var(--border)] rounded-xl p-3 mb-3 flex gap-3">
+            <div class="w-16 h-16 bg-[var(--forest-light)] rounded-lg flex items-center justify-center text-3xl">🍼</div>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-bold leading-tight">Avent Bottle Set</div>
+              <div style="font-size:11px;" class="text-[var(--text-light)]">Brand: Avent · Size: 260ml</div>
+              <div class="mt-2 flex items-center justify-between">
+                <div class="flex items-center gap-2 relative">
+                  <button class="h-7 w-7 rounded-full bg-[var(--forest-light)] text-[var(--forest)] flex items-center justify-center font-bold">−</button>
+                  <span class="text-sm font-bold w-5 text-center">2</span>
+                  <button class="h-7 w-7 rounded-full bg-[var(--forest-light)] text-[var(--forest)] flex items-center justify-center font-bold">+</button>
+                  <!-- 44px reference circle -->
+                  <span class="px-overlay" style="left:-8px; top:-8px; width:44px; height:44px;"></span>
+                  <span class="px-label" style="left:-10px; top:-18px; background:#FEE2E2; color:#B91C1C;">28px</span>
+                </div>
+                <span class="font-bold text-sm">₦17,500</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bundle stepper -->
+          <div class="border border-[var(--border)] rounded-xl p-3 mb-3">
+            <div class="text-sm font-bold mb-2">Bundle quantity</div>
+            <div class="flex items-center gap-3 relative">
+              <button class="w-9 h-9 rounded-full bg-[var(--forest-light)] flex items-center justify-center">−</button>
+              <span class="text-sm font-bold w-5 text-center">1</span>
+              <button class="w-9 h-9 rounded-full bg-[var(--destructive)] bg-opacity-10 flex items-center justify-center">+</button>
+              <span class="px-overlay" style="left:-4px; top:-4px; width:44px; height:44px;"></span>
+              <span class="px-label" style="left:-2px; top:-18px; background:#FEE2E2; color:#B91C1C;">36px</span>
+            </div>
+          </div>
+
+          <p class="text-xs text-[var(--text-light)] mt-2">Red dashed circle = 44px Apple HIG minimum. Both controls fall inside it.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- AFTER -->
+    <div>
+      <div class="mb-3"><span class="label-good px-2 py-1 rounded text-xs font-bold">AFTER</span></div>
+      <div class="phone">
+        <div class="phone-body p-4 bg-white">
+          <h3 class="pf text-base font-bold mb-3">Your cart</h3>
+
+          <div class="border border-[var(--border)] rounded-xl p-3 mb-3 flex gap-3">
+            <div class="w-16 h-16 bg-[var(--forest-light)] rounded-lg flex items-center justify-center text-3xl">🍼</div>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-bold leading-tight">Avent Bottle Set</div>
+              <div class="text-xs text-[var(--text-med)]">Brand: Avent · Size: 260ml</div>
+              <div class="mt-2 flex items-center justify-between">
+                <div class="flex items-center gap-2 relative">
+                  <button class="h-11 w-11 rounded-full bg-[var(--forest-light)] text-[var(--forest)] flex items-center justify-center font-bold text-lg">−</button>
+                  <span class="text-sm font-bold w-5 text-center">2</span>
+                  <button class="h-11 w-11 rounded-full bg-[var(--forest-light)] text-[var(--forest)] flex items-center justify-center font-bold text-lg">+</button>
+                  <span class="px-overlay px-overlay-good" style="left:0; top:0; width:44px; height:44px;"></span>
+                  <span class="px-label" style="left:1px; top:-18px; background:#DCFCE7; color:#166534;">44px ✓</span>
+                </div>
+                <span class="font-bold text-sm">₦17,500</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="border border-[var(--border)] rounded-xl p-3 mb-3">
+            <div class="text-sm font-bold mb-2">Bundle quantity</div>
+            <div class="flex items-center gap-3 relative">
+              <button class="w-11 h-11 rounded-full bg-[var(--forest-light)] flex items-center justify-center text-lg">−</button>
+              <span class="text-sm font-bold w-5 text-center">1</span>
+              <button class="w-11 h-11 rounded-full bg-[var(--destructive)] bg-opacity-10 flex items-center justify-center text-lg">+</button>
+              <span class="px-overlay px-overlay-good" style="left:0; top:0; width:44px; height:44px;"></span>
+              <span class="px-label" style="left:1px; top:-18px; background:#DCFCE7; color:#166534;">44px ✓</span>
+            </div>
+          </div>
+
+          <p class="text-xs text-[var(--text-med)] mt-2">All steppers now fully fill the 44px target — same visual rhythm, no mis-taps.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ────────────────────────────────────────────────────────────── -->
+<!-- PREVIEW 5 — Sticky bottom + safe area -->
+<!-- ────────────────────────────────────────────────────────────── -->
+<section class="max-w-6xl mx-auto mb-16">
+  <div class="mb-4">
+    <h2 class="pf text-2xl font-bold">5 · Sticky bottom bars + iOS safe area</h2>
+    <p class="text-sm text-[var(--text-med)]">Findings #5, #6, #15 — FloatingCartBar and MobileBottomNav stack on top of each other AND clip under iOS home indicator.</p>
+  </div>
+
+  <div class="grid md:grid-cols-2 gap-8 justify-items-center">
+    <!-- BEFORE -->
+    <div>
+      <div class="mb-3"><span class="label-bad px-2 py-1 rounded text-xs font-bold">BEFORE</span></div>
+      <div class="phone">
+        <div class="phone-body bg-[var(--warm-cream)]">
+          <div class="p-4">
+            <h3 class="pf text-base font-bold mb-2">Browse products</h3>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="bg-white rounded-lg p-3 h-32"></div>
+              <div class="bg-white rounded-lg p-3 h-32"></div>
+              <div class="bg-white rounded-lg p-3 h-32"></div>
+              <div class="bg-white rounded-lg p-3 h-32"></div>
+            </div>
+            <p class="text-xs text-[var(--text-light)] mt-3">Product list goes here…</p>
+          </div>
+          <!-- FloatingCartBar — incorrect: full width at bottom-0, no safe area -->
+          <div class="absolute left-0 right-0 bg-[var(--forest)] text-white p-3 flex items-center justify-between" style="bottom:56px;">
+            <div>
+              <div class="text-xs opacity-80">3 items</div>
+              <div class="text-sm font-bold">₦24,500</div>
+            </div>
+            <a class="bg-[var(--coral)] px-4 py-2 rounded-full text-sm font-semibold">View Cart →</a>
+          </div>
+          <!-- Mobile bottom nav: no safe-area padding, sits flush against home indicator -->
+          <nav class="absolute bottom-0 left-0 right-0 bg-white border-t border-[var(--border)] h-14 flex items-center justify-around">
+            <span class="text-xl">🏠</span><span class="text-xl">📋</span><span class="text-xl">🛍️</span><span class="text-xl">🛒</span><span class="text-xl">👤</span>
+          </nav>
+          <!-- Annotations -->
+          <div class="absolute right-2 bottom-2 bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded">↓ home indicator overlap</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AFTER -->
+    <div>
+      <div class="mb-3"><span class="label-good px-2 py-1 rounded text-xs font-bold">AFTER</span></div>
+      <div class="phone">
+        <div class="phone-body bg-[var(--warm-cream)]">
+          <div class="p-4">
+            <h3 class="pf text-base font-bold mb-2">Browse products</h3>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="bg-white rounded-lg p-3 h-32"></div>
+              <div class="bg-white rounded-lg p-3 h-32"></div>
+              <div class="bg-white rounded-lg p-3 h-32"></div>
+              <div class="bg-white rounded-lg p-3 h-32"></div>
+            </div>
+            <p class="text-xs text-[var(--text-light)] mt-3">Product list goes here…</p>
+          </div>
+          <!-- FloatingCartBar lifted above bottom nav, narrower pill -->
+          <div class="absolute left-3 right-3 bg-[var(--forest)] text-white px-4 py-3 flex items-center justify-between rounded-full shadow-lg" style="bottom:80px;">
+            <div>
+              <div class="text-xs opacity-80">3 items</div>
+              <div class="text-sm font-bold">₦24,500</div>
+            </div>
+            <a class="bg-[var(--coral)] px-4 py-2 rounded-full text-sm font-semibold">View Cart →</a>
+          </div>
+          <!-- Mobile bottom nav with safe-area padding -->
+          <nav class="absolute bottom-0 left-0 right-0 bg-white border-t border-[var(--border)] flex items-center justify-around" style="height:56px; padding-bottom:env(safe-area-inset-bottom);">
+            <span class="text-xl">🏠</span><span class="text-xl">📋</span><span class="text-xl">🛍️</span><span class="text-xl">🛒</span><span class="text-xl">👤</span>
+          </nav>
+          <div class="absolute right-2 bottom-2 bg-green-600 text-white text-[10px] font-bold px-2 py-0.5 rounded">safe-area respected</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ────────────────────────────────────────────────────────────── -->
+<!-- PREVIEW 6 — CartPage delivery selects + popular items scroll -->
+<!-- ────────────────────────────────────────────────────────────── -->
+<section class="max-w-6xl mx-auto mb-16">
+  <div class="mb-4">
+    <h2 class="pf text-2xl font-bold">6 · CartPage delivery selects + popular items</h2>
+    <p class="text-sm text-[var(--text-med)]">Findings #7, #13 — selects under 44px tall + 14px text triggers iOS zoom. "Popular items" hidden horizontal scroll has no affordance.</p>
+  </div>
+
+  <div class="grid md:grid-cols-2 gap-8 justify-items-center">
+    <div>
+      <div class="mb-3"><span class="label-bad px-2 py-1 rounded text-xs font-bold">BEFORE</span></div>
+      <div class="phone">
+        <div class="phone-body p-4 bg-white">
+          <h3 class="pf text-base font-bold mb-3">Delivery location</h3>
+          <div class="space-y-2 mb-4">
+            <select class="w-full rounded-[10px] border-[1.5px] border-[var(--border)] px-3 py-2 bg-white" style="font-size:14px;"><option>Lagos</option></select>
+            <select class="w-full rounded-[10px] border-[1.5px] border-[var(--border)] px-3 py-2 bg-white" style="font-size:14px;"><option>Lekki</option></select>
+          </div>
+          <div class="text-xs text-red-600 mb-4">~36px tall · iOS zooms when tapped</div>
+
+          <h3 class="pf text-base font-bold mb-2">Customers also added</h3>
+          <div class="overflow-x-auto" style="scrollbar-width:none;">
+            <div class="flex gap-3" style="width:max-content;">
+              <div class="bg-[var(--warm-cream)] rounded-lg p-2 w-32 flex-shrink-0">
+                <div class="bg-[var(--forest-light)] rounded h-20 mb-2 flex items-center justify-center text-3xl">🧴</div>
+                <div style="font-size:11px;" class="font-semibold leading-tight">Baby Shampoo</div>
+                <a style="font-size:10px;" class="text-[var(--forest)] underline">View →</a>
+              </div>
+              <div class="bg-[var(--warm-cream)] rounded-lg p-2 w-32 flex-shrink-0">
+                <div class="bg-[var(--forest-light)] rounded h-20 mb-2 flex items-center justify-center text-3xl">🧷</div>
+                <div style="font-size:11px;" class="font-semibold leading-tight">Diaper Pack</div>
+                <a style="font-size:10px;" class="text-[var(--forest)] underline">View →</a>
+              </div>
+              <div class="bg-[var(--warm-cream)] rounded-lg p-2 w-32 flex-shrink-0">
+                <div class="bg-[var(--forest-light)] rounded h-20 mb-2 flex items-center justify-center text-3xl">🍼</div>
+                <div style="font-size:11px;" class="font-semibold leading-tight">Bottle Pack</div>
+                <a style="font-size:10px;" class="text-[var(--forest)] underline">View →</a>
+              </div>
+            </div>
+          </div>
+          <div class="text-xs text-red-600 mt-2">3rd item visually clipped at edge — no scroll affordance, users assume those are all.</div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="mb-3"><span class="label-good px-2 py-1 rounded text-xs font-bold">AFTER</span></div>
+      <div class="phone">
+        <div class="phone-body p-4 bg-white">
+          <h3 class="pf text-base font-bold mb-3">Delivery location</h3>
+          <div class="space-y-2 mb-4">
+            <select class="w-full rounded-[10px] border-[1.5px] border-[var(--border)] px-3 py-3 text-base bg-white h-11"><option>Lagos</option></select>
+            <select class="w-full rounded-[10px] border-[1.5px] border-[var(--border)] px-3 py-3 text-base bg-white h-11"><option>Lekki</option></select>
+          </div>
+          <div class="text-xs text-green-700 mb-4">44px tall · 16px text · no iOS zoom</div>
+
+          <h3 class="pf text-base font-bold mb-2">Customers also added</h3>
+          <div class="overflow-x-auto snap-x snap-mandatory" style="scrollbar-width:thin;">
+            <div class="flex gap-3 pb-2" style="width:max-content;">
+              <div class="bg-[var(--warm-cream)] rounded-lg p-2 w-32 flex-shrink-0 snap-start">
+                <div class="bg-[var(--forest-light)] rounded h-20 mb-2 flex items-center justify-center text-3xl">🧴</div>
+                <div class="text-xs font-semibold leading-tight">Baby Shampoo</div>
+                <a class="text-xs text-[var(--forest)] underline">View →</a>
+              </div>
+              <div class="bg-[var(--warm-cream)] rounded-lg p-2 w-32 flex-shrink-0 snap-start">
+                <div class="bg-[var(--forest-light)] rounded h-20 mb-2 flex items-center justify-center text-3xl">🧷</div>
+                <div class="text-xs font-semibold leading-tight">Diaper Pack</div>
+                <a class="text-xs text-[var(--forest)] underline">View →</a>
+              </div>
+              <div class="bg-[var(--warm-cream)] rounded-lg p-2 w-32 flex-shrink-0 snap-start">
+                <div class="bg-[var(--forest-light)] rounded h-20 mb-2 flex items-center justify-center text-3xl">🍼</div>
+                <div class="text-xs font-semibold leading-tight">Bottle Pack</div>
+                <a class="text-xs text-[var(--forest)] underline">View →</a>
+              </div>
+              <!-- peek of next card -->
+              <div class="bg-[var(--warm-cream)] rounded-lg p-2 w-32 flex-shrink-0 snap-start opacity-50">
+                <div class="bg-[var(--forest-light)] rounded h-20 mb-2 flex items-center justify-center text-3xl">🧸</div>
+                <div class="text-xs font-semibold leading-tight">Bear Toy</div>
+              </div>
+            </div>
+          </div>
+          <div class="text-xs text-green-700 mt-2">Snap-scroll + peeking 4th card signals "more →"; visible scrollbar reinforces.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ────────────────────────────────────────────────────────────── -->
+<!-- PREVIEW 7 — Bundle card -->
+<!-- ────────────────────────────────────────────────────────────── -->
+<section class="max-w-6xl mx-auto mb-16">
+  <div class="mb-4">
+    <h2 class="pf text-2xl font-bold">7 · Bundle card</h2>
+    <p class="text-sm text-[var(--text-med)]">Findings #44, #45, #46 — bundle CTA at text-[11px], tier badge text-[9px], "what's inside" rows text-[10/11px].</p>
+  </div>
+
+  <div class="grid md:grid-cols-2 gap-8 justify-items-center">
+    <div>
+      <div class="mb-3"><span class="label-bad px-2 py-1 rounded text-xs font-bold">BEFORE</span></div>
+      <div class="phone">
+        <div class="phone-body p-4 bg-[var(--warm-cream)]">
+          <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+            <div class="relative h-40 bg-gradient-to-br from-pink-50 to-orange-50 flex items-center justify-center">
+              <span class="text-7xl">🎁</span>
+              <div class="absolute top-2.5 left-2.5" style="background:rgba(252,228,236,0.9); color:#880E4F; font-size:10px; font-weight:700;" class="px-2.5 py-1 rounded-full backdrop-blur-sm">Premium</div>
+              <div class="absolute top-2.5 right-2.5 bg-black/60 backdrop-blur-sm text-white rounded-full px-2.5 py-1" style="font-size:10px; font-weight:700;">8 items</div>
+            </div>
+            <div class="p-3.5">
+              <h3 class="pf text-base font-bold mb-1">The Lagos Hospital Bag</h3>
+              <div class="flex gap-1 mb-2">
+                <span style="font-size:9px; background:#FCE4EC; color:#880E4F;" class="font-bold px-2 py-0.5 rounded-full">Premium</span>
+                <span style="font-size:9px;" class="bg-[var(--warm-cream)] text-[var(--text-med)] font-semibold px-2 py-0.5 rounded-full border border-[var(--border)]">For 6 weeks</span>
+              </div>
+              <p style="font-size:10px;" class="text-[var(--text-med)] leading-snug mb-2">Everything mum + baby need for delivery day and the first weeks home.</p>
+              <div class="bg-[var(--warm-cream)] rounded-lg p-2 mb-3">
+                <div style="font-size:10px; font-weight:700;" class="uppercase text-[var(--text-light)] mb-1">For Mum</div>
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2"><div class="w-7 h-7 bg-white rounded flex items-center justify-center text-sm">🧴</div><span style="font-size:11px;" class="flex-1 truncate">Postpartum Care Kit</span><span style="font-size:10px;" class="text-[var(--forest)] font-bold">₦8,500</span></div>
+                  <div class="flex items-center gap-2"><div class="w-7 h-7 bg-white rounded flex items-center justify-center text-sm">👗</div><span style="font-size:11px;" class="flex-1 truncate">Maternity Robe</span><span style="font-size:10px;" class="text-[var(--forest)] font-bold">₦12,000</span></div>
+                </div>
+                <p style="font-size:11px;" class="text-[var(--forest)] font-bold mt-2">+ 6 more items inside</p>
+              </div>
+              <div class="flex items-end justify-between mb-2">
+                <div>
+                  <div style="font-size:10px;" class="text-[var(--text-light)] line-through">₦68,500</div>
+                  <div class="text-lg font-bold">₦52,000</div>
+                </div>
+                <button class="rounded-full px-3.5 py-2 text-white" style="font-size:11px; background:var(--forest); font-weight:600;">+ Add to Cart</button>
+              </div>
+            </div>
+          </div>
+          <p class="text-xs text-[var(--text-light)] text-center mt-3">CTA looks weak · contents list almost a wall of 10–11px text</p>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="mb-3"><span class="label-good px-2 py-1 rounded text-xs font-bold">AFTER</span></div>
+      <div class="phone">
+        <div class="phone-body p-4 bg-[var(--warm-cream)]">
+          <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+            <div class="relative h-40 bg-gradient-to-br from-pink-50 to-orange-50 flex items-center justify-center">
+              <span class="text-7xl">🎁</span>
+              <div class="absolute top-2.5 left-2.5 text-[11px] font-bold px-2.5 py-1 rounded-full backdrop-blur-sm" style="background:rgba(252,228,236,0.9); color:#880E4F;">Premium</div>
+              <div class="absolute top-2.5 right-2.5 bg-black/60 backdrop-blur-sm text-white rounded-full px-2.5 py-1 text-[11px] font-bold">8 items</div>
+            </div>
+            <div class="p-3.5">
+              <h3 class="pf text-base font-bold mb-1">The Lagos Hospital Bag</h3>
+              <div class="flex gap-1 mb-2">
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:#FCE4EC; color:#880E4F;">Premium</span>
+                <span class="text-[10px] bg-[var(--warm-cream)] text-[var(--text-med)] font-semibold px-2 py-0.5 rounded-full border border-[var(--border)]">For 6 weeks</span>
+              </div>
+              <p class="text-xs text-[var(--text-med)] leading-snug mb-2">Everything mum + baby need for delivery day and the first weeks home.</p>
+              <div class="bg-[var(--warm-cream)] rounded-lg p-2.5 mb-3">
+                <div class="text-[11px] font-bold uppercase text-[var(--text-med)] mb-1.5">For Mum</div>
+                <div class="space-y-1.5">
+                  <div class="flex items-center gap-2"><div class="w-7 h-7 bg-white rounded flex items-center justify-center text-sm">🧴</div><span class="text-xs flex-1 truncate">Postpartum Care Kit</span><span class="text-[11px] text-[var(--forest)] font-bold">₦8,500</span></div>
+                  <div class="flex items-center gap-2"><div class="w-7 h-7 bg-white rounded flex items-center justify-center text-sm">👗</div><span class="text-xs flex-1 truncate">Maternity Robe</span><span class="text-[11px] text-[var(--forest)] font-bold">₦12,000</span></div>
+                </div>
+                <p class="text-xs text-[var(--forest)] font-bold mt-2">+ 6 more items inside</p>
+              </div>
+              <div class="flex items-end justify-between mb-2">
+                <div>
+                  <div class="text-xs text-[var(--text-light)] line-through">₦68,500</div>
+                  <div class="text-lg font-bold">₦52,000</div>
+                </div>
+                <button class="rounded-full px-4 py-2.5 text-sm font-semibold text-white" style="background:var(--forest);">+ Add to Cart</button>
+              </div>
+            </div>
+          </div>
+          <p class="text-xs text-[var(--text-med)] text-center mt-3">CTA reads as primary action · item list scannable</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ────────────────────────────────────────────────────────────── -->
+<!-- PREVIEW 8 — OOS badges & purchase signals -->
+<!-- ────────────────────────────────────────────────────────────── -->
+<section class="max-w-6xl mx-auto mb-16">
+  <div class="mb-4">
+    <h2 class="pf text-2xl font-bold">8 · Out-of-stock & purchase signals</h2>
+    <p class="text-sm text-[var(--text-med)]">Findings #34, #52 — "OOS" badge text-[9px] in destructive color. Easily missed; users add to cart then get error.</p>
+  </div>
+
+  <div class="grid md:grid-cols-2 gap-8 justify-items-center">
+    <div>
+      <div class="mb-3"><span class="label-bad px-2 py-1 rounded text-xs font-bold">BEFORE</span></div>
+      <div class="phone">
+        <div class="phone-body p-4 bg-white">
+          <h3 class="pf text-lg font-bold mb-2">Choose Brand</h3>
+          <div class="grid grid-cols-2 gap-3 mb-4">
+            <button class="border-2 border-[var(--forest)] bg-[var(--forest-light)] rounded-xl p-3">
+              <div class="text-2xl mb-1">🍼</div>
+              <div class="text-sm font-bold text-[var(--forest)]">Avent</div>
+              <div class="text-xs text-[var(--text-med)]">₦8,750</div>
+            </button>
+            <button class="border-2 border-[var(--border)] rounded-xl p-3 opacity-60 relative">
+              <div class="text-2xl mb-1">🍼</div>
+              <div class="text-sm font-bold">Tommee Tippee</div>
+              <div class="flex items-center gap-1.5 mt-0.5">
+                <div class="text-xs text-[var(--text-med)]">₦9,200</div>
+                <span class="text-[var(--destructive)]" style="font-size:9px; font-weight:700;">OOS</span>
+              </div>
+            </button>
+            <button class="border-2 border-[var(--border)] rounded-xl p-3">
+              <div class="text-2xl mb-1">🍼</div>
+              <div class="text-sm font-bold">Pigeon</div>
+              <div class="text-xs text-[var(--text-med)]">₦7,500</div>
+            </button>
+            <button class="border-2 border-[var(--border)] rounded-xl p-3 opacity-60 relative">
+              <div class="text-2xl mb-1">🍼</div>
+              <div class="text-sm font-bold">Dr Brown's</div>
+              <div class="flex items-center gap-1.5 mt-0.5">
+                <div class="text-xs text-[var(--text-med)]">₦11,000</div>
+                <span class="text-[var(--destructive)]" style="font-size:9px; font-weight:700;">OOS</span>
+              </div>
+            </button>
+          </div>
+          <div class="bg-red-50 border border-red-200 text-red-700 text-xs p-3 rounded">
+            "OOS" almost invisible at 9px · users tap, get cryptic error after navigating to add-to-cart
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="mb-3"><span class="label-good px-2 py-1 rounded text-xs font-bold">AFTER</span></div>
+      <div class="phone">
+        <div class="phone-body p-4 bg-white">
+          <h3 class="pf text-lg font-bold mb-2">Choose Brand</h3>
+          <div class="grid grid-cols-2 gap-3 mb-4">
+            <button class="border-2 border-[var(--forest)] bg-[var(--forest-light)] rounded-xl p-3">
+              <div class="text-2xl mb-1">🍼</div>
+              <div class="text-sm font-bold text-[var(--forest)]">Avent</div>
+              <div class="text-xs text-[var(--text-med)]">₦8,750</div>
+            </button>
+            <button class="border-2 border-[var(--border)] rounded-xl p-3 opacity-70 relative">
+              <span class="absolute top-2 right-2 bg-[var(--destructive)] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">SOLD OUT</span>
+              <div class="text-2xl mb-1 grayscale">🍼</div>
+              <div class="text-sm font-bold">Tommee Tippee</div>
+              <div class="text-xs text-[var(--text-med)]">₦9,200</div>
+            </button>
+            <button class="border-2 border-[var(--border)] rounded-xl p-3">
+              <div class="text-2xl mb-1">🍼</div>
+              <div class="text-sm font-bold">Pigeon</div>
+              <div class="text-xs text-[var(--text-med)]">₦7,500</div>
+            </button>
+            <button class="border-2 border-[var(--border)] rounded-xl p-3 opacity-70 relative">
+              <span class="absolute top-2 right-2 bg-[var(--destructive)] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">SOLD OUT</span>
+              <div class="text-2xl mb-1 grayscale">🍼</div>
+              <div class="text-sm font-bold">Dr Brown's</div>
+              <div class="text-xs text-[var(--text-med)]">₦11,000</div>
+            </button>
+          </div>
+          <div class="bg-green-50 border border-green-200 text-green-800 text-xs p-3 rounded">
+            "SOLD OUT" pill on top-right + grayscale image · scannable from across the screen
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ────────────────────────────────────────────────────────────── -->
+<!-- PREVIEW 9 — Modal close buttons -->
+<!-- ────────────────────────────────────────────────────────────── -->
+<section class="max-w-6xl mx-auto mb-16">
+  <div class="mb-4">
+    <h2 class="pf text-2xl font-bold">9 · Modal / drawer close buttons</h2>
+    <p class="text-sm text-[var(--text-med)]">Findings #51, #53 — ProductDetailDrawer 40px, BundleItemSwapPopup 36px. Tucked into corners; thumb has trouble.</p>
+  </div>
+
+  <div class="grid md:grid-cols-2 gap-8 justify-items-center">
+    <div>
+      <div class="mb-3"><span class="label-bad px-2 py-1 rounded text-xs font-bold">BEFORE</span></div>
+      <div class="phone">
+        <div class="phone-body bg-white">
+          <!-- Drawer mock -->
+          <div class="sticky top-0 bg-white z-20 flex justify-end p-3 pb-0 border-b border-[var(--border)]">
+            <button class="w-10 h-10 rounded-full bg-black/10 flex items-center justify-center relative">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M6 18L18 6"/></svg>
+              <span class="px-overlay" style="left:-2px; top:-2px; width:44px; height:44px;"></span>
+              <span class="px-label" style="left:-4px; top:-18px; background:#FEE2E2; color:#B91C1C;">40px</span>
+            </button>
+          </div>
+          <div class="p-4">
+            <h3 class="pf text-lg font-bold mb-2">Avent Anti-Colic Bottle</h3>
+            <p class="text-sm text-[var(--text-med)] mb-4">Premium anti-colic bottle set, 260ml, designed to reduce gas and discomfort during feeding…</p>
+            <div class="bg-[var(--forest-light)] rounded-lg p-4 text-sm">
+              <p>Drawer/modal content goes here…</p>
+            </div>
+          </div>
+
+          <!-- Swap popup mock at bottom -->
+          <div class="absolute inset-x-2 bottom-2 bg-white border-2 border-[var(--border)] rounded-2xl p-3 shadow-xl">
+            <div class="flex items-center justify-between mb-2">
+              <div>
+                <div class="text-sm font-bold">Swap Item</div>
+                <div class="text-xs text-[var(--text-light)]">Choose a replacement</div>
+              </div>
+              <button class="w-9 h-9 rounded-full bg-black/10 flex items-center justify-center relative">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M6 18L18 6"/></svg>
+                <span class="px-overlay" style="left:-2px; top:-2px; width:44px; height:44px;"></span>
+                <span class="px-label" style="left:-2px; top:-18px; background:#FEE2E2; color:#B91C1C;">36px</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="mb-3"><span class="label-good px-2 py-1 rounded text-xs font-bold">AFTER</span></div>
+      <div class="phone">
+        <div class="phone-body bg-white">
+          <div class="sticky top-0 bg-white z-20 flex justify-end p-3 pb-0 border-b border-[var(--border)]">
+            <button class="w-11 h-11 rounded-full bg-black/10 flex items-center justify-center relative">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M6 18L18 6"/></svg>
+              <span class="px-overlay px-overlay-good" style="left:0; top:0; width:44px; height:44px;"></span>
+              <span class="px-label" style="left:1px; top:-18px; background:#DCFCE7; color:#166534;">44px ✓</span>
+            </button>
+          </div>
+          <div class="p-4">
+            <h3 class="pf text-lg font-bold mb-2">Avent Anti-Colic Bottle</h3>
+            <p class="text-sm text-[var(--text-med)] mb-4">Premium anti-colic bottle set, 260ml, designed to reduce gas and discomfort during feeding…</p>
+            <div class="bg-[var(--forest-light)] rounded-lg p-4 text-sm">
+              <p>Drawer/modal content goes here…</p>
+            </div>
+          </div>
+
+          <div class="absolute inset-x-2 bottom-2 bg-white border-2 border-[var(--border)] rounded-2xl p-3 shadow-xl">
+            <div class="flex items-center justify-between mb-2">
+              <div>
+                <div class="text-sm font-bold">Swap Item</div>
+                <div class="text-xs text-[var(--text-med)]">Choose a replacement</div>
+              </div>
+              <button class="w-11 h-11 rounded-full bg-black/10 flex items-center justify-center relative">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M6 18L18 6"/></svg>
+                <span class="px-overlay px-overlay-good" style="left:0; top:0; width:44px; height:44px;"></span>
+                <span class="px-label" style="left:1px; top:-18px; background:#DCFCE7; color:#166534;">44px ✓</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ────────────────────────────────────────────────────────────── -->
+<!-- PREVIEW 10 — Mobile menu drawer -->
+<!-- ────────────────────────────────────────────────────────────── -->
+<section class="max-w-6xl mx-auto mb-16">
+  <div class="mb-4">
+    <h2 class="pf text-2xl font-bold">10 · Mobile menu drawer + hamburger</h2>
+    <p class="text-sm text-[var(--text-med)]">Findings #8, #14, #17 — fixed w-[280px] (only 40px backdrop on iPhone SE), hamburger ~40px, "✕" close emoji.</p>
+  </div>
+
+  <div class="grid md:grid-cols-2 gap-8 justify-items-center">
+    <div>
+      <div class="mb-3"><span class="label-bad px-2 py-1 rounded text-xs font-bold">BEFORE</span></div>
+      <div class="phone" style="width:320px;">
+        <div class="phone-body bg-white">
+          <!-- Header with overlay open -->
+          <div class="bg-white border-b border-[var(--border)] px-4 py-3 flex items-center justify-between">
+            <div class="pf text-lg font-bold text-[var(--forest)]">BundledMum</div>
+            <div class="flex items-center gap-1">
+              <button class="p-2"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/></svg></button>
+              <button class="p-2 relative">
+                <div class="flex flex-col gap-[5px]"><span class="block w-5 h-0.5 bg-[var(--text-dark)]"></span><span class="block w-5 h-0.5 bg-[var(--text-dark)]"></span><span class="block w-5 h-0.5 bg-[var(--text-dark)]"></span></div>
+                <span class="px-overlay" style="left:0; top:0; width:44px; height:44px;"></span>
+                <span class="px-label" style="right:-18px; top:-2px; background:#FEE2E2; color:#B91C1C;">~40px</span>
+              </button>
+            </div>
+          </div>
+          <!-- Drawer overlay -->
+          <div class="absolute inset-0 bg-black/40">
+            <div class="absolute right-0 top-0 bottom-0 bg-white p-4" style="width:280px;">
+              <div class="flex items-center justify-between mb-4">
+                <div class="font-bold">Menu</div>
+                <button class="text-xl leading-none">✕</button>
+              </div>
+              <div class="space-y-2 text-sm">
+                <div class="py-2 border-b">Shop</div>
+                <div class="py-2 border-b">Quiz</div>
+                <div class="py-2 border-b">Bundles</div>
+                <div class="py-2 border-b">Account</div>
+              </div>
+            </div>
+          </div>
+          <div class="absolute top-2 left-2 bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded">backdrop only 40px wide</div>
+        </div>
+      </div>
+      <p class="mt-3 text-xs text-[var(--text-light)] text-center">iPhone SE (320px) — drawer covers nearly entire screen, no clear close-by-tap-outside affordance</p>
+    </div>
+
+    <div>
+      <div class="mb-3"><span class="label-good px-2 py-1 rounded text-xs font-bold">AFTER</span></div>
+      <div class="phone" style="width:320px;">
+        <div class="phone-body bg-white">
+          <div class="bg-white border-b border-[var(--border)] px-4 py-3 flex items-center justify-between">
+            <div class="pf text-lg font-bold text-[var(--forest)]">BundledMum</div>
+            <div class="flex items-center gap-1">
+              <button class="p-2"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/></svg></button>
+              <button class="p-2.5 h-11 w-11 flex items-center justify-center relative">
+                <div class="flex flex-col gap-[5px]"><span class="block w-5 h-0.5 bg-[var(--text-dark)]"></span><span class="block w-5 h-0.5 bg-[var(--text-dark)]"></span><span class="block w-5 h-0.5 bg-[var(--text-dark)]"></span></div>
+                <span class="px-overlay px-overlay-good" style="left:0; top:0; width:44px; height:44px;"></span>
+                <span class="px-label" style="right:-18px; top:-2px; background:#DCFCE7; color:#166534;">44px ✓</span>
+              </button>
+            </div>
+          </div>
+          <div class="absolute inset-0 bg-black/40">
+            <div class="absolute right-0 top-0 bottom-0 bg-white p-4" style="width:min(280px,85vw);">
+              <div class="flex items-center justify-between mb-4">
+                <div class="font-bold">Menu</div>
+                <button class="w-10 h-10 rounded-full bg-black/5 flex items-center justify-center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M6 18L18 6"/></svg></button>
+              </div>
+              <div class="space-y-2 text-sm">
+                <div class="py-3 border-b">Shop</div>
+                <div class="py-3 border-b">Quiz</div>
+                <div class="py-3 border-b">Bundles</div>
+                <div class="py-3 border-b">Account</div>
+              </div>
+            </div>
+          </div>
+          <div class="absolute top-2 left-2 bg-green-600 text-white text-[10px] font-bold px-2 py-0.5 rounded">~48px backdrop · close icon</div>
+        </div>
+      </div>
+      <p class="mt-3 text-xs text-[var(--text-med)] text-center">w-[min(280px,85vw)] preserves backdrop · proper close button · 44px hamburger</p>
+    </div>
+  </div>
+</section>
+
+<!-- ────────────────────────────────────────────────────────────── -->
+<!-- PREVIEW 11 — Order summary mobile sticky -->
+<!-- ────────────────────────────────────────────────────────────── -->
+<section class="max-w-6xl mx-auto mb-16">
+  <div class="mb-4">
+    <h2 class="pf text-2xl font-bold">11 · Cart order summary on mobile</h2>
+    <p class="text-sm text-[var(--text-med)]">Finding #15 — order summary is <code>lg:sticky</code> only. On mobile, users scroll past all items to find Checkout button.</p>
+  </div>
+
+  <div class="grid md:grid-cols-2 gap-8 justify-items-center">
+    <div>
+      <div class="mb-3"><span class="label-bad px-2 py-1 rounded text-xs font-bold">BEFORE</span></div>
+      <div class="phone">
+        <div class="phone-body bg-[var(--warm-cream)]">
+          <div class="p-4">
+            <h3 class="pf text-lg font-bold mb-3">Your cart (3)</h3>
+            <div class="space-y-2 mb-4">
+              <div class="bg-white rounded-xl p-3 flex gap-2"><div class="w-12 h-12 bg-[var(--forest-light)] rounded text-2xl flex items-center justify-center">🍼</div><div class="flex-1"><div class="text-sm font-semibold">Avent Bottle Set</div><div class="text-xs text-[var(--text-light)]">₦17,500</div></div></div>
+              <div class="bg-white rounded-xl p-3 flex gap-2"><div class="w-12 h-12 bg-[var(--forest-light)] rounded text-2xl flex items-center justify-center">🧷</div><div class="flex-1"><div class="text-sm font-semibold">Premium Diaper Pack</div><div class="text-xs text-[var(--text-light)]">₦12,000</div></div></div>
+              <div class="bg-white rounded-xl p-3 flex gap-2"><div class="w-12 h-12 bg-[var(--forest-light)] rounded text-2xl flex items-center justify-center">🧴</div><div class="flex-1"><div class="text-sm font-semibold">Postpartum Care Kit</div><div class="text-xs text-[var(--text-light)]">₦8,500</div></div></div>
+              <div class="bg-white rounded-xl p-3 flex gap-2"><div class="w-12 h-12 bg-[var(--forest-light)] rounded text-2xl flex items-center justify-center">🧸</div><div class="flex-1"><div class="text-sm font-semibold">Soft Bear Toy</div><div class="text-xs text-[var(--text-light)]">₦4,500</div></div></div>
+              <div class="bg-white rounded-xl p-3 flex gap-2"><div class="w-12 h-12 bg-[var(--forest-light)] rounded text-2xl flex items-center justify-center">👶</div><div class="flex-1"><div class="text-sm font-semibold">Newborn Onesie 5pk</div><div class="text-xs text-[var(--text-light)]">₦9,000</div></div></div>
+            </div>
+            <div class="bg-white rounded-xl p-4">
+              <div class="font-bold mb-2">Order summary</div>
+              <div class="flex justify-between text-sm"><span>Subtotal</span><span>₦51,500</span></div>
+              <div class="flex justify-between text-sm"><span>Delivery</span><span>₦2,500</span></div>
+              <div class="flex justify-between font-bold mt-2 pt-2 border-t"><span>Total</span><span>₦54,000</span></div>
+              <button class="w-full mt-3 bg-[var(--coral)] text-white py-3 rounded-full font-semibold">Checkout</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="mt-3 text-xs text-[var(--text-light)] text-center">User must scroll past all items to see total + Checkout · CTA off-screen</p>
+    </div>
+
+    <div>
+      <div class="mb-3"><span class="label-good px-2 py-1 rounded text-xs font-bold">AFTER</span></div>
+      <div class="phone">
+        <div class="phone-body bg-[var(--warm-cream)]">
+          <div class="p-4 pb-24">
+            <h3 class="pf text-lg font-bold mb-3">Your cart (3)</h3>
+            <div class="space-y-2 mb-4">
+              <div class="bg-white rounded-xl p-3 flex gap-2"><div class="w-12 h-12 bg-[var(--forest-light)] rounded text-2xl flex items-center justify-center">🍼</div><div class="flex-1"><div class="text-sm font-semibold">Avent Bottle Set</div><div class="text-xs text-[var(--text-med)]">₦17,500</div></div></div>
+              <div class="bg-white rounded-xl p-3 flex gap-2"><div class="w-12 h-12 bg-[var(--forest-light)] rounded text-2xl flex items-center justify-center">🧷</div><div class="flex-1"><div class="text-sm font-semibold">Premium Diaper Pack</div><div class="text-xs text-[var(--text-med)]">₦12,000</div></div></div>
+              <div class="bg-white rounded-xl p-3 flex gap-2"><div class="w-12 h-12 bg-[var(--forest-light)] rounded text-2xl flex items-center justify-center">🧴</div><div class="flex-1"><div class="text-sm font-semibold">Postpartum Care Kit</div><div class="text-xs text-[var(--text-med)]">₦8,500</div></div></div>
+              <div class="bg-white rounded-xl p-3 flex gap-2"><div class="w-12 h-12 bg-[var(--forest-light)] rounded text-2xl flex items-center justify-center">🧸</div><div class="flex-1"><div class="text-sm font-semibold">Soft Bear Toy</div><div class="text-xs text-[var(--text-med)]">₦4,500</div></div></div>
+              <div class="bg-white rounded-xl p-3 flex gap-2"><div class="w-12 h-12 bg-[var(--forest-light)] rounded text-2xl flex items-center justify-center">👶</div><div class="flex-1"><div class="text-sm font-semibold">Newborn Onesie 5pk</div><div class="text-xs text-[var(--text-med)]">₦9,000</div></div></div>
+            </div>
+          </div>
+          <!-- Sticky bottom CTA -->
+          <div class="absolute left-0 right-0 bg-white border-t border-[var(--border)] px-4 py-3 shadow-[0_-6px_18px_rgba(0,0,0,0.06)]" style="bottom:0; padding-bottom:env(safe-area-inset-bottom);">
+            <div class="flex items-center justify-between mb-2">
+              <div class="text-xs text-[var(--text-med)]">3 items · incl. ₦2,500 delivery</div>
+              <div class="text-base font-bold">₦54,000</div>
+            </div>
+            <button class="w-full bg-[var(--coral)] text-white py-3 rounded-full font-semibold">Checkout →</button>
+          </div>
+        </div>
+      </div>
+      <p class="mt-3 text-xs text-[var(--text-med)] text-center">Sticky total + CTA always visible — same pattern as ProductPage already uses</p>
+    </div>
+  </div>
+</section>
+
+<footer class="max-w-6xl mx-auto pt-6 pb-12 border-t border-[var(--border)] text-sm text-[var(--text-med)]">
+  <p>Open this file in any browser. Resize narrower to test &lt;375px (iPhone SE).</p>
+  <p class="mt-1">Each "phone" is a 360px frame with a fake iOS home indicator at the bottom — the After column shows fixed bars properly stopping above it; the Before column shows them clipping into it.</p>
+  <p class="mt-3 text-xs">Findings reference the audit punch list. Numbers in parentheses on each section header (#1, #2, etc.) map back to the prioritized list.</p>
+</footer>
+
+</body>
+</html>

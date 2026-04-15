@@ -1,6 +1,8 @@
 import { Link } from "react-router-dom";
 import { useEffect } from "react";
 import { useDeliverySettings, useSiteSettings } from "@/hooks/useSupabaseData";
+import { usePage } from "@/hooks/usePage";
+import DbPageContent from "@/components/DbPageContent";
 import { fmt } from "@/lib/cart";
 
 export default function TermsPage() {
@@ -8,8 +10,11 @@ export default function TermsPage() {
 
   const { data: deliveryZones } = useDeliverySettings();
   const { data: settings } = useSiteSettings();
+  const { data: dbPage } = usePage("terms");
   const serviceFee = parseInt(settings?.service_fee) || 0;
   const contactEmail = settings?.contact_email || "";
+
+  if (dbPage && dbPage.content) return <DbPageContent page={dbPage} />;
 
   // Build delivery summary from Supabase zones
   const deliverySummary = (deliveryZones || []).map(z => {
