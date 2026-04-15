@@ -109,7 +109,7 @@ export default function OrderConfirmedPage() {
                 <div className="text-3xl md:text-4xl flex-shrink-0 animate-pulse-scale">⏳</div>
                 <div>
                   <h2 className="pf text-lg md:text-2xl text-[#92400E] font-bold leading-tight">Action Required — Complete Your Payment</h2>
-                  <p className="text-[#78350F] text-sm md:text-[15px] mt-1">Transfer the exact amount below within <span className="font-bold">24 hours</span> to confirm your order.</p>
+                  <p className="text-[#78350F] text-sm md:text-[15px] mt-1">Transfer the exact amount below within <span className="font-bold">12 hours</span> to confirm your order.</p>
                 </div>
               </div>
               <div className="bg-card rounded-xl border border-[#F59E0B]/40 p-4 md:p-5 space-y-2.5">
@@ -126,7 +126,7 @@ export default function OrderConfirmedPage() {
               </div>
               <div className="mt-4 space-y-1.5 text-[13px] md:text-sm text-[#78350F]">
                 <div className="flex gap-2"><span>📌</span><span>Use your phone number as the transfer reference.</span></div>
-                <div className="flex gap-2"><span>⏱️</span><span>Your order will be confirmed within 1–2 hours of payment.</span></div>
+                <div className="flex gap-2"><span>⏱️</span><span>Your order will be confirmed within 30 minutes to 1 hour of payment.</span></div>
               </div>
             </div>
           </div>
