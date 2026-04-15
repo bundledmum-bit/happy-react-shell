@@ -3,8 +3,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Save, Plus, Trash2 } from "lucide-react";
+import AdminQuizExitPopupTab from "@/components/admin/AdminQuizExitPopupTab";
 
-const TABS = ["General", "Homepage", "Social", "Legacy Bar", "Fees", "Payment", "SEO"];
+const TABS = ["General", "Homepage", "Social", "Legacy Bar", "Quiz Exit Popup", "Fees", "Payment", "SEO"];
 
 const TAB_KEYS: Record<string, { key: string; label: string; type: "text" | "textarea" | "number" | "toggle" | "color" | "url" | "email" }[]> = {
   General: [
@@ -116,7 +117,9 @@ export default function AdminSettings() {
         ))}
       </div>
 
-      {isLoading ? (
+      {activeTab === "Quiz Exit Popup" ? (
+        <AdminQuizExitPopupTab />
+      ) : isLoading ? (
         <div className="text-center py-10 text-text-med">Loading...</div>
       ) : (
         <div className="bg-card border border-border rounded-xl p-5 space-y-4">

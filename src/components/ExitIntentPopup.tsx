@@ -1,4 +1,9 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSiteSettings } from "@/hooks/useSupabaseData";
+import {
+  EXIT_POPUP_DEFAULTS,
+  readExitPopupSetting,
+} from "@/components/admin/AdminQuizExitPopupTab";
 
 interface Props {
   stepsCompleted: number;
@@ -6,59 +11,154 @@ interface Props {
   onContinue: () => void;
 }
 
+/**
+ * Quiz exit-intent popup. All visual + behavioral values are driven by
+ * site_settings keys under the quiz_exit_popup_* namespace, managed via
+ * Admin → Settings → Quiz Exit Popup. Falls back to hardcoded defaults
+ * if a setting is missing.
+ */
 export default function ExitIntentPopup({ stepsCompleted, totalSteps, onContinue }: Props) {
+  const { data: siteSettings } = useSiteSettings();
+
+  // Resolve all settings with fallbacks
+  const s = useMemo(() => {
+    const out = {} as typeof EXIT_POPUP_DEFAULTS;
+    for (const k of Object.keys(EXIT_POPUP_DEFAULTS) as (keyof typeof EXIT_POPUP_DEFAULTS)[]) {
+      (out as any)[k] = readExitPopupSetting(siteSettings, k);
+    }
+    return out;
+  }, [siteSettings]);
+
   const [show, setShow] = useState(false);
   const [shown, setShown] = useState(false);
+  const [armed, setArmed] = useState(false);
 
+  const enabled = s.quiz_exit_popup_enabled;
+  const minSteps = s.quiz_exit_popup_min_steps;
+  const oncePerSession = s.quiz_exit_popup_once_per_session;
+  const delaySeconds = s.quiz_exit_popup_delay_seconds;
+  const triggerMouseY = s.quiz_exit_popup_trigger_mouse_y;
+  const triggerPopstate = s.quiz_exit_popup_trigger_popstate;
+
+  // Check session-storage flag when oncePerSession is on
   useEffect(() => {
-    if (shown || stepsCompleted < 1) return;
+    if (!enabled) return;
+    if (oncePerSession && sessionStorage.getItem("bm-quiz-exit-popup-shown") === "1") {
+      setShown(true);
+    }
+  }, [enabled, oncePerSession]);
+
+  // Arm after delay
+  useEffect(() => {
+    if (!enabled) return;
+    if (delaySeconds <= 0) { setArmed(true); return; }
+    const id = window.setTimeout(() => setArmed(true), delaySeconds * 1000);
+    return () => window.clearTimeout(id);
+  }, [enabled, delaySeconds]);
+
+  const trigger = () => {
+    if (shown) return;
+    setShow(true);
+    setShown(true);
+    if (oncePerSession) {
+      try { sessionStorage.setItem("bm-quiz-exit-popup-shown", "1"); } catch { /* ignore */ }
+    }
+  };
+
+  // Mouse exit trigger
+  useEffect(() => {
+    if (!enabled || !armed) return;
+    if (shown || stepsCompleted < minSteps) return;
+    if (triggerMouseY <= 0) return;
     const handler = (e: MouseEvent) => {
-      if (e.clientY <= 5) {
-        setShow(true);
-        setShown(true);
-      }
+      if (e.clientY <= triggerMouseY) trigger();
     };
     document.addEventListener("mousemove", handler);
     return () => document.removeEventListener("mousemove", handler);
-  }, [shown, stepsCompleted]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, armed, shown, stepsCompleted, minSteps, triggerMouseY]);
 
-  // Also handle back button on mobile
+  // Mobile back-button trigger
   useEffect(() => {
-    if (shown || stepsCompleted < 1) return;
-    const handler = () => {
-      setShow(true);
-      setShown(true);
-    };
+    if (!enabled || !armed) return;
+    if (shown || stepsCompleted < minSteps) return;
+    if (!triggerPopstate) return;
+    const handler = () => trigger();
     window.addEventListener("popstate", handler);
     return () => window.removeEventListener("popstate", handler);
-  }, [shown, stepsCompleted]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, armed, shown, stepsCompleted, minSteps, triggerPopstate]);
 
-  if (!show) return null;
+  if (!enabled || !show) return null;
 
-  const stepsLeft = totalSteps - stepsCompleted;
+  const stepsLeft = Math.max(0, totalSteps - stepsCompleted);
+  const renderedMessage = (s.quiz_exit_popup_message || "")
+    .replace(/\{stepsLeft\}/g, String(stepsLeft))
+    .replace(/\{s\}/g, stepsLeft === 1 ? "" : "s");
+
+  const handlePrimary = () => {
+    setShow(false);
+    if (s.quiz_exit_popup_primary_cta_action === "link" && s.quiz_exit_popup_primary_cta_link) {
+      window.location.href = s.quiz_exit_popup_primary_cta_link;
+      return;
+    }
+    onContinue();
+  };
+
+  const handleSecondary = () => {
+    setShow(false);
+    if (s.quiz_exit_popup_secondary_action === "link" && s.quiz_exit_popup_secondary_link) {
+      window.location.href = s.quiz_exit_popup_secondary_link;
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-foreground/50 backdrop-blur-sm" onClick={() => setShow(false)} />
-      <div className="relative bg-card rounded-[22px] shadow-2xl max-w-[420px] w-full p-6 md:p-8 animate-fade-in text-center">
-        <div className="text-4xl mb-3">🎁</div>
-        <h2 className="pf text-xl md:text-2xl font-bold mb-2">Wait — your bundle is almost ready!</h2>
-        <p className="text-text-med text-sm mb-5">
-          You're {stepsLeft} step{stepsLeft !== 1 ? "s" : ""} away from your personalised hospital bag list.
-        </p>
+      <div
+        className="relative rounded-[22px] shadow-2xl max-w-[420px] w-full p-6 md:p-8 animate-fade-in text-center"
+        style={{
+          backgroundColor: s.quiz_exit_popup_bg_color,
+          color: s.quiz_exit_popup_text_color,
+        }}
+      >
+        {s.quiz_exit_popup_emoji && <div className="text-4xl mb-3">{s.quiz_exit_popup_emoji}</div>}
+        {s.quiz_exit_popup_title && (
+          <h2 className="pf text-xl md:text-2xl font-bold mb-2">{s.quiz_exit_popup_title}</h2>
+        )}
+        {renderedMessage && (
+          <p className="text-sm mb-5 opacity-90">{renderedMessage}</p>
+        )}
         <div className="flex flex-col gap-2.5">
-          <button onClick={() => { setShow(false); onContinue(); }}
-            className="rounded-pill bg-coral px-6 py-3 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-sm">
-            Continue My Quiz →
+          <button
+            onClick={handlePrimary}
+            className="rounded-pill px-6 py-3 font-body font-semibold text-sm interactive hover:opacity-90 transition-opacity"
+            style={{
+              backgroundColor: s.quiz_exit_popup_primary_cta_bg,
+              color: s.quiz_exit_popup_primary_cta_text_color,
+            }}
+          >
+            {s.quiz_exit_popup_primary_cta_text}
           </button>
-          <button onClick={() => setShow(false)}
-            className="rounded-pill border-2 border-border px-6 py-3 font-body font-semibold text-text-med hover:bg-warm-cream interactive text-sm">
-            Maybe Later
-          </button>
+          {s.quiz_exit_popup_secondary_enabled && s.quiz_exit_popup_secondary_text && (
+            <button
+              onClick={handleSecondary}
+              className="rounded-pill border-2 px-6 py-3 font-body font-semibold text-sm interactive hover:opacity-80 transition-opacity"
+              style={{
+                borderColor: s.quiz_exit_popup_text_color,
+                color: s.quiz_exit_popup_text_color,
+              }}
+            >
+              {s.quiz_exit_popup_secondary_text}
+            </button>
+          )}
         </div>
-        <p className="text-text-light text-[11px] mt-4 italic">
-          ⭐ "The quiz took 2 minutes and saved me weeks of research" — Ngozi T.
-        </p>
+        {s.quiz_exit_popup_testimonial_enabled && s.quiz_exit_popup_testimonial_text && (
+          <p className="text-[11px] mt-4 italic opacity-70">
+            ⭐ "{s.quiz_exit_popup_testimonial_text}"
+            {s.quiz_exit_popup_testimonial_author ? ` — ${s.quiz_exit_popup_testimonial_author}` : ""}
+          </p>
+        )}
       </div>
     </div>
   );
