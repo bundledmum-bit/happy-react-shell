@@ -417,7 +417,7 @@ export default function AdminQuizExitPopupTab() {
 // ─── Preview ──────────────────────────────────────────────────────────────
 
 function PopupPreview({ settings }: { settings: typeof EXIT_POPUP_DEFAULTS }) {
-  const stepsLeft = 2;
+  const stepsLeft: number = 2;
   const renderedMessage = (settings.quiz_exit_popup_message || "")
     .replace(/\{stepsLeft\}/g, String(stepsLeft))
     .replace(/\{s\}/g, stepsLeft === 1 ? "" : "s");

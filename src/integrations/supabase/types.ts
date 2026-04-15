@@ -409,6 +409,92 @@ export type Database = {
         }
         Relationships: []
       }
+      announcements: {
+        Row: {
+          bg_color: string | null
+          created_at: string | null
+          display_order: number | null
+          display_type: string
+          emoji: string | null
+          ends_at: string | null
+          id: string
+          is_active: boolean | null
+          link_text: string | null
+          link_url: string | null
+          linked_coupon_code: string | null
+          linked_product_id: string | null
+          message: string
+          popup_delay_seconds: number | null
+          popup_frequency: string | null
+          priority: number | null
+          show_on_exit_intent: boolean | null
+          starts_at: string | null
+          target_audience: string | null
+          target_pages: string[] | null
+          text_color: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          bg_color?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          display_type?: string
+          emoji?: string | null
+          ends_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          link_text?: string | null
+          link_url?: string | null
+          linked_coupon_code?: string | null
+          linked_product_id?: string | null
+          message: string
+          popup_delay_seconds?: number | null
+          popup_frequency?: string | null
+          priority?: number | null
+          show_on_exit_intent?: boolean | null
+          starts_at?: string | null
+          target_audience?: string | null
+          target_pages?: string[] | null
+          text_color?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          bg_color?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          display_type?: string
+          emoji?: string | null
+          ends_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          link_text?: string | null
+          link_url?: string | null
+          linked_coupon_code?: string | null
+          linked_product_id?: string | null
+          message?: string
+          popup_delay_seconds?: number | null
+          popup_frequency?: string | null
+          priority?: number | null
+          show_on_exit_intent?: boolean | null
+          starts_at?: string | null
+          target_audience?: string | null
+          target_pages?: string[] | null
+          text_color?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcements_linked_product_id_fkey"
+            columns: ["linked_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       blog_posts: {
         Row: {
           author: string | null
@@ -565,6 +651,13 @@ export type Database = {
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bundle_items_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands_public"
             referencedColumns: ["id"]
           },
           {
@@ -1306,6 +1399,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "order_items_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands_public"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "order_items_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
@@ -1917,6 +2017,13 @@ export type Database = {
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_images_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands_public"
             referencedColumns: ["id"]
           },
           {
@@ -3008,6 +3115,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "stock_notifications_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands_public"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "stock_notifications_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
@@ -3132,6 +3246,68 @@ export type Database = {
       }
     }
     Views: {
+      brands_public: {
+        Row: {
+          brand_name: string | null
+          compare_at_price: number | null
+          created_at: string | null
+          display_order: number | null
+          id: string | null
+          image_url: string | null
+          in_stock: boolean | null
+          is_default_for_tier: boolean | null
+          logo_url: string | null
+          price: number | null
+          product_id: string | null
+          size_variant: string | null
+          stock_quantity: number | null
+          thumbnail_url: string | null
+          tier: string | null
+        }
+        Insert: {
+          brand_name?: string | null
+          compare_at_price?: number | null
+          created_at?: string | null
+          display_order?: number | null
+          id?: string | null
+          image_url?: string | null
+          in_stock?: boolean | null
+          is_default_for_tier?: boolean | null
+          logo_url?: string | null
+          price?: number | null
+          product_id?: string | null
+          size_variant?: string | null
+          stock_quantity?: number | null
+          thumbnail_url?: string | null
+          tier?: string | null
+        }
+        Update: {
+          brand_name?: string | null
+          compare_at_price?: number | null
+          created_at?: string | null
+          display_order?: number | null
+          id?: string | null
+          image_url?: string | null
+          in_stock?: boolean | null
+          is_default_for_tier?: boolean | null
+          logo_url?: string | null
+          price?: number | null
+          product_id?: string | null
+          size_variant?: string | null
+          stock_quantity?: number | null
+          thumbnail_url?: string | null
+          tier?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brands_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_report: {
         Row: {
           Acquisition_Channel: string | null
