@@ -11,6 +11,7 @@ import Footer from "@/components/Footer";
 
 import MobileBottomNav from "@/components/MobileBottomNav";
 import AnnouncementBar, { useAnnouncementHeight } from "@/components/AnnouncementBar";
+import AnnouncementEngine, { useAnnouncementEngineBarHeight } from "@/components/AnnouncementEngine";
 import { subscribeToAllChanges } from "@/lib/realtime";
 import { usePageTracking } from "@/hooks/usePageTracking";
 
@@ -84,14 +85,17 @@ function PageTracker({ children }: { children: React.ReactNode }) {
 }
 
 function StorefrontShell() {
-  const { height: barHeight, dismissed, setDismissed } = useAnnouncementHeight();
+  const { height: legacyBarHeight, dismissed, setDismissed } = useAnnouncementHeight();
+  const engineBarHeight = useAnnouncementEngineBarHeight();
+  const totalBarHeight = legacyBarHeight + engineBarHeight;
   return (
     <>
       <SkipNav />
       <AnnouncementBar dismissed={dismissed} onDismiss={() => setDismissed(true)} />
-      <Navbar topOffset={barHeight} />
+      <AnnouncementEngine topOffset={legacyBarHeight} />
+      <Navbar topOffset={totalBarHeight} />
       <main id="main-content">
-        {barHeight > 0 && <div style={{ height: barHeight }} className="transition-all duration-300" />}
+        {totalBarHeight > 0 && <div style={{ height: totalBarHeight }} className="transition-all duration-300" />}
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/bundles" element={<BundlesPage />} />

@@ -6,10 +6,11 @@ import { Plus, Trash2, RotateCcw } from "lucide-react";
 import BulkActionsBar from "@/components/admin/BulkActionsBar";
 import TrashTabs from "@/components/admin/TrashTabs";
 import { Checkbox } from "@/components/ui/checkbox";
+import AdminAnnouncementsTab from "@/components/admin/AdminAnnouncementsTab";
 
 export default function AdminContent() {
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<"testimonials" | "faqs">("testimonials");
+  const [tab, setTab] = useState<"testimonials" | "faqs" | "announcements">("testimonials");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [trashTab, setTrashTab] = useState<"active" | "trash">("active");
 
@@ -63,7 +64,7 @@ export default function AdminContent() {
     <div>
       <h1 className="pf text-2xl font-bold mb-6">Content</h1>
       <div className="flex gap-2 mb-4">
-        {(["testimonials", "faqs"] as const).map(t => (
+        {(["testimonials", "faqs", "announcements"] as const).map(t => (
           <button key={t} onClick={() => { setTab(t); setSelected(new Set()); setTrashTab("active"); }}
             className={`px-4 py-2 rounded-lg text-sm font-semibold capitalize ${tab === t ? "bg-forest text-primary-foreground" : "border border-border text-text-med"}`}>
             {t}
@@ -71,6 +72,10 @@ export default function AdminContent() {
         ))}
       </div>
 
+      {tab === "announcements" ? (
+        <AdminAnnouncementsTab />
+      ) : (
+      <>
       <TrashTabs activeTab={trashTab} onTabChange={t => { setTrashTab(t); setSelected(new Set()); }} activeCount={activeItems.length} trashCount={trashedItems.length} />
 
       <BulkActionsBar selectedCount={selected.size} actions={bulkActions}
@@ -152,6 +157,8 @@ export default function AdminContent() {
             </div>
           ))}
         </div>
+      )}
+      </>
       )}
     </div>
   );

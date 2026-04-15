@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Save, Plus, Trash2 } from "lucide-react";
 
-const TABS = ["General", "Homepage", "Social", "Announcement", "Fees", "Payment", "SEO"];
+const TABS = ["General", "Homepage", "Social", "Legacy Bar", "Fees", "Payment", "SEO"];
 
 const TAB_KEYS: Record<string, { key: string; label: string; type: "text" | "textarea" | "number" | "toggle" | "color" | "url" | "email" }[]> = {
   General: [
@@ -31,7 +31,7 @@ const TAB_KEYS: Record<string, { key: string; label: string; type: "text" | "tex
     { key: "twitter_url", label: "Twitter / X URL", type: "url" },
     { key: "tiktok_url", label: "TikTok URL", type: "url" },
   ],
-  Announcement: [
+  "Legacy Bar": [
     { key: "announcement_enabled", label: "Show Announcement Bar", type: "toggle" },
     { key: "announcement_text", label: "Announcement Text", type: "text" },
     { key: "announcement_link", label: "Announcement Link", type: "url" },

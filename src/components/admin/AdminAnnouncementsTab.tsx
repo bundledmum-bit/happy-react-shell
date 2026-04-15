@@ -1,0 +1,617 @@
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, X, ChevronDown, ChevronUp } from "lucide-react";
+
+type DisplayType = "bar" | "popup" | "banner";
+type Audience = "all" | "new_visitor" | "returning_visitor" | "cart_not_empty";
+type Frequency = "every_visit" | "once_per_session" | "once_ever";
+
+interface AnnouncementRow {
+  id: string;
+  title: string | null;
+  message: string | null;
+  display_type: DisplayType;
+  bg_color: string | null;
+  text_color: string | null;
+  emoji: string | null;
+  link_url: string | null;
+  link_text: string | null;
+  is_active: boolean;
+  priority: number | null;
+  starts_at: string | null;
+  ends_at: string | null;
+  target_pages: string[] | null;
+  target_audience: Audience | null;
+  popup_delay_seconds: number | null;
+  popup_frequency: Frequency | null;
+  show_on_exit_intent: boolean | null;
+  linked_product_id: string | null;
+  linked_coupon_code: string | null;
+  display_order: number | null;
+}
+
+const BLANK: Omit<AnnouncementRow, "id"> = {
+  title: "",
+  message: "",
+  display_type: "bar",
+  bg_color: "#1a2e1a",
+  text_color: "#ffffff",
+  emoji: "",
+  link_url: "",
+  link_text: "",
+  is_active: false,
+  priority: 0,
+  starts_at: null,
+  ends_at: null,
+  target_pages: [],
+  target_audience: "all",
+  popup_delay_seconds: 3,
+  popup_frequency: "once_per_session",
+  show_on_exit_intent: false,
+  linked_product_id: null,
+  linked_coupon_code: "",
+  display_order: 0,
+};
+
+const DISPLAY_TYPE_COLORS: Record<string, string> = {
+  bar: "bg-forest/10 text-forest",
+  popup: "bg-coral/10 text-coral",
+  banner: "bg-blue-100 text-blue-700",
+};
+
+const DISPLAY_TYPE_LABELS: Record<string, string> = {
+  bar: "Bar",
+  popup: "Popup",
+  banner: "Banner",
+};
+
+function pagesFromString(s: string): string[] {
+  return s.split(",").map(p => p.trim()).filter(Boolean);
+}
+
+function pagesToString(arr: string[] | null): string {
+  return (arr || []).join(", ");
+}
+
+function localDate(iso: string | null): string {
+  if (!iso) return "";
+  return iso.slice(0, 16); // "YYYY-MM-DDTHH:MM"
+}
+
+function isoFromLocal(s: string): string | null {
+  if (!s) return null;
+  return new Date(s).toISOString();
+}
+
+// ─── Form ─────────────────────────────────────────────────────────────────────
+
+function AnnouncementForm({
+  initial,
+  onSave,
+  onCancel,
+  saving,
+}: {
+  initial: Partial<AnnouncementRow>;
+  onSave: (data: Omit<AnnouncementRow, "id">) => void;
+  onCancel: () => void;
+  saving: boolean;
+}) {
+  const [form, setForm] = useState<Omit<AnnouncementRow, "id">>({ ...BLANK, ...initial });
+
+  const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
+    setForm(prev => ({ ...prev, [key]: value }));
+
+  const isPopup = form.display_type === "popup";
+
+  return (
+    <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+      {/* Row 1: title + type + priority */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="sm:col-span-2">
+          <label className="text-xs font-semibold text-text-med block mb-1">Title</label>
+          <input
+            value={form.title || ""}
+            onChange={e => set("title", e.target.value)}
+            placeholder="Internal name or headline"
+            className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background"
+          />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-text-med block mb-1">Display Type</label>
+          <select
+            value={form.display_type}
+            onChange={e => set("display_type", e.target.value as DisplayType)}
+            className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background"
+          >
+            <option value="bar">Bar (top strip)</option>
+            <option value="popup">Popup (modal)</option>
+            <option value="banner">Banner (inline strip)</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Message */}
+      <div>
+        <label className="text-xs font-semibold text-text-med block mb-1">Message</label>
+        <textarea
+          value={form.message || ""}
+          onChange={e => set("message", e.target.value)}
+          rows={2}
+          placeholder="Announcement body text"
+          className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background resize-none"
+        />
+      </div>
+
+      {/* Emoji + Colors */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div>
+          <label className="text-xs font-semibold text-text-med block mb-1">Emoji</label>
+          <input
+            value={form.emoji || ""}
+            onChange={e => set("emoji", e.target.value)}
+            placeholder="🎉"
+            className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background"
+          />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-text-med block mb-1">Background</label>
+          <div className="flex items-center gap-1.5">
+            <input
+              type="color"
+              value={form.bg_color || "#1a2e1a"}
+              onChange={e => set("bg_color", e.target.value)}
+              className="w-9 h-9 rounded border border-input cursor-pointer"
+            />
+            <input
+              value={form.bg_color || ""}
+              onChange={e => set("bg_color", e.target.value)}
+              className="flex-1 min-w-0 border border-input rounded-lg px-2 py-2 text-xs bg-background font-mono"
+            />
+          </div>
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-text-med block mb-1">Text Color</label>
+          <div className="flex items-center gap-1.5">
+            <input
+              type="color"
+              value={form.text_color || "#ffffff"}
+              onChange={e => set("text_color", e.target.value)}
+              className="w-9 h-9 rounded border border-input cursor-pointer"
+            />
+            <input
+              value={form.text_color || ""}
+              onChange={e => set("text_color", e.target.value)}
+              className="flex-1 min-w-0 border border-input rounded-lg px-2 py-2 text-xs bg-background font-mono"
+            />
+          </div>
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-text-med block mb-1">Priority</label>
+          <input
+            type="number"
+            value={form.priority ?? 0}
+            onChange={e => set("priority", Number(e.target.value))}
+            className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background"
+          />
+        </div>
+      </div>
+
+      {/* Link */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs font-semibold text-text-med block mb-1">Link URL</label>
+          <input
+            value={form.link_url || ""}
+            onChange={e => set("link_url", e.target.value)}
+            placeholder="https://..."
+            type="url"
+            className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background"
+          />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-text-med block mb-1">Link Text</label>
+          <input
+            value={form.link_text || ""}
+            onChange={e => set("link_text", e.target.value)}
+            placeholder="Shop now →"
+            className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background"
+          />
+        </div>
+      </div>
+
+      {/* Dates */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs font-semibold text-text-med block mb-1">Starts At (optional)</label>
+          <input
+            type="datetime-local"
+            value={localDate(form.starts_at)}
+            onChange={e => set("starts_at", isoFromLocal(e.target.value))}
+            className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background"
+          />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-text-med block mb-1">Ends At (optional)</label>
+          <input
+            type="datetime-local"
+            value={localDate(form.ends_at)}
+            onChange={e => set("ends_at", isoFromLocal(e.target.value))}
+            className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background"
+          />
+        </div>
+      </div>
+
+      {/* Targeting */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs font-semibold text-text-med block mb-1">
+            Target Pages <span className="font-normal text-text-light">(blank = all)</span>
+          </label>
+          <input
+            value={pagesToString(form.target_pages)}
+            onChange={e => set("target_pages", pagesFromString(e.target.value))}
+            placeholder="/cart, /checkout, /shop"
+            className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background"
+          />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-text-med block mb-1">Target Audience</label>
+          <select
+            value={form.target_audience || "all"}
+            onChange={e => set("target_audience", e.target.value as Audience)}
+            className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background"
+          >
+            <option value="all">Everyone</option>
+            <option value="new_visitor">New visitors</option>
+            <option value="returning_visitor">Returning visitors</option>
+            <option value="cart_not_empty">Cart not empty</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Popup-specific settings */}
+      {isPopup && (
+        <div className="bg-muted/40 rounded-lg p-3 space-y-3 border border-border">
+          <div className="text-xs font-bold text-text-light uppercase tracking-wider mb-1">Popup Settings</div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-text-med block mb-1">Delay (seconds)</label>
+              <input
+                type="number"
+                min={0}
+                value={form.popup_delay_seconds ?? 3}
+                onChange={e => set("popup_delay_seconds", Number(e.target.value))}
+                className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-text-med block mb-1">Frequency</label>
+              <select
+                value={form.popup_frequency || "once_per_session"}
+                onChange={e => set("popup_frequency", e.target.value as Frequency)}
+                className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background"
+              >
+                <option value="every_visit">Every visit</option>
+                <option value="once_per_session">Once per session</option>
+                <option value="once_ever">Once ever</option>
+              </select>
+            </div>
+            <div className="flex items-end pb-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={!!form.show_on_exit_intent}
+                  onChange={e => set("show_on_exit_intent", e.target.checked)}
+                  className="rounded"
+                />
+                <span className="text-sm font-medium">Exit intent trigger</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Linked coupon / product */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs font-semibold text-text-med block mb-1">Linked Coupon Code</label>
+          <input
+            value={form.linked_coupon_code || ""}
+            onChange={e => set("linked_coupon_code", e.target.value)}
+            placeholder="SAVE10"
+            className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background"
+          />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-text-med block mb-1">Display Order</label>
+          <input
+            type="number"
+            value={form.display_order ?? 0}
+            onChange={e => set("display_order", Number(e.target.value))}
+            className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background"
+          />
+        </div>
+      </div>
+
+      {/* Active toggle */}
+      <div className="flex items-center gap-2">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={form.is_active}
+            onChange={e => set("is_active", e.target.checked)}
+            className="rounded"
+          />
+          <span className="text-sm font-semibold">Active (visible on site)</span>
+        </label>
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-2 pt-1">
+        <button
+          onClick={() => onSave(form)}
+          disabled={saving || !form.message?.trim()}
+          className="px-4 py-2 rounded-lg bg-forest text-primary-foreground text-sm font-semibold disabled:opacity-50 transition-opacity"
+        >
+          {saving ? "Saving…" : "Save announcement"}
+        </button>
+        <button
+          onClick={onCancel}
+          className="px-4 py-2 rounded-lg border border-border text-sm font-semibold text-text-med hover:bg-muted transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Tab ─────────────────────────────────────────────────────────────────
+
+export default function AdminAnnouncementsTab() {
+  const queryClient = useQueryClient();
+  const [creating, setCreating] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const { data: announcements, isLoading } = useQuery<AnnouncementRow[]>({
+    queryKey: ["admin-announcements"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("announcements")
+        .select("*")
+        .order("priority", { ascending: false })
+        .order("display_order", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async ({ id, data }: { id?: string; data: Omit<AnnouncementRow, "id"> }) => {
+      if (id) {
+        const { error } = await (supabase as any).from("announcements").update(data).eq("id", id);
+        if (error) throw error;
+      } else {
+        const { error } = await (supabase as any).from("announcements").insert(data);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-announcements"] });
+      queryClient.invalidateQueries({ queryKey: ["announcements"] });
+      setCreating(false);
+      setEditingId(null);
+      toast.success("Announcement saved");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
+      const { error } = await (supabase as any)
+        .from("announcements")
+        .update({ is_active })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-announcements"] });
+      queryClient.invalidateQueries({ queryKey: ["announcements"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase as any).from("announcements").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-announcements"] });
+      queryClient.invalidateQueries({ queryKey: ["announcements"] });
+      setConfirmDeleteId(null);
+      toast.success("Announcement deleted");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const toggleExpanded = (id: string) => {
+    setExpanded(prev => {
+      const n = new Set(prev);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+  };
+
+  if (isLoading) return <div className="py-10 text-center text-text-light text-sm">Loading…</div>;
+
+  return (
+    <div className="space-y-4">
+      {/* Header row */}
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs text-text-light">
+            {announcements?.length ?? 0} announcement{announcements?.length !== 1 ? "s" : ""}
+          </p>
+        </div>
+        {!creating && (
+          <button
+            onClick={() => { setCreating(true); setEditingId(null); }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-forest text-primary-foreground text-xs font-semibold hover:bg-forest/90 transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" /> New Announcement
+          </button>
+        )}
+      </div>
+
+      {/* Create form */}
+      {creating && (
+        <AnnouncementForm
+          initial={BLANK}
+          onSave={data => saveMutation.mutate({ data })}
+          onCancel={() => setCreating(false)}
+          saving={saveMutation.isPending}
+        />
+      )}
+
+      {/* List */}
+      {(!announcements || announcements.length === 0) && !creating ? (
+        <div className="text-center py-16 text-text-light text-sm">
+          <div className="text-3xl mb-2">📣</div>
+          <p>No announcements yet.</p>
+          <p className="text-xs mt-1">Create one to show bars or popups on the storefront.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {(announcements || []).map(a => (
+            <div key={a.id} className="bg-card border border-border rounded-xl overflow-hidden">
+              {/* Collapsed row */}
+              <div className="flex items-center gap-3 px-4 py-3">
+                {/* Color swatch */}
+                <div
+                  className="w-3 h-3 rounded-full flex-shrink-0 border border-white/20"
+                  style={{ backgroundColor: a.bg_color || "#1a2e1a" }}
+                />
+
+                {/* Type badge */}
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide flex-shrink-0 ${DISPLAY_TYPE_COLORS[a.display_type] || "bg-muted text-text-med"}`}>
+                  {DISPLAY_TYPE_LABELS[a.display_type] || a.display_type}
+                </span>
+
+                {/* Title + message */}
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-semibold truncate block">
+                    {a.emoji ? `${a.emoji} ` : ""}{a.title || a.message || "Untitled"}
+                  </span>
+                  {a.title && a.message && (
+                    <span className="text-xs text-text-light truncate block">{a.message}</span>
+                  )}
+                </div>
+
+                {/* Date range */}
+                {(a.starts_at || a.ends_at) && (
+                  <span className="text-[10px] text-text-light hidden sm:block flex-shrink-0">
+                    {a.starts_at ? new Date(a.starts_at).toLocaleDateString() : "∞"}
+                    {" → "}
+                    {a.ends_at ? new Date(a.ends_at).toLocaleDateString() : "∞"}
+                  </span>
+                )}
+
+                {/* Active toggle */}
+                <button
+                  onClick={() => toggleActiveMutation.mutate({ id: a.id, is_active: !a.is_active })}
+                  className="flex-shrink-0"
+                  title={a.is_active ? "Deactivate" : "Activate"}
+                >
+                  {a.is_active
+                    ? <ToggleRight className="w-5 h-5 text-forest" />
+                    : <ToggleLeft className="w-5 h-5 text-text-light" />}
+                </button>
+
+                {/* Status badge */}
+                <span className={`px-2 py-0.5 rounded text-[10px] font-semibold flex-shrink-0 ${a.is_active ? "bg-forest/10 text-forest" : "bg-muted text-text-light"}`}>
+                  {a.is_active ? "Live" : "Off"}
+                </span>
+
+                {/* Edit */}
+                <button
+                  onClick={() => { setEditingId(editingId === a.id ? null : a.id); setCreating(false); }}
+                  className="p-1.5 rounded hover:bg-muted transition-colors flex-shrink-0"
+                  title="Edit"
+                >
+                  <Pencil className="w-3.5 h-3.5 text-text-med" />
+                </button>
+
+                {/* Delete */}
+                {confirmDeleteId === a.id ? (
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <button
+                      onClick={() => deleteMutation.mutate(a.id)}
+                      className="px-2 py-1 rounded bg-destructive text-primary-foreground text-[10px] font-semibold"
+                    >
+                      Confirm
+                    </button>
+                    <button onClick={() => setConfirmDeleteId(null)} className="p-1 rounded hover:bg-muted">
+                      <X className="w-3 h-3 text-text-light" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setConfirmDeleteId(a.id)}
+                    className="p-1.5 rounded hover:bg-destructive/10 transition-colors flex-shrink-0"
+                    title="Delete"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                  </button>
+                )}
+
+                {/* Expand details */}
+                <button
+                  onClick={() => toggleExpanded(a.id)}
+                  className="p-1.5 rounded hover:bg-muted transition-colors flex-shrink-0"
+                >
+                  {expanded.has(a.id)
+                    ? <ChevronUp className="w-3.5 h-3.5 text-text-light" />
+                    : <ChevronDown className="w-3.5 h-3.5 text-text-light" />}
+                </button>
+              </div>
+
+              {/* Expanded details (read-only summary) */}
+              {expanded.has(a.id) && !editingId && (
+                <div className="px-4 pb-3 pt-0 grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1.5 border-t border-border text-[11px] text-text-light bg-muted/20">
+                  <div><span className="font-semibold text-text-med">Audience:</span> {a.target_audience || "all"}</div>
+                  <div><span className="font-semibold text-text-med">Pages:</span> {(a.target_pages || []).join(", ") || "all"}</div>
+                  <div><span className="font-semibold text-text-med">Priority:</span> {a.priority ?? 0}</div>
+                  <div><span className="font-semibold text-text-med">Order:</span> {a.display_order ?? 0}</div>
+                  {a.display_type === "popup" && <>
+                    <div><span className="font-semibold text-text-med">Delay:</span> {a.popup_delay_seconds ?? 0}s</div>
+                    <div><span className="font-semibold text-text-med">Frequency:</span> {a.popup_frequency || "every_visit"}</div>
+                    <div><span className="font-semibold text-text-med">Exit intent:</span> {a.show_on_exit_intent ? "Yes" : "No"}</div>
+                  </>}
+                  {a.linked_coupon_code && <div><span className="font-semibold text-text-med">Coupon:</span> {a.linked_coupon_code}</div>}
+                  {a.link_url && <div className="col-span-2 truncate"><span className="font-semibold text-text-med">Link:</span> {a.link_url}</div>}
+                </div>
+              )}
+
+              {/* Edit form (inline) */}
+              {editingId === a.id && (
+                <div className="px-4 pb-4 border-t border-border">
+                  <AnnouncementForm
+                    initial={a}
+                    onSave={data => saveMutation.mutate({ id: a.id, data })}
+                    onCancel={() => setEditingId(null)}
+                    saving={saveMutation.isPending}
+                  />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
