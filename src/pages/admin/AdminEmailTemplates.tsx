@@ -2,30 +2,31 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, Save, Mail } from "lucide-react";
+import { ArrowLeft, Save, Mail, Eye, EyeOff } from "lucide-react";
 
 const TEMPLATE_PLACEHOLDERS: Record<string, string[]> = {
   order_confirmation: [
-    "{{customer_name}}", "{{first_name}}", "{{order_number}}", "{{order_date}}",
+    "{{customer_name}}", "{{first_name}}", "{{customer_phone}}", "{{order_number}}", "{{order_date}}",
     "{{items_html}}", "{{subtotal}}", "{{delivery_fee}}", "{{service_fee}}",
     "{{discount_amount}}", "{{total}}", "{{delivery_address}}", "{{delivery_city}}",
-    "{{delivery_state}}", "{{payment_method}}", "{{estimated_delivery}}",
+    "{{delivery_state}}", "{{payment_method}}", "{{order_status}}", "{{estimated_delivery}}",
     "{{bank_name}}", "{{bank_account_name}}", "{{bank_account_number}}",
     "{{whatsapp_url}}", "{{referral_code}}", "{{referral_amount}}",
   ],
   payment_received: [
-    "{{customer_name}}", "{{first_name}}", "{{order_number}}", "{{total}}",
+    "{{customer_name}}", "{{first_name}}", "{{customer_phone}}", "{{order_number}}", "{{total}}",
     "{{payment_method}}", "{{payment_reference}}", "{{payment_date}}",
     "{{estimated_delivery}}", "{{whatsapp_url}}",
   ],
   order_shipped: [
-    "{{customer_name}}", "{{first_name}}", "{{order_number}}",
+    "{{customer_name}}", "{{first_name}}", "{{customer_phone}}", "{{order_number}}",
     "{{delivery_address}}", "{{delivery_city}}", "{{delivery_state}}",
-    "{{estimated_delivery}}", "{{tracking_number}}", "{{whatsapp_url}}",
+    "{{estimated_delivery}}", "{{tracking_number}}", "{{order_status}}", "{{whatsapp_url}}",
   ],
   order_delivered: [
-    "{{customer_name}}", "{{first_name}}", "{{order_number}}",
-    "{{delivery_date}}", "{{referral_code}}", "{{referral_amount}}",
+    "{{customer_name}}", "{{first_name}}", "{{customer_phone}}", "{{order_number}}",
+    "{{delivery_date}}", "{{delivery_city}}", "{{delivery_state}}",
+    "{{referral_code}}", "{{referral_amount}}",
     "{{review_url}}", "{{whatsapp_url}}",
   ],
   referral_code_activated: [
@@ -38,12 +39,59 @@ const TEMPLATE_PLACEHOLDERS: Record<string, string[]> = {
   ],
 };
 
+const SAMPLE_DATA: Record<string, string> = {
+  "{{customer_name}}": "Amara Okafor",
+  "{{first_name}}": "Amara",
+  "{{customer_phone}}": "08012345678",
+  "{{order_number}}": "BM-20260416-0042",
+  "{{order_date}}": "Wednesday, 16 April 2026",
+  "{{items_html}}": `<table style="width:100%;border-collapse:collapse"><tr><td style="padding:8px;border-bottom:1px solid #eee">Hospital Bag Essentials Bundle × 1</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:right">₦45,000</td></tr><tr><td style="padding:8px;border-bottom:1px solid #eee">Newborn Care Kit × 1</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:right">₦28,000</td></tr></table>`,
+  "{{subtotal}}": "₦73,000",
+  "{{delivery_fee}}": "₦3,500",
+  "{{service_fee}}": "₦500",
+  "{{discount_amount}}": "₦2,000",
+  "{{total}}": "₦75,000",
+  "{{delivery_address}}": "12 Admiralty Way, Lekki Phase 1",
+  "{{delivery_city}}": "Lagos",
+  "{{delivery_state}}": "Lagos",
+  "{{payment_method}}": "transfer",
+  "{{payment_reference}}": "PAY-REF-20260416-001",
+  "{{payment_date}}": "Wednesday, 16 April 2026",
+  "{{estimated_delivery}}": "Friday, 18 April 2026",
+  "{{tracking_number}}": "TRK-2026-BM-001",
+  "{{order_status}}": "shipped",
+  "{{delivery_date}}": "Friday, 18 April 2026",
+  "{{bank_name}}": "GTBank",
+  "{{bank_account_name}}": "BundledMum Ltd",
+  "{{bank_account_number}}": "0123456789",
+  "{{whatsapp_url}}": "https://wa.me/2348001234567",
+  "{{referral_code}}": "AMARA-BM42",
+  "{{referral_amount}}": "₦2,000",
+  "{{referral_link}}": "https://bundledmum.com/?ref=AMARA-BM42",
+  "{{whatsapp_share_url}}": "https://wa.me/?text=Use%20my%20code%20AMARA-BM42",
+  "{{review_url}}": "https://bundledmum.com/review/BM-20260416-0042",
+  "{{cart_items_html}}": `<table style="width:100%;border-collapse:collapse"><tr><td style="padding:8px;border-bottom:1px solid #eee">Hospital Bag Essentials Bundle × 1</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:right">₦45,000</td></tr></table>`,
+  "{{cart_total}}": "₦45,000",
+  "{{cart_url}}": "https://bundledmum.com/cart",
+  "{{coupon_code}}": "WELCOME10",
+  "{{coupon_discount}}": "10%",
+};
+
+function applyPreviewData(html: string): string {
+  let result = html;
+  for (const [placeholder, value] of Object.entries(SAMPLE_DATA)) {
+    result = result.replaceAll(placeholder, value);
+  }
+  return result;
+}
+
 export default function AdminEmailTemplates() {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<any>(null);
   const [editSubject, setEditSubject] = useState("");
   const [editBody, setEditBody] = useState("");
   const [editActive, setEditActive] = useState(true);
+  const [showPreview, setShowPreview] = useState(false);
 
   const { data: templates, isLoading } = useQuery({
     queryKey: ["admin-email-templates"],
@@ -98,10 +146,17 @@ export default function AdminEmailTemplates() {
             <p className="text-text-light text-xs mt-0.5 font-mono">{editing.slug}</p>
             {editing.description && <p className="text-text-med text-sm mt-1">{editing.description}</p>}
           </div>
-          <button onClick={() => saveTemplate.mutate()} disabled={saveTemplate.isPending}
-            className="flex items-center gap-1.5 bg-forest text-primary-foreground px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-forest-deep disabled:opacity-50">
-            <Save className="w-4 h-4" /> {saveTemplate.isPending ? "Saving..." : "Save Template"}
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setShowPreview(!showPreview)}
+              className={`flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold border transition-colors ${showPreview ? "bg-forest/10 border-forest text-forest" : "border-border text-text-med hover:bg-muted"}`}>
+              {showPreview ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              {showPreview ? "Hide Preview" : "Preview"}
+            </button>
+            <button onClick={() => saveTemplate.mutate()} disabled={saveTemplate.isPending}
+              className="flex items-center gap-1.5 bg-forest text-primary-foreground px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-forest-deep disabled:opacity-50">
+              <Save className="w-4 h-4" /> {saveTemplate.isPending ? "Saving..." : "Save Template"}
+            </button>
+          </div>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
@@ -113,6 +168,30 @@ export default function AdminEmailTemplates() {
                 placeholder="e.g. Order Confirmed — {{order_number}}"
                 className="w-full border border-input rounded-lg px-3 py-2.5 text-sm bg-background" />
             </div>
+
+            {/* Preview */}
+            {showPreview && (
+              <div className="bg-card border-2 border-forest/30 rounded-xl p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <Eye className="w-4 h-4 text-forest" />
+                  <label className="text-xs font-semibold text-forest">Live Preview</label>
+                  <span className="text-[10px] text-text-light ml-auto">Sample data is used for all placeholders</span>
+                </div>
+                <div className="bg-muted/30 border border-border rounded-lg px-4 py-2.5 mb-3">
+                  <span className="text-[10px] text-text-light block mb-0.5">Subject:</span>
+                  <span className="text-sm font-semibold">{applyPreviewData(editSubject)}</span>
+                </div>
+                <div className="bg-white border border-border rounded-lg overflow-hidden">
+                  <iframe
+                    title="Email preview"
+                    srcDoc={applyPreviewData(editBody)}
+                    className="w-full border-0"
+                    style={{ minHeight: 500 }}
+                    sandbox=""
+                  />
+                </div>
+              </div>
+            )}
 
             {/* HTML Body */}
             <div className="bg-card border border-border rounded-xl p-5">
