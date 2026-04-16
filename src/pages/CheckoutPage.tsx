@@ -23,7 +23,7 @@ export default function CheckoutPage() {
   const { cart, subtotal, clearCart, totalItems } = useCart();
   const navigate = useNavigate();
   const [form, setForm] = useState<FormData>({ firstName: "", lastName: "", phone: "", email: "", address: "", city: "", state: "Lagos", notes: "" });
-  const [payment, setPayment] = useState<"card" | "transfer">("card");
+  const [payment, setPayment] = useState<"card" | "transfer" | "ussd">("card");
   const [giftWrap, setGiftWrap] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [errors, setErrors] = useState<Partial<FormData>>({});
@@ -43,6 +43,29 @@ export default function CheckoutPage() {
   const { data: settings } = useSiteSettings();
   const { data: zones } = useShippingZones();
   const { data: thresholds } = useSpendThresholds();
+
+  // Payment method toggles from site_settings
+  const [enabledPayments, setEnabledPayments] = useState<Record<string, boolean>>({ card: true, transfer: true, ussd: true });
+  useEffect(() => {
+    supabase
+      .from("site_settings")
+      .select("key, value")
+      .in("key", ["payment_method_card_enabled", "payment_method_transfer_enabled", "payment_method_ussd_enabled"])
+      .then(({ data }) => {
+        if (!data) return;
+        const map: Record<string, boolean> = { card: true, transfer: true, ussd: true };
+        for (const row of data) {
+          const val = row.value === true || row.value === "true" || row.value === "1";
+          if (row.key === "payment_method_card_enabled") map.card = val;
+          if (row.key === "payment_method_transfer_enabled") map.transfer = val;
+          if (row.key === "payment_method_ussd_enabled") map.ussd = val;
+        }
+        setEnabledPayments(map);
+        const enabled = Object.entries(map).filter(([, v]) => v).map(([k]) => k);
+        if (enabled.length === 1) setPayment(enabled[0] as any);
+        else if (enabled.length > 0 && !map[payment]) setPayment(enabled[0] as any);
+      });
+  }, []);
 
   useEffect(() => {
     document.title = "Secure Checkout | BundledMum";
@@ -429,7 +452,7 @@ export default function CheckoutPage() {
         key: paystackKey,
         email: form.email, amount: grand * 100, currency: "NGN",
         ref: `BM-${Date.now()}`, firstname: form.firstName, lastname: form.lastName,
-        channels: ["card", "bank_transfer", "qr", "mobile_money", "bank"],
+        channels: payment === "ussd" ? ["ussd"] : ["card", "bank_transfer", "ussd", "qr", "mobile_money", "bank"],
         onSuccess: async (transaction: { reference: string; status: string }) => {
           const orderData = buildOrderData(cartSnapshot, transaction.reference, "pending");
           const savedOrder = await saveOrderToDb(orderData, cartSnapshot);
@@ -643,21 +666,31 @@ export default function CheckoutPage() {
             <div className="bg-card rounded-card shadow-card p-4 md:p-8">
               <h2 className="pf text-lg mb-4">💳 Payment Method</h2>
               <div className="flex flex-col gap-2.5">
-                {([
-                  { id: "card" as const, icon: "💳", label: "Card Payment", sub: "Visa, Mastercard, Verve — instant" },
-                  { id: "transfer" as const, icon: "🏦", label: "Bank Transfer", sub: "Pay directly to our account" },
-                ]).map(m => (
-                  <button key={m.id} onClick={() => setPayment(m.id)} className={`flex items-center gap-3.5 p-4 rounded-[14px] border-2 text-left transition-all font-body ${payment === m.id ? "border-forest bg-forest-light" : "border-border bg-card"}`}>
-                    <span className="text-xl">{m.icon}</span>
-                    <div className="flex-1">
-                      <div className="font-bold text-sm">{m.label}</div>
-                      <div className="text-text-med text-xs mt-0.5">{m.sub}</div>
+                {(() => {
+                  const allMethods = [
+                    { id: "card" as const, icon: "💳", label: "Card Payment", sub: "Visa, Mastercard, Verve — instant" },
+                    { id: "transfer" as const, icon: "🏦", label: "Bank Transfer", sub: "Pay directly to our account" },
+                    { id: "ussd" as const, icon: "📱", label: "USSD / Mobile Money", sub: "*737#, *901# and more" },
+                  ];
+                  const visible = allMethods.filter(m => enabledPayments[m.id]);
+                  if (visible.length === 0) return (
+                    <div className="bg-[#FFF4D6] border border-[#F59E0B]/40 rounded-xl p-4 text-center text-sm text-[#78350F]">
+                      Payment is temporarily unavailable. Please contact us on <a href={`https://wa.me/${settings?.whatsapp_number || "2348001234567"}`} target="_blank" rel="noopener noreferrer" className="font-bold underline">WhatsApp</a>.
                     </div>
-                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${payment === m.id ? "border-forest" : "border-border"}`}>
-                      {payment === m.id && <div className="w-2 h-2 rounded-full bg-forest" />}
-                    </div>
-                  </button>
-                ))}
+                  );
+                  return visible.map(m => (
+                    <button key={m.id} onClick={() => setPayment(m.id)} className={`flex items-center gap-3.5 p-4 rounded-[14px] border-2 text-left transition-all font-body ${payment === m.id ? "border-forest bg-forest-light" : "border-border bg-card"}`}>
+                      <span className="text-xl">{m.icon}</span>
+                      <div className="flex-1">
+                        <div className="font-bold text-sm">{m.label}</div>
+                        <div className="text-text-med text-xs mt-0.5">{m.sub}</div>
+                      </div>
+                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${payment === m.id ? "border-forest" : "border-border"}`}>
+                        {payment === m.id && <div className="w-2 h-2 rounded-full bg-forest" />}
+                      </div>
+                    </button>
+                  ));
+                })()}
               </div>
               {payment === "card" && (
                 <div className="mt-3 bg-warm-cream rounded-lg p-3.5 animate-fade-in">

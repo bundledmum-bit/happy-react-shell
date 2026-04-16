@@ -58,6 +58,9 @@ const TAB_KEYS: Record<string, { key: string; label: string; type: "text" | "tex
     { key: "bank_name", label: "Bank Name", type: "text" },
     { key: "bank_account_name", label: "Account Name", type: "text" },
     { key: "bank_account_number", label: "Account Number", type: "text" },
+    { key: "payment_method_card_enabled", label: "Card Payment (Paystack)", type: "toggle" },
+    { key: "payment_method_transfer_enabled", label: "Bank Transfer", type: "toggle" },
+    { key: "payment_method_ussd_enabled", label: "USSD / Mobile Money", type: "toggle" },
   ],
   SEO: [
     { key: "meta_title", label: "Default Meta Title", type: "text" },
@@ -179,7 +182,11 @@ export default function AdminSettings() {
                   <label className="flex items-center gap-2">
                     <input type="checkbox" checked={currentValue === "true" || currentValue === "1"}
                       onChange={e => {
-                        setEditValues(prev => ({ ...prev, [field.key]: e.target.checked ? "true" : "false" }));
+                        const newVal = e.target.checked ? "true" : "false";
+                        setEditValues(prev => ({ ...prev, [field.key]: newVal }));
+                        if (field.key.startsWith("payment_method_")) {
+                          saveSetting.mutate({ key: field.key, value: newVal });
+                        }
                       }}
                       className="rounded" />
                     <span className="text-sm">{currentValue === "true" || currentValue === "1" ? "Enabled" : "Disabled"}</span>
