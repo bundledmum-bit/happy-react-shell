@@ -2656,35 +2656,56 @@ export type Database = {
         Row: {
           code: string
           created_at: string | null
+          discount_amount: number
+          expires_at: string | null
           id: string
           is_active: boolean | null
+          max_uses: number
+          min_order_amount: number
+          referrer_credit: number
           referrer_email: string
           referrer_name: string
           referrer_order_id: string | null
+          referrer_phone: string | null
           times_used: number | null
           total_earned: number | null
+          updated_at: string | null
         }
         Insert: {
           code: string
           created_at?: string | null
+          discount_amount?: number
+          expires_at?: string | null
           id?: string
           is_active?: boolean | null
+          max_uses?: number
+          min_order_amount?: number
+          referrer_credit?: number
           referrer_email: string
           referrer_name: string
           referrer_order_id?: string | null
+          referrer_phone?: string | null
           times_used?: number | null
           total_earned?: number | null
+          updated_at?: string | null
         }
         Update: {
           code?: string
           created_at?: string | null
+          discount_amount?: number
+          expires_at?: string | null
           id?: string
           is_active?: boolean | null
+          max_uses?: number
+          min_order_amount?: number
+          referrer_credit?: number
           referrer_email?: string
           referrer_name?: string
           referrer_order_id?: string | null
+          referrer_phone?: string | null
           times_used?: number | null
           total_earned?: number | null
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -2710,30 +2731,134 @@ export type Database = {
           },
         ]
       }
+      referral_credits: {
+        Row: {
+          applied_order_id: string | null
+          created_at: string | null
+          credit_amount: number
+          expires_at: string | null
+          id: string
+          referral_code_id: string | null
+          referred_order_id: string | null
+          referrer_email: string
+          referrer_phone: string | null
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          applied_order_id?: string | null
+          created_at?: string | null
+          credit_amount?: number
+          expires_at?: string | null
+          id?: string
+          referral_code_id?: string | null
+          referred_order_id?: string | null
+          referrer_email: string
+          referrer_phone?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          applied_order_id?: string | null
+          created_at?: string | null
+          credit_amount?: number
+          expires_at?: string | null
+          id?: string
+          referral_code_id?: string | null
+          referred_order_id?: string | null
+          referrer_email?: string
+          referrer_phone?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_credits_applied_order_id_fkey"
+            columns: ["applied_order_id"]
+            isOneToOne: false
+            referencedRelation: "order_lines_report"
+            referencedColumns: ["order_uuid"]
+          },
+          {
+            foreignKeyName: "referral_credits_applied_order_id_fkey"
+            columns: ["applied_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_credits_applied_order_id_fkey"
+            columns: ["applied_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders_report"
+            referencedColumns: ["order_uuid"]
+          },
+          {
+            foreignKeyName: "referral_credits_referral_code_id_fkey"
+            columns: ["referral_code_id"]
+            isOneToOne: false
+            referencedRelation: "referral_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_credits_referred_order_id_fkey"
+            columns: ["referred_order_id"]
+            isOneToOne: false
+            referencedRelation: "order_lines_report"
+            referencedColumns: ["order_uuid"]
+          },
+          {
+            foreignKeyName: "referral_credits_referred_order_id_fkey"
+            columns: ["referred_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_credits_referred_order_id_fkey"
+            columns: ["referred_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders_report"
+            referencedColumns: ["order_uuid"]
+          },
+        ]
+      }
       referral_redemptions: {
         Row: {
           created_at: string | null
           discount_amount: number
           id: string
+          order_status: string | null
+          redeemer_email: string | null
+          redeemer_phone: string | null
           referral_code_id: string | null
           referred_order_id: string | null
           referrer_credit: number
+          updated_at: string | null
         }
         Insert: {
           created_at?: string | null
           discount_amount?: number
           id?: string
+          order_status?: string | null
+          redeemer_email?: string | null
+          redeemer_phone?: string | null
           referral_code_id?: string | null
           referred_order_id?: string | null
           referrer_credit?: number
+          updated_at?: string | null
         }
         Update: {
           created_at?: string | null
           discount_amount?: number
           id?: string
+          order_status?: string | null
+          redeemer_email?: string | null
+          redeemer_phone?: string | null
           referral_code_id?: string | null
           referred_order_id?: string | null
           referrer_credit?: number
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -3464,6 +3589,24 @@ export type Database = {
       }
     }
     Functions: {
+      apply_referral_credit: {
+        Args: {
+          p_credit_amount: number
+          p_order_id: string
+          p_referrer_email: string
+        }
+        Returns: Json
+      }
+      apply_referral_redemption: {
+        Args: {
+          p_discount_amount: number
+          p_order_id: string
+          p_redeemer_email: string
+          p_redeemer_phone: string
+          p_referral_code_id: string
+        }
+        Returns: Json
+      }
       check_realtime_access: {
         Args: { channel_name: string }
         Returns: boolean
@@ -3509,6 +3652,7 @@ export type Database = {
             }
             Returns: string
           }
+      generate_referral_code: { Args: { p_order_id: string }; Returns: Json }
       get_admin_nav: { Args: never; Returns: Json }
       get_admin_orders: {
         Args: {
@@ -3617,14 +3761,24 @@ export type Database = {
         Args: { coupon_code: string; order_amount: number }
         Returns: Json
       }
-      validate_referral_code: {
-        Args: { p_code: string }
-        Returns: {
-          code: string
-          id: string
-          is_active: boolean
-        }[]
-      }
+      validate_referral_code:
+        | {
+            Args: { p_code: string }
+            Returns: {
+              code: string
+              id: string
+              is_active: boolean
+            }[]
+          }
+        | {
+            Args: {
+              p_code: string
+              p_order_amount: number
+              p_redeemer_email: string
+              p_redeemer_phone: string
+            }
+            Returns: Json
+          }
     }
     Enums: {
       [_ in never]: never
