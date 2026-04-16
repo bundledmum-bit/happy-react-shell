@@ -176,6 +176,21 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 7. Send order confirmation email (fire-and-forget)
+    try {
+      const emailUrl = `${Deno.env.get("SUPABASE_URL")!}/functions/v1/send-order-confirmation`;
+      fetch(emailUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${serviceRoleKey}`,
+        },
+        body: JSON.stringify({ order_id: orderData.id }),
+      }).catch((e) => console.error("Email trigger failed:", e));
+    } catch (e) {
+      console.error("Email trigger setup failed:", e);
+    }
+
     return new Response(
       JSON.stringify({
         id: orderData.id,
