@@ -13,7 +13,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { order, items, customer, quiz } = body;
+    const { order, items, customer, quiz, referral } = body;
 
     if (!order || !items || !customer) {
       return new Response(
@@ -128,7 +128,42 @@ Deno.serve(async (req) => {
       console.error("Customer upsert failed:", e);
     }
 
-    // 5. Mark quiz lead as purchased if applicable
+    // 5. Process referral: apply redemption + generate code for new customer
+    if (referral?.referral_code_id) {
+      try {
+        // Record referral redemption (redeemer used someone's code)
+        const { data: redemptionResult, error: redemptionError } = await supabase.rpc("apply_referral_redemption", {
+          p_referral_code_id: referral.referral_code_id,
+          p_order_id: orderData.id,
+          p_redeemer_email: referral.redeemer_email,
+          p_redeemer_phone: referral.redeemer_phone,
+          p_discount_amount: referral.discount_amount,
+        });
+        if (redemptionError) {
+          console.error("Referral redemption failed:", redemptionError);
+        } else {
+          console.log("[place-order] referral redemption applied:", redemptionResult);
+        }
+      } catch (e) {
+        console.error("Referral redemption exception:", e);
+      }
+    }
+
+    // 5b. Generate a referral code for the new customer (always, even if they didn't use one)
+    try {
+      const { data: genResult, error: genError } = await supabase.rpc("generate_referral_code", {
+        p_order_id: orderData.id,
+      });
+      if (genError) {
+        console.error("Referral code generation failed:", genError);
+      } else {
+        console.log("[place-order] referral code generated:", genResult);
+      }
+    } catch (e) {
+      console.error("Referral code generation exception:", e);
+    }
+
+    // 6. Mark quiz lead as purchased if applicable
     if (quiz?.sessionId) {
       try {
         await supabase.rpc("mark_quiz_lead_purchased", {

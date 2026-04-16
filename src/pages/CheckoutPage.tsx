@@ -34,6 +34,11 @@ export default function CheckoutPage() {
   const [couponLoading, setCouponLoading] = useState(false);
   const [appliedCoupon, setAppliedCoupon] = useState<{ id: string; code: string; discount_type: string; discount_value: number; discount_amount: number } | null>(null);
 
+  // Referral state
+  const [referralCode, setReferralCode] = useState("");
+  const [referralLoading, setReferralLoading] = useState(false);
+  const [appliedReferral, setAppliedReferral] = useState<{ id: string; code: string; discount_amount: number } | null>(null);
+
   // Dynamic settings from DB
   const { data: settings } = useSiteSettings();
   const { data: zones } = useShippingZones();
@@ -98,9 +103,11 @@ export default function CheckoutPage() {
 
   // Coupon discount — already calculated server-side by validate_coupon RPC
   const couponDiscount = appliedCoupon?.discount_amount || 0;
+  // Referral discount
+  const referralDiscount = appliedReferral?.discount_amount || 0;
 
   const giftWrapFee = giftWrap ? giftWrapPrice : 0;
-  const grand = Math.max(0, subtotal + delivery + serviceFee + giftWrapFee - couponDiscount - spendDiscount);
+  const grand = Math.max(0, subtotal + delivery + serviceFee + giftWrapFee - couponDiscount - referralDiscount - spendDiscount);
 
   // Delivery date estimate
   const now = new Date();
@@ -138,6 +145,39 @@ export default function CheckoutPage() {
       setCouponLoading(false);
     }
   };
+
+  const applyReferral = async () => {
+    const code = referralCode.trim().toUpperCase();
+    if (!code) { toast.error("Enter a referral code"); return; }
+    if (!form.email) { toast.error("Enter your email first — we need it to validate the referral"); return; }
+    setReferralLoading(true);
+    try {
+      const { data, error } = await supabase.rpc("validate_referral_code", {
+        p_code: code,
+        p_order_amount: subtotal,
+        p_redeemer_email: form.email,
+        p_redeemer_phone: form.phone,
+      });
+      if (error) throw error;
+      const result = typeof data === "string" ? JSON.parse(data) : data;
+      if (!result?.valid) {
+        toast.error(result?.message || "Invalid referral code");
+        setReferralLoading(false);
+        return;
+      }
+      setAppliedReferral({
+        id: result.referral_code_id,
+        code,
+        discount_amount: result.discount_amount || 0,
+      });
+      toast.success(result.message || `Referral code "${code}" applied — saving ${fmt(result.discount_amount)}!`);
+    } catch {
+      toast.error("Failed to validate referral code");
+    } finally {
+      setReferralLoading(false);
+    }
+  };
+
   const update = (key: keyof FormData, val: string) => {
     setForm(p => ({ ...p, [key]: val }));
     if (errors[key]) setErrors(p => ({ ...p, [key]: undefined }));
@@ -267,6 +307,7 @@ export default function CheckoutPage() {
             discount: 0,
             discount_amount: couponDiscount > 0 ? couponDiscount : 0,
             coupon_id: appliedCoupon?.id || null,
+            referral_code_used: appliedReferral?.code || null,
             spend_discount_amount: spendDiscount > 0 ? spendDiscount : 0,
             spend_discount_percent: spendPrompt?.currentDiscount?.discount_percent || null,
             payment_reference: orderData.paystackRef,
@@ -300,6 +341,12 @@ export default function CheckoutPage() {
           quiz: {
             sessionId: quizSessionId || sessionId,
           },
+          referral: appliedReferral ? {
+            referral_code_id: appliedReferral.id,
+            discount_amount: appliedReferral.discount_amount,
+            redeemer_email: form.email,
+            redeemer_phone: form.phone,
+          } : null,
         },
       });
 
@@ -469,6 +516,7 @@ export default function CheckoutPage() {
                 <div className="flex justify-between"><span className="text-text-med">{serviceFeeLabel}</span><span>{fmt(serviceFee)}</span></div>
                 {giftWrap && <div className="flex justify-between"><span className="text-text-med">Gift Wrapping</span><span>{fmt(giftWrapPrice)}</span></div>}
                 {couponDiscount > 0 && <div className="flex justify-between text-forest"><span>🏷️ Coupon ({appliedCoupon?.code})</span><span>-{fmt(couponDiscount)}</span></div>}
+                {referralDiscount > 0 && <div className="flex justify-between text-forest"><span>🎁 Referral ({appliedReferral?.code})</span><span>-{fmt(referralDiscount)}</span></div>}
                 {spendDiscount > 0 && <div className="flex justify-between text-forest"><span>🎉 Spend Discount</span><span>-{fmt(spendDiscount)}</span></div>}
                 <div className="flex justify-between font-bold text-sm pt-1"><span>Total</span><span className="text-forest">{fmt(grand)}</span></div>
                 <div className="text-[10px] text-text-light mt-1">🚚 Est. {fmtDate(fromDate)} – {fmtDate(toDate)}</div>
@@ -526,7 +574,9 @@ export default function CheckoutPage() {
             {/* Coupon Code */}
             <div className="bg-card rounded-card shadow-card p-4 md:p-8">
               <h2 className="pf text-lg mb-4">🏷️ Have a Coupon?</h2>
-              {appliedCoupon ? (
+              {appliedReferral ? (
+                <div className="text-text-light text-xs">Cannot combine with referral code. Remove your referral code to use a coupon.</div>
+              ) : appliedCoupon ? (
                 <div className="flex items-center justify-between bg-forest-light rounded-[10px] p-3">
                   <div>
                     <span className="text-forest font-bold text-sm">{appliedCoupon.code}</span>
@@ -541,6 +591,31 @@ export default function CheckoutPage() {
                   <button onClick={applyCoupon} disabled={couponLoading}
                     className="rounded-[10px] bg-forest px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-forest-deep disabled:opacity-50 font-body">
                     {couponLoading ? "..." : "Apply"}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Referral Code */}
+            <div className="bg-card rounded-card shadow-card p-4 md:p-8">
+              <h2 className="pf text-lg mb-4">🎁 Referral Code</h2>
+              {appliedCoupon ? (
+                <div className="text-text-light text-xs">Cannot combine with coupon. Remove your coupon to use a referral code.</div>
+              ) : appliedReferral ? (
+                <div className="flex items-center justify-between bg-forest-light rounded-[10px] p-3">
+                  <div>
+                    <span className="text-forest font-bold text-sm">{appliedReferral.code}</span>
+                    <span className="text-forest text-xs ml-2">— saving {fmt(referralDiscount)}</span>
+                  </div>
+                  <button onClick={() => { setAppliedReferral(null); setReferralCode(""); }} className="text-destructive text-xs font-semibold hover:underline">Remove</button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input value={referralCode} onChange={e => setReferralCode(e.target.value.toUpperCase())} placeholder="Enter referral code"
+                    className="flex-1 rounded-[10px] border-[1.5px] border-border px-3 py-2.5 text-sm bg-card font-body focus:border-forest outline-none uppercase" />
+                  <button onClick={applyReferral} disabled={referralLoading}
+                    className="rounded-[10px] bg-forest px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-forest-deep disabled:opacity-50 font-body">
+                    {referralLoading ? "..." : "Apply"}
                   </button>
                 </div>
               )}
@@ -617,6 +692,7 @@ export default function CheckoutPage() {
                 <div className="flex justify-between"><span className="text-text-med flex items-center gap-1">📦 {serviceFeeLabel}</span><span>{fmt(serviceFee)}</span></div>
                 {giftWrap && <div className="flex justify-between"><span className="text-text-med">🎀 Gift Wrapping</span><span className="text-[#7B5E00]">{fmt(giftWrapPrice)}</span></div>}
                 {couponDiscount > 0 && <div className="flex justify-between text-forest"><span className="font-semibold">🏷️ Coupon ({appliedCoupon?.code})</span><span className="font-bold">-{fmt(couponDiscount)}</span></div>}
+                {referralDiscount > 0 && <div className="flex justify-between text-forest"><span className="font-semibold">🎁 Referral ({appliedReferral?.code})</span><span className="font-bold">-{fmt(referralDiscount)}</span></div>}
                 {spendDiscount > 0 && <div className="flex justify-between text-forest"><span className="font-semibold">🎉 Spend Discount ({spendPrompt?.currentDiscount?.discount_percent}%)</span><span className="font-bold">-{fmt(spendDiscount)}</span></div>}
                 <div className="flex justify-between pt-2.5 border-t-2 border-border mt-0.5">
                   <span className="pf font-semibold">Total</span>
