@@ -23,7 +23,7 @@ export default function CheckoutPage() {
   const { cart, subtotal, clearCart, totalItems } = useCart();
   const navigate = useNavigate();
   const [form, setForm] = useState<FormData>({ firstName: "", lastName: "", phone: "", email: "", address: "", city: "", state: "Lagos", notes: "" });
-  const [payment, setPayment] = useState<"card" | "transfer" | "ussd">("card");
+  const [payment, setPayment] = useState<"card" | "transfer">("card");
   const [giftWrap, setGiftWrap] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [errors, setErrors] = useState<Partial<FormData>>({});
@@ -429,7 +429,7 @@ export default function CheckoutPage() {
         key: paystackKey,
         email: form.email, amount: grand * 100, currency: "NGN",
         ref: `BM-${Date.now()}`, firstname: form.firstName, lastname: form.lastName,
-        channels: payment === "ussd" ? ["ussd"] : ["card", "bank_transfer", "ussd", "qr", "mobile_money", "bank"],
+        channels: ["card", "bank_transfer", "qr", "mobile_money", "bank"],
         onSuccess: async (transaction: { reference: string; status: string }) => {
           const orderData = buildOrderData(cartSnapshot, transaction.reference, "pending");
           const savedOrder = await saveOrderToDb(orderData, cartSnapshot);
@@ -646,7 +646,6 @@ export default function CheckoutPage() {
                 {([
                   { id: "card" as const, icon: "💳", label: "Card Payment", sub: "Visa, Mastercard, Verve — instant" },
                   { id: "transfer" as const, icon: "🏦", label: "Bank Transfer", sub: "Pay directly to our account" },
-                  { id: "ussd" as const, icon: "📱", label: "USSD / Mobile Money", sub: "*737#, *901# and more" },
                 ]).map(m => (
                   <button key={m.id} onClick={() => setPayment(m.id)} className={`flex items-center gap-3.5 p-4 rounded-[14px] border-2 text-left transition-all font-body ${payment === m.id ? "border-forest bg-forest-light" : "border-border bg-card"}`}>
                     <span className="text-xl">{m.icon}</span>
