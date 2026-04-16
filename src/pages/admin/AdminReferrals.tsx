@@ -33,7 +33,7 @@ export default function AdminReferrals() {
   const { data: credits, isLoading: creditsLoading } = useQuery({
     queryKey: ["admin-referral-credits"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("referral_credits").select("*").order("created_at", { ascending: false });
+      const { data, error } = await (supabase as any).from("referral_credits").select("*").order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
