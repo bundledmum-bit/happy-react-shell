@@ -219,7 +219,7 @@ export default function OrderConfirmedPage() {
           </div>
         </div>
 
-        <div className="mb-4"><ReferralSection customerName={firstName} orderId={order.id} /></div>
+        <div className="mb-4"><ReferralSection orderId={order.id} paymentMethod={order.payment_method} paymentStatus={order.payment_status} /></div>
 
         <div className="bg-forest rounded-card p-5 md:p-8 flex flex-col md:flex-row justify-between items-center gap-3.5 mb-4 text-center md:text-left">
           <div>
