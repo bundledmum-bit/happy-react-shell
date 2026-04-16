@@ -204,6 +204,22 @@ export default function CheckoutPage() {
   const handleBlur = (key: keyof FormData) => {
     const error = validateField(key);
     setErrors(p => ({ ...p, [key]: error }));
+    if (key === "email") saveAbandonedCart();
+  };
+
+  const saveAbandonedCart = async () => {
+    try {
+      if (!cart.length) return;
+      if (!form.email || !form.email.includes("@") || !form.email.includes(".")) return;
+      await supabase.from("abandoned_carts").insert({
+        email: form.email,
+        phone: form.phone || null,
+        cart_items: cart.map(i => ({ name: i.name, qty: i.qty, price: i.price })),
+        cart_total: subtotal,
+      });
+    } catch {
+      // Silently ignore — never block checkout for abandoned cart tracking
+    }
   };
 
   const validate = () => {
