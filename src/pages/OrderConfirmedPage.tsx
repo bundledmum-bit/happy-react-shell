@@ -20,7 +20,7 @@ export default function OrderConfirmedPage() {
 
   useEffect(() => { document.title = "Order Confirmed | BundledMum"; }, []);
 
-  const { data: order, isLoading } = useQuery({
+  const { data: orderData, isLoading } = useQuery({
     queryKey: ["order-confirmed", orderNumber],
     enabled: !!orderNumber,
     queryFn: async () => {
@@ -31,7 +31,7 @@ export default function OrderConfirmedPage() {
         const { data, error } = await supabase.functions.invoke("get-order-confirmation", {
           body: { order_number: orderNumber },
         });
-        if (data?.order) return data.order;
+        if (data?.order) return { order: data.order, referral_code: data.referral_code || null };
         if (error) console.error("Order confirmation fetch error:", error);
         if (attempt < MAX_ATTEMPTS) {
           await new Promise(r => setTimeout(r, DELAY));
@@ -42,6 +42,9 @@ export default function OrderConfirmedPage() {
     retry: false,
     staleTime: Infinity,
   });
+
+  const order = orderData?.order;
+  const referralCode = orderData?.referral_code || null;
 
   // Mark this browser as having placed an order — used by AnnouncementEngine
   // to distinguish new_visitor vs returning_visitor audience targeting.
@@ -90,11 +93,6 @@ export default function OrderConfirmedPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = `BundledMum-${orderId}.txt`; a.click(); URL.revokeObjectURL(url);
   };
-
-  const referralCode = (() => {
-    const name = (firstName || "").replace(/[^a-zA-Z]/g, "").toUpperCase().slice(0, 8);
-    return `${name || "BUNDLED"}${new Date().getFullYear()}`;
-  })();
 
   const whatsappMsg = `Hi BundledMum! I just placed order ${orderId}. Please confirm my order. Thank you!`;
 
@@ -219,7 +217,7 @@ export default function OrderConfirmedPage() {
           </div>
         </div>
 
-        <div className="mb-4"><ReferralSection orderId={order.id} paymentMethod={order.payment_method} paymentStatus={order.payment_status} /></div>
+        <div className="mb-4"><ReferralSection referralCode={referralCode} paymentMethod={order.payment_method} paymentStatus={order.payment_status} /></div>
 
         <div className="bg-forest rounded-card p-5 md:p-8 flex flex-col md:flex-row justify-between items-center gap-3.5 mb-4 text-center md:text-left">
           <div>

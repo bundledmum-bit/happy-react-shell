@@ -1,36 +1,27 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Copy, Check } from "lucide-react";
 import { toast } from "sonner";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useSiteSettings } from "@/hooks/useSupabaseData";
 import { fmt } from "@/lib/cart";
 
 interface Props {
-  orderId?: string;
+  referralCode: string | null;
   paymentMethod?: string;
   paymentStatus?: string;
 }
 
-export default function ReferralSection({ orderId, paymentMethod, paymentStatus }: Props) {
+export default function ReferralSection({ referralCode, paymentMethod, paymentStatus }: Props) {
   const [copied, setCopied] = useState(false);
   const { data: settings } = useSiteSettings();
   const referralAmount = parseInt(settings?.referral_credit_amount || settings?.referral_amount) || 2000;
 
-  // Fetch real referral code generated for this order
-  const { data: referralCode, isLoading } = useQuery({
-    queryKey: ["referral-code", orderId],
-    enabled: !!orderId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("referral_codes")
-        .select("code")
-        .eq("referrer_order_id", orderId)
-        .maybeSingle();
-      if (error) throw error;
-      return data?.code || null;
-    },
-  });
+  // Brief "generating" state — auto-dismiss after 3 seconds if code is still null
+  const [showGenerating, setShowGenerating] = useState(!referralCode);
+  useEffect(() => {
+    if (referralCode) { setShowGenerating(false); return; }
+    const id = window.setTimeout(() => setShowGenerating(false), 3000);
+    return () => window.clearTimeout(id);
+  }, [referralCode]);
 
   const isPendingTransfer = paymentMethod === "transfer" && paymentStatus !== "paid";
 
@@ -56,6 +47,9 @@ export default function ReferralSection({ orderId, paymentMethod, paymentStatus 
     toast.success("Link copied! Paste it in your Instagram bio or story.");
   };
 
+  // If no code and generating message has timed out, hide the entire section
+  if (!referralCode && !showGenerating) return null;
+
   return (
     <div className="bg-forest-light border-2 border-forest/20 rounded-card p-5 md:p-8">
       <div className="flex items-center gap-2 mb-2">
@@ -68,12 +62,7 @@ export default function ReferralSection({ orderId, paymentMethod, paymentStatus 
 
       <div className="bg-card rounded-xl p-4 mb-3 text-center">
         <p className="text-text-light text-[11px] mb-1.5">Your referral code:</p>
-        {isLoading ? (
-          <div className="flex items-center justify-center gap-2 py-1">
-            <div className="h-4 w-4 border-2 border-border border-t-forest rounded-full animate-spin" />
-            <span className="text-text-med text-sm">Generating your code...</span>
-          </div>
-        ) : referralCode ? (
+        {referralCode ? (
           <div className="flex items-center justify-center gap-3">
             <span className="font-mono font-bold text-xl tracking-wider text-forest">{referralCode}</span>
             <button onClick={handleCopy} className="flex-shrink-0 rounded-pill bg-forest px-3 py-1.5 text-[11px] font-semibold text-primary-foreground interactive flex items-center gap-1">
@@ -82,7 +71,10 @@ export default function ReferralSection({ orderId, paymentMethod, paymentStatus 
             </button>
           </div>
         ) : (
-          <p className="text-text-med text-sm py-1">Your referral code will appear here shortly</p>
+          <div className="flex items-center justify-center gap-2 py-1">
+            <div className="h-4 w-4 border-2 border-border border-t-forest rounded-full animate-spin" />
+            <span className="text-text-med text-sm">Generating your code...</span>
+          </div>
         )}
       </div>
 
@@ -92,12 +84,12 @@ export default function ReferralSection({ orderId, paymentMethod, paymentStatus 
           <span className="font-semibold">⏳ Your referral code will become active once your payment is received and your order is confirmed.</span>{" "}
           You can share it now — your friends can save it and use it as soon as it goes live.
         </div>
-      ) : (
+      ) : referralCode ? (
         <div className="bg-forest/5 border border-forest/20 rounded-xl p-3.5 mb-3 text-[13px] text-forest leading-relaxed">
           <span className="font-semibold">✅ Your referral code is active!</span>{" "}
           Share it with friends and earn {fmt(referralAmount)} credit every time someone orders using your code.
         </div>
-      )}
+      ) : null}
 
       <div className="flex gap-2">
         <button onClick={handleWhatsApp} disabled={!referralCode}
