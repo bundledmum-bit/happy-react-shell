@@ -70,9 +70,25 @@ export function getNextStep(
       // Check if target step applies to current path
       const targetStep = questions.find(q => q.step_id === nextId);
       if (!targetStep) {
-        // Step is inactive (filtered out by is_active = false) — skip it and
-        // recurse from that step_id to continue along the routing graph
-        return getNextStep(nextId, "", allAnswers, routingRules, questions);
+        // Step is inactive — recurse through it
+        // First try to find any "always" rule from this step
+        const alwaysRule = routingRules.find(
+          r => r.from_step_id === nextId && r.condition_operator === "always" && r.is_active !== false
+        );
+        if (alwaysRule) {
+          return getNextStep(alwaysRule.next_step_id, "", allAnswers, routingRules, questions);
+        }
+        // No always rule — follow the highest priority rule regardless of condition
+        const fallbackRules = routingRules
+          .filter(r => r.from_step_id === nextId && r.is_active !== false)
+          .sort((a, b) => (b.priority || 0) - (a.priority || 0));
+        if (fallbackRules.length > 0) {
+          const fallbackNext = fallbackRules[0].next_step_id;
+          if (!fallbackNext || fallbackNext === "__end__") return null;
+          return getNextStep(fallbackNext, "", allAnswers, routingRules, questions);
+        }
+        // No rules at all from this step — quiz ends
+        return null;
       }
       const applyTo = targetStep.applies_to_path;
       if (
