@@ -69,17 +69,20 @@ export function getNextStep(
 
       // Check if target step applies to current path
       const targetStep = questions.find(q => q.step_id === nextId);
-      if (targetStep) {
-        const applyTo = targetStep.applies_to_path;
-        if (
-          applyTo && applyTo.length > 0 &&
-          !applyTo.includes(shopperType) && !applyTo.includes("both")
-        ) {
-          // Skip this step — recurse to find the next valid one
-          return getNextStep(nextId, "", allAnswers, routingRules, questions);
-        }
-        return nextId;
+      if (!targetStep) {
+        // Step is inactive (filtered out by is_active = false) — skip it and
+        // recurse from that step_id to continue along the routing graph
+        return getNextStep(nextId, "", allAnswers, routingRules, questions);
       }
+      const applyTo = targetStep.applies_to_path;
+      if (
+        applyTo && applyTo.length > 0 &&
+        !applyTo.includes(shopperType) && !applyTo.includes("both")
+      ) {
+        // Skip this step — path mismatch, recurse to find next valid one
+        return getNextStep(nextId, "", allAnswers, routingRules, questions);
+      }
+      return nextId;
     }
   }
 
