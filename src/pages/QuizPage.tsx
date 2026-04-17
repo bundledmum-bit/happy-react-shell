@@ -19,6 +19,69 @@ import type { QuizQuestion, QuizQuestionUiConfig } from "@/hooks/useQuizConfig";
 
 type Answers = Record<string, string>;
 
+function buildQuizStory(answers: Record<string, string>, opts: { isDadPath: boolean; dadPurpose: string; productCount?: number }): string {
+  const parts: string[] = [];
+  const isGift = answers.shopper === "gift";
+  const isDad = opts.isDadPath || answers.shopper === "dad";
+
+  // Opener
+  if (isGift) {
+    parts.push("A personalised gift bundle");
+    if (answers.giftRelationship) parts.push(`for a ${answers.giftRelationship}`);
+    if (answers.giftOccasion) parts.push(`for ${answers.giftOccasion}`);
+  } else if (isDad) {
+    parts.push("Here is what we have put together for your wife");
+  } else {
+    parts.push("Here is what we have put together for you");
+  }
+
+  // Scope
+  const scopeLabels: Record<string, string> = {
+    "hospital-bag": "a hospital bag",
+    "general-baby-prep": "baby prep essentials",
+    "hospital-bag+general": "a hospital bag and baby prep essentials",
+  };
+  if (answers.scope && scopeLabels[answers.scope]) parts.push(`— ${scopeLabels[answers.scope]}`);
+
+  // Budget
+  const budgetLabels: Record<string, string> = {
+    starter: "a starter budget",
+    standard: "a standard budget",
+    premium: "a premium budget",
+  };
+  if (answers.budget && budgetLabels[answers.budget]) parts.push(`within ${budgetLabels[answers.budget]}`);
+
+  // Gender
+  if (answers.gender && answers.gender !== "neutral") {
+    const genderLabel = answers.gender === "boy" ? "baby boy" : answers.gender === "girl" ? "baby girl" : "babies";
+    parts.push(`for your ${genderLabel}`);
+  }
+
+  // Multiples
+  if (answers.multiples === "2") parts.push("(twins! 👶👶)");
+  else if (answers.multiples === "3") parts.push("(triplets! 👶👶👶)");
+
+  // Stage
+  const stage = answers.stage || answers.wifeStage || answers.giftAge;
+  if (stage === "expecting" || stage === "newborn") parts.push("for the newborn days");
+  else if (stage === "0-3m") parts.push("for the first three months");
+  else if (stage === "3-6m") parts.push("for three to six months");
+  else if (stage === "6-12m") parts.push("for six to twelve months");
+
+  // Hospital type
+  if (answers.hospitalType === "private") parts.push("planned for a private hospital");
+  else if (answers.hospitalType === "public") parts.push("planned for a public hospital");
+
+  // Delivery method
+  if (answers.deliveryMethod === "csection") parts.push("with C-section recovery essentials included");
+
+  // Gift wrap
+  if (answers.giftWrap === "yes") parts.push("— beautifully gift-wrapped");
+
+  const sentence = parts.join(" ").replace(/\s+/g, " ").trim() + ".";
+  return sentence.charAt(0).toUpperCase() + sentence.slice(1);
+}
+
 interface RecommendedProduct {
   product_id: string;
   name: string;
@@ -534,22 +597,7 @@ export default function QuizPage() {
       const rec = await fetchFamilyResults();
       setRecommendation(rec);
 
-      const { data: storyData } = await supabase.rpc("generate_quiz_story", {
-        p_shopper_type: isDadPath ? "dad" : (answers.shopper || "self"),
-        p_budget_tier: answers.budget || "standard",
-        p_gender: answers.gender || "neutral",
-        p_multiples: parseInt(answers.multiples || "1"),
-        p_delivery_method: answers.deliveryMethod || "vaginal",
-        p_hospital_type: answers.hospitalType || "public",
-        p_first_baby: answers.firstBaby === "yes",
-        p_gift_relationship: answers.giftRelationship || null,
-        p_gift_occasion: answers.giftOccasion || null,
-        p_gift_wrap: answers.giftWrap === "yes",
-        p_product_count: rec.product_count,
-        p_stage: answers.stage || answers.wifeStage || answers.giftAge || "expecting",
-        p_scope: answers.scope || "hospital-bag",
-      });
-      setStory((storyData as string) || "Your personalised bundle is ready!");
+      setStory(buildQuizStory(answers, { isDadPath, dadPurpose, productCount: rec.product_count }));
 
       await completeQuizSession(answers, rec.product_count, rec.budget_tier);
     } catch (err) {
@@ -576,22 +624,7 @@ export default function QuizPage() {
       const rec = await fetchFamilyResults();
       setRecommendation(rec);
 
-      const { data: storyData } = await supabase.rpc("generate_quiz_story", {
-        p_shopper_type: "dad",
-        p_budget_tier: answers.budget || "standard",
-        p_gender: answers.gender || "neutral",
-        p_multiples: parseInt(answers.multiples || "1"),
-        p_delivery_method: answers.deliveryMethod || "vaginal",
-        p_hospital_type: answers.hospitalType || "public",
-        p_first_baby: answers.firstBaby === "yes",
-        p_gift_relationship: null,
-        p_gift_occasion: null,
-        p_gift_wrap: false,
-        p_product_count: rec.product_count,
-        p_stage: answers.stage || answers.wifeStage || "expecting",
-        p_scope: answers.scope || "hospital-bag",
-      });
-      setStory((storyData as string) || "Your personalised bundle is ready!");
+      setStory(buildQuizStory(answers, { isDadPath: true, dadPurpose, productCount: rec.product_count }));
       await completeQuizSession(answers, rec.product_count, rec.budget_tier);
     } catch (err) {
       console.error("Family recommendation error:", err);
@@ -599,7 +632,7 @@ export default function QuizPage() {
     }
     setShowResults(true);
     setLoadingResults(false);
-  }, [answers, fetchFamilyResults]);
+  }, [answers, fetchFamilyResults, dadPurpose]);
 
   // ========= ANSWER HANDLER (fully DB-driven) =========
   const handleAnswer = useCallback((stepId: string, optionId: string) => {
