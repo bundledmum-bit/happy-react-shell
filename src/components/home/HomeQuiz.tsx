@@ -5,7 +5,7 @@ import { Baby, ShoppingBag, Gift, Check, Share2, ClipboardCopy } from "lucide-re
 import { toast } from "sonner";
 import { useCart, fmt } from "@/lib/cart";
 import type { Brand, Product } from "@/lib/supabaseAdapters";
-import { useAllProducts } from "@/hooks/useSupabaseData";
+import { useAllProducts, useSiteSettings } from "@/hooks/useSupabaseData";
 import { useQuizQuestions } from "@/hooks/useQuizConfig";
 import { supabase } from "@/integrations/supabase/client";
 import OptionalTextStep from "@/components/quiz/OptionalTextStep";
@@ -20,8 +20,23 @@ type Screen = "quiz" | "whatsapp" | "results";
 type Category = "maternity" | "baby" | "gift";
 type Gender = "boy" | "girl" | "unknown";
 
-const MIN_BUDGET = 80_000;
+// Fallback defaults — overridden by site_settings (see QuizScreen).
+// Keeping the constants here so tests / SSR / first render before settings
+// load still behaves sensibly.
+const MIN_BUDGET_FALLBACK = 80_000;
 const DEFAULT_BUDGET = 150_000;
+
+// Safe parser for admin-edited site_settings string values.
+function unwrapSetting(v: any): string {
+  if (v === null || v === undefined) return "";
+  if (typeof v === "string") return v;
+  return String(v);
+}
+function unwrapInt(v: any, fallback: number): number {
+  const s = unwrapSetting(v);
+  const n = parseInt(s, 10);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
 
 function budgetTierFor(amount: number): "starter" | "standard" | "premium" {
   if (amount < 200_000) return "starter";
@@ -74,6 +89,19 @@ function QuizScreen({
   onNext: () => void;
 }) {
   const [snapFlash, setSnapFlash] = useState(0);
+  const { data: settings } = useSiteSettings();
+
+  // All content and min-budget driven by site_settings, with hardcoded
+  // fallbacks matching the seeded defaults so the UI never renders empty.
+  const s = (key: string, fallback: string) => unwrapSetting(settings?.[key]) || fallback;
+  const minBudget = unwrapInt(settings?.quiz_min_budget, MIN_BUDGET_FALLBACK);
+
+  const labelBudget = s("quiz_label_budget", "WHAT IS YOUR BUDGET?");
+  const labelCategories = s("quiz_label_what_you_need", "WHAT DO YOU NEED?");
+  const labelCategoriesHint = s("quiz_label_what_you_need_hint", "(you can select both Maternity List + Baby Things)");
+  const labelGender = s("quiz_label_gender", "BABY'S GENDER");
+  const ctaLabel = s("quiz_cta_label", "Build My List");
+
   const toggleCategory = (c: Category) => {
     const next = new Set(categories);
     if (c === "gift") {
@@ -96,21 +124,22 @@ function QuizScreen({
     setCategories(next);
   };
 
-  const canSubmit = categories.size > 0 && !!gender && budget >= MIN_BUDGET;
+  const canSubmit = categories.size > 0 && !!gender && budget >= minBudget;
 
   const categoryCards = [
-    { id: "maternity" as const, title: "Maternity List", sub: "Hospital bag — mum and baby", Icon: ShoppingBag },
-    { id: "baby" as const, title: "Baby Things", sub: "For when you get home", Icon: Baby },
-    { id: "gift" as const, title: "Gifts for New Parents", sub: "Visiting or sending a gift", Icon: Gift },
+    { id: "maternity" as const, title: s("quiz_category_maternity_title", "Maternity List"), sub: s("quiz_category_maternity_sub", "Hospital bag — mum and baby"), Icon: ShoppingBag },
+    { id: "baby" as const, title: s("quiz_category_baby_title", "Baby Things"), sub: s("quiz_category_baby_sub", "For when you get home"), Icon: Baby },
+    { id: "gift" as const, title: s("quiz_category_gift_title", "Gifts for New Parents"), sub: s("quiz_category_gift_sub", "Visiting or sending a gift"), Icon: Gift },
   ];
 
   const genderCards = [
-    { id: "boy" as const, title: "Baby Boy", sub: "Blue & navy tones", emoji: "👦" },
-    { id: "girl" as const, title: "Baby Girl", sub: "Pink & lilac tones", emoji: "👧" },
-    { id: "unknown" as const, title: "It's a Surprise!", sub: "Neutral & unisex", emoji: "🎁" },
+    { id: "boy" as const, title: s("quiz_gender_boy_title", "Baby Boy"), sub: s("quiz_gender_boy_sub", "Blue & navy tones"), emoji: "👦" },
+    { id: "girl" as const, title: s("quiz_gender_girl_title", "Baby Girl"), sub: s("quiz_gender_girl_sub", "Pink & lilac tones"), emoji: "👧" },
+    { id: "unknown" as const, title: s("quiz_gender_surprise_title", "It's a Surprise!"), sub: s("quiz_gender_surprise_sub", "Neutral & unisex"), emoji: "🎁" },
   ];
 
-  const belowMin = budget < MIN_BUDGET;
+  const belowMin = budget < minBudget;
+  const minBudgetDisplay = `Minimum ₦${minBudget.toLocaleString("en-NG")}`;
 
   return (
     <div className="w-full max-w-[480px] mx-auto">
@@ -126,7 +155,7 @@ function QuizScreen({
 
       {/* QUESTION 1 — Budget */}
       <div className="bg-primary-foreground/[0.06] backdrop-blur-sm border border-primary-foreground/10 rounded-[18px] p-4 md:p-5 mb-3">
-        <label className="text-primary-foreground/60 text-[10px] font-semibold uppercase tracking-[2px] mb-2 block text-center">WHAT IS YOUR BUDGET?</label>
+        <label className="text-primary-foreground/80 text-[12px] md:text-[13px] font-bold uppercase tracking-[2.5px] mb-2 block text-center">{labelBudget}</label>
         <div className="relative">
           <span className="absolute left-5 top-1/2 -translate-y-1/2 pf text-coral text-[26px] md:text-[30px] font-bold pointer-events-none leading-none">₦</span>
           <input
@@ -140,8 +169,8 @@ function QuizScreen({
               setBudget(n);
             }}
             onBlur={() => {
-              if (budget > 0 && budget < MIN_BUDGET) {
-                setBudget(MIN_BUDGET);
+              if (budget > 0 && budget < minBudget) {
+                setBudget(minBudget);
                 setSnapFlash(x => x + 1);
               }
             }}
@@ -154,13 +183,18 @@ function QuizScreen({
           key={snapFlash}
           className={`text-[12px] mt-1.5 font-body font-bold text-center ${snapFlash > 0 ? "bm-min-flash text-coral" : belowMin ? "text-coral" : "text-primary-foreground/70"}`}
         >
-          Minimum ₦80,000
+          {minBudgetDisplay}
         </div>
       </div>
 
       {/* QUESTION 2 — What do you need? */}
       <div className="mb-3">
-        <div className="text-primary-foreground/60 text-[10px] font-semibold uppercase tracking-[2px] mb-1.5 px-1">WHAT DO YOU NEED?</div>
+        <div className="mb-1.5 px-1">
+          <span className="text-primary-foreground/80 text-[12px] md:text-[13px] font-bold uppercase tracking-[2.5px]">{labelCategories}</span>
+          {labelCategoriesHint && (
+            <span className="text-primary-foreground/55 text-[11px] md:text-[12px] font-normal normal-case tracking-normal ml-1.5 italic">{labelCategoriesHint}</span>
+          )}
+        </div>
         <div className="space-y-1.5">
           {categoryCards.map(c => {
             const selected = categories.has(c.id);
@@ -194,7 +228,7 @@ function QuizScreen({
 
       {/* QUESTION 3 — Baby's Gender */}
       <div className="mb-4">
-        <div className="text-primary-foreground/60 text-[10px] font-semibold uppercase tracking-[2px] mb-1.5 px-1">BABY'S GENDER</div>
+        <div className="text-primary-foreground/80 text-[12px] md:text-[13px] font-bold uppercase tracking-[2.5px] mb-1.5 px-1">{labelGender}</div>
         <div className="space-y-1.5">
           {genderCards.map(g => {
             const selected = gender === g.id;
@@ -231,7 +265,7 @@ function QuizScreen({
         className="w-full rounded-pill py-3.5 text-[16px] font-body font-bold text-primary-foreground transition-all disabled:opacity-40 disabled:cursor-not-allowed"
         style={{ background: "#F4845F" }}
       >
-        Build My List →
+        {ctaLabel} →
       </button>
     </div>
   );

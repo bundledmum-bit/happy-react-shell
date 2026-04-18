@@ -10,12 +10,13 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Loader2, Play, Save, Trash2, Plus, GripVertical, ChevronDown, ChevronRight, Download } from "lucide-react";
+import { Loader2, Play, Save, Trash2, Plus, GripVertical, ChevronDown, ChevronRight, Download, AlertTriangle } from "lucide-react";
 import ReactFlow, {
   Background, Controls, MiniMap, MarkerType,
   type Node, type Edge,
 } from "reactflow";
 import "reactflow/dist/style.css";
+import QuizContentEditor from "@/components/admin/QuizContentEditor";
 
 // ========= FLOWCHART TAB =========
 
@@ -566,35 +567,80 @@ function TargetCountsEditor({ counts, onRefresh }: { counts: QuizTargetCount[]; 
   );
 }
 
+// Category → scope / stage / is_gift mapping — byte-identical to HomeQuiz.
+// Keeping this helper local so the tester stays self-contained.
+function mapCategoriesToRpc(categories: Set<"maternity" | "baby" | "gift">): {
+  scope: "hospital-bag" | "general-baby-prep" | "hospital-bag+general";
+  stage: "expecting" | "newborn";
+  isGift: boolean;
+} {
+  const isGift = categories.has("gift");
+  let scope: "hospital-bag" | "general-baby-prep" | "hospital-bag+general";
+  let stage: "expecting" | "newborn";
+  if (isGift) { scope = "hospital-bag+general"; stage = "newborn"; }
+  else if (categories.has("maternity") && categories.has("baby")) { scope = "hospital-bag+general"; stage = "expecting"; }
+  else if (categories.has("maternity")) { scope = "hospital-bag"; stage = "expecting"; }
+  else { scope = "general-baby-prep"; stage = "newborn"; }
+  return { scope, stage, isGift };
+}
+
+const BUDGET_TIERS = [
+  { value: "starter", label: "Starter", range: "₦80,000 – ₦199,999" },
+  { value: "standard", label: "Standard", range: "₦200,000 – ₦749,999" },
+  { value: "premium", label: "Premium", range: "₦750,000 and above" },
+];
+
 function EngineTestPanel() {
+  const [categories, setCategories] = useState<Set<"maternity" | "baby" | "gift">>(new Set(["maternity", "baby"]));
   const [params, setParams] = useState({
     p_budget_tier: "standard",
-    p_scope: "hospital-bag+general",
-    p_stage: "expecting",
-    p_hospital_type: "both",
-    p_delivery_method: "both",
+    p_scope: "hospital-bag+general" as "hospital-bag" | "general-baby-prep" | "hospital-bag+general",
+    p_stage: "expecting" as "expecting" | "newborn" | "0-3m" | "3-6m" | "6-12m",
+    p_hospital_type: "public",
+    p_delivery_method: "vaginal",
     p_multiples: 1,
     p_gender: "neutral",
     p_first_baby: false,
-    p_shopper_type: "self",
-    p_gift_for: "",
-  });
-  const [pushParams, setPushParams] = useState({
-    p_budget_tier: "push-standard",
-    p_category: "pampering",
-    p_timing: "when-we-come-home",
+    p_is_gift: false,
   });
   const [result, setResult] = useState<any>(null);
-  const [pushResult, setPushResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [pushLoading, setPushLoading] = useState(false);
+
+  const toggleCategory = (c: "maternity" | "baby" | "gift") => {
+    const next = new Set(categories);
+    if (c === "gift") {
+      if (next.has("gift")) return;
+      next.clear();
+      next.add("gift");
+    } else {
+      if (next.has("gift")) next.delete("gift");
+      if (next.has(c)) {
+        if (next.size === 1) return;
+        next.delete(c);
+      } else {
+        next.add(c);
+      }
+    }
+    setCategories(next);
+    // Auto-fill scope / stage / is_gift from the category choice
+    const mapped = mapCategoriesToRpc(next);
+    setParams(p => ({ ...p, p_scope: mapped.scope, p_stage: mapped.stage, p_is_gift: mapped.isGift }));
+  };
 
   const runTest = async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase.rpc("run_quiz_recommendation", {
-        ...params,
-        p_gift_for: params.p_gift_for || null,
+        p_budget_tier: params.p_budget_tier,
+        p_scope: params.p_scope,
+        p_stage: params.p_stage,
+        p_hospital_type: params.p_hospital_type,
+        p_delivery_method: params.p_delivery_method,
+        p_multiples: params.p_multiples,
+        p_gender: params.p_gender,
+        p_first_baby: params.p_first_baby,
+        p_is_gift: params.p_is_gift,
+        p_gift_relationship: null,
       });
       if (error) throw error;
       setResult(data);
@@ -605,63 +651,103 @@ function EngineTestPanel() {
     setLoading(false);
   };
 
-  const runPushTest = async () => {
-    setPushLoading(true);
-    try {
-      const { data, error } = await supabase.rpc("run_push_gift_recommendation", {
-        p_budget_tier: pushParams.p_budget_tier,
-        p_category: pushParams.p_category,
-        p_timing: pushParams.p_timing,
-      });
-      if (error) throw error;
-      setPushResult(data);
-      toast.success("Push gift test completed");
-    } catch (err: any) {
-      toast.error(err.message || "Engine error");
-    }
-    setPushLoading(false);
-  };
-
   return (
     <div className="space-y-6">
       <div className="space-y-4">
-        <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Family Bundle Tester</h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {[
-            { key: "p_budget_tier", label: "Budget Tier", options: ["starter", "standard", "premium"] },
-            { key: "p_scope", label: "Scope", options: ["hospital-bag", "hospital-bag+general", "general-baby-prep"] },
-            { key: "p_stage", label: "Stage", options: ["expecting", "newborn", "0-3m", "3-6m", "6-12m"] },
-            { key: "p_hospital_type", label: "Hospital Type", options: ["public", "private", "both"] },
-            { key: "p_delivery_method", label: "Delivery Method", options: ["vaginal", "csection", "both"] },
-            { key: "p_gender", label: "Gender", options: ["boy", "girl", "neutral", "mixed"] },
-            { key: "p_shopper_type", label: "Shopper Type", options: ["self", "gift", "dad"] },
-          ].map(field => (
-            <div key={field.key}>
-              <label className="text-[11px] font-semibold text-muted-foreground">{field.label}</label>
-              <select
-                value={(params as any)[field.key]}
-                onChange={e => setParams(p => ({ ...p, [field.key]: e.target.value }))}
-                className="w-full border rounded px-2 py-1.5 text-sm bg-background"
-              >
-                {field.options.map(o => <option key={o}>{o}</option>)}
-              </select>
-            </div>
-          ))}
-          <div>
-            <label className="text-[11px] font-semibold text-muted-foreground">Multiples</label>
-            <Input type="number" value={params.p_multiples} onChange={e => setParams(p => ({ ...p, p_multiples: Number(e.target.value) || 1 }))} />
+        <div>
+          <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground mb-1">Engine Tester</h3>
+          <p className="text-xs text-muted-foreground">Simulates the home-quiz RPC call end-to-end. Category selection auto-fills scope, stage and is-gift just like on the storefront.</p>
+        </div>
+
+        {/* Category chip-picker — mirrors HomeQuiz */}
+        <div>
+          <label className="text-[11px] font-semibold text-muted-foreground block mb-1.5">Categories selected</label>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { id: "maternity" as const, label: "Maternity List" },
+              { id: "baby" as const, label: "Baby Things" },
+              { id: "gift" as const, label: "Gifts for New Parents" },
+            ].map(c => {
+              const selected = categories.has(c.id);
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => toggleCategory(c.id)}
+                  className={`px-3 py-1.5 rounded-pill text-xs font-semibold border-2 transition-all ${selected ? "bg-coral/10 border-coral text-coral" : "border-border text-muted-foreground hover:border-coral/40"}`}
+                >
+                  {c.label}
+                </button>
+              );
+            })}
           </div>
-          <div>
-            <label className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground mt-5">
-              <Switch checked={params.p_first_baby} onCheckedChange={v => setParams(p => ({ ...p, p_first_baby: v }))} />
-              First Baby
-            </label>
+          <p className="text-[10px] text-muted-foreground mt-1.5">
+            Auto-mapped → scope: <span className="font-mono">{params.p_scope}</span>, stage: <span className="font-mono">{params.p_stage}</span>, is_gift: <span className="font-mono">{String(params.p_is_gift)}</span>
+          </p>
+        </div>
+
+        {/* Budget tier */}
+        <div>
+          <label className="text-[11px] font-semibold text-muted-foreground block mb-1.5">Budget Tier</label>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            {BUDGET_TIERS.map(t => (
+              <button
+                key={t.value}
+                onClick={() => setParams(p => ({ ...p, p_budget_tier: t.value }))}
+                className={`text-left px-3 py-2 rounded-lg border-2 transition-all ${params.p_budget_tier === t.value ? "bg-coral/10 border-coral" : "border-border hover:border-coral/40"}`}
+              >
+                <div className="text-sm font-semibold">{t.label}</div>
+                <div className="text-[10px] text-muted-foreground font-mono">{t.range}</div>
+              </button>
+            ))}
           </div>
         </div>
+
+        {/* Other fields — overridable advanced knobs */}
+        <details className="border border-border rounded-lg p-3">
+          <summary className="text-xs font-semibold cursor-pointer text-muted-foreground">Advanced overrides (scope, stage, hospital, delivery, gender, multiples, first baby, is-gift)</summary>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3">
+            {[
+              { key: "p_scope", label: "Scope", options: ["hospital-bag", "hospital-bag+general", "general-baby-prep"] },
+              { key: "p_stage", label: "Stage", options: ["expecting", "newborn", "0-3m", "3-6m", "6-12m"] },
+              { key: "p_hospital_type", label: "Hospital Type", options: ["public", "private", "both"] },
+              { key: "p_delivery_method", label: "Delivery Method", options: ["vaginal", "csection", "both"] },
+              { key: "p_gender", label: "Gender", options: ["boy", "girl", "neutral", "unknown", "mixed"] },
+            ].map(field => (
+              <div key={field.key}>
+                <label className="text-[11px] font-semibold text-muted-foreground">{field.label}</label>
+                <select
+                  value={(params as any)[field.key]}
+                  onChange={e => setParams(p => ({ ...p, [field.key]: e.target.value }))}
+                  className="w-full border rounded px-2 py-1.5 text-sm bg-background"
+                >
+                  {field.options.map(o => <option key={o}>{o}</option>)}
+                </select>
+              </div>
+            ))}
+            <div>
+              <label className="text-[11px] font-semibold text-muted-foreground">Multiples</label>
+              <Input type="number" value={params.p_multiples} onChange={e => setParams(p => ({ ...p, p_multiples: Number(e.target.value) || 1 }))} />
+            </div>
+            <div>
+              <label className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground mt-5">
+                <Switch checked={params.p_first_baby} onCheckedChange={v => setParams(p => ({ ...p, p_first_baby: v }))} />
+                First Baby
+              </label>
+            </div>
+            <div>
+              <label className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground mt-5">
+                <Switch checked={params.p_is_gift} onCheckedChange={v => setParams(p => ({ ...p, p_is_gift: v }))} />
+                Is Gift
+              </label>
+            </div>
+          </div>
+        </details>
+
         <Button onClick={runTest} disabled={loading}>
           {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Play className="w-4 h-4 mr-2" />}
           Run Test
         </Button>
+
         {result && (
           <div className="space-y-4">
             <div className="grid grid-cols-3 gap-3">
@@ -692,51 +778,6 @@ function EngineTestPanel() {
             <details>
               <summary className="text-xs text-muted-foreground cursor-pointer">Raw JSON</summary>
               <pre className="mt-2 bg-muted rounded-lg p-3 text-[10px] overflow-auto max-h-80">{JSON.stringify(result, null, 2)}</pre>
-            </details>
-          </div>
-        )}
-      </div>
-
-      <div className="border-t border-border pt-6 space-y-4">
-        <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Push Gift Tester</h3>
-        <div className="grid grid-cols-3 gap-3">
-          <div>
-            <label className="text-[11px] font-semibold text-muted-foreground">Budget</label>
-            <select value={pushParams.p_budget_tier} onChange={e => setPushParams(p => ({ ...p, p_budget_tier: e.target.value }))} className="w-full border rounded px-2 py-1.5 text-sm bg-background">
-              {["push-starter", "push-standard", "push-premium"].map(o => <option key={o}>{o}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-[11px] font-semibold text-muted-foreground">Category</label>
-            <select value={pushParams.p_category} onChange={e => setPushParams(p => ({ ...p, p_category: e.target.value }))} className="w-full border rounded px-2 py-1.5 text-sm bg-background">
-              {["jewellery", "pampering", "keepsake", "experience", "spoil-her-bundle"].map(o => <option key={o}>{o}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-[11px] font-semibold text-muted-foreground">Timing</label>
-            <select value={pushParams.p_timing} onChange={e => setPushParams(p => ({ ...p, p_timing: e.target.value }))} className="w-full border rounded px-2 py-1.5 text-sm bg-background">
-              {["during-labour", "when-we-come-home", "weeks-after", "no-specific-time"].map(o => <option key={o}>{o}</option>)}
-            </select>
-          </div>
-        </div>
-        <Button onClick={runPushTest} disabled={pushLoading}>
-          {pushLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Play className="w-4 h-4 mr-2" />}
-          Test Push Gift
-        </Button>
-        {pushResult && (
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {(pushResult.products || pushResult || []).map((p: any) => (
-                <div key={p.product_id} className="border rounded-lg p-2 text-xs">
-                  <div className="font-semibold">{p.name}</div>
-                  <div className="text-muted-foreground">{p.brand?.brand_name} · ₦{p.brand?.price?.toLocaleString()}</div>
-                  <div className="text-muted-foreground">{p.priority} · qty: {p.quantity}</div>
-                </div>
-              ))}
-            </div>
-            <details>
-              <summary className="text-xs text-muted-foreground cursor-pointer">Raw JSON</summary>
-              <pre className="mt-2 bg-muted rounded-lg p-3 text-[10px] overflow-auto max-h-80">{JSON.stringify(pushResult, null, 2)}</pre>
             </details>
           </div>
         )}
@@ -785,33 +826,45 @@ export default function AdminQuizEngine() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Quiz Engine</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Manage quiz flow, routing rules, and test the recommendation engine. All changes sync to the live quiz in real-time.
+          Admin controls for the home-page quiz flow. Saves push live — no deploy needed.
         </p>
       </div>
 
-      <Tabs defaultValue={isSuperAdmin ? "flowchart" : "config"}>
+      <Tabs defaultValue="content">
         <TabsList>
-          {isSuperAdmin && <TabsTrigger value="flowchart">Flowchart</TabsTrigger>}
-          <TabsTrigger value="config">Config Editor</TabsTrigger>
+          <TabsTrigger value="content">Quiz Content</TabsTrigger>
+          <TabsTrigger value="tuning">Product Tuning</TabsTrigger>
           {isSuperAdmin && <TabsTrigger value="tester">Engine Tester</TabsTrigger>}
+          {isSuperAdmin && <TabsTrigger value="flowchart">Legacy Flowchart</TabsTrigger>}
         </TabsList>
 
-        {isSuperAdmin && (
-          <TabsContent value="flowchart">
-            <QuizFlowchart questions={questions} routingRules={routingRules} />
-          </TabsContent>
-        )}
+        <TabsContent value="content">
+          <QuizContentEditor />
+        </TabsContent>
 
-        <TabsContent value="config" className="space-y-8">
-          <QuestionsEditor questions={[...questions]} onRefresh={onRefresh} />
-          <RoutingRulesEditor rules={[...routingRules]} questions={questions} onRefresh={onRefresh} />
-          <AdjustmentRulesEditor rules={[...adjustmentRules]} onRefresh={onRefresh} />
+        <TabsContent value="tuning" className="space-y-8">
           <TargetCountsEditor counts={[...targetCounts]} onRefresh={onRefresh} />
+          <AdjustmentRulesEditor rules={[...adjustmentRules]} onRefresh={onRefresh} />
         </TabsContent>
 
         {isSuperAdmin && (
           <TabsContent value="tester" className="space-y-8">
             <EngineTestPanel />
+          </TabsContent>
+        )}
+
+        {isSuperAdmin && (
+          <TabsContent value="flowchart" className="space-y-4">
+            <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <div className="text-sm font-bold text-amber-900">Legacy — not the active quiz flow</div>
+                <p className="text-xs text-amber-800 mt-1">
+                  This flowchart shows the old DB-driven multi-step quiz that is no longer surfaced to users. The home page now uses a single-screen widget defined entirely in the frontend. Kept here for reference; edits to these rules do not affect the live quiz.
+                </p>
+              </div>
+            </div>
+            <QuizFlowchart questions={questions} routingRules={routingRules} />
           </TabsContent>
         )}
       </Tabs>
