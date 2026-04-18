@@ -487,7 +487,7 @@ function ResultsScreen({
   // Convenience Extras = priority='nice-to-have' (not in hospital) — the
   //   ranked "extras" the RPC pulls in at higher budgets.
   // Baby/Mum Essentials = category buckets filtered to essential/recommended.
-  const HOSPITAL_SUBCATEGORIES = new Set(["hospital-essentials", "nappies-wipes"]);
+  const HOSPITAL_SUBCATEGORIES = new Set(["delivery-consumables", "nappies-wipes"]);
   const subcatOf = (pid: string) => productMap.get(pid)?.subcategory || "";
   const isHospital = (r: RecommendedProduct) => HOSPITAL_SUBCATEGORIES.has(subcatOf(r.product_id));
   const isNice = (r: RecommendedProduct) => r.priority === "nice-to-have";
@@ -503,12 +503,13 @@ function ResultsScreen({
   const isFallback = recommendation.engine_version?.includes("fallback");
 
   const recScope = recommendation.scope || answers.scope || "";
+  const amount = `₦${budget.toLocaleString("en-NG")}`;
   let heading: string;
-  if (isGift) heading = `A ₦${budget.toLocaleString("en-NG")} gift bundle for the new parents`;
-  else if (recScope === "hospital-bag") heading = "Your Perfect Hospital Bag 🏥";
-  else if (recScope === "general-baby-prep") heading = "Your Baby Prep Bundle 👶";
-  else if (recScope === "hospital-bag+general") heading = "Your Hospital Bag & Baby Prep Bundle";
-  else heading = "Your Perfect Bundle";
+  if (isGift) heading = `A ${amount} gift bundle for the new parents`;
+  else if (recScope === "hospital-bag") heading = `Your ${amount} maternity list`;
+  else if (recScope === "general-baby-prep") heading = `Your ${amount} baby list`;
+  else if (recScope === "hospital-bag+general") heading = `Your ${amount} maternity and baby list`;
+  else heading = `Your ${amount} bundle`;
 
   const subHeading = buildQuizStory(answers, { isDadPath: false, dadPurpose: "", productCount: results.length });
 
@@ -566,9 +567,9 @@ function ResultsScreen({
               </>
             ) : (
               <>
-                {babyItems.length > 0 && <><span>👶 {babyItems.length} baby essentials</span><span>·</span></>}
                 {mumItems.length > 0 && <><span>💛 {mumItems.length} mum essentials</span><span>·</span></>}
                 {hospitalItems.length > 0 && <><span>🏥 {hospitalItems.length} hospital consumables</span><span>·</span></>}
+                {babyItems.length > 0 && <><span>👶 {babyItems.length} baby essentials</span><span>·</span></>}
                 {extrasItems.length > 0 && <><span>✨ {extrasItems.length} convenience extras</span><span>·</span></>}
               </>
             )}
@@ -624,30 +625,6 @@ function ResultsScreen({
             </div>
           </div>
         )}
-        {babyItems.length > 0 && (
-          <div className="mb-10">
-            <h2 className="pf text-lg md:text-xl text-forest mb-4">👶 Baby Essentials</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
-              {babyItems.map(item => (
-                <ResultProductCard
-                  key={item.product_id}
-                  item={item}
-                  isInCart={addedIds.has(item.product_id)}
-                  cartItem={cart.find(c => c.id === item.product_id)}
-                  onQtyUpdate={(key, qty) => {
-                    const c = cart.find(x => x._key === key);
-                    if (!c) return;
-                    setCart(prev => prev.map(x => x._key === key ? { ...x, qty } : x));
-                  }}
-                  onAdd={(brand, size) => handleAddProduct(item, brand, size)}
-                  onRemove={() => handleRemoveProduct(item)}
-                  fullProduct={productMap.get(item.product_id)}
-                  onViewDetail={() => { const fp = productMap.get(item.product_id); if (fp) setDetailProduct(fp); }}
-                />
-              ))}
-            </div>
-          </div>
-        )}
         {mumItems.length > 0 && (
           <div className="mb-10">
             <h2 className="pf text-lg md:text-xl text-forest mb-4">💛 Mum Essentials</h2>
@@ -677,6 +654,30 @@ function ResultsScreen({
             <h2 className="pf text-lg md:text-xl text-forest mb-4">🏥 Hospital Consumables</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
               {hospitalItems.map(item => (
+                <ResultProductCard
+                  key={item.product_id}
+                  item={item}
+                  isInCart={addedIds.has(item.product_id)}
+                  cartItem={cart.find(c => c.id === item.product_id)}
+                  onQtyUpdate={(key, qty) => {
+                    const c = cart.find(x => x._key === key);
+                    if (!c) return;
+                    setCart(prev => prev.map(x => x._key === key ? { ...x, qty } : x));
+                  }}
+                  onAdd={(brand, size) => handleAddProduct(item, brand, size)}
+                  onRemove={() => handleRemoveProduct(item)}
+                  fullProduct={productMap.get(item.product_id)}
+                  onViewDetail={() => { const fp = productMap.get(item.product_id); if (fp) setDetailProduct(fp); }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+        {babyItems.length > 0 && (
+          <div className="mb-10">
+            <h2 className="pf text-lg md:text-xl text-forest mb-4">👶 Baby Essentials</h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
+              {babyItems.map(item => (
                 <ResultProductCard
                   key={item.product_id}
                   item={item}
