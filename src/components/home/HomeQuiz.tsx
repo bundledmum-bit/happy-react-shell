@@ -621,8 +621,13 @@ function ResultsScreen({
             <button onClick={handleAddAll} className="hidden sm:inline-flex rounded-pill bg-coral px-8 py-3 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-[15px]">
               {isGift ? "🎁 Get Gift Bundle" : "Proceed to Checkout"} — {fmt(recommendationTotal)} →
             </button>
-            <button onClick={handleAddAll} className="rounded-pill border-2 border-primary-foreground/30 px-6 py-3 font-body font-semibold text-primary-foreground/80 hover:bg-primary-foreground/10 interactive text-sm sm:text-[15px] w-full sm:w-auto">
+            {/* Mobile: second Proceed to Checkout (replaces Retake Quiz) */}
+            <button onClick={handleAddAll} className="sm:hidden rounded-pill border-2 border-primary-foreground/30 px-6 py-3 font-body font-semibold text-primary-foreground/80 hover:bg-primary-foreground/10 interactive text-sm w-full">
               Proceed to Checkout — {fmt(recommendationTotal)} →
+            </button>
+            {/* Desktop: Retake Quiz — unchanged */}
+            <button onClick={onBack} className="hidden sm:inline-flex rounded-pill border-2 border-primary-foreground/30 px-6 py-3 font-body font-semibold text-primary-foreground/80 hover:bg-primary-foreground/10 interactive text-[15px]">
+              ← Retake Quiz
             </button>
           </div>
 
