@@ -157,16 +157,17 @@ function QuizScreen({
       `}</style>
 
       {/* QUESTION 1 — Budget */}
-      <div className="bg-primary-foreground/[0.06] backdrop-blur-sm border border-primary-foreground/10 rounded-[18px] p-4 md:p-5 mb-3">
-        <label className="text-primary-foreground/80 text-[12px] md:text-[13px] font-bold uppercase tracking-[2.5px] mb-2 block text-center">{labelBudget}</label>
+      <div className="bg-coral rounded-[18px] p-4 md:p-5 mb-3">
+        <label className="text-white text-[12px] md:text-[13px] font-bold uppercase tracking-[2.5px] mb-2 block text-center">{labelBudget}</label>
         <div className="relative">
           {budget > 0 && (
-            <span className="absolute left-5 top-1/2 -translate-y-1/2 pf text-coral text-[26px] md:text-[30px] font-bold pointer-events-none leading-none">₦</span>
+            <span className="absolute left-5 top-1/2 -translate-y-1/2 pf text-white text-[26px] md:text-[30px] font-bold pointer-events-none leading-none">₦</span>
           )}
           <input
             type="text"
             inputMode="numeric"
             autoComplete="off"
+            autoFocus
             value={budget ? budget.toLocaleString("en-NG") : ""}
             onChange={e => {
               const digits = e.target.value.replace(/\D/g, "");
@@ -181,12 +182,12 @@ function QuizScreen({
             }}
             placeholder="Type Your Budget Here"
             aria-label="Budget"
-            className={`w-full ${budget > 0 ? "pl-12" : "pl-5"} pr-5 py-3 text-center bg-transparent border-2 rounded-[14px] pf text-coral text-[26px] md:text-[30px] font-bold tracking-tight outline-none transition-colors placeholder:text-coral placeholder:text-[16px] placeholder:font-semibold ${belowMin && budget > 0 ? "border-coral/60" : "border-primary-foreground/20 focus:border-coral"}`}
+            className={`w-full ${budget > 0 ? "pl-12" : "pl-5"} pr-5 py-3 text-center bg-transparent border-2 rounded-[14px] pf text-white text-[26px] md:text-[30px] font-bold tracking-tight outline-none transition-colors placeholder:text-white/80 placeholder:text-[16px] placeholder:font-semibold ${belowMin && budget > 0 ? "border-white" : "border-white/30 focus:border-white"}`}
           />
         </div>
         <div
           key={snapFlash}
-          className={`text-[12px] mt-1.5 font-body font-bold text-center ${snapFlash > 0 ? "bm-min-flash text-coral" : belowMin ? "text-coral" : "text-primary-foreground/70"}`}
+          className={`text-[12px] mt-1.5 font-body font-bold text-center text-white ${snapFlash > 0 ? "bm-min-flash" : ""}`}
         >
           {minBudgetDisplay}
         </div>

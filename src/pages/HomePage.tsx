@@ -29,11 +29,16 @@ function HeroSection() {
           )}
           {heroTitle && (
             <h1 className="pf animate-fade-up-2 text-[26px] md:text-[38px] font-bold text-primary-foreground leading-[1.15] mb-2.5">
-              {heroTitle.split(",").map((part: string, i: number) =>
-                i === heroTitle.split(",").length - 1
-                  ? <span key={i} className="text-coral italic">{part.trim()}</span>
-                  : <span key={i}>{part.trim()},<br /></span>
-              )}
+              {/* Mobile: show only the first comma-separated segment */}
+              <span className="md:hidden">{heroTitle.split(",")[0].trim()}</span>
+              {/* Desktop: full heading with last segment italic coral */}
+              <span className="hidden md:inline">
+                {heroTitle.split(",").map((part: string, i: number) =>
+                  i === heroTitle.split(",").length - 1
+                    ? <span key={i} className="text-coral italic">{part.trim()}</span>
+                    : <span key={i}>{part.trim()},<br /></span>
+                )}
+              </span>
             </h1>
           )}
           <p className="animate-fade-up-3 text-primary-foreground/70 text-[13px] md:text-[15px] leading-[1.65] mb-4 max-w-[480px] font-body">
