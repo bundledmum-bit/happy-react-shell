@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useCart, fmt, getBrandForBudget } from "@/lib/cart";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
@@ -11,6 +11,7 @@ import ShopShortcuts from "@/components/home/ShopShortcuts";
 
 function HeroSection() {
   const { data: settings } = useSiteSettings();
+  const navigate = useNavigate();
 
   const heroBadge = settings?.hero_badge || "";
   const heroTitle = settings?.hero_title || "";
@@ -29,8 +30,8 @@ function HeroSection() {
           )}
           {heroTitle && (
             <h1 className="pf animate-fade-up-2 text-[26px] md:text-[38px] font-bold text-primary-foreground leading-[1.15] mb-2.5">
-              {/* Mobile: show only the first comma-separated segment */}
-              <span className="md:hidden">{heroTitle.split(",")[0].trim()}</span>
+              {/* Mobile: show only the first comma-separated segment, with a full stop */}
+              <span className="md:hidden">{heroTitle.split(",")[0].trim()}.</span>
               {/* Desktop: full heading with last segment italic coral */}
               <span className="hidden md:inline">
                 {heroTitle.split(",").map((part: string, i: number) =>
@@ -55,7 +56,14 @@ function HeroSection() {
 
         {/* Embedded quiz — replaces the old static bundle card on both mobile + desktop */}
         <div className="animate-fade-up-3">
-          <HomeQuiz />
+          <HomeQuiz
+            onSubmit={(answers) => {
+              // On Home, advancing from screen 1 routes to /quiz with the
+              // answers seeded so the WhatsApp + Results screens render
+              // on the /quiz route instead of overlaying the home page.
+              navigate("/quiz", { state: { answers, autoAdvance: "whatsapp" } });
+            }}
+          />
         </div>
       </div>
     </section>

@@ -526,8 +526,11 @@ function ResultsScreen({
   const babyItems = isGift ? [] : results.filter(r => r.category === "baby" && !isHospital(r) && !isNice(r));
   const mumItems = isGift ? [] : results.filter(r => r.category === "mum" && !isHospital(r) && !isNice(r));
 
-  const totalValue = results.reduce((s, r) => s + (r.brand?.price || 0) * (r.quantity || 1), 0);
-  const grandTotal = totalValue;
+  // Recommendation total — reactive to the user's pre-add qty steppers.
+  // Uses each item's recommended brand price (brand switches inside a
+  // card don't affect this total).
+  const recommendationTotal = results.reduce((s, r) => s + (r.brand?.price || 0) * qtyFor(r), 0);
+  const grandTotal = recommendationTotal;
   const budgetLabel = answers.budget === "starter" ? "Starter" : answers.budget === "premium" ? "Premium" : "Standard";
   const multiples = 1;
   const isFallback = recommendation.engine_version?.includes("fallback");
@@ -593,7 +596,8 @@ function ResultsScreen({
             ))}
           </div>
 
-          <div className="flex flex-wrap gap-3 justify-center text-primary-foreground/60 text-xs mb-5">
+          {/* Item-count strip — hidden on mobile to reduce clutter */}
+          <div className="hidden md:flex flex-wrap gap-3 justify-center text-primary-foreground/60 text-xs mb-5">
             {isGift ? (
               <>
                 <span>🎁 {giftItems.length} gift items</span><span>·</span>
@@ -615,10 +619,10 @@ function ResultsScreen({
               👇 See Your Items Below
             </button>
             <button onClick={handleAddAll} className="hidden sm:inline-flex rounded-pill bg-coral px-8 py-3 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-[15px]">
-              {isGift ? "🎁 Get Gift Bundle" : "Proceed to Checkout"} — {fmt(grandTotal)} →
+              {isGift ? "🎁 Get Gift Bundle" : "Proceed to Checkout"} — {fmt(recommendationTotal)} →
             </button>
-            <button onClick={onBack} className="rounded-pill border-2 border-primary-foreground/30 px-6 py-3 font-body font-semibold text-primary-foreground/80 hover:bg-primary-foreground/10 interactive text-sm sm:text-[15px] w-full sm:w-auto">
-              ← Retake Quiz
+            <button onClick={handleAddAll} className="rounded-pill border-2 border-primary-foreground/30 px-6 py-3 font-body font-semibold text-primary-foreground/80 hover:bg-primary-foreground/10 interactive text-sm sm:text-[15px] w-full sm:w-auto">
+              Proceed to Checkout — {fmt(recommendationTotal)} →
             </button>
           </div>
 
@@ -636,7 +640,7 @@ function ResultsScreen({
       <div id="quiz-results-items" className="max-w-[1000px] mx-auto px-4 md:px-10 py-8 md:py-10">
         {giftItems.length > 0 && (
           <div className="mb-10">
-            <h2 className="pf text-lg md:text-xl text-forest mb-4">🎁 Gift Bundle for the New Parents</h2>
+            <h2 className="pf inline-block bg-coral text-white text-base md:text-lg font-bold px-4 py-2 rounded-pill mb-4">🎁 Gift Bundle for the New Parents</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
               {giftItems.map(item => (
                 <ResultProductCard
@@ -662,7 +666,7 @@ function ResultsScreen({
         )}
         {mumItems.length > 0 && (
           <div className="mb-10">
-            <h2 className="pf text-lg md:text-xl text-forest mb-4">💛 Mum Essentials</h2>
+            <h2 className="pf inline-block bg-coral text-white text-base md:text-lg font-bold px-4 py-2 rounded-pill mb-4">💛 Mum Essentials</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
               {mumItems.map(item => (
                 <ResultProductCard
@@ -688,7 +692,7 @@ function ResultsScreen({
         )}
         {hospitalItems.length > 0 && (
           <div className="mb-10">
-            <h2 className="pf text-lg md:text-xl text-forest mb-4">🏥 Hospital Consumables</h2>
+            <h2 className="pf inline-block bg-coral text-white text-base md:text-lg font-bold px-4 py-2 rounded-pill mb-4">🏥 Hospital Consumables</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
               {hospitalItems.map(item => (
                 <ResultProductCard
@@ -714,7 +718,7 @@ function ResultsScreen({
         )}
         {babyItems.length > 0 && (
           <div className="mb-10">
-            <h2 className="pf text-lg md:text-xl text-forest mb-4">👶 Baby Essentials</h2>
+            <h2 className="pf inline-block bg-coral text-white text-base md:text-lg font-bold px-4 py-2 rounded-pill mb-4">👶 Baby Essentials</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
               {babyItems.map(item => (
                 <ResultProductCard
@@ -740,7 +744,7 @@ function ResultsScreen({
         )}
         {extrasItems.length > 0 && (
           <div className="mb-10">
-            <h2 className="pf text-lg md:text-xl text-forest mb-4">✨ Convenience Extras</h2>
+            <h2 className="pf inline-block bg-coral text-white text-base md:text-lg font-bold px-4 py-2 rounded-pill mb-4">✨ Convenience Extras</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
               {extrasItems.map(item => (
                 <ResultProductCard
@@ -767,7 +771,7 @@ function ResultsScreen({
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center mb-8">
           <button onClick={handleAddAll} className="rounded-pill bg-coral px-8 py-3 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-sm sm:text-[15px]">
-            Proceed to Checkout — {fmt(grandTotal)}
+            Proceed to Checkout — {fmt(recommendationTotal)}
           </button>
           <Link to="/shop" className="rounded-pill border-2 border-forest px-8 py-3 font-body font-semibold text-forest hover:bg-forest hover:text-primary-foreground interactive text-sm sm:text-[15px] text-center">
             Browse for More Products
@@ -818,11 +822,28 @@ function ResultsScreen({
 // =============================================================================
 // Container — 3-screen state machine
 // =============================================================================
-export default function HomeQuiz() {
-  const [screen, setScreen] = useState<Screen>("quiz");
-  const [budget, setBudget] = useState<number>(DEFAULT_BUDGET);
-  const [categories, setCategories] = useState<Set<Category>>(new Set());
-  const [gender, setGender] = useState<Gender | null>(null);
+// Payload passed to onSubmit — lets the host page decide what to do when
+// the user finishes screen 1. /quiz embeds HomeQuiz and handles screens
+// 2 + 3 in-place; Home navigates to /quiz with these answers in location
+// state so the overlay mounts on the /quiz route instead.
+export type HomeQuizInitialState = {
+  budget: number;
+  categories: Category[];
+  gender: Gender;
+  autoAdvance?: Screen; // "whatsapp" | "results"
+};
+
+export default function HomeQuiz({
+  initialState,
+  onSubmit,
+}: {
+  initialState?: HomeQuizInitialState;
+  onSubmit?: (answers: { budget: number; categories: Category[]; gender: Gender }) => void;
+} = {}) {
+  const [screen, setScreen] = useState<Screen>(initialState?.autoAdvance || "quiz");
+  const [budget, setBudget] = useState<number>(initialState?.budget ?? DEFAULT_BUDGET);
+  const [categories, setCategories] = useState<Set<Category>>(new Set(initialState?.categories || []));
+  const [gender, setGender] = useState<Gender | null>(initialState?.gender || null);
   const [, setWhatsapp] = useState<string | null>(null);
 
   const { data: questions } = useQuizQuestions();
@@ -835,13 +856,23 @@ export default function HomeQuiz() {
     setScreen("results");
   };
 
+  const handleSubmitFromQuiz = () => {
+    if (onSubmit && gender) {
+      // Host-controlled: let the host page handle transition (e.g. Home
+      // routing to /quiz before showing WhatsApp).
+      onSubmit({ budget, categories: Array.from(categories), gender });
+      return;
+    }
+    setScreen("whatsapp");
+  };
+
   if (screen === "quiz") {
     return (
       <QuizScreen
         budget={budget} setBudget={setBudget}
         categories={categories} setCategories={setCategories}
         gender={gender} setGender={setGender}
-        onNext={() => setScreen("whatsapp")}
+        onNext={handleSubmitFromQuiz}
       />
     );
   }

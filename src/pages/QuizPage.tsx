@@ -1,12 +1,28 @@
 import { useEffect } from "react";
-import HomeQuiz from "@/components/home/HomeQuiz";
+import { useLocation } from "react-router-dom";
+import HomeQuiz, { type HomeQuizInitialState } from "@/components/home/HomeQuiz";
 
 // /quiz route — a standalone page that renders the same 3-screen home
-// quiz flow. Screen 1 (budget / categories / gender) sits on the brand
-// green hero. Screens 2 (WhatsApp) and 3 (results) portal to a full-screen
-// overlay, identical to the home embed.
+// quiz flow. When arriving from Home's "Build My List" CTA, location state
+// contains the answers plus an autoAdvance hint so we skip straight to the
+// WhatsApp screen. Direct visits start on screen 1 like before.
 export default function QuizPage() {
+  const location = useLocation();
   useEffect(() => { document.title = "Build My List | BundledMum"; }, []);
+
+  const state = location.state as {
+    answers?: { budget: number; categories: Array<"maternity" | "baby" | "gift">; gender: "boy" | "girl" | "unknown" };
+    autoAdvance?: "whatsapp" | "results";
+  } | null;
+
+  const initialState: HomeQuizInitialState | undefined = state?.answers
+    ? {
+        budget: state.answers.budget,
+        categories: state.answers.categories,
+        gender: state.answers.gender,
+        autoAdvance: state.autoAdvance,
+      }
+    : undefined;
 
   return (
     <section
@@ -29,7 +45,7 @@ export default function QuizPage() {
           </p>
         </div>
 
-        <HomeQuiz />
+        <HomeQuiz initialState={initialState} />
       </div>
     </section>
   );
