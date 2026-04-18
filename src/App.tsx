@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate, useLocation } from "react-router-dom";
+import { useComingSoonFlags } from "@/hooks/useComingSoon";
+import { useAdmin } from "@/hooks/useAdmin";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CartProvider } from "@/lib/cart";
@@ -34,6 +36,7 @@ import TrackOrderPage from "@/pages/TrackOrderPage";
 import PushGiftsPage from "@/pages/PushGiftsPage";
 import ProductPage from "@/pages/ProductPage";
 import DynamicPage from "@/pages/DynamicPage";
+import ComingSoonPage from "@/pages/ComingSoonPage";
 import NotFound from "./pages/NotFound.tsx";
 
 // Admin
@@ -60,6 +63,7 @@ import AdminPromotions from "@/pages/admin/AdminPromotions";
 import AdminQuizLeads from "@/pages/admin/AdminQuizLeads";
 import AdminQuizEngine from "@/pages/admin/AdminQuizEngine";
 import AdminEmailTemplates from "@/pages/admin/AdminEmailTemplates";
+import AdminComingSoon from "@/pages/admin/AdminComingSoon";
 import PermissionGate from "@/components/admin/PermissionGate";
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -83,6 +87,32 @@ function RealtimeProvider({ children }: { children: React.ReactNode }) {
 
 function PageTracker({ children }: { children: React.ReactNode }) {
   usePageTracking();
+  return <>{children}</>;
+}
+
+/**
+ * Redirects storefront traffic to /coming-soon when both flags are on.
+ * Admin sessions (logged-in Supabase users) bypass the redirect so they
+ * can still preview the live site. /admin/* routes are excluded by
+ * design — they're mounted as siblings of <StorefrontShell />.
+ */
+function ComingSoonGate({ children }: { children: React.ReactNode }) {
+  const { data: flags } = useComingSoonFlags();
+  const { isAdmin, loading: adminLoading } = useAdmin();
+  const location = useLocation();
+
+  // Don't redirect the coming-soon page itself
+  if (location.pathname === "/coming-soon") return <>{children}</>;
+
+  // While auth is still resolving, render nothing to avoid a flash redirect
+  if (adminLoading) return null;
+
+  const shouldRedirect =
+    flags?.enabled === true &&
+    flags?.redirectAll === true &&
+    !isAdmin;
+
+  if (shouldRedirect) return <Navigate to="/coming-soon" replace />;
   return <>{children}</>;
 }
 
@@ -161,10 +191,14 @@ const App = () => (
                 <Route path="quiz-leads" element={<PermissionGate module="content" action="manage_quiz"><AdminQuizLeads /></PermissionGate>} />
                 <Route path="quiz-engine" element={<PermissionGate module="content" action="manage_quiz"><AdminQuizEngine /></PermissionGate>} />
                 <Route path="email-templates" element={<PermissionGate module="content" action="edit_settings"><AdminEmailTemplates /></PermissionGate>} />
+                <Route path="coming-soon" element={<PermissionGate module="settings" action="manage_coming_soon"><AdminComingSoon /></PermissionGate>} />
               </Route>
 
-              {/* Storefront routes */}
-              <Route path="*" element={<StorefrontShell />} />
+              {/* Standalone public page — no navbar/footer, not redirected */}
+              <Route path="/coming-soon" element={<ComingSoonPage />} />
+
+              {/* Storefront routes (wrapped in Coming Soon redirect gate) */}
+              <Route path="*" element={<ComingSoonGate><StorefrontShell /></ComingSoonGate>} />
             </Routes>
             </PageTracker>
           </BrowserRouter>

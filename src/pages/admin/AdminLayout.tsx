@@ -8,7 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Package, ShoppingBag, ClipboardList, Truck, MessageSquare, Settings,
   BarChart3, Gift, LogOut, LayoutDashboard, FileText, Users, Image, Bell,
-  Search, X, Menu, ChevronLeft, MessageCircleQuestion, Workflow, Mail,
+  Search, X, Menu, ChevronLeft, MessageCircleQuestion, Workflow, Mail, Rocket,
   type LucideIcon,
 } from "lucide-react";
 import { Tag, Boxes, MapPin, FileText as PageIcon } from "lucide-react";
@@ -19,7 +19,7 @@ import BMLoadingAnimation from "@/components/BMLoadingAnimation";
 const ICON_MAP: Record<string, LucideIcon> = {
   LayoutDashboard, Package, Boxes, ShoppingBag, ClipboardList, Users, Tag,
   Gift, Truck, MapPin, MessageSquare, FileText, Image, MessageCircleQuestion,
-  Workflow, BarChart3, Settings, Mail,
+  Workflow, BarChart3, Settings, Mail, Rocket,
   PageIcon, // alias
 };
 
