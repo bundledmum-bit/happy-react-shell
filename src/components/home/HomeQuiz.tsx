@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
 import { Baby, ShoppingBag, Gift, Check, Share2, ClipboardCopy } from "lucide-react";
@@ -92,6 +92,19 @@ function QuizScreen({
   const [snapFlash, setSnapFlash] = useState(0);
   const { data: settings } = useSiteSettings();
 
+  // Keep a focus-on-mount ref on the budget input so the blinking caret
+  // is always visible on first render. `preventScroll: true` stops the
+  // page from jumping to the input on mobile. A short timeout lets React
+  // Strict Mode's double-mount settle and defends against ScrollToTop +
+  // animation transitions stealing focus on the way in.
+  const budgetRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      budgetRef.current?.focus({ preventScroll: true });
+    }, 100);
+    return () => window.clearTimeout(id);
+  }, []);
+
   // All content and min-budget driven by site_settings, with hardcoded
   // fallbacks matching the seeded defaults so the UI never renders empty.
   const s = (key: string, fallback: string) => unwrapSetting(settings?.[key]) || fallback;
@@ -164,10 +177,10 @@ function QuizScreen({
             <span className="absolute left-5 top-1/2 -translate-y-1/2 pf text-white text-[26px] md:text-[30px] font-bold pointer-events-none leading-none">₦</span>
           )}
           <input
+            ref={budgetRef}
             type="text"
             inputMode="numeric"
             autoComplete="off"
-            autoFocus
             value={budget ? budget.toLocaleString("en-NG") : ""}
             onChange={e => {
               const digits = e.target.value.replace(/\D/g, "");
