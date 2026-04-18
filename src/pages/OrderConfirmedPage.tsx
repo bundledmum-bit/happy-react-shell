@@ -54,6 +54,15 @@ export default function OrderConfirmedPage() {
     }
   }, [order]);
 
+  // Keep the viewport pinned to the top while async data arrives in waves
+  // (order first, then site_settings — which may add the bank-transfer banner
+  // above the hero and cause the browser's scroll-anchoring to shift the page
+  // downward). Scroll to top whenever any meaningful layout-affecting data
+  // resolves during the initial load.
+  useEffect(() => {
+    if (order) window.scrollTo({ top: 0, left: 0 });
+  }, [order, bankName, bankAccountNumber]);
+
   if (isLoading) return (
     <div className="min-h-screen bg-background flex items-center justify-center">
       <div className="text-center"><div className="mx-auto h-14 w-14 border-4 border-border border-t-forest rounded-full animate-spin mb-4" /><p className="text-muted-foreground">Loading your order details...</p></div>
@@ -97,7 +106,7 @@ export default function OrderConfirmedPage() {
   const whatsappMsg = `Hi BundledMum! I just placed order ${orderId}. Please confirm my order. Thank you!`;
 
   return (
-    <div className="min-h-screen bg-background pb-16 md:pb-0">
+    <div className="min-h-screen bg-background pb-16 md:pb-0" style={{ overflowAnchor: "none" }}>
       {/* Bank transfer: urgent action banner — shown first, above the success hero */}
       {isBankTransfer && bankName && bankAccountNumber && (
         <div className="pt-20 bg-[#FFF4D6]">
