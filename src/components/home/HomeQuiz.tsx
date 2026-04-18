@@ -396,39 +396,54 @@ function ResultsScreen({
     return m;
   }, [allProducts]);
 
+  // Per-product pre-add qty. Keyed by product_id so qty survives brand
+  // changes — picking a different brand doesn't reset the "I want 3 of
+  // these" intent. Default is item.quantity from the engine (or 1 if the
+  // engine didn't set one).
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const qtyFor = (item: RecommendedProduct) =>
+    quantities[item.product_id] ?? (item.quantity > 0 ? item.quantity : 1);
+  const setQty = (item: RecommendedProduct, next: number) =>
+    setQuantities(q => ({ ...q, [item.product_id]: Math.max(1, next) }));
+
   // Cart payload mirrors the old quiz's handleAddProduct byte-for-byte.
-  const handleAddProduct = (item: RecommendedProduct, overrideBrand?: Brand | null, overrideSize?: string) => {
+  // qtyOverride lets callers push N copies of the same product (Add All +
+  // the pre-add qty stepper both use this).
+  const handleAddProduct = (item: RecommendedProduct, overrideBrand?: Brand | null, overrideSize?: string, qtyOverride?: number) => {
     const brandName = overrideBrand?.label || item.brand?.brand_name || "Standard";
     const brandPrice = overrideBrand?.price ?? item.brand?.price ?? 0;
     const brandId = overrideBrand?.id || item.brand?.id || item.product_id;
     const brandImage = overrideBrand?.imageUrl || item.brand?.image_url || item.image_url || undefined;
-    addToCart({
-      id: item.product_id,
-      name: `${item.name} (${brandName})`,
-      baseImg: item.emoji || "📦",
-      imageUrl: brandImage,
-      price: brandPrice,
-      selectedBrand: { id: brandId, label: brandName, price: brandPrice, img: item.emoji || "📦", imageUrl: brandImage || null, tier: overrideBrand?.tier || 1, color: overrideBrand?.color || "#E8F5E9" },
-      selectedSize: overrideSize || "",
-      brands: [],
-      category: item.category as any,
-      rating: 4.5,
-      reviews: 0,
-      tags: [],
-      badge: null,
-      stage: [],
-      priority: item.priority as any,
-      tier: [],
-      hospitalType: [],
-      deliveryMethod: [],
-      genderRelevant: false,
-      multiplesBump: 1,
-      scope: [],
-      firstBaby: null,
-      description: "",
-      whyIncluded: item.why_included,
-    } as any);
-    toast.success(`✓ ${item.name} added to cart`);
+    const qty = Math.max(1, qtyOverride ?? qtyFor(item));
+    for (let i = 0; i < qty; i++) {
+      addToCart({
+        id: item.product_id,
+        name: `${item.name} (${brandName})`,
+        baseImg: item.emoji || "📦",
+        imageUrl: brandImage,
+        price: brandPrice,
+        selectedBrand: { id: brandId, label: brandName, price: brandPrice, img: item.emoji || "📦", imageUrl: brandImage || null, tier: overrideBrand?.tier || 1, color: overrideBrand?.color || "#E8F5E9" },
+        selectedSize: overrideSize || "",
+        brands: [],
+        category: item.category as any,
+        rating: 4.5,
+        reviews: 0,
+        tags: [],
+        badge: null,
+        stage: [],
+        priority: item.priority as any,
+        tier: [],
+        hospitalType: [],
+        deliveryMethod: [],
+        genderRelevant: false,
+        multiplesBump: 1,
+        scope: [],
+        firstBaby: null,
+        description: "",
+        whyIncluded: item.why_included,
+      } as any);
+    }
+    toast.success(`✓ ${item.name} added to cart${qty > 1 ? ` (×${qty})` : ""}`);
   };
 
   const handleRemoveProduct = (item: RecommendedProduct) => {
@@ -522,8 +537,11 @@ function ResultsScreen({
   ];
 
   const handleAddAll = () => {
+    // Use the user's pre-add qty if they touched the stepper; otherwise
+    // fall back to the engine's suggested quantity. handleAddProduct loops
+    // internally, so no outer loop here.
     results.forEach(item => {
-      for (let i = 0; i < item.quantity; i++) handleAddProduct(item);
+      handleAddProduct(item, undefined, undefined, qtyFor(item));
     });
     toast.success("✓ Your full bundle has been added to cart!");
     navigate("/cart");
@@ -617,10 +635,12 @@ function ResultsScreen({
                     if (!c) return;
                     setCart(prev => prev.map(x => x._key === key ? { ...x, qty } : x));
                   }}
-                  onAdd={(brand, size) => handleAddProduct(item, brand, size)}
+                  onAdd={(brand, size) => handleAddProduct(item, brand, size, qtyFor(item))}
                   onRemove={() => handleRemoveProduct(item)}
                   fullProduct={productMap.get(item.product_id)}
                   onViewDetail={() => { const fp = productMap.get(item.product_id); if (fp) setDetailProduct(fp); }}
+                  preAddQty={qtyFor(item)}
+                  onPreAddQtyChange={(n) => setQty(item, n)}
                 />
               ))}
             </div>
@@ -641,10 +661,12 @@ function ResultsScreen({
                     if (!c) return;
                     setCart(prev => prev.map(x => x._key === key ? { ...x, qty } : x));
                   }}
-                  onAdd={(brand, size) => handleAddProduct(item, brand, size)}
+                  onAdd={(brand, size) => handleAddProduct(item, brand, size, qtyFor(item))}
                   onRemove={() => handleRemoveProduct(item)}
                   fullProduct={productMap.get(item.product_id)}
                   onViewDetail={() => { const fp = productMap.get(item.product_id); if (fp) setDetailProduct(fp); }}
+                  preAddQty={qtyFor(item)}
+                  onPreAddQtyChange={(n) => setQty(item, n)}
                 />
               ))}
             </div>
@@ -665,10 +687,12 @@ function ResultsScreen({
                     if (!c) return;
                     setCart(prev => prev.map(x => x._key === key ? { ...x, qty } : x));
                   }}
-                  onAdd={(brand, size) => handleAddProduct(item, brand, size)}
+                  onAdd={(brand, size) => handleAddProduct(item, brand, size, qtyFor(item))}
                   onRemove={() => handleRemoveProduct(item)}
                   fullProduct={productMap.get(item.product_id)}
                   onViewDetail={() => { const fp = productMap.get(item.product_id); if (fp) setDetailProduct(fp); }}
+                  preAddQty={qtyFor(item)}
+                  onPreAddQtyChange={(n) => setQty(item, n)}
                 />
               ))}
             </div>
@@ -689,10 +713,12 @@ function ResultsScreen({
                     if (!c) return;
                     setCart(prev => prev.map(x => x._key === key ? { ...x, qty } : x));
                   }}
-                  onAdd={(brand, size) => handleAddProduct(item, brand, size)}
+                  onAdd={(brand, size) => handleAddProduct(item, brand, size, qtyFor(item))}
                   onRemove={() => handleRemoveProduct(item)}
                   fullProduct={productMap.get(item.product_id)}
                   onViewDetail={() => { const fp = productMap.get(item.product_id); if (fp) setDetailProduct(fp); }}
+                  preAddQty={qtyFor(item)}
+                  onPreAddQtyChange={(n) => setQty(item, n)}
                 />
               ))}
             </div>
@@ -713,10 +739,12 @@ function ResultsScreen({
                     if (!c) return;
                     setCart(prev => prev.map(x => x._key === key ? { ...x, qty } : x));
                   }}
-                  onAdd={(brand, size) => handleAddProduct(item, brand, size)}
+                  onAdd={(brand, size) => handleAddProduct(item, brand, size, qtyFor(item))}
                   onRemove={() => handleRemoveProduct(item)}
                   fullProduct={productMap.get(item.product_id)}
                   onViewDetail={() => { const fp = productMap.get(item.product_id); if (fp) setDetailProduct(fp); }}
+                  preAddQty={qtyFor(item)}
+                  onPreAddQtyChange={(n) => setQty(item, n)}
                 />
               ))}
             </div>

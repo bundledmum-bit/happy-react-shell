@@ -7,7 +7,11 @@ import type { RecommendedProduct } from "./types";
 
 // Extracted verbatim from QuizPage.tsx. No logic changes — just moved to a
 // shared location so both QuizPage and HomeQuiz can render the same card.
-export default function ResultProductCard({ item, onAdd, onRemove, isInCart, cartItem, onQtyUpdate, fullProduct, onViewDetail }: {
+// preAddQty + onPreAddQtyChange are optional additions: when supplied, the
+// card renders a qty stepper between the "why included" blurb and the
+// brand selector, letting the user choose how many to add before tapping
+// Add to Cart. Omitting them is identical to the old behaviour.
+export default function ResultProductCard({ item, onAdd, onRemove, isInCart, cartItem, onQtyUpdate, fullProduct, onViewDetail, preAddQty, onPreAddQtyChange }: {
   item: RecommendedProduct;
   onAdd: (overrideBrand?: any, overrideSize?: string) => void;
   onRemove: () => void;
@@ -16,6 +20,8 @@ export default function ResultProductCard({ item, onAdd, onRemove, isInCart, car
   onQtyUpdate?: (key: string, qty: number) => void;
   fullProduct?: Product | null;
   onViewDetail?: () => void;
+  preAddQty?: number;
+  onPreAddQtyChange?: (qty: number) => void;
 }) {
   const brands = fullProduct?.brands || [];
   const sizes = fullProduct?.sizes || [];
@@ -70,6 +76,18 @@ export default function ResultProductCard({ item, onAdd, onRemove, isInCart, car
         {item.selected_color && <p className="text-muted-foreground text-[10px] mb-1">Colour: {item.selected_color}</p>}
         <div className="text-forest bg-forest-light rounded-lg px-2 py-1.5 text-[10px] leading-relaxed italic mb-2 max-h-16 overflow-y-auto scrollbar-hide">💡 {item.why_included}</div>
         {fullProduct && fullProduct.packInfo && <p className="text-muted-foreground text-[10px] mb-1">📦 {fullProduct.packInfo}</p>}
+
+        {/* Pre-add quantity stepper (only shown when managed externally and item isn't already in cart) */}
+        {preAddQty != null && onPreAddQtyChange && !isInCart && !brandOos && (
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Quantity</span>
+            <QtyControl
+              qty={preAddQty}
+              onUpdate={(newQty) => onPreAddQtyChange(Math.max(1, newQty))}
+              maxQty={selectedBrand?.stockQuantity ?? undefined}
+            />
+          </div>
+        )}
 
         {/* Brand selector */}
         {brands.length > 0 && (
