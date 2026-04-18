@@ -6,7 +6,8 @@ import { useAllProducts, useTestimonials, useSiteSettings, useBundles } from "@/
 import type { Product } from "@/lib/supabaseAdapters";
 import ProductImage from "@/components/ProductImage";
 import QtyControl from "@/components/QtyControl";
-import bundleHeroImg from "@/assets/bundle-hero-v2.jpg";
+import HomeQuiz from "@/components/home/HomeQuiz";
+import ShopShortcuts from "@/components/home/ShopShortcuts";
 
 function HeroSection() {
   const { data: settings } = useSiteSettings();
@@ -16,19 +17,18 @@ function HeroSection() {
   const trustStats: string[][] = Array.isArray(settings?.trust_stats) ? settings.trust_stats : [];
 
   return (
-    <section className="md:min-h-screen flex items-center relative overflow-hidden" style={{ background: "linear-gradient(135deg, #2D6A4F 0%, #1E5C44 55%, #163D2E 100%)" }}>
+    <section className="md:h-screen md:min-h-[720px] md:max-h-[1000px] flex items-center relative overflow-hidden" style={{ background: "linear-gradient(135deg, #2D6A4F 0%, #1E5C44 55%, #163D2E 100%)" }}>
       <div className="absolute w-[700px] h-[700px] rounded-full bg-primary-foreground/[0.025] -top-[250px] -right-[250px]" />
-      
 
-      <div className="max-w-[1200px] mx-auto px-5 md:px-10 pt-24 md:pt-32 pb-16 md:pb-20 grid md:grid-cols-2 gap-10 md:gap-[72px] items-center w-full">
+      <div className="max-w-[1200px] mx-auto px-5 md:px-10 pt-20 md:pt-24 pb-10 md:pb-8 grid md:grid-cols-2 gap-6 md:gap-[56px] items-center w-full">
         <div>
           {heroBadge && (
-            <div className="animate-fade-up inline-flex items-center gap-2 bg-coral/[0.18] border border-coral/40 rounded-pill px-4 py-1.5 mb-5">
+            <div className="animate-fade-up inline-flex items-center gap-2 bg-coral/[0.18] border border-coral/40 rounded-pill px-4 py-1.5 mb-4">
               <span className="text-coral text-xs font-semibold">{heroBadge}</span>
             </div>
           )}
           {heroTitle && (
-            <h1 className="pf animate-fade-up-2 text-[32px] md:text-[50px] font-bold text-primary-foreground leading-[1.15] mb-4">
+            <h1 className="pf animate-fade-up-2 text-[26px] md:text-[38px] font-bold text-primary-foreground leading-[1.15] mb-2.5">
               {heroTitle.split(",").map((part: string, i: number) =>
                 i === heroTitle.split(",").length - 1
                   ? <span key={i} className="text-coral italic">{part.trim()}</span>
@@ -36,43 +36,21 @@ function HeroSection() {
               )}
             </h1>
           )}
-          <p className="animate-fade-up-3 text-primary-foreground/70 text-[15px] md:text-[17px] leading-[1.75] mb-7 max-w-[480px] font-body">
+          <p className="animate-fade-up-3 text-primary-foreground/70 text-[13px] md:text-[15px] leading-[1.65] mb-4 max-w-[480px] font-body">
             Shop baby essentials, mum items, and baby gifts without stepping foot in any market.
           </p>
-          <div className="animate-fade-up-4 flex gap-3 flex-wrap">
-            <Link to="/quiz" className="rounded-pill bg-coral px-7 py-3.5 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-sm md:text-[15px] w-full md:w-auto text-center">Build My List →</Link>
-            <Link to="/shop" className="rounded-pill border-2 border-primary-foreground/30 px-7 py-3.5 font-body font-semibold text-primary-foreground/80 hover:bg-primary-foreground/10 interactive w-full md:w-auto text-center">See All Products</Link>
-          </div>
           {trustStats.length > 0 && (
-            <div className="animate-fade-up-4 flex gap-6 md:gap-9 mt-8 md:mt-12 pt-6 md:pt-9 border-t border-primary-foreground/10">
+            <div className="animate-fade-up-4 hidden md:flex gap-6 md:gap-8 pt-3 border-t border-primary-foreground/10">
               {trustStats.map(([v, l]: string[]) => (
-                <div key={l}><div className="pf text-xl md:text-[26px] font-bold text-coral">{v}</div><div className="text-primary-foreground/50 text-[11px]">{l}</div></div>
+                <div key={l}><div className="pf text-lg md:text-[22px] font-bold text-coral leading-none">{v}</div><div className="text-primary-foreground/50 text-[11px] mt-0.5">{l}</div></div>
               ))}
             </div>
           )}
         </div>
 
-        {/* Desktop: branded bundle image + CTA */}
-        <div className="hidden md:flex flex-col items-center text-center">
-          <div className="rounded-[24px] overflow-hidden shadow-2xl mb-5 max-w-[340px]">
-            <img src={bundleHeroImg} alt="Pre-packed hospital bag bundle with baby essentials" width={340} height={453} className="w-full h-auto object-cover" />
-          </div>
-          <h3 className="pf text-primary-foreground text-lg font-bold mb-1.5">Check Out Out Pre-Packed Hospital Lists</h3>
-          <p className="text-primary-foreground/60 text-[13px] mb-3 max-w-[320px]">Browse our ready-made hospital lists based on your budget — fully customizable.</p>
-          <Link to="/bundles" className="rounded-pill bg-coral px-7 py-3 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-sm">
-            Explore Our Hospital Lists →
-          </Link>
-        </div>
-
-        {/* Mobile: compact bundle CTA (no image) */}
-        <div className="md:hidden -mx-5 px-5">
-          <Link to="/bundles" className="block bg-primary-foreground/[0.08] border border-primary-foreground/[0.12] rounded-[16px] p-4 text-center">
-            <h3 className="pf text-primary-foreground text-[15px] font-bold mb-1">📦 Check Out Our  Pre-Packed Hospital Lists</h3>
-            <p className="text-primary-foreground/55 text-[12px] mb-3 leading-relaxed">Ready-made lists based on your budget — fully customizable.</p>
-            <span className="block w-full rounded-pill bg-coral py-3 font-body font-semibold text-primary-foreground text-sm hover:bg-coral-dark interactive">
-              Explore Our Hospital Lists →
-            </span>
-          </Link>
+        {/* Embedded quiz — replaces the old static bundle card on both mobile + desktop */}
+        <div className="animate-fade-up-3">
+          <HomeQuiz />
         </div>
       </div>
     </section>
@@ -352,12 +330,7 @@ export default function HomePage() {
   return (
     <>
       <HeroSection />
-      <TrustBar />
-      <HowItWorks />
-      <BundleTiers />
-      <FeaturedProducts />
-      <TestimonialsSection />
-      <CTABanner />
+      <ShopShortcuts />
       <StickyMobileCTA />
     </>
   );

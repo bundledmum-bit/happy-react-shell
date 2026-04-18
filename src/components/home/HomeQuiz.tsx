@@ -1,0 +1,647 @@
+import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { Baby, ShoppingBag, Gift, Check, Share2, ClipboardCopy } from "lucide-react";
+import { toast } from "sonner";
+import { useCart, fmt } from "@/lib/cart";
+import type { Brand, Product } from "@/lib/supabaseAdapters";
+import { useAllProducts } from "@/hooks/useSupabaseData";
+import { useQuizQuestions } from "@/hooks/useQuizConfig";
+import { supabase } from "@/integrations/supabase/client";
+import OptionalTextStep from "@/components/quiz/OptionalTextStep";
+import ResultProductCard from "@/components/quiz/ResultProductCard";
+import ProductDetailDrawer from "@/components/ProductDetailDrawer";
+import ShareModal from "@/components/ShareModal";
+import BMLoadingAnimation from "@/components/BMLoadingAnimation";
+import { buildQuizStory } from "@/lib/quizStory";
+import type { RecommendationResult, RecommendedProduct } from "@/components/quiz/types";
+
+type Screen = "quiz" | "whatsapp" | "results";
+type Category = "maternity" | "baby" | "gift";
+type Gender = "boy" | "girl" | "unknown";
+
+const MIN_BUDGET = 80_000;
+const DEFAULT_BUDGET = 150_000;
+
+function budgetTierFor(amount: number): "starter" | "standard" | "premium" {
+  if (amount < 200_000) return "starter";
+  if (amount < 750_000) return "standard";
+  return "premium";
+}
+
+function scopeFor(categories: Set<Category>): "hospital-bag" | "general-baby-prep" | "hospital-bag+general" {
+  if (categories.has("gift")) return "hospital-bag+general";
+  if (categories.has("maternity") && categories.has("baby")) return "hospital-bag+general";
+  if (categories.has("maternity")) return "hospital-bag";
+  return "general-baby-prep";
+}
+
+function stageFor(categories: Set<Category>): "expecting" | "newborn" {
+  if (categories.has("gift")) return "newborn";
+  if (categories.has("maternity")) return "expecting";
+  return "newborn";
+}
+
+// Build the `answers` object the old quiz uses, from home-quiz state,
+// so buildQuizStory and all the heading/pill logic stays identical.
+function toOldAnswers(budget: number, categories: Set<Category>, gender: Gender): Record<string, string> {
+  const isGift = categories.has("gift");
+  return {
+    shopper: isGift ? "gift" : "self",
+    budget: budgetTierFor(budget),
+    scope: scopeFor(categories),
+    stage: stageFor(categories),
+    gender,
+    multiples: "1",
+  };
+}
+
+// =============================================================================
+// Screen 1 — Quiz form
+// =============================================================================
+function QuizScreen({
+  budget, setBudget,
+  categories, setCategories,
+  gender, setGender,
+  onNext,
+}: {
+  budget: number;
+  setBudget: (n: number) => void;
+  categories: Set<Category>;
+  setCategories: (s: Set<Category>) => void;
+  gender: Gender | null;
+  setGender: (g: Gender) => void;
+  onNext: () => void;
+}) {
+  const [snapFlash, setSnapFlash] = useState(0);
+  const toggleCategory = (c: Category) => {
+    const next = new Set(categories);
+    if (c === "gift") {
+      // Gift is exclusive — if tapping gift, clear others and set gift.
+      // If gift is already on and we tap it again, no-op (at-least-one rule).
+      if (next.has("gift")) return;
+      next.clear();
+      next.add("gift");
+    } else {
+      // Tapping maternity or baby while gift is on → deselect gift first
+      if (next.has("gift")) next.delete("gift");
+      if (next.has(c)) {
+        // Don't let both be deselected — at-least-one rule
+        if (next.size === 1) return;
+        next.delete(c);
+      } else {
+        next.add(c);
+      }
+    }
+    setCategories(next);
+  };
+
+  const canSubmit = categories.size > 0 && !!gender && budget >= MIN_BUDGET;
+
+  const categoryCards = [
+    { id: "maternity" as const, title: "Maternity List", sub: "Hospital bag — mum and baby", Icon: ShoppingBag },
+    { id: "baby" as const, title: "Baby Things", sub: "For when you get home", Icon: Baby },
+    { id: "gift" as const, title: "Gifts for New Parents", sub: "Visiting or sending a gift", Icon: Gift },
+  ];
+
+  const genderCards = [
+    { id: "boy" as const, title: "Baby Boy", sub: "Blue & navy tones", emoji: "👦" },
+    { id: "girl" as const, title: "Baby Girl", sub: "Pink & lilac tones", emoji: "👧" },
+    { id: "unknown" as const, title: "It's a Surprise!", sub: "Neutral & unisex", emoji: "🎁" },
+  ];
+
+  const belowMin = budget < MIN_BUDGET;
+
+  return (
+    <div className="w-full max-w-[480px] mx-auto">
+      {/* Scoped flash keyframe for the min-budget helper */}
+      <style>{`
+        @keyframes bm-min-flash {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          20%, 60% { opacity: 0.25; transform: scale(0.98); }
+          40%, 80% { opacity: 1; transform: scale(1.04); }
+        }
+        .bm-min-flash { animation: bm-min-flash 0.55s ease-in-out 3; }
+      `}</style>
+
+      {/* QUESTION 1 — Budget */}
+      <div className="bg-primary-foreground/[0.06] backdrop-blur-sm border border-primary-foreground/10 rounded-[18px] p-4 md:p-5 mb-3">
+        <label className="text-primary-foreground/60 text-[10px] font-semibold uppercase tracking-[2px] mb-2 block text-center">WHAT IS YOUR BUDGET?</label>
+        <div className="relative">
+          <span className="absolute left-5 top-1/2 -translate-y-1/2 pf text-coral text-[26px] md:text-[30px] font-bold pointer-events-none leading-none">₦</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            value={budget ? budget.toLocaleString("en-NG") : ""}
+            onChange={e => {
+              const digits = e.target.value.replace(/\D/g, "");
+              const n = digits ? parseInt(digits, 10) : 0;
+              setBudget(n);
+            }}
+            onBlur={() => {
+              if (budget > 0 && budget < MIN_BUDGET) {
+                setBudget(MIN_BUDGET);
+                setSnapFlash(x => x + 1);
+              }
+            }}
+            placeholder="150,000"
+            aria-label="Budget"
+            className={`w-full pl-12 pr-5 py-3 text-center bg-transparent border-2 rounded-[14px] pf text-coral text-[26px] md:text-[30px] font-bold tracking-tight outline-none transition-colors ${belowMin ? "border-coral/60" : "border-primary-foreground/20 focus:border-coral"}`}
+          />
+        </div>
+        <div
+          key={snapFlash}
+          className={`text-[12px] mt-1.5 font-body font-bold text-center ${snapFlash > 0 ? "bm-min-flash text-coral" : belowMin ? "text-coral" : "text-primary-foreground/70"}`}
+        >
+          Minimum ₦80,000
+        </div>
+      </div>
+
+      {/* QUESTION 2 — What do you need? */}
+      <div className="mb-3">
+        <div className="text-primary-foreground/60 text-[10px] font-semibold uppercase tracking-[2px] mb-1.5 px-1">WHAT DO YOU NEED?</div>
+        <div className="space-y-1.5">
+          {categoryCards.map(c => {
+            const selected = categories.has(c.id);
+            return (
+              <button
+                key={c.id}
+                onClick={() => toggleCategory(c.id)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-[14px] border-2 text-left transition-all ${
+                  selected
+                    ? "bg-[#FFF0EB] border-coral"
+                    : "bg-primary-foreground border-primary-foreground/20"
+                }`}
+              >
+                <div className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center ${selected ? "bg-coral/15" : "bg-[#FFF0EB]"}`}>
+                  <c.Icon className="w-4 h-4 text-coral" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="pf font-bold text-[14px] text-foreground leading-tight">{c.title}</div>
+                  <div className="text-text-med text-[11px] mt-0.5 leading-tight">{c.sub}</div>
+                </div>
+                {selected && (
+                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-coral flex items-center justify-center">
+                    <Check className="w-3 h-3 text-white" strokeWidth={3} />
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* QUESTION 3 — Baby's Gender */}
+      <div className="mb-4">
+        <div className="text-primary-foreground/60 text-[10px] font-semibold uppercase tracking-[2px] mb-1.5 px-1">BABY'S GENDER</div>
+        <div className="space-y-1.5">
+          {genderCards.map(g => {
+            const selected = gender === g.id;
+            return (
+              <button
+                key={g.id}
+                onClick={() => setGender(g.id)}
+                className={`relative w-full flex items-center gap-3 px-3 py-2.5 rounded-[14px] border-2 text-left transition-all ${
+                  selected
+                    ? "bg-[#FFF0EB] border-coral"
+                    : "bg-primary-foreground border-primary-foreground/20"
+                }`}
+              >
+                <div className="flex-shrink-0 text-xl">{g.emoji}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="pf font-bold text-[14px] text-foreground leading-tight">{g.title}</div>
+                  <div className="text-text-med text-[11px] mt-0.5 leading-tight">{g.sub}</div>
+                </div>
+                {selected && (
+                  <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-coral flex items-center justify-center shadow-md">
+                    <Check className="w-3 h-3 text-white" strokeWidth={3} />
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* CTA */}
+      <button
+        onClick={onNext}
+        disabled={!canSubmit}
+        className="w-full rounded-pill py-3.5 text-[16px] font-body font-bold text-primary-foreground transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+        style={{ background: "#F4845F" }}
+      >
+        Build My List →
+      </button>
+    </div>
+  );
+}
+
+// =============================================================================
+// Screen 3 — Results (mirrors the old /quiz results layout exactly)
+// =============================================================================
+function ResultsScreen({
+  budget, categories, gender,
+  onBack,
+}: {
+  budget: number;
+  categories: Set<Category>;
+  gender: Gender;
+  onBack: () => void;
+}) {
+  const navigate = useNavigate();
+  const { cart, addToCart, setCart } = useCart();
+  const { data: allProducts } = useAllProducts();
+
+  const [loading, setLoading] = useState(true);
+  const [result, setResult] = useState<RecommendationResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [detailProduct, setDetailProduct] = useState<Product | null>(null);
+  const [showShareModal, setShowShareModal] = useState(false);
+
+  const answers = useMemo(() => toOldAnswers(budget, categories, gender), [budget, categories, gender]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true); setError(null);
+      const budgetTier = budgetTierFor(budget);
+      const scope = scopeFor(categories);
+      const stage = stageFor(categories);
+      const isGift = categories.has("gift");
+      try {
+        const { data, error } = await supabase.rpc("run_quiz_recommendation", {
+          p_budget_tier: budgetTier,
+          p_scope: scope,
+          p_stage: stage,
+          p_hospital_type: "public",
+          p_delivery_method: "vaginal",
+          p_multiples: 1,
+          p_gender: gender,
+          p_first_baby: false,
+          p_is_gift: isGift,
+          p_gift_relationship: null,
+        });
+        if (cancelled) return;
+        if (error) throw error;
+        setResult(data as unknown as RecommendationResult);
+      } catch (err: any) {
+        if (!cancelled) setError(err?.message || "Something went wrong.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [budget, categories, gender]);
+
+  const productMap = useMemo(() => {
+    const m = new Map<string, Product>();
+    (allProducts || []).forEach(p => m.set(p.id, p));
+    return m;
+  }, [allProducts]);
+
+  // Cart payload mirrors the old quiz's handleAddProduct byte-for-byte.
+  const handleAddProduct = (item: RecommendedProduct, overrideBrand?: Brand | null, overrideSize?: string) => {
+    const brandName = overrideBrand?.label || item.brand?.brand_name || "Standard";
+    const brandPrice = overrideBrand?.price ?? item.brand?.price ?? 0;
+    const brandId = overrideBrand?.id || item.brand?.id || item.product_id;
+    const brandImage = overrideBrand?.imageUrl || item.brand?.image_url || item.image_url || undefined;
+    addToCart({
+      id: item.product_id,
+      name: `${item.name} (${brandName})`,
+      baseImg: item.emoji || "📦",
+      imageUrl: brandImage,
+      price: brandPrice,
+      selectedBrand: { id: brandId, label: brandName, price: brandPrice, img: item.emoji || "📦", imageUrl: brandImage || null, tier: overrideBrand?.tier || 1, color: overrideBrand?.color || "#E8F5E9" },
+      selectedSize: overrideSize || "",
+      brands: [],
+      category: item.category as any,
+      rating: 4.5,
+      reviews: 0,
+      tags: [],
+      badge: null,
+      stage: [],
+      priority: item.priority as any,
+      tier: [],
+      hospitalType: [],
+      deliveryMethod: [],
+      genderRelevant: false,
+      multiplesBump: 1,
+      scope: [],
+      firstBaby: null,
+      description: "",
+      whyIncluded: item.why_included,
+    } as any);
+    toast.success(`✓ ${item.name} added to cart`);
+  };
+
+  const handleRemoveProduct = (item: RecommendedProduct) => {
+    setCart(prev => prev.filter(c => c.id !== item.product_id));
+    toast("Removed from cart");
+  };
+
+  const addedIds = new Set(cart.map(c => c.id));
+
+  // ---- Loading / error states ---------------------------------------------
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background pt-[68px] flex items-center justify-center">
+        <div className="text-center">
+          <BMLoadingAnimation size={200} />
+          <h2 className="pf text-xl text-foreground mb-2 mt-4">Building your perfect bundle...</h2>
+          <p className="text-muted-foreground text-sm">Our engine is picking the best items for you ✨</p>
+        </div>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background pt-[68px] px-4 flex items-center justify-center">
+        <div className="bg-[#FFE5DC] border border-coral text-[#92400E] rounded-xl p-6 text-center max-w-md">
+          <p className="font-semibold mb-1">We hit a snag building your list.</p>
+          <p className="text-sm mb-3">{error}</p>
+          <button onClick={onBack} className="rounded-pill border border-coral px-4 py-2 text-xs font-semibold">Go back</button>
+        </div>
+      </div>
+    );
+  }
+  if (!result || result.products.length === 0) {
+    return (
+      <div className="min-h-screen bg-background pt-[68px] px-4 flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <p className="pf text-lg font-semibold mb-1">No matching items found</p>
+          <p className="text-text-med text-sm mb-3">Try a different budget or category.</p>
+          <button onClick={onBack} className="rounded-pill border border-forest text-forest px-4 py-2 text-xs font-semibold">Edit answers</button>
+        </div>
+      </div>
+    );
+  }
+
+  // ---- Results rendering (mirrors the old quiz layout) --------------------
+  const recommendation = result;
+  const results = recommendation.products;
+  const babyItems = results.filter(r => r.category === "baby");
+  const mumItems = results.filter(r => r.category === "mum");
+  const totalValue = results.reduce((s, r) => s + (r.brand?.price || 0) * (r.quantity || 1), 0);
+  const grandTotal = totalValue;
+  const isGift = answers.shopper === "gift";
+  const budgetLabel = answers.budget === "starter" ? "Starter" : answers.budget === "premium" ? "Premium" : "Standard";
+  const multiples = 1;
+  const isFallback = recommendation.engine_version?.includes("fallback");
+
+  const recScope = recommendation.scope || answers.scope || "";
+  let heading: string;
+  if (isGift) heading = "Your Perfect Gift Bundle 🎁";
+  else if (recScope === "hospital-bag") heading = "Your Perfect Hospital Bag 🏥";
+  else if (recScope === "general-baby-prep") heading = "Your Baby Prep Bundle 👶";
+  else if (recScope === "hospital-bag+general") heading = "Your Hospital Bag & Baby Prep Bundle";
+  else heading = "Your Perfect Bundle";
+
+  const subHeading = buildQuizStory(answers, { isDadPath: false, dadPurpose: "", productCount: results.length });
+
+  const pillData = [
+    answers.gender && answers.gender !== "neutral" && answers.gender !== "unknown"
+      ? { emoji: answers.gender === "boy" ? "👦" : "👧", label: answers.gender === "boy" ? "Boy" : "Girl", step: "gender" }
+      : { emoji: "🌈", label: "Neutral", step: "gender" },
+    { emoji: answers.budget === "starter" ? "🌱" : answers.budget === "premium" ? "✨" : "🌿", label: budgetLabel, step: "budget" },
+  ];
+
+  const handleAddAll = () => {
+    results.forEach(item => {
+      for (let i = 0; i < item.quantity; i++) handleAddProduct(item);
+    });
+    toast.success("✓ Your full bundle has been added to cart!");
+    navigate("/cart");
+  };
+
+  const handleShare = () => setShowShareModal(true);
+  const handleCopyChecklist = () => {
+    const list = results.map(r => `${r.quantity > 1 ? `×${r.quantity} ` : ""}${r.name} (${r.brand?.brand_name || "Standard"}) — ${fmt((r.brand?.price || 0) * (r.quantity || 1))}`).join("\n");
+    const text = `My BundledMum ${budgetLabel} Bundle\n${"=".repeat(30)}\n\n${list}\n\nTotal: ${fmt(grandTotal)}\n\nBuild yours: https://bundledmum.com`;
+    navigator.clipboard.writeText(text).then(() => toast.success("Checklist copied to clipboard!"));
+  };
+
+  const shareItems = results.map(r => ({ name: r.name, price: (r.brand?.price || 0) * (r.quantity || 1) }));
+
+  return (
+    <div className="min-h-screen bg-background pt-[68px] pb-16 md:pb-0">
+      <div style={{ background: "linear-gradient(135deg, #2D6A4F, #1E5C44)" }} className="px-4 md:px-10 py-8 md:py-14">
+        <div className="max-w-[880px] mx-auto text-center">
+          {isFallback && (
+            <div className="bg-amber-500/20 border border-amber-500/40 rounded-lg px-4 py-2 mb-4 inline-block">
+              <p className="text-amber-200 text-xs">We widened your results to ensure a complete bundle — all items are relevant to your stage.</p>
+            </div>
+          )}
+          <div className="animate-fade-in inline-flex items-center gap-2 bg-coral/20 border border-coral/40 rounded-pill px-4 py-1.5 mb-3.5">
+            <span className="text-coral text-[13px] font-semibold">{isGift ? "🎁 Perfect Gift Bundle Ready!" : "✨ Your Personalised Bundle is Ready!"}</span>
+          </div>
+          <h1 className="pf text-2xl md:text-[40px] text-primary-foreground mb-3">{heading}</h1>
+          <p className="text-primary-foreground/80 text-sm md:text-[15px] leading-[1.8] mb-4 max-w-[660px] mx-auto">{subHeading}</p>
+
+          <div className="flex flex-wrap gap-2 justify-center mb-5">
+            {pillData.map(p => (
+              <button key={p.step} onClick={onBack} className="bg-primary-foreground/10 border border-primary-foreground/20 rounded-pill px-3 py-1 text-primary-foreground/80 text-[11px] font-semibold hover:bg-primary-foreground/20 transition-colors">
+                {p.emoji} {p.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap gap-3 justify-center text-primary-foreground/60 text-xs mb-5">
+            <span>👶 {babyItems.length} baby items</span><span>·</span>
+            <span>💛 {mumItems.length} mum items</span><span>·</span>
+            <span>Total: {results.length} items</span><span>·</span>
+            <span className="text-coral font-bold">{fmt(grandTotal)}</span>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3 justify-center px-4 sm:px-0">
+            <button onClick={() => document.getElementById("quiz-results-items")?.scrollIntoView({ behavior: "smooth" })} className="rounded-pill bg-coral px-6 py-3 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-sm w-full sm:hidden">
+              👇 See Your Items Below
+            </button>
+            <button onClick={handleAddAll} className="hidden sm:inline-flex rounded-pill bg-coral px-8 py-3 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-[15px]">
+              {isGift ? "🎁 Get Gift Bundle" : "Proceed to Checkout"} — {fmt(grandTotal)} →
+            </button>
+            <button onClick={onBack} className="rounded-pill border-2 border-primary-foreground/30 px-6 py-3 font-body font-semibold text-primary-foreground/80 hover:bg-primary-foreground/10 interactive text-sm sm:text-[15px] w-full sm:w-auto">
+              ← Retake Quiz
+            </button>
+          </div>
+
+          <div className="flex gap-3 justify-center mt-4 flex-wrap">
+            <button onClick={handleShare} className="flex items-center gap-1.5 text-primary-foreground/50 text-xs hover:text-primary-foreground/80 transition-colors">
+              <Share2 className="h-3.5 w-3.5" /> Share List
+            </button>
+            <button onClick={handleCopyChecklist} className="flex items-center gap-1.5 text-primary-foreground/50 text-xs hover:text-primary-foreground/80 transition-colors">
+              <ClipboardCopy className="h-3.5 w-3.5" /> Copy checklist
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="quiz-results-items" className="max-w-[1000px] mx-auto px-4 md:px-10 py-8 md:py-10">
+        {babyItems.length > 0 && (
+          <div className="mb-10">
+            <h2 className="pf text-lg md:text-xl text-forest mb-4">{isGift ? "🎁 Gift for Baby" : "👶 For Baby"}</h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
+              {babyItems.map(item => (
+                <ResultProductCard
+                  key={item.product_id}
+                  item={item}
+                  isInCart={addedIds.has(item.product_id)}
+                  cartItem={cart.find(c => c.id === item.product_id)}
+                  onQtyUpdate={(key, qty) => {
+                    const c = cart.find(x => x._key === key);
+                    if (!c) return;
+                    setCart(prev => prev.map(x => x._key === key ? { ...x, qty } : x));
+                  }}
+                  onAdd={(brand, size) => handleAddProduct(item, brand, size)}
+                  onRemove={() => handleRemoveProduct(item)}
+                  fullProduct={productMap.get(item.product_id)}
+                  onViewDetail={() => { const fp = productMap.get(item.product_id); if (fp) setDetailProduct(fp); }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+        {mumItems.length > 0 && (
+          <div className="mb-10">
+            <h2 className="pf text-lg md:text-xl text-forest mb-4">{isGift ? "🎁 Gift for Mum" : "💛 For Mum"}</h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
+              {mumItems.map(item => (
+                <ResultProductCard
+                  key={item.product_id}
+                  item={item}
+                  isInCart={addedIds.has(item.product_id)}
+                  cartItem={cart.find(c => c.id === item.product_id)}
+                  onQtyUpdate={(key, qty) => {
+                    const c = cart.find(x => x._key === key);
+                    if (!c) return;
+                    setCart(prev => prev.map(x => x._key === key ? { ...x, qty } : x));
+                  }}
+                  onAdd={(brand, size) => handleAddProduct(item, brand, size)}
+                  onRemove={() => handleRemoveProduct(item)}
+                  fullProduct={productMap.get(item.product_id)}
+                  onViewDetail={() => { const fp = productMap.get(item.product_id); if (fp) setDetailProduct(fp); }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row gap-3 justify-center mb-8">
+          <button onClick={handleAddAll} className="rounded-pill bg-coral px-8 py-3 font-body font-semibold text-primary-foreground hover:bg-coral-dark interactive text-sm sm:text-[15px]">
+            Proceed to Checkout — {fmt(grandTotal)}
+          </button>
+          <Link to="/shop" className="rounded-pill border-2 border-forest px-8 py-3 font-body font-semibold text-forest hover:bg-forest hover:text-primary-foreground interactive text-sm sm:text-[15px] text-center">
+            Browse for More Products
+          </Link>
+        </div>
+
+        <div className="bg-forest rounded-card p-6 md:p-8 text-center mb-8">
+          <h3 className="pf text-xl text-primary-foreground mb-2">💬 Know Another Expecting Mum?</h3>
+          <p className="text-primary-foreground/70 text-sm mb-4 max-w-[400px] mx-auto">Help her shop baby essentials, mum items, and baby gifts without stepping foot in any market.</p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button onClick={() => {
+              const text = "Hey mama! 🤰 I just used BundledMum to get all my baby things in one place — no market runs! Build your own personalised list FREE: https://bundledmum.com?ref=friend_share";
+              window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+            }} className="rounded-pill bg-[#25D366] px-6 py-2.5 font-body font-semibold text-primary-foreground text-sm interactive">
+              📱 Share on WhatsApp
+            </button>
+            <button onClick={() => {
+              navigator.clipboard.writeText("https://bundledmum.com?ref=friend_share");
+              toast.success("Link copied!");
+            }} className="rounded-pill border-2 border-primary-foreground/30 px-6 py-2.5 font-body font-semibold text-primary-foreground/80 text-sm interactive">
+              📋 Copy Link
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {showShareModal && (
+        <ShareModal
+          onClose={() => setShowShareModal(false)}
+          title="My Perfect Hospital Bag"
+          subtitle={`${budgetLabel} Bundle · ${results.length} items`}
+          items={shareItems}
+          totalPrice={grandTotal}
+          badge={isGift ? "GIFT BUNDLE" : undefined}
+          shareUrl="https://bundledmum.com?ref=share"
+          shareText={`Check out my BundledMum ${budgetLabel} bundle! ${results.length} items for ${fmt(grandTotal)}. Build yours FREE!`}
+          gender={answers.gender}
+          budgetLabel={budgetLabel}
+          itemCount={results.length}
+        />
+      )}
+
+      <ProductDetailDrawer product={detailProduct} defaultBudget={answers.budget || "standard"} onClose={() => setDetailProduct(null)} />
+    </div>
+  );
+}
+
+// =============================================================================
+// Container — 3-screen state machine
+// =============================================================================
+export default function HomeQuiz() {
+  const [screen, setScreen] = useState<Screen>("quiz");
+  const [budget, setBudget] = useState<number>(DEFAULT_BUDGET);
+  const [categories, setCategories] = useState<Set<Category>>(new Set());
+  const [gender, setGender] = useState<Gender | null>(null);
+  const [, setWhatsapp] = useState<string | null>(null);
+
+  const { data: questions } = useQuizQuestions();
+  const whatsappQuestion = (questions || []).find(q => q.step_id === "whatsapp");
+
+  const finishWhatsapp = (val?: string) => {
+    // Captured into local state only. No DB write — the spec just forwards
+    // the value alongside the other answers into the results screen.
+    setWhatsapp(val || null);
+    setScreen("results");
+  };
+
+  if (screen === "quiz") {
+    return (
+      <QuizScreen
+        budget={budget} setBudget={setBudget}
+        categories={categories} setCategories={setCategories}
+        gender={gender} setGender={setGender}
+        onNext={() => setScreen("whatsapp")}
+      />
+    );
+  }
+
+  // Screens 2 and 3 render as full-screen overlays portalled to
+  // document.body so they escape the hero section entirely (mirrors the
+  // old /quiz route UX — Build My List takes over the viewport).
+  // The hero stays mounted underneath so quiz state is preserved on back.
+
+  if (screen === "whatsapp") {
+    const content = !whatsappQuestion ? (
+      <ResultsScreen
+        budget={budget} categories={categories} gender={gender as Gender}
+        onBack={() => setScreen("quiz")}
+      />
+    ) : (
+      <OptionalTextStep
+        question={whatsappQuestion}
+        progress={100}
+        onSubmit={finishWhatsapp}
+        onSkip={() => finishWhatsapp(undefined)}
+        onBack={() => setScreen("quiz")}
+      />
+    );
+    return createPortal(
+      <div className="fixed inset-0 z-[500] bg-background overflow-y-auto">
+        {content}
+      </div>,
+      document.body
+    );
+  }
+
+  return createPortal(
+    <div className="fixed inset-0 z-[500] bg-background overflow-y-auto">
+      <ResultsScreen
+        budget={budget} categories={categories} gender={gender as Gender}
+        onBack={() => setScreen("quiz")}
+      />
+    </div>,
+    document.body
+  );
+}
