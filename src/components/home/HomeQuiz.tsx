@@ -343,6 +343,7 @@ function ResultsScreen({
               slug: p.slug,
               priority: p.priority,
               category: p.category,
+              subcategory: p.subcategory ?? null,
               quantity: p.quantity ?? 1,
               selected_color: null,
               why_included: p.why_included || "",
@@ -489,8 +490,7 @@ function ResultsScreen({
   //   ranked "extras" the RPC pulls in at higher budgets.
   // Baby/Mum Essentials = category buckets filtered to essential/recommended.
   const HOSPITAL_SUBCATEGORIES = new Set(["delivery-consumables"]);
-  const subcatOf = (pid: string) => productMap.get(pid)?.subcategory || "";
-  const isHospital = (r: RecommendedProduct) => HOSPITAL_SUBCATEGORIES.has(subcatOf(r.product_id));
+  const isHospital = (r: RecommendedProduct) => HOSPITAL_SUBCATEGORIES.has(r.subcategory || "");
   const isNice = (r: RecommendedProduct) => r.priority === "nice-to-have";
   const hospitalItems = isGift ? [] : results.filter(r => isHospital(r));
   const extrasItems = isGift ? [] : results.filter(r => !isHospital(r) && isNice(r));

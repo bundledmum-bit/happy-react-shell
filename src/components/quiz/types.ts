@@ -6,6 +6,7 @@ export interface RecommendedProduct {
   slug: string;
   priority: string;
   category: string;
+  subcategory: string | null;
   quantity: number;
   selected_color: string | null;
   why_included: string;
