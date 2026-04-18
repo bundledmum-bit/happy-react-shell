@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { Tag, Boxes, MapPin, FileText as PageIcon } from "lucide-react";
 import logoWhite from "@/assets/logos/BM-LOGO-WHITE.svg";
-import iconCoral from "@/assets/logos/BM-ICON-CORAL.svg";
+import BMLoadingAnimation from "@/components/BMLoadingAnimation";
 
 // Map icon name strings from DB to lucide components
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -134,10 +134,12 @@ function AdminLayoutInner() {
   };
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: "linear-gradient(135deg, #2D6A4F 0%, #1A4A33 100%)" }}>
+    <div className="min-h-screen flex items-center justify-center" style={{ background: "transparent" }}>
       <div className="text-center">
-        <img src={iconCoral} alt="BundledMum" className="w-12 h-12 mx-auto mb-3 animate-pulse" />
-        <div className="text-primary-foreground/70 text-sm font-body">Loading admin...</div>
+        <div className="mx-auto mb-3 flex items-center justify-center">
+          <BMLoadingAnimation size={140} />
+        </div>
+        <div className="text-text-med text-sm font-body">Loading admin...</div>
       </div>
     </div>
   );

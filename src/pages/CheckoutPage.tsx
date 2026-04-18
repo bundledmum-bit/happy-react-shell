@@ -4,6 +4,7 @@ import { useCart, fmt } from "@/lib/cart";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import BMLoadingAnimation from "@/components/BMLoadingAnimation";
 import { useShippingZones, calculateDeliveryFee } from "@/hooks/useShippingZones";
 import { useSiteSettings } from "@/hooks/useSupabaseData";
 import { useSpendThresholds, getSpendPrompt } from "@/hooks/useSpendThresholds";
@@ -502,9 +503,11 @@ export default function CheckoutPage() {
 
   if (processing) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "transparent" }}>
         <div className="text-center animate-fade-up">
-          <div className="mx-auto h-14 w-14 border-4 border-border border-t-forest rounded-full animate-spin mb-4" />
+          <div className="mx-auto mb-4 flex items-center justify-center">
+            <BMLoadingAnimation size={180} />
+          </div>
           <p className="pf text-lg text-forest">Confirming your order...</p>
           <p className="font-body text-sm text-text-med mt-1">Please don't close this page 🔒</p>
         </div>
