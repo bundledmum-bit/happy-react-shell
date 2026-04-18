@@ -6,6 +6,7 @@ import { useAllProducts } from "@/hooks/useSupabaseData";
 import type { Product, Brand } from "@/lib/supabaseAdapters";
 import { toast } from "sonner";
 import { ArrowLeft, Check, Share2, ClipboardCopy, Loader2 } from "lucide-react";
+import BMLoadingAnimation from "@/components/BMLoadingAnimation";
 import ShareModal from "@/components/ShareModal";
 import ExitIntentPopup from "@/components/ExitIntentPopup";
 import ProductImage from "@/components/ProductImage";
@@ -731,9 +732,11 @@ export default function QuizPage() {
   // ========= LOADING =========
   if (configLoading || !currentStep) {
     return (
-      <div className="min-h-screen bg-background pt-[68px] flex items-center justify-center">
+      <div className="min-h-screen pt-[68px] flex items-center justify-center" style={{ background: "transparent" }}>
         <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-forest mx-auto mb-3" />
+          <div className="mx-auto mb-3 flex items-center justify-center">
+            <BMLoadingAnimation size={150} />
+          </div>
           <p className="text-muted-foreground text-sm">Loading quiz...</p>
         </div>
       </div>
@@ -1093,9 +1096,11 @@ export default function QuizPage() {
   // ========= LOADING RESULTS =========
   if (loadingResults) {
     return (
-      <div className="min-h-screen bg-background pt-[68px] flex items-center justify-center">
+      <div className="min-h-screen pt-[68px] flex items-center justify-center" style={{ background: "transparent" }}>
         <div className="text-center">
-          <Loader2 className="w-10 h-10 animate-spin text-coral mx-auto mb-4" />
+          <div className="mx-auto mb-4 flex items-center justify-center">
+            <BMLoadingAnimation size={200} />
+          </div>
           <h2 className="pf text-xl text-foreground mb-2">Building your perfect bundle...</h2>
           <p className="text-muted-foreground text-sm">Our engine is picking the best items for you ✨</p>
         </div>
