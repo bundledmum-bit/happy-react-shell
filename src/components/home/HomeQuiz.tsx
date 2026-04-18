@@ -181,7 +181,7 @@ function QuizScreen({
             }}
             placeholder="Type Your Budget Here"
             aria-label="Budget"
-            className={`w-full ${budget > 0 ? "pl-12" : "pl-5"} pr-5 py-3 text-center bg-transparent border-2 rounded-[14px] pf text-coral text-[26px] md:text-[30px] font-bold tracking-tight outline-none transition-colors placeholder:text-primary-foreground/40 placeholder:text-[16px] placeholder:font-semibold ${belowMin && budget > 0 ? "border-coral/60" : "border-primary-foreground/20 focus:border-coral"}`}
+            className={`w-full ${budget > 0 ? "pl-12" : "pl-5"} pr-5 py-3 text-center bg-transparent border-2 rounded-[14px] pf text-coral text-[26px] md:text-[30px] font-bold tracking-tight outline-none transition-colors placeholder:text-coral placeholder:text-[16px] placeholder:font-semibold ${belowMin && budget > 0 ? "border-coral/60" : "border-primary-foreground/20 focus:border-coral"}`}
           />
         </div>
         <div
