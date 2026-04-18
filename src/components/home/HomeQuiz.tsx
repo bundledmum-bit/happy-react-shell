@@ -305,25 +305,80 @@ function ResultsScreen({
     (async () => {
       setLoading(true); setError(null);
       const budgetTier = budgetTierFor(budget);
-      const scope = scopeFor(categories);
-      const stage = stageFor(categories);
       const isGift = categories.has("gift");
       try {
-        const { data, error } = await supabase.rpc("run_quiz_recommendation", {
-          p_budget_tier: budgetTier,
-          p_scope: scope,
-          p_stage: stage,
-          p_hospital_type: "public",
-          p_delivery_method: "vaginal",
-          p_multiples: 1,
-          p_gender: gender,
-          p_first_baby: false,
-          p_is_gift: isGift,
-          p_gift_relationship: null,
-        });
-        if (cancelled) return;
-        if (error) throw error;
-        setResult(data as unknown as RecommendationResult);
+        if (isGift) {
+          // Gift path uses the push-gift recommendation engine — it queries
+          // is_push_gift_eligible products (silk robes, jewellery, chocolate
+          // hampers, etc.) instead of the family-bundle RPC which returns
+          // maternity/baby essentials.
+          const pushTier = budgetTier === "starter" ? "push-starter"
+            : budgetTier === "premium" ? "push-premium"
+            : "push-standard";
+          const { data, error } = await supabase.rpc("run_push_gift_recommendation", {
+            p_budget_tier: pushTier,
+            p_category: "pampering",
+            p_timing: "no-specific-time",
+          });
+          if (cancelled) return;
+          if (error) throw error;
+          // Push-gift returns a subset of RecommendationResult's shape —
+          // normalise so ResultProductCard can render each item unchanged.
+          const raw = data as any;
+          const normalised: RecommendationResult = {
+            budget_tier: raw?.budget_tier || pushTier,
+            scope: "hospital-bag+general",
+            stage: "newborn",
+            hospital_type: "public",
+            delivery_method: "vaginal",
+            multiples: 1,
+            gender,
+            first_baby: false,
+            product_count: raw?.product_count || 0,
+            target_count: raw?.product_count || 0,
+            engine_version: raw?.engine_version || "push-gift",
+            products: (raw?.products || []).map((p: any) => ({
+              product_id: p.product_id,
+              name: p.name,
+              slug: p.slug,
+              priority: p.priority,
+              category: p.category,
+              quantity: p.quantity ?? 1,
+              selected_color: null,
+              why_included: p.why_included || "",
+              emoji: null,
+              image_url: null,
+              brand: p.brand ? {
+                id: p.brand.id,
+                brand_name: p.brand.brand_name,
+                price: p.brand.price,
+                tier: p.brand.tier,
+                image_url: p.brand.image_url ?? null,
+                in_stock: p.brand.in_stock ?? true,
+                logo_url: p.brand.logo_url ?? null,
+              } : null as any,
+            })),
+          };
+          setResult(normalised);
+        } else {
+          const scope = scopeFor(categories);
+          const stage = stageFor(categories);
+          const { data, error } = await supabase.rpc("run_quiz_recommendation", {
+            p_budget_tier: budgetTier,
+            p_scope: scope,
+            p_stage: stage,
+            p_hospital_type: "public",
+            p_delivery_method: "vaginal",
+            p_multiples: 1,
+            p_gender: gender,
+            p_first_baby: false,
+            p_is_gift: false,
+            p_gift_relationship: null,
+          });
+          if (cancelled) return;
+          if (error) throw error;
+          setResult(data as unknown as RecommendationResult);
+        }
       } catch (err: any) {
         if (!cancelled) setError(err?.message || "Something went wrong.");
       } finally {
@@ -419,18 +474,22 @@ function ResultsScreen({
   // ---- Results rendering (mirrors the old quiz layout) --------------------
   const recommendation = result;
   const results = recommendation.products;
-  const babyItems = results.filter(r => r.category === "baby");
-  const mumItems = results.filter(r => r.category === "mum");
+  const isGift = answers.shopper === "gift";
+  const babyItems = isGift ? [] : results.filter(r => r.category === "baby");
+  const mumItems = isGift ? [] : results.filter(r => r.category === "mum");
+  // On the gift path, push-gift RPC returns category = "push-gift" (and a
+  // handful of "mum"). Render them all in a single "Gift Bundle" section
+  // so nothing is dropped by the baby/mum filters above.
+  const giftItems = isGift ? results : [];
   const totalValue = results.reduce((s, r) => s + (r.brand?.price || 0) * (r.quantity || 1), 0);
   const grandTotal = totalValue;
-  const isGift = answers.shopper === "gift";
   const budgetLabel = answers.budget === "starter" ? "Starter" : answers.budget === "premium" ? "Premium" : "Standard";
   const multiples = 1;
   const isFallback = recommendation.engine_version?.includes("fallback");
 
   const recScope = recommendation.scope || answers.scope || "";
   let heading: string;
-  if (isGift) heading = "Your Perfect Gift Bundle 🎁";
+  if (isGift) heading = `A ₦${budget.toLocaleString("en-NG")} gift bundle for the new parents`;
   else if (recScope === "hospital-bag") heading = "Your Perfect Hospital Bag 🏥";
   else if (recScope === "general-baby-prep") heading = "Your Baby Prep Bundle 👶";
   else if (recScope === "hospital-bag+general") heading = "Your Hospital Bag & Baby Prep Bundle";
@@ -486,8 +545,16 @@ function ResultsScreen({
           </div>
 
           <div className="flex flex-wrap gap-3 justify-center text-primary-foreground/60 text-xs mb-5">
-            <span>👶 {babyItems.length} baby items</span><span>·</span>
-            <span>💛 {mumItems.length} mum items</span><span>·</span>
+            {isGift ? (
+              <>
+                <span>🎁 {giftItems.length} gift items</span><span>·</span>
+              </>
+            ) : (
+              <>
+                <span>👶 {babyItems.length} baby items</span><span>·</span>
+                <span>💛 {mumItems.length} mum items</span><span>·</span>
+              </>
+            )}
             <span>Total: {results.length} items</span><span>·</span>
             <span className="text-coral font-bold">{fmt(grandTotal)}</span>
           </div>
@@ -516,9 +583,33 @@ function ResultsScreen({
       </div>
 
       <div id="quiz-results-items" className="max-w-[1000px] mx-auto px-4 md:px-10 py-8 md:py-10">
+        {giftItems.length > 0 && (
+          <div className="mb-10">
+            <h2 className="pf text-lg md:text-xl text-forest mb-4">🎁 Gift Bundle for the New Parents</h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
+              {giftItems.map(item => (
+                <ResultProductCard
+                  key={item.product_id}
+                  item={item}
+                  isInCart={addedIds.has(item.product_id)}
+                  cartItem={cart.find(c => c.id === item.product_id)}
+                  onQtyUpdate={(key, qty) => {
+                    const c = cart.find(x => x._key === key);
+                    if (!c) return;
+                    setCart(prev => prev.map(x => x._key === key ? { ...x, qty } : x));
+                  }}
+                  onAdd={(brand, size) => handleAddProduct(item, brand, size)}
+                  onRemove={() => handleRemoveProduct(item)}
+                  fullProduct={productMap.get(item.product_id)}
+                  onViewDetail={() => { const fp = productMap.get(item.product_id); if (fp) setDetailProduct(fp); }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
         {babyItems.length > 0 && (
           <div className="mb-10">
-            <h2 className="pf text-lg md:text-xl text-forest mb-4">{isGift ? "🎁 Gift for Baby" : "👶 For Baby"}</h2>
+            <h2 className="pf text-lg md:text-xl text-forest mb-4">👶 For Baby</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
               {babyItems.map(item => (
                 <ResultProductCard
@@ -542,7 +633,7 @@ function ResultsScreen({
         )}
         {mumItems.length > 0 && (
           <div className="mb-10">
-            <h2 className="pf text-lg md:text-xl text-forest mb-4">{isGift ? "🎁 Gift for Mum" : "💛 For Mum"}</h2>
+            <h2 className="pf text-lg md:text-xl text-forest mb-4">💛 For Mum</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
               {mumItems.map(item => (
                 <ResultProductCard
