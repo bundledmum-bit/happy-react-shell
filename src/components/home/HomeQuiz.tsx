@@ -24,7 +24,8 @@ type Gender = "boy" | "girl" | "unknown";
 // Keeping the constants here so tests / SSR / first render before settings
 // load still behaves sensibly.
 const MIN_BUDGET_FALLBACK = 80_000;
-const DEFAULT_BUDGET = 150_000;
+// Budget starts empty so the placeholder shows; user must enter an amount.
+const DEFAULT_BUDGET = 0;
 
 // Safe parser for admin-edited site_settings string values.
 function unwrapSetting(v: any): string {
@@ -138,7 +139,9 @@ function QuizScreen({
     { id: "unknown" as const, title: s("quiz_gender_surprise_title", "It's a Surprise!"), sub: s("quiz_gender_surprise_sub", "Neutral & unisex"), emoji: "🎁" },
   ];
 
-  const belowMin = budget < minBudget;
+  // Only treat "below minimum" as an error state once the user has typed
+  // something — empty field should not look like an error.
+  const belowMin = budget > 0 && budget < minBudget;
   const minBudgetDisplay = `Minimum ₦${minBudget.toLocaleString("en-NG")}`;
 
   return (
@@ -157,7 +160,9 @@ function QuizScreen({
       <div className="bg-primary-foreground/[0.06] backdrop-blur-sm border border-primary-foreground/10 rounded-[18px] p-4 md:p-5 mb-3">
         <label className="text-primary-foreground/80 text-[12px] md:text-[13px] font-bold uppercase tracking-[2.5px] mb-2 block text-center">{labelBudget}</label>
         <div className="relative">
-          <span className="absolute left-5 top-1/2 -translate-y-1/2 pf text-coral text-[26px] md:text-[30px] font-bold pointer-events-none leading-none">₦</span>
+          {budget > 0 && (
+            <span className="absolute left-5 top-1/2 -translate-y-1/2 pf text-coral text-[26px] md:text-[30px] font-bold pointer-events-none leading-none">₦</span>
+          )}
           <input
             type="text"
             inputMode="numeric"
@@ -174,9 +179,9 @@ function QuizScreen({
                 setSnapFlash(x => x + 1);
               }
             }}
-            placeholder="150,000"
+            placeholder="Type Your Budget Here"
             aria-label="Budget"
-            className={`w-full pl-12 pr-5 py-3 text-center bg-transparent border-2 rounded-[14px] pf text-coral text-[26px] md:text-[30px] font-bold tracking-tight outline-none transition-colors ${belowMin ? "border-coral/60" : "border-primary-foreground/20 focus:border-coral"}`}
+            className={`w-full ${budget > 0 ? "pl-12" : "pl-5"} pr-5 py-3 text-center bg-transparent border-2 rounded-[14px] pf text-coral text-[26px] md:text-[30px] font-bold tracking-tight outline-none transition-colors placeholder:text-primary-foreground/40 placeholder:text-[16px] placeholder:font-semibold ${belowMin && budget > 0 ? "border-coral/60" : "border-primary-foreground/20 focus:border-coral"}`}
           />
         </div>
         <div
