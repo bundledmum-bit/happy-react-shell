@@ -374,6 +374,7 @@ function ResultsScreen({
             p_first_baby: false,
             p_is_gift: false,
             p_gift_relationship: null,
+            p_budget_amount: budget,
           });
           if (cancelled) return;
           if (error) throw error;
@@ -487,7 +488,7 @@ function ResultsScreen({
   // Convenience Extras = priority='nice-to-have' (not in hospital) — the
   //   ranked "extras" the RPC pulls in at higher budgets.
   // Baby/Mum Essentials = category buckets filtered to essential/recommended.
-  const HOSPITAL_SUBCATEGORIES = new Set(["delivery-consumables", "nappies-wipes"]);
+  const HOSPITAL_SUBCATEGORIES = new Set(["delivery-consumables"]);
   const subcatOf = (pid: string) => productMap.get(pid)?.subcategory || "";
   const isHospital = (r: RecommendedProduct) => HOSPITAL_SUBCATEGORIES.has(subcatOf(r.product_id));
   const isNice = (r: RecommendedProduct) => r.priority === "nice-to-have";
