@@ -33,6 +33,7 @@ export interface Product {
   brands: Brand[];
   category: string;
   subcategory?: string | null;
+  productSlot?: string | null;
   stage: string[];
   priority: "essential" | "recommended" | "nice-to-have";
   tier: string[];
@@ -166,6 +167,7 @@ export function adaptProduct(row: any): Product {
     brands,
     category: row.category,
     subcategory: row.subcategory || null,
+    productSlot: row.product_slot || null,
     stage: stageTags.length ? stageTags : ["expecting", "newborn", "0-3m"],
     priority: row.priority as any,
     tier: tierTags,

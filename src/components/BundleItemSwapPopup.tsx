@@ -28,12 +28,25 @@ export default function BundleItemSwapPopup({ open, onClose, swappingItem, secti
     if (!products) return [];
     let list = products;
     // Filter by category matching section
-    if (section === "convenience") {
-      // Convenience Extras can be anything — no category filter.
-    } else if (section === "hospital") {
+    if (section === "hospital") {
       list = list.filter(p => p.subcategory === "delivery-consumables");
+    } else if (section === "convenience") {
+      // Convenience products — things like flasks, power banks,
+      // bottle warmers, breast pumps, diaper bags
+      list = list.filter(p =>
+        (p.subcategory === "maternity-recovery" &&
+          ["vacuum_flask", "power_bank", "portable_fan", "straw_bottle"].includes(p.productSlot || "")) ||
+        (p.subcategory === "feeding" && (p.productSlot?.includes("warmer") ?? false)) ||
+        (p.subcategory === "nursing" && p.productSlot === "breast_pump") ||
+        p.subcategory === "travel-transport" ||
+        (p.subcategory === "health-safety" && p.productSlot === "diaper_bag_mummy_bag") ||
+        (p.subcategory === "health-safety" && p.productSlot === "portable_changing_pad")
+      );
     } else if (section === "mum") {
-      list = list.filter(p => p.category === "mum" && p.subcategory !== "delivery-consumables");
+      list = list.filter(p =>
+        p.category === "mum" &&
+        p.subcategory !== "delivery-consumables"
+      );
     } else {
       list = list.filter(p => p.category !== "mum");
     }
