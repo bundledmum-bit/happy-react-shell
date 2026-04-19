@@ -1,8 +1,8 @@
 import { useParams, Link } from "react-router-dom";
 import { useCart, fmt } from "@/lib/cart";
 import { toast } from "sonner";
-import { ArrowLeft, Share2, ArrowLeftRight, Plus, Trash2, ZoomIn, X } from "lucide-react";
-import { useState, useEffect } from "react";
+import { ArrowLeft, Share2, ArrowLeftRight, Plus, Trash2, ZoomIn, X, Pencil } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
 import { useBundle, useBundles, useAllProducts } from "@/hooks/useSupabaseData";
 import type { BundleItem } from "@/lib/supabaseAdapters";
 import ProductImage from "@/components/ProductImage";
@@ -14,12 +14,25 @@ export default function BundleDetailPage() {
   const { bundleId } = useParams();
   const { data: bundle, isLoading } = useBundle(bundleId || "");
   const { data: allBundles } = useBundles();
+  const { data: allProducts } = useAllProducts();
   const { addToCart, cart } = useCart();
+
+  // Fast lookup by product_id so we can resolve a BundleItem back to its
+  // full Product (brands, sizes, subcategory) when the attribute picker
+  // opens.
+  const productMap = useMemo(() => {
+    const map = new Map<string, any>();
+    (allProducts || []).forEach(p => map.set(p.id, p));
+    return map;
+  }, [allProducts]);
 
   const [customBabyItems, setCustomBabyItems] = useState<BundleItem[] | null>(null);
   const [customMumItems, setCustomMumItems] = useState<BundleItem[] | null>(null);
   const [customHospitalItems, setCustomHospitalItems] = useState<BundleItem[] | null>(null);
   const [swapPopup, setSwapPopup] = useState<{ open: boolean; section: "baby" | "mum" | "hospital"; swapIndex?: number } | null>(null);
+  const [attrPicker, setAttrPicker] = useState<{ item: BundleItem; section: "baby" | "mum" | "hospital"; index: number } | null>(null);
+  const [pickerBrandId, setPickerBrandId] = useState<string>("");
+  const [pickerSize, setPickerSize] = useState<string>("");
   const [zoomImage, setZoomImage] = useState<string | null>(null);
   const [showShare, setShowShare] = useState(false);
 
@@ -145,33 +158,62 @@ export default function BundleDetailPage() {
 
   const existingNames = allItems.map(i => i.name);
 
+  const handleAttrConfirm = (
+    selectedBrand: { id: string; label: string; price: number; imageUrl?: string | null },
+    selectedSize?: string
+  ) => {
+    if (!attrPicker) return;
+    const { section, index } = attrPicker;
+    const updated: BundleItem = {
+      ...attrPicker.item,
+      brand: selectedBrand.label,
+      price: selectedBrand.price,
+      brandId: selectedBrand.id,
+      imageUrl: selectedBrand.imageUrl || attrPicker.item.imageUrl,
+    };
+    if (section === "baby")
+      setCustomBabyItems(prev => prev!.map((it, i) => i === index ? updated : it));
+    else if (section === "mum")
+      setCustomMumItems(prev => prev!.map((it, i) => i === index ? updated : it));
+    else
+      setCustomHospitalItems(prev => prev!.map((it, i) => i === index ? updated : it));
+    setAttrPicker(null);
+    toast.success(`Updated to ${selectedBrand.label}${selectedSize ? ` · ${selectedSize}` : ""}`);
+  };
+
+  const openAttrPicker = (item: BundleItem, section: "baby" | "mum" | "hospital", index: number) => {
+    const fullProduct = item.productId ? productMap.get(item.productId) : null;
+    setPickerBrandId(item.brandId || fullProduct?.brands?.[0]?.id || "");
+    setPickerSize(fullProduct?.sizes?.[0] || "");
+    setAttrPicker({ item, section, index });
+  };
+
   const renderItemRow = (item: BundleItem, index: number, section: "baby" | "mum" | "hospital") => (
     <div key={`${section}-${index}`} className="flex items-center gap-3 py-3 border-b border-border/40 last:border-0">
-      {/* Product image */}
+      {/* Product image + name/brand — tap to edit brand, size, colour */}
       <button
-        className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-muted relative group"
-        onClick={() => item.imageUrl && setZoomImage(item.imageUrl)}
-        aria-label={`Zoom ${item.name}`}
+        onClick={() => openAttrPicker(item, section, index)}
+        className="flex-1 min-w-0 flex items-center gap-3 text-left rounded-lg -mx-1 px-1 py-0.5 hover:bg-muted/40 transition-colors group"
+        aria-label={`Edit ${item.name}`}
       >
-        <ProductImage
-          imageUrl={item.imageUrl}
-          emoji={item.emoji}
-          alt={item.name}
-          className="w-full h-full"
-          emojiClassName="text-xl"
-        />
-        {item.imageUrl && (
-          <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/20 transition-colors flex items-center justify-center">
-            <ZoomIn className="h-3.5 w-3.5 text-primary-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-          </div>
-        )}
+        <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-muted relative">
+          <ProductImage
+            imageUrl={item.imageUrl}
+            emoji={item.emoji}
+            alt={item.name}
+            className="w-full h-full"
+            emojiClassName="text-xl"
+          />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[13px] font-semibold leading-tight truncate flex items-center gap-1.5">
+            {item.name}
+            <Pencil className="h-3 w-3 text-muted-foreground opacity-60 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+          </p>
+          <p className="text-muted-foreground text-[11px]">{item.brand}</p>
+          <p className="text-forest font-bold text-[12px] mt-0.5">{fmt(item.price)}</p>
+        </div>
       </button>
-
-      <div className="flex-1 min-w-0">
-        <p className="text-[13px] font-semibold leading-tight truncate">{item.name}</p>
-        <p className="text-muted-foreground text-[11px]">{item.brand}</p>
-        <p className="text-forest font-bold text-[12px] mt-0.5">{fmt(item.price)}</p>
-      </div>
 
       {/* Action buttons – always visible on mobile */}
       <div className="flex items-center gap-0.5 flex-shrink-0">
@@ -195,9 +237,104 @@ export default function BundleDetailPage() {
     </div>
   );
 
+  // Resolved product for the current attribute picker (if any)
+  const pickerProduct = attrPicker?.item.productId ? productMap.get(attrPicker.item.productId) : null;
+  const pickerSelectedBrand = pickerProduct?.brands?.find((b: any) => b.id === pickerBrandId)
+    || pickerProduct?.brands?.[0];
+
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-8">
       {zoomImage && <BundleImageZoom src={zoomImage} alt="Product" onClose={() => setZoomImage(null)} />}
+
+      {/* Attribute picker — change brand / size / colour for a bundle item */}
+      {attrPicker && (
+        <div
+          className="fixed inset-0 z-[950] flex items-end sm:items-center justify-center"
+          onClick={() => setAttrPicker(null)}
+        >
+          <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" />
+          <div
+            className="relative bg-card rounded-t-[20px] sm:rounded-[20px] shadow-2xl w-full sm:max-w-[480px] max-h-[85vh] flex flex-col animate-fade-in"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between p-4 border-b border-border">
+              <div className="flex-1 min-w-0 pr-3">
+                <h3 className="pf text-lg font-bold leading-tight">{attrPicker.item.name}</h3>
+                <p className="text-muted-foreground text-xs mt-0.5">Change brand, size or colour</p>
+              </div>
+              <button onClick={() => setAttrPicker(null)} className="w-9 h-9 rounded-full bg-foreground/10 flex items-center justify-center hover:bg-foreground/20 flex-shrink-0" aria-label="Close">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {!pickerProduct ? (
+              <div className="p-6 text-center text-muted-foreground text-sm">
+                Product details not available
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto p-4 space-y-5">
+                {/* Brands */}
+                {pickerProduct.brands?.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-2">Brand</p>
+                    <div className="flex flex-wrap gap-2">
+                      {pickerProduct.brands.map((b: any) => {
+                        const selected = pickerBrandId === b.id;
+                        const oos = b.inStock === false || b.stockQuantity === 0;
+                        return (
+                          <button
+                            key={b.id}
+                            onClick={() => !oos && setPickerBrandId(b.id)}
+                            disabled={oos}
+                            className={`px-3 py-1.5 rounded-pill text-xs font-semibold border-[1.5px] transition-all font-body ${oos ? "opacity-40 cursor-not-allowed" : ""} ${selected ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-muted-foreground hover:border-forest/40"}`}
+                          >
+                            {b.label} · {fmt(b.price)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Sizes */}
+                {pickerProduct.sizes && pickerProduct.sizes.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-2">Size</p>
+                    <div className="flex flex-wrap gap-2">
+                      {pickerProduct.sizes.map((s: string) => {
+                        const selected = pickerSize === s;
+                        return (
+                          <button
+                            key={s}
+                            onClick={() => setPickerSize(s)}
+                            className={`px-3 py-1.5 rounded-pill text-xs font-semibold border-[1.5px] transition-all font-body ${selected ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-muted-foreground hover:border-forest/40"}`}
+                          >
+                            {s}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {pickerProduct && pickerSelectedBrand && (
+              <div className="p-4 border-t border-border">
+                <button
+                  onClick={() => handleAttrConfirm(
+                    { id: pickerSelectedBrand.id, label: pickerSelectedBrand.label, price: pickerSelectedBrand.price, imageUrl: pickerSelectedBrand.imageUrl ?? null },
+                    pickerSize || undefined
+                  )}
+                  className="w-full rounded-pill bg-forest text-primary-foreground py-3 font-semibold text-sm hover:bg-forest-deep transition-colors"
+                >
+                  Confirm — {fmt(pickerSelectedBrand.price)}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {showShare && (
         <ShareModal
