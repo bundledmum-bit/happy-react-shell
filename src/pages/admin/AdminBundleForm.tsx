@@ -199,12 +199,24 @@ export default function AdminBundleForm({ bundle, onClose, onSaved }: Props) {
     setDrag(null);
   };
 
+  // Set of product_ids already in the bundle across all sections — used
+  // to hide already-added products from the per-section search dropdowns.
+  const usedProductIds = useMemo(() => {
+    const s = new Set<string>();
+    SECTIONS.forEach(sec => itemsBySection[sec.key].forEach(it => {
+      if (it.product_id) s.add(it.product_id);
+    }));
+    return s;
+  }, [itemsBySection]);
+
   // Product search filter per section, mirroring BundleItemSwapPopup's
   // category/subcategory logic so admins only see relevant products.
+  // Already-added products are excluded so admins can't double-add.
   const productsForSection = (section: SectionKey): any[] => {
     const q = productSearch.trim().toLowerCase();
     if (!q) return [];
     return (allProducts || []).filter((p: any) => {
+      if (usedProductIds.has(p.id)) return false;
       if (!p.name.toLowerCase().includes(q)) return false;
       switch (section) {
         case "mum":
