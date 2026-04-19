@@ -18,7 +18,8 @@ export default function BundleDetailPage() {
 
   const [customBabyItems, setCustomBabyItems] = useState<BundleItem[] | null>(null);
   const [customMumItems, setCustomMumItems] = useState<BundleItem[] | null>(null);
-  const [swapPopup, setSwapPopup] = useState<{ open: boolean; section: "baby" | "mum"; swapIndex?: number } | null>(null);
+  const [customHospitalItems, setCustomHospitalItems] = useState<BundleItem[] | null>(null);
+  const [swapPopup, setSwapPopup] = useState<{ open: boolean; section: "baby" | "mum" | "hospital"; swapIndex?: number } | null>(null);
   const [zoomImage, setZoomImage] = useState<string | null>(null);
   const [showShare, setShowShare] = useState(false);
 
@@ -26,6 +27,7 @@ export default function BundleDetailPage() {
     if (bundle && !customBabyItems) {
       setCustomBabyItems([...bundle.babyItems]);
       setCustomMumItems([...bundle.mumItems]);
+      setCustomHospitalItems([...bundle.hospitalItems]);
     }
   }, [bundle]);
 
@@ -52,14 +54,16 @@ export default function BundleDetailPage() {
 
   const babyItems = customBabyItems || bundle.babyItems;
   const mumItems = customMumItems || bundle.mumItems;
-  const allItems = [...babyItems, ...mumItems];
+  const hospitalItems = customHospitalItems || bundle.hospitalItems;
+  const allItems = [...babyItems, ...mumItems, ...hospitalItems];
   const customTotal = allItems.reduce((s, i) => s + i.price, 0);
   const isCustomized = customBabyItems !== null && (
     JSON.stringify(customBabyItems) !== JSON.stringify(bundle.babyItems) ||
-    JSON.stringify(customMumItems) !== JSON.stringify(bundle.mumItems)
+    JSON.stringify(customMumItems) !== JSON.stringify(bundle.mumItems) ||
+    JSON.stringify(customHospitalItems) !== JSON.stringify(bundle.hospitalItems)
   );
   const displayPrice = isCustomized ? customTotal : bundle.price;
-  const totalItems = babyItems.length + mumItems.length;
+  const totalItems = babyItems.length + mumItems.length + hospitalItems.length;
   const separateTotal = isCustomized ? customTotal : bundle.separateTotal;
   const savings = separateTotal - displayPrice;
   const savingsPercent = separateTotal > 0 ? Math.round((savings / separateTotal) * 100) : 0;
@@ -96,17 +100,19 @@ export default function BundleDetailPage() {
 
   const shareText = `Check out ${isCustomized ? "my customized " : "the "}${bundle.name} bundle on BundledMum! ${totalItems} items for ${fmt(displayPrice)}.`;
 
-  const handleSwap = (section: "baby" | "mum", index: number) => {
+  const handleSwap = (section: "baby" | "mum" | "hospital", index: number) => {
     setSwapPopup({ open: true, section, swapIndex: index });
   };
 
-  const handleAddNew = (section: "baby" | "mum") => {
+  const handleAddNew = (section: "baby" | "mum" | "hospital") => {
     setSwapPopup({ open: true, section });
   };
 
-  const handleRemoveItem = (section: "baby" | "mum", index: number) => {
+  const handleRemoveItem = (section: "baby" | "mum" | "hospital", index: number) => {
     if (section === "baby") {
       setCustomBabyItems(prev => prev ? prev.filter((_, i) => i !== index) : []);
+    } else if (section === "hospital") {
+      setCustomHospitalItems(prev => prev ? prev.filter((_, i) => i !== index) : []);
     } else {
       setCustomMumItems(prev => prev ? prev.filter((_, i) => i !== index) : []);
     }
@@ -119,6 +125,8 @@ export default function BundleDetailPage() {
     if (swapIndex !== undefined) {
       if (section === "baby") {
         setCustomBabyItems(prev => prev ? prev.map((item, i) => i === swapIndex ? newItem : item) : []);
+      } else if (section === "hospital") {
+        setCustomHospitalItems(prev => prev ? prev.map((item, i) => i === swapIndex ? newItem : item) : []);
       } else {
         setCustomMumItems(prev => prev ? prev.map((item, i) => i === swapIndex ? newItem : item) : []);
       }
@@ -126,6 +134,8 @@ export default function BundleDetailPage() {
     } else {
       if (section === "baby") {
         setCustomBabyItems(prev => [...(prev || []), newItem]);
+      } else if (section === "hospital") {
+        setCustomHospitalItems(prev => [...(prev || []), newItem]);
       } else {
         setCustomMumItems(prev => [...(prev || []), newItem]);
       }
@@ -135,7 +145,7 @@ export default function BundleDetailPage() {
 
   const existingNames = allItems.map(i => i.name);
 
-  const renderItemRow = (item: BundleItem, index: number, section: "baby" | "mum") => (
+  const renderItemRow = (item: BundleItem, index: number, section: "baby" | "mum" | "hospital") => (
     <div key={`${section}-${index}`} className="flex items-center gap-3 py-3 border-b border-border/40 last:border-0">
       {/* Product image */}
       <button
@@ -208,9 +218,13 @@ export default function BundleDetailPage() {
         <BundleItemSwapPopup
           open
           onClose={() => setSwapPopup(null)}
-          section={swapPopup.section}
+          section={swapPopup.section === "hospital" ? "mum" : swapPopup.section}
           swappingItem={swapPopup.swapIndex !== undefined
-            ? (swapPopup.section === "baby" ? babyItems[swapPopup.swapIndex] : mumItems[swapPopup.swapIndex])
+            ? (swapPopup.section === "baby"
+                ? babyItems[swapPopup.swapIndex]
+                : swapPopup.section === "hospital"
+                  ? hospitalItems[swapPopup.swapIndex]
+                  : mumItems[swapPopup.swapIndex])
             : null}
           onSelect={handleSwapSelect}
           existingItemNames={existingNames}
@@ -337,6 +351,24 @@ export default function BundleDetailPage() {
               )}
             </div>
           </div>
+
+          {/* Hospital Consumables */}
+          {hospitalItems.length > 0 && (
+            <div className="bg-card rounded-card shadow-card overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
+                <h3 className="pf text-base text-forest">🏥 Hospital Consumables ({hospitalItems.length})</h3>
+                <button
+                  onClick={() => handleAddNew("hospital")}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-forest bg-forest-light hover:bg-forest/20 rounded-pill px-3 py-1.5 transition-colors"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Add
+                </button>
+              </div>
+              <div className="px-4">
+                {hospitalItems.map((item, i) => renderItemRow(item, i, "hospital"))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Price Summary */}
@@ -351,7 +383,7 @@ export default function BundleDetailPage() {
           </p>
           {isCustomized && (
             <button
-              onClick={() => { setCustomBabyItems([...bundle.babyItems]); setCustomMumItems([...bundle.mumItems]); }}
+              onClick={() => { setCustomBabyItems([...bundle.babyItems]); setCustomMumItems([...bundle.mumItems]); setCustomHospitalItems([...bundle.hospitalItems]); }}
               className="text-xs text-forest hover:underline mt-1.5"
             >
               Reset to original bundle
