@@ -8,8 +8,6 @@ import type { Bundle } from "@/lib/supabaseAdapters";
 import ProductImage from "@/components/ProductImage";
 
 export default function BundlesPage() {
-  const [hospitalF, setHospitalF] = useState("all");
-  const [deliveryF, setDeliveryF] = useState("all");
   const [tierF, setTierF] = useState("all");
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [showCompare, setShowCompare] = useState(false);
@@ -20,8 +18,6 @@ export default function BundlesPage() {
   useEffect(() => { document.title = "Pre-Packed Hospital Lists | BundledMum"; }, []);
 
   const filtered = allBundles.filter(b => {
-    if (hospitalF !== "all" && b.hospitalType !== hospitalF) return false;
-    if (deliveryF !== "all" && b.deliveryType !== deliveryF) return false;
     if (tierF !== "all" && b.tier.toLowerCase() !== tierF) return false;
     return true;
   });
@@ -52,16 +48,6 @@ export default function BundlesPage() {
         <div className="max-w-[1200px] mx-auto">
           <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 scrollbar-hide">
             <div className="flex gap-2 items-center min-w-max">
-              <span className="text-muted-foreground text-[13px] font-semibold whitespace-nowrap">Hospital:</span>
-              {[["all", "All"], ["public", "🏥 Public"], ["private", "🏨 Private"], ["gift", "🎁 Gift"]].map(([v, l]) => (
-                <button key={v} onClick={() => setHospitalF(v)} className={`rounded-pill px-3 py-2 text-xs font-semibold border-[1.5px] transition-all font-body whitespace-nowrap min-h-[44px] ${hospitalF === v ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-muted-foreground"}`}>{l}</button>
-              ))}
-              <div className="w-px h-5 bg-border mx-1 flex-shrink-0" />
-              <span className="text-muted-foreground text-[13px] font-semibold whitespace-nowrap">Delivery:</span>
-              {[["all", "All"], ["vaginal", "Vaginal"], ["csection", "C-Section"]].map(([v, l]) => (
-                <button key={v} onClick={() => setDeliveryF(v)} className={`rounded-pill px-3 py-2 text-xs font-semibold border-[1.5px] transition-all font-body whitespace-nowrap min-h-[44px] ${deliveryF === v ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-muted-foreground"}`}>{l}</button>
-              ))}
-              <div className="w-px h-5 bg-border mx-1 flex-shrink-0" />
               {[["all", "All Tiers"], ["starter", "Starter"], ["standard", "Standard"], ["premium", "✨ Premium"]].map(([v, l]) => (
                 <button key={v} onClick={() => setTierF(v)} className={`rounded-pill px-3 py-2 text-xs font-semibold border-[1.5px] transition-all font-body whitespace-nowrap min-h-[44px] ${tierF === v ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-muted-foreground"}`}>{l}</button>
               ))}
@@ -244,16 +230,6 @@ function BundleCard({ bundle: b, compareSelected, onToggleCompare }: { bundle: B
       </Link>
 
       <div className="p-4 flex flex-col flex-1">
-        <div className="flex gap-1.5 flex-wrap mb-2">
-          <span className="text-[9px] font-bold px-2 py-0.5 rounded-pill" style={{ background: b.lightColor, color: b.color }}>
-            {b.hospitalType === "public" ? "🏥 Public" : b.hospitalType === "private" ? "🏨 Private" : "🎁 Gift"}
-          </span>
-          {b.deliveryType && (
-            <span className="bg-warm-cream text-text-med text-[9px] font-semibold px-2 py-0.5 rounded-pill border border-border/50">
-              {b.deliveryType === "vaginal" ? "Vaginal" : "C-Section"}
-            </span>
-          )}
-        </div>
         <Link to={`/bundles/${b.id}`}>
           <h3 className="font-bold text-sm mb-1 min-h-[36px] leading-tight hover:text-forest transition-colors">{b.name}</h3>
         </Link>
