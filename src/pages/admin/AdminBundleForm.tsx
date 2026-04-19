@@ -41,13 +41,24 @@ export default function AdminBundleForm({ bundle, onClose, onSaved }: Props) {
   const [saving, setSaving] = useState(false);
   const [productSearch, setProductSearch] = useState("");
 
+  // Auto-detect the default section for a newly-added product, matching
+  // the logic used by the DB migration and the frontend adapter:
+  //   delivery-consumables subcategory → hospital
+  //   mum category                     → mum
+  //   everything else                  → baby
+  const detectSection = (prod: { category?: string | null; subcategory?: string | null }): "mum" | "baby" | "hospital" | "convenience" => {
+    if (prod.subcategory === "delivery-consumables") return "hospital";
+    if (prod.category === "mum") return "mum";
+    return "baby";
+  };
+
   // Load existing bundle items
   useEffect(() => {
     if (!isEdit) return;
     (async () => {
       const { data } = await supabase
         .from("bundle_items")
-        .select("*, products(id, name, emoji, category), brands(id, brand_name, price)")
+        .select("*, products(id, name, emoji, category, subcategory), brands(id, brand_name, price)")
         .eq("bundle_id", bundle.id)
         .order("display_order");
       setItems((data || []).map((bi: any) => ({
@@ -56,9 +67,11 @@ export default function AdminBundleForm({ bundle, onClose, onSaved }: Props) {
         brand_id: bi.brand_id,
         quantity: bi.quantity || 1,
         display_order: bi.display_order || 0,
+        section: bi.section || detectSection({ category: bi.products?.category, subcategory: bi.products?.subcategory }),
         product_name: bi.products?.name || "Unknown",
         product_emoji: bi.products?.emoji || "📦",
         product_category: bi.products?.category || "baby",
+        product_subcategory: bi.products?.subcategory || null,
         brand_name: bi.brands?.brand_name || "",
         brand_price: bi.brands?.price || 0,
       })));
@@ -69,7 +82,7 @@ export default function AdminBundleForm({ bundle, onClose, onSaved }: Props) {
   const { data: allProducts } = useQuery({
     queryKey: ["admin-products-picker"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("products").select("id, name, emoji, category, brands(id, brand_name, price, tier)").eq("is_active", true).is("deleted_at", null).order("display_order");
+      const { data, error } = await supabase.from("products").select("id, name, emoji, category, subcategory, brands(id, brand_name, price, tier)").eq("is_active", true).is("deleted_at", null).order("display_order");
       if (error) throw error;
       return data;
     },
@@ -102,9 +115,11 @@ export default function AdminBundleForm({ bundle, onClose, onSaved }: Props) {
       brand_id: defaultBrand?.id || null,
       quantity: 1,
       display_order: prev.length,
+      section: detectSection(prod),
       product_name: prod.name,
       product_emoji: prod.emoji || "📦",
       product_category: prod.category,
+      product_subcategory: prod.subcategory || null,
       brand_name: defaultBrand?.brand_name || "",
       brand_price: defaultBrand?.price || 0,
     }]);
@@ -157,6 +172,7 @@ export default function AdminBundleForm({ bundle, onClose, onSaved }: Props) {
           brand_id: item.brand_id || null,
           quantity: item.quantity || 1,
           display_order: i,
+          section: item.section || detectSection({ category: item.product_category, subcategory: item.product_subcategory }),
         }));
         const { error } = await supabase.from("bundle_items").insert(itemRows);
         if (error) throw error;
@@ -285,7 +301,7 @@ export default function AdminBundleForm({ bundle, onClose, onSaved }: Props) {
                         <span className="text-lg flex-shrink-0">{item.product_emoji}</span>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold truncate">{item.product_name}</p>
-                          <div className="flex items-center gap-2 mt-1">
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
                             <select value={item.brand_id || ""} onChange={e => {
                               const brand = brandsForProduct.find((b: any) => b.id === e.target.value);
                               updateItem(idx, { brand_id: e.target.value || null, brand_name: brand?.brand_name || "", brand_price: brand?.price || 0 });
@@ -297,6 +313,13 @@ export default function AdminBundleForm({ bundle, onClose, onSaved }: Props) {
                             </select>
                             <input type="number" min={1} value={item.quantity} onChange={e => updateItem(idx, { quantity: parseInt(e.target.value) || 1 })}
                               className="w-14 border border-input rounded px-2 py-1 text-xs bg-background text-center" />
+                            <select value={item.section || ""} onChange={e => updateItem(idx, { section: e.target.value })}
+                              className="border border-input rounded px-2 py-1 text-xs bg-background">
+                              <option value="mum">For Mum</option>
+                              <option value="baby">For Baby</option>
+                              <option value="hospital">Hospital Consumables</option>
+                              <option value="convenience">Convenience Extras</option>
+                            </select>
                           </div>
                         </div>
                         <span className="text-sm font-bold text-forest flex-shrink-0">₦{((item.brand_price || 0) * (item.quantity || 1)).toLocaleString()}</span>

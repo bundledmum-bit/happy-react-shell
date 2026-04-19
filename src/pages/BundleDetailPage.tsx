@@ -29,8 +29,9 @@ export default function BundleDetailPage() {
   const [customBabyItems, setCustomBabyItems] = useState<BundleItem[] | null>(null);
   const [customMumItems, setCustomMumItems] = useState<BundleItem[] | null>(null);
   const [customHospitalItems, setCustomHospitalItems] = useState<BundleItem[] | null>(null);
-  const [swapPopup, setSwapPopup] = useState<{ open: boolean; section: "baby" | "mum" | "hospital"; swapIndex?: number } | null>(null);
-  const [attrPicker, setAttrPicker] = useState<{ item: BundleItem; section: "baby" | "mum" | "hospital"; index: number } | null>(null);
+  const [customConvenienceItems, setCustomConvenienceItems] = useState<BundleItem[] | null>(null);
+  const [swapPopup, setSwapPopup] = useState<{ open: boolean; section: "baby" | "mum" | "hospital" | "convenience"; swapIndex?: number } | null>(null);
+  const [attrPicker, setAttrPicker] = useState<{ item: BundleItem; section: "baby" | "mum" | "hospital" | "convenience"; index: number } | null>(null);
   const [pickerBrandId, setPickerBrandId] = useState<string>("");
   const [pickerSize, setPickerSize] = useState<string>("");
   const [zoomImage, setZoomImage] = useState<string | null>(null);
@@ -41,6 +42,7 @@ export default function BundleDetailPage() {
       setCustomBabyItems([...bundle.babyItems]);
       setCustomMumItems([...bundle.mumItems]);
       setCustomHospitalItems([...bundle.hospitalItems]);
+      setCustomConvenienceItems([...bundle.convenienceItems]);
     }
   }, [bundle]);
 
@@ -68,15 +70,17 @@ export default function BundleDetailPage() {
   const babyItems = customBabyItems || bundle.babyItems;
   const mumItems = customMumItems || bundle.mumItems;
   const hospitalItems = customHospitalItems || bundle.hospitalItems;
-  const allItems = [...babyItems, ...mumItems, ...hospitalItems];
+  const convenienceItems = customConvenienceItems || bundle.convenienceItems;
+  const allItems = [...babyItems, ...mumItems, ...hospitalItems, ...convenienceItems];
   const customTotal = allItems.reduce((s, i) => s + i.price, 0);
   const isCustomized = customBabyItems !== null && (
     JSON.stringify(customBabyItems) !== JSON.stringify(bundle.babyItems) ||
     JSON.stringify(customMumItems) !== JSON.stringify(bundle.mumItems) ||
-    JSON.stringify(customHospitalItems) !== JSON.stringify(bundle.hospitalItems)
+    JSON.stringify(customHospitalItems) !== JSON.stringify(bundle.hospitalItems) ||
+    JSON.stringify(customConvenienceItems) !== JSON.stringify(bundle.convenienceItems)
   );
   const displayPrice = isCustomized ? customTotal : bundle.price;
-  const totalItems = babyItems.length + mumItems.length + hospitalItems.length;
+  const totalItems = babyItems.length + mumItems.length + hospitalItems.length + convenienceItems.length;
   const separateTotal = isCustomized ? customTotal : bundle.separateTotal;
   const savings = separateTotal - displayPrice;
   const savingsPercent = separateTotal > 0 ? Math.round((savings / separateTotal) * 100) : 0;
@@ -113,19 +117,21 @@ export default function BundleDetailPage() {
 
   const shareText = `Check out ${isCustomized ? "my customized " : "the "}${bundle.name} bundle on BundledMum! ${totalItems} items for ${fmt(displayPrice)}.`;
 
-  const handleSwap = (section: "baby" | "mum" | "hospital", index: number) => {
+  const handleSwap = (section: "baby" | "mum" | "hospital" | "convenience", index: number) => {
     setSwapPopup({ open: true, section, swapIndex: index });
   };
 
-  const handleAddNew = (section: "baby" | "mum" | "hospital") => {
+  const handleAddNew = (section: "baby" | "mum" | "hospital" | "convenience") => {
     setSwapPopup({ open: true, section });
   };
 
-  const handleRemoveItem = (section: "baby" | "mum" | "hospital", index: number) => {
+  const handleRemoveItem = (section: "baby" | "mum" | "hospital" | "convenience", index: number) => {
     if (section === "baby") {
       setCustomBabyItems(prev => prev ? prev.filter((_, i) => i !== index) : []);
     } else if (section === "hospital") {
       setCustomHospitalItems(prev => prev ? prev.filter((_, i) => i !== index) : []);
+    } else if (section === "convenience") {
+      setCustomConvenienceItems(prev => prev ? prev.filter((_, i) => i !== index) : []);
     } else {
       setCustomMumItems(prev => prev ? prev.filter((_, i) => i !== index) : []);
     }
@@ -140,6 +146,8 @@ export default function BundleDetailPage() {
         setCustomBabyItems(prev => prev ? prev.map((item, i) => i === swapIndex ? newItem : item) : []);
       } else if (section === "hospital") {
         setCustomHospitalItems(prev => prev ? prev.map((item, i) => i === swapIndex ? newItem : item) : []);
+      } else if (section === "convenience") {
+        setCustomConvenienceItems(prev => prev ? prev.map((item, i) => i === swapIndex ? newItem : item) : []);
       } else {
         setCustomMumItems(prev => prev ? prev.map((item, i) => i === swapIndex ? newItem : item) : []);
       }
@@ -149,6 +157,8 @@ export default function BundleDetailPage() {
         setCustomBabyItems(prev => [...(prev || []), newItem]);
       } else if (section === "hospital") {
         setCustomHospitalItems(prev => [...(prev || []), newItem]);
+      } else if (section === "convenience") {
+        setCustomConvenienceItems(prev => [...(prev || []), newItem]);
       } else {
         setCustomMumItems(prev => [...(prev || []), newItem]);
       }
@@ -175,20 +185,22 @@ export default function BundleDetailPage() {
       setCustomBabyItems(prev => prev!.map((it, i) => i === index ? updated : it));
     else if (section === "mum")
       setCustomMumItems(prev => prev!.map((it, i) => i === index ? updated : it));
-    else
+    else if (section === "hospital")
       setCustomHospitalItems(prev => prev!.map((it, i) => i === index ? updated : it));
+    else
+      setCustomConvenienceItems(prev => prev!.map((it, i) => i === index ? updated : it));
     setAttrPicker(null);
     toast.success(`Updated to ${selectedBrand.label}${selectedSize ? ` · ${selectedSize}` : ""}`);
   };
 
-  const openAttrPicker = (item: BundleItem, section: "baby" | "mum" | "hospital", index: number) => {
+  const openAttrPicker = (item: BundleItem, section: "baby" | "mum" | "hospital" | "convenience", index: number) => {
     const fullProduct = item.productId ? productMap.get(item.productId) : null;
     setPickerBrandId(item.brandId || fullProduct?.brands?.[0]?.id || "");
     setPickerSize(fullProduct?.sizes?.[0] || "");
     setAttrPicker({ item, section, index });
   };
 
-  const renderItemRow = (item: BundleItem, index: number, section: "baby" | "mum" | "hospital") => (
+  const renderItemRow = (item: BundleItem, index: number, section: "baby" | "mum" | "hospital" | "convenience") => (
     <div key={`${section}-${index}`} className="flex items-center gap-3 py-3 border-b border-border/40 last:border-0">
       {/* Product image + name/brand — tap to edit brand, size, colour */}
       <button
@@ -504,6 +516,24 @@ export default function BundleDetailPage() {
               </div>
             </div>
           )}
+
+          {/* Convenience Extras */}
+          {convenienceItems.length > 0 && (
+            <div className="bg-card rounded-card shadow-card overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
+                <h3 className="pf text-base text-forest">✨ Convenience Extras ({convenienceItems.length})</h3>
+                <button
+                  onClick={() => handleAddNew("convenience")}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-forest bg-forest-light hover:bg-forest/20 rounded-pill px-3 py-1.5 transition-colors"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Add
+                </button>
+              </div>
+              <div className="px-4">
+                {convenienceItems.map((item, i) => renderItemRow(item, i, "convenience"))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Price Summary */}
@@ -518,7 +548,7 @@ export default function BundleDetailPage() {
           </p>
           {isCustomized && (
             <button
-              onClick={() => { setCustomBabyItems([...bundle.babyItems]); setCustomMumItems([...bundle.mumItems]); setCustomHospitalItems([...bundle.hospitalItems]); }}
+              onClick={() => { setCustomBabyItems([...bundle.babyItems]); setCustomMumItems([...bundle.mumItems]); setCustomHospitalItems([...bundle.hospitalItems]); setCustomConvenienceItems([...bundle.convenienceItems]); }}
               className="text-xs text-forest hover:underline mt-1.5"
             >
               Reset to original bundle

@@ -64,6 +64,7 @@ export interface BundleItem {
   imageUrl?: string | null;
   productId?: string | null;
   brandId?: string | null;
+  section?: "mum" | "baby" | "hospital" | "convenience";
 }
 
 export interface Bundle {
@@ -83,6 +84,7 @@ export interface Bundle {
   babyItems: BundleItem[];
   mumItems: BundleItem[];
   hospitalItems: BundleItem[];
+  convenienceItems: BundleItem[];
   upsellBundleId?: string | null;
   upsellText?: string | null;
   slug?: string;
@@ -206,6 +208,7 @@ export function adaptBundle(row: any): Bundle {
   const babyItems: BundleItem[] = [];
   const mumItems: BundleItem[] = [];
   const hospitalItems: BundleItem[] = [];
+  const convenienceItems: BundleItem[] = [];
 
   items.forEach((bi: any) => {
     const prod = bi.products;
@@ -219,13 +222,16 @@ export function adaptBundle(row: any): Bundle {
       imageUrl: brand?.image_url || prod?.image_url || null,
       productId: bi.product_id || prod?.id || null,
       brandId: bi.brand_id || brand?.id || null,
+      section: bi.section || undefined,
     };
-    if (prod?.subcategory === "delivery-consumables") hospitalItems.push(item);
+    const itemSection = bi.section;
+    if (itemSection === "convenience") convenienceItems.push(item);
+    else if (itemSection === "hospital" || prod?.subcategory === "delivery-consumables") hospitalItems.push(item);
     else if (item.forWhom === "mum") mumItems.push(item);
     else babyItems.push(item);
   });
 
-  const separateTotal = [...babyItems, ...mumItems, ...hospitalItems].reduce((s, i) => s + i.price, 0);
+  const separateTotal = [...babyItems, ...mumItems, ...hospitalItems, ...convenienceItems].reduce((s, i) => s + i.price, 0);
   const colors = HOSPITAL_COLORS[row.hospital_type] || HOSPITAL_COLORS.public;
 
   const priceMode = row.price_mode || "fixed";
@@ -253,6 +259,7 @@ export function adaptBundle(row: any): Bundle {
     babyItems,
     mumItems,
     hospitalItems,
+    convenienceItems,
     upsellBundleId: row.upsell_bundle_id || null,
     upsellText: row.upsell_text || null,
     slug: row.slug,
