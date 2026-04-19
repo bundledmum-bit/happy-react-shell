@@ -255,7 +255,7 @@ export default function AdminBundleForm({ bundle, onClose, onSaved }: Props) {
         if (error) throw error;
         bundleId = bundle.id;
       } else {
-        const { data, error } = await supabase.from("bundles").insert(bundleData).select("id").single();
+        const { data, error } = await (supabase.from("bundles") as any).insert(bundleData).select("id").single();
         if (error) throw error;
         bundleId = data.id;
       }
@@ -275,7 +275,7 @@ export default function AdminBundleForm({ bundle, onClose, onSaved }: Props) {
           display_order: i,
           section: item.section,
         }));
-        const { error } = await supabase.from("bundle_items").insert(itemRows);
+        const { error } = await (supabase.from("bundle_items") as any).insert(itemRows);
         if (error) throw error;
       }
 
@@ -383,7 +383,7 @@ export default function AdminBundleForm({ bundle, onClose, onSaved }: Props) {
                       <div className="space-y-2">
                         {list.map((item, idx) => {
                           const prod = (allProducts || []).find((p: any) => p.id === item.product_id);
-                          const brandsForProduct = prod?.brands || [];
+                          const brandsForProduct = (prod as any)?.brands || [];
                           const isDragging = drag?.section === sec.key && drag?.index === idx;
                           return (
                             <div
