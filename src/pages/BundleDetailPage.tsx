@@ -218,7 +218,7 @@ export default function BundleDetailPage() {
         <BundleItemSwapPopup
           open
           onClose={() => setSwapPopup(null)}
-          section={swapPopup.section === "hospital" ? "mum" : swapPopup.section}
+          section={swapPopup.section}
           swappingItem={swapPopup.swapIndex !== undefined
             ? (swapPopup.section === "baby"
                 ? babyItems[swapPopup.swapIndex]

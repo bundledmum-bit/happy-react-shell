@@ -11,8 +11,8 @@ interface Props {
   onClose: () => void;
   /** If swapping an existing item, pass the item being replaced */
   swappingItem?: BundleItem | null;
-  /** "baby" | "mum" – filters relevant products */
-  section: "baby" | "mum";
+  /** "baby" | "mum" | "hospital" – filters relevant products */
+  section: "baby" | "mum" | "hospital";
   /** Called when a product+brand is selected */
   onSelect: (item: BundleItem) => void;
   /** Items already in the bundle (to grey them out) */
@@ -28,8 +28,10 @@ export default function BundleItemSwapPopup({ open, onClose, swappingItem, secti
     if (!products) return [];
     let list = products;
     // Filter by category matching section
-    if (section === "mum") {
-      list = list.filter(p => p.category === "mum");
+    if (section === "hospital") {
+      list = list.filter(p => p.subcategory === "delivery-consumables");
+    } else if (section === "mum") {
+      list = list.filter(p => p.category === "mum" && p.subcategory !== "delivery-consumables");
     } else {
       list = list.filter(p => p.category !== "mum");
     }
@@ -49,7 +51,7 @@ export default function BundleItemSwapPopup({ open, onClose, swappingItem, secti
       onSelect({
         name: product.name,
         brand: brand?.label || "Standard",
-        forWhom: section,
+        forWhom: section === "baby" ? "baby" : "mum",
         price: brand?.price || 0,
         emoji: product.baseImg,
         imageUrl: brand?.imageUrl || product.imageUrl || null,
@@ -64,7 +66,7 @@ export default function BundleItemSwapPopup({ open, onClose, swappingItem, secti
     onSelect({
       name: product.name,
       brand: brand.label,
-      forWhom: section,
+      forWhom: section === "baby" ? "baby" : "mum",
       price: brand.price,
       emoji: product.baseImg,
       imageUrl: brand.imageUrl || product.imageUrl || null,
@@ -91,7 +93,7 @@ export default function BundleItemSwapPopup({ open, onClose, swappingItem, secti
               )}
             </h3>
             <p className="text-muted-foreground text-xs mt-0.5">
-              {section === "mum" ? "For Mum" : "For Baby"} · {swappingItem ? "Choose a replacement" : "Search & add any product"}
+              {section === "mum" ? "For Mum" : section === "hospital" ? "Hospital Consumables" : "For Baby"} · {swappingItem ? "Choose a replacement" : "Search & add any product"}
             </p>
           </div>
           <button onClick={onClose} className="w-9 h-9 rounded-full bg-foreground/10 flex items-center justify-center hover:bg-foreground/20">
