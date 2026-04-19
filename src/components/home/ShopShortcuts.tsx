@@ -153,7 +153,7 @@ export default function ShopShortcuts() {
     {
       to: "/push-gifts",
       eyebrow: "Gifts",
-      title: "Gifts",
+      title: "Gift Shop",
       sub: "Gifts for new parents and push gifts for mums.",
       Illustration: GiftIllustration,
       img: "/images/shop-gifts.jpg",
