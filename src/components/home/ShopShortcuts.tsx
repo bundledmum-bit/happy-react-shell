@@ -133,7 +133,7 @@ function CardMedia({ src, alt, Illustration }: { src: string; alt: string; Illus
 export default function ShopShortcuts() {
   const cards = [
     {
-      to: "/shop",
+      to: "/shop?tab=baby",
       eyebrow: "Baby",
       title: "Baby Shop",
       sub: "Find all baby products here, 0 to 5 years.",
@@ -142,7 +142,7 @@ export default function ShopShortcuts() {
       alt: "Shopping cart filled with baby essentials — diapers, wipes, and bottles — in a Nigerian mall",
     },
     {
-      to: "/shop",
+      to: "/shop?tab=mum",
       eyebrow: "Mum",
       title: "Mum Shop",
       sub: "Find all products here from pregnancy to postpartum.",
