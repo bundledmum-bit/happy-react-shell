@@ -84,8 +84,8 @@ export default function BundleDetailPage() {
 
   const upgradable = bundle.upsellBundleId && allBundles
     ? allBundles.find(b => b.id === bundle.upsellBundleId || b.slug === bundle.upsellBundleId)
-    : (bundle.tier === "Basic" && allBundles
-      ? allBundles.find(b => b.hospitalType === bundle.hospitalType && b.deliveryType === bundle.deliveryType && b.tier === "Premium")
+    : (bundle.tier !== "Premium" && allBundles
+      ? allBundles.find(b => b.tier === "Premium")
       : null);
 
   const handleAdd = () => {
@@ -397,9 +397,7 @@ export default function BundleDetailPage() {
           {/* Badges */}
           <div className="flex flex-wrap gap-1.5 mb-3">
             {[
-              bundle.hospitalType === "public" ? "🏥 Public" : bundle.hospitalType === "private" ? "🏨 Private" : "🎁 Gift",
-              bundle.deliveryType ? (bundle.deliveryType === "vaginal" ? "Vaginal" : "C-Section") : null,
-              bundle.tier === "Premium" ? "✨ Premium" : "Basic",
+              bundle.tier === "Premium" ? "✨ Premium" : bundle.tier === "Standard" ? "Standard" : "Starter",
               `${totalItems} items`,
             ].filter(Boolean).map((label, i) => (
               <span key={i} className="text-[10px] font-bold px-2 py-0.5 rounded-pill bg-primary-foreground/15 text-primary-foreground">
