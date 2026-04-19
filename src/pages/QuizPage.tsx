@@ -35,10 +35,10 @@ export default function QuizPage() {
       <div className="max-w-[1200px] mx-auto px-5 md:px-10 w-full relative z-10">
         <div className="text-center mb-6 md:mb-8">
           <div className="inline-flex items-center gap-2 bg-coral/[0.18] border border-coral/40 rounded-pill px-4 py-1.5 mb-4">
-            <span className="text-coral text-xs font-semibold">Takes under a minute</span>
+            <span className="text-coral text-xs font-semibold">Takes under 30 secs</span>
           </div>
           <h1 className="pf text-[26px] md:text-[38px] font-bold text-primary-foreground leading-tight mb-2">
-            Build your <span className="text-coral italic">perfect bundle</span>
+            Find The Right Products For Your <span className="text-coral italic">Budget</span>
           </h1>
           <p className="text-primary-foreground/70 text-[13px] md:text-[15px] max-w-[520px] mx-auto font-body leading-relaxed">
             Answer three quick questions and we will hand-pick the right items for your budget.
