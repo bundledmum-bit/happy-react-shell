@@ -12,9 +12,7 @@ interface Props {
   onSaved: () => void;
 }
 
-const HOSPITAL_TYPES = ["public", "private", "gift"];
-const DELIVERY_METHODS = ["vaginal", "csection", "both", ""];
-const TIERS = ["basic", "premium"];
+const TIERS = ["starter", "standard", "premium"];
 
 export default function AdminBundleForm({ bundle, onClose, onSaved }: Props) {
   const isEdit = !!bundle;
@@ -23,9 +21,7 @@ export default function AdminBundleForm({ bundle, onClose, onSaved }: Props) {
     name: bundle?.name || "",
     slug: bundle?.slug || "",
     description: bundle?.description || "",
-    hospital_type: bundle?.hospital_type || "public",
-    delivery_method: bundle?.delivery_method || "",
-    tier: bundle?.tier || "basic",
+    tier: bundle?.tier || "starter",
     price: bundle?.price || 0,
     price_mode: bundle?.price_mode || "fixed",
     discount_percent: bundle?.discount_percent || 0,
@@ -130,7 +126,6 @@ export default function AdminBundleForm({ bundle, onClose, onSaved }: Props) {
       const slug = form.slug || autoSlug(form.name);
       const bundleData = {
         name: form.name, slug, description: form.description || null,
-        hospital_type: form.hospital_type, delivery_method: form.delivery_method || null,
         tier: form.tier, price: isPercentMode ? computedPrice : form.price,
         price_mode: form.price_mode, discount_percent: form.discount_percent || 0,
         item_count: items.length,
@@ -211,21 +206,10 @@ export default function AdminBundleForm({ bundle, onClose, onSaved }: Props) {
               </div>
               <div><label className={labelCls}>Description</label>
                 <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} className={inputCls} /></div>
-              <div className="grid grid-cols-3 gap-3">
-                <div><label className={labelCls}>Hospital Type</label>
-                  <select value={form.hospital_type} onChange={e => setForm(f => ({ ...f, hospital_type: e.target.value }))} className={inputCls}>
-                    {HOSPITAL_TYPES.map(h => <option key={h} value={h}>{h}</option>)}
-                  </select></div>
-                <div><label className={labelCls}>Delivery Method</label>
-                  <select value={form.delivery_method} onChange={e => setForm(f => ({ ...f, delivery_method: e.target.value }))} className={inputCls}>
-                    <option value="">N/A</option>
-                    {DELIVERY_METHODS.filter(Boolean).map(d => <option key={d} value={d}>{d}</option>)}
-                  </select></div>
-                <div><label className={labelCls}>Tier</label>
-                  <select value={form.tier} onChange={e => setForm(f => ({ ...f, tier: e.target.value }))} className={inputCls}>
-                    {TIERS.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select></div>
-              </div>
+              <div><label className={labelCls}>Tier</label>
+                <select value={form.tier} onChange={e => setForm(f => ({ ...f, tier: e.target.value }))} className={inputCls}>
+                  {TIERS.map(t => <option key={t} value={t}>{t}</option>)}
+                </select></div>
               <div className="bg-muted/50 rounded-lg p-3 space-y-3 border border-border">
                 <label className={labelCls}>Pricing Mode</label>
                 <div className="flex gap-4">

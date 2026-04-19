@@ -83,7 +83,6 @@ export default function AdminBundles() {
                   <Checkbox checked={allSelected} onCheckedChange={c => c ? setSelected(new Set(displayList.map((b: any) => b.id))) : setSelected(new Set())} />
                 </th>
                 <th className="px-4 py-3 text-left font-semibold text-text-med">Bundle</th>
-                <th className="px-4 py-3 text-left font-semibold text-text-med">Hospital</th>
                 <th className="px-4 py-3 text-left font-semibold text-text-med">Tier</th>
                 <th className="px-4 py-3 text-right font-semibold text-text-med">Price</th>
                 <th className="px-4 py-3 text-center font-semibold text-text-med">Active</th>
@@ -102,7 +101,6 @@ export default function AdminBundles() {
                       <span className="font-semibold">{b.name}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 capitalize">{b.hospital_type}</td>
                   <td className="px-4 py-3 capitalize">{b.tier}</td>
                   <td className="px-4 py-3 text-right font-semibold">₦{b.price.toLocaleString()}</td>
                   <td className="px-4 py-3 text-center">
