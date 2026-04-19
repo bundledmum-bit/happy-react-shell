@@ -77,7 +77,7 @@ export interface Bundle {
   lightColor: string;
   tagline: string;
   badge?: string;
-  tier: "Basic" | "Premium";
+  tier: "Starter" | "Standard" | "Premium";
   hospitalType: "public" | "private" | "gift";
   deliveryType?: "vaginal" | "csection";
   babyItems: BundleItem[];
@@ -244,7 +244,7 @@ export function adaptBundle(row: any): Bundle {
     color: colors.color,
     lightColor: colors.light,
     tagline: row.description || "",
-    tier: row.tier === "premium" ? "Premium" : "Basic",
+    tier: row.tier === "premium" ? "Premium" : row.tier === "standard" ? "Standard" : "Starter",
     hospitalType: row.hospital_type as any,
     deliveryType: row.delivery_method as any || undefined,
     babyItems,

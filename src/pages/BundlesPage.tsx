@@ -62,7 +62,7 @@ export default function BundlesPage() {
                 <button key={v} onClick={() => setDeliveryF(v)} className={`rounded-pill px-3 py-2 text-xs font-semibold border-[1.5px] transition-all font-body whitespace-nowrap min-h-[44px] ${deliveryF === v ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-muted-foreground"}`}>{l}</button>
               ))}
               <div className="w-px h-5 bg-border mx-1 flex-shrink-0" />
-              {[["all", "All Tiers"], ["basic", "Basic"], ["premium", "✨ Premium"]].map(([v, l]) => (
+              {[["all", "All Tiers"], ["starter", "Starter"], ["standard", "Standard"], ["premium", "✨ Premium"]].map(([v, l]) => (
                 <button key={v} onClick={() => setTierF(v)} className={`rounded-pill px-3 py-2 text-xs font-semibold border-[1.5px] transition-all font-body whitespace-nowrap min-h-[44px] ${tierF === v ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-muted-foreground"}`}>{l}</button>
               ))}
               {compareIds.length >= 2 && (
@@ -219,8 +219,15 @@ function BundleCard({ bundle: b, compareSelected, onToggleCompare }: { bundle: B
           )}
 
           {/* Tier badge */}
-          <div className="absolute top-2.5 left-2.5 text-[10px] font-bold px-2.5 py-1 rounded-pill backdrop-blur-sm" style={{ background: b.tier === "Premium" ? "rgba(252,228,236,0.9)" : "rgba(227,242,253,0.9)", color: b.tier === "Premium" ? "#880E4F" : "#1565C0" }}>
-            {b.tier === "Premium" ? "✨ PREMIUM" : "BASIC"}
+          <div className="absolute top-2.5 left-2.5 text-[10px] font-bold px-2.5 py-1 rounded-pill backdrop-blur-sm" style={{
+            background: b.tier === "Premium" ? "rgba(252,228,236,0.9)"
+                      : b.tier === "Standard" ? "rgba(232,245,233,0.9)"
+                      : "rgba(227,242,253,0.9)",
+            color: b.tier === "Premium" ? "#880E4F"
+                 : b.tier === "Standard" ? "#2E7D32"
+                 : "#1565C0"
+          }}>
+            {b.tier === "Premium" ? "✨ PREMIUM" : b.tier === "Standard" ? "STANDARD" : "STARTER"}
           </div>
           {/* Item count */}
           <div className="absolute top-2.5 right-2.5 bg-foreground/60 backdrop-blur-sm text-primary-foreground text-[10px] font-bold px-2.5 py-1 rounded-pill">
