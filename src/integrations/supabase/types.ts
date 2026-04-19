@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      abandoned_carts: {
+        Row: {
+          cart_items: Json
+          cart_total: number
+          created_at: string | null
+          email: string
+          email_sent_at: string | null
+          id: string
+          phone: string | null
+          recovered: boolean
+          recovered_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          cart_items?: Json
+          cart_total?: number
+          created_at?: string | null
+          email: string
+          email_sent_at?: string | null
+          id?: string
+          phone?: string | null
+          recovered?: boolean
+          recovered_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          cart_items?: Json
+          cart_total?: number
+          created_at?: string | null
+          email?: string
+          email_sent_at?: string | null
+          id?: string
+          phone?: string | null
+          recovered?: boolean
+          recovered_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       activity_log: {
         Row: {
           action: string
@@ -628,6 +667,7 @@ export type Database = {
           id: string
           product_id: string
           quantity: number | null
+          section: string | null
         }
         Insert: {
           brand_id?: string | null
@@ -636,6 +676,7 @@ export type Database = {
           id?: string
           product_id: string
           quantity?: number | null
+          section?: string | null
         }
         Update: {
           brand_id?: string | null
@@ -644,6 +685,7 @@ export type Database = {
           id?: string
           product_id?: string
           quantity?: number | null
+          section?: string | null
         }
         Relationships: [
           {
@@ -761,6 +803,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      coming_soon_waitlist: {
+        Row: {
+          created_at: string | null
+          id: string
+          whatsapp_number: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          whatsapp_number: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          whatsapp_number?: string
+        }
+        Relationships: []
       }
       coupon_usage: {
         Row: {
@@ -1060,6 +1120,42 @@ export type Database = {
           is_active?: boolean | null
           states?: string[] | null
           zone_name?: string
+        }
+        Relationships: []
+      }
+      email_templates: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          html_body: string
+          id: string
+          is_active: boolean | null
+          name: string
+          slug: string
+          subject: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          html_body: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          slug: string
+          subject: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          html_body?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          slug?: string
+          subject?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -2126,6 +2222,7 @@ export type Database = {
           id: string
           image_url: string | null
           is_active: boolean | null
+          is_convenience: boolean | null
           is_push_gift_eligible: boolean | null
           long_description: string | null
           material: string | null
@@ -2136,6 +2233,7 @@ export type Database = {
           og_image_url: string | null
           pack_count: string | null
           priority: string
+          product_slot: string | null
           push_gift_categories: string[] | null
           quiz_priority: string | null
           rating: number | null
@@ -2172,6 +2270,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean | null
+          is_convenience?: boolean | null
           is_push_gift_eligible?: boolean | null
           long_description?: string | null
           material?: string | null
@@ -2182,6 +2281,7 @@ export type Database = {
           og_image_url?: string | null
           pack_count?: string | null
           priority: string
+          product_slot?: string | null
           push_gift_categories?: string[] | null
           quiz_priority?: string | null
           rating?: number | null
@@ -2218,6 +2318,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean | null
+          is_convenience?: boolean | null
           is_push_gift_eligible?: boolean | null
           long_description?: string | null
           material?: string | null
@@ -2228,6 +2329,7 @@ export type Database = {
           og_image_url?: string | null
           pack_count?: string | null
           priority?: string
+          product_slot?: string | null
           push_gift_categories?: string[] | null
           quiz_priority?: string | null
           rating?: number | null
@@ -3697,14 +3799,30 @@ export type Database = {
         | {
             Args: {
               p_budget_tier: string
-              p_delivery_method: string
+              p_delivery_method?: string
               p_first_baby?: boolean
               p_gender?: string
-              p_gift_for?: string
-              p_hospital_type: string
+              p_gift_relationship?: string
+              p_hospital_type?: string
+              p_is_gift?: boolean
               p_multiples?: number
               p_scope: string
-              p_shopper_type?: string
+              p_stage: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_budget_amount?: number
+              p_budget_tier: string
+              p_delivery_method?: string
+              p_first_baby?: boolean
+              p_gender?: string
+              p_gift_relationship?: string
+              p_hospital_type?: string
+              p_is_gift?: boolean
+              p_multiples?: number
+              p_scope: string
               p_stage: string
             }
             Returns: Json
@@ -3715,11 +3833,11 @@ export type Database = {
               p_delivery_method: string
               p_first_baby?: boolean
               p_gender?: string
-              p_gift_relationship?: string
+              p_gift_for?: string
               p_hospital_type: string
-              p_is_gift?: boolean
               p_multiples?: number
               p_scope: string
+              p_shopper_type?: string
               p_stage: string
             }
             Returns: Json

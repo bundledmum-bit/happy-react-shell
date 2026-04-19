@@ -80,7 +80,7 @@ const SAMPLE_DATA: Record<string, string> = {
 function applyPreviewData(html: string): string {
   let result = html;
   for (const [placeholder, value] of Object.entries(SAMPLE_DATA)) {
-    result = result.replaceAll(placeholder, value);
+    result = result.split(placeholder).join(value);
   }
   return result;
 }
@@ -96,7 +96,7 @@ export default function AdminEmailTemplates() {
   const { data: templates, isLoading } = useQuery({
     queryKey: ["admin-email-templates"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("email_templates")
         .select("*")
         .order("name");
@@ -108,7 +108,7 @@ export default function AdminEmailTemplates() {
   const saveTemplate = useMutation({
     mutationFn: async () => {
       if (!editing) return;
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("email_templates")
         .update({ subject: editSubject, html_body: editBody, is_active: editActive })
         .eq("slug", editing.slug);

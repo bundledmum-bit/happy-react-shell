@@ -87,7 +87,7 @@ export default function ComingSoonPage() {
     }
     setSubmitting(true);
     try {
-      const { error } = await supabase.from("coming_soon_waitlist").insert({
+      const { error } = await (supabase as any).from("coming_soon_waitlist").insert({
         whatsapp_number: normalise(phone),
       });
       if (error) throw error;
