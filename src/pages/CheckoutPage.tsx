@@ -233,7 +233,7 @@ export default function CheckoutPage() {
   const saveAbandonedCart = async () => {
     if (!form.email?.includes("@") || cart.length === 0) return;
     try {
-      await supabase.from("abandoned_carts").upsert(
+      await (supabase as any).from("abandoned_carts").upsert(
         {
           email: form.email.toLowerCase().trim(),
           phone: form.phone || null,

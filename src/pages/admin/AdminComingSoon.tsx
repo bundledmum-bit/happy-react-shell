@@ -46,7 +46,7 @@ export default function AdminComingSoon() {
   const { data: waitlist, isLoading: waitlistLoading } = useQuery({
     queryKey: ["admin-coming-soon-waitlist"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("coming_soon_waitlist")
         .select("*")
         .order("created_at", { ascending: false });
