@@ -82,6 +82,7 @@ export interface Bundle {
   deliveryType?: "vaginal" | "csection";
   babyItems: BundleItem[];
   mumItems: BundleItem[];
+  hospitalItems: BundleItem[];
   upsellBundleId?: string | null;
   upsellText?: string | null;
   slug?: string;
@@ -204,6 +205,7 @@ export function adaptBundle(row: any): Bundle {
 
   const babyItems: BundleItem[] = [];
   const mumItems: BundleItem[] = [];
+  const hospitalItems: BundleItem[] = [];
 
   items.forEach((bi: any) => {
     const prod = bi.products;
@@ -218,11 +220,12 @@ export function adaptBundle(row: any): Bundle {
       productId: bi.product_id || prod?.id || null,
       brandId: bi.brand_id || brand?.id || null,
     };
-    if (item.forWhom === "mum") mumItems.push(item);
+    if (prod?.subcategory === "delivery-consumables") hospitalItems.push(item);
+    else if (item.forWhom === "mum") mumItems.push(item);
     else babyItems.push(item);
   });
 
-  const separateTotal = [...babyItems, ...mumItems].reduce((s, i) => s + i.price, 0);
+  const separateTotal = [...babyItems, ...mumItems, ...hospitalItems].reduce((s, i) => s + i.price, 0);
   const colors = HOSPITAL_COLORS[row.hospital_type] || HOSPITAL_COLORS.public;
 
   const priceMode = row.price_mode || "fixed";
@@ -249,6 +252,7 @@ export function adaptBundle(row: any): Bundle {
     deliveryType: row.delivery_method as any || undefined,
     babyItems,
     mumItems,
+    hospitalItems,
     upsellBundleId: row.upsell_bundle_id || null,
     upsellText: row.upsell_text || null,
     slug: row.slug,

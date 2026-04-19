@@ -107,9 +107,10 @@ export default function BundlesPage() {
                   {[
                     ["Price", ...compareBundles.map(b => fmt(b.price))],
                     ["Tier", ...compareBundles.map(b => b.tier)],
-                    ["Items", ...compareBundles.map(b => String(b.babyItems.length + b.mumItems.length))],
+                    ["Items", ...compareBundles.map(b => String(b.babyItems.length + b.mumItems.length + b.hospitalItems.length))],
                     ["Baby Items", ...compareBundles.map(b => String(b.babyItems.length))],
                     ["Mum Items", ...compareBundles.map(b => String(b.mumItems.length))],
+                    ["Hospital Items", ...compareBundles.map(b => String(b.hospitalItems.length))],
                     ["Savings", ...compareBundles.map(b => fmt(b.separateTotal - b.price))],
                   ].map(row => (
                     <tr key={row[0]} className="border-b border-border/50">
@@ -132,7 +133,7 @@ function BundleCard({ bundle: b, compareSelected, onToggleCompare }: { bundle: B
   const [expanded, setExpanded] = useState(false);
   const { addToCart, cart } = useCart();
   const isInCart = [...b.babyItems, ...b.mumItems].length > 0 && [...b.babyItems, ...b.mumItems].some(item => cart.some(c => c.bundleName === b.name));
-  const totalItems = b.babyItems.length + b.mumItems.length;
+  const totalItems = b.babyItems.length + b.mumItems.length + b.hospitalItems.length;
   const savings = b.separateTotal - b.price;
   const savingsPercent = b.separateTotal > 0 ? Math.round((savings / b.separateTotal) * 100) : 0;
 
@@ -264,7 +265,7 @@ function BundleCard({ bundle: b, compareSelected, onToggleCompare }: { bundle: B
 
         {expanded && (
           <div className="mb-3 animate-fade-in space-y-2 max-h-[200px] overflow-y-auto text-xs">
-            {[["For Baby 👶", b.babyItems], ["For Mum 💛", b.mumItems]].map(([label, items]) => (
+            {[["For Mum 💛", b.mumItems], ["🏥 Hospital Consumables", b.hospitalItems], ["For Baby 👶", b.babyItems]].filter(([, items]) => (items as typeof b.babyItems).length > 0).map(([label, items]) => (
               <div key={label as string}>
                 <p className="font-bold text-[10px] uppercase text-text-light mb-1">{label as string}</p>
                 {(items as typeof b.babyItems).map((item, i) => (
