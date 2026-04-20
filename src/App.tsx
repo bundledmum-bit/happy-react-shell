@@ -58,6 +58,7 @@ import AdminCoupons from "@/pages/admin/AdminCoupons";
 import AdminCustomers from "@/pages/admin/AdminCustomers";
 import AdminInventory from "@/pages/admin/AdminInventory";
 import AdminShippingZones from "@/pages/admin/AdminShippingZones";
+import AdminDeliverableStates from "@/pages/admin/AdminDeliverableStates";
 import AdminPages from "@/pages/admin/AdminPages";
 import AdminPromotions from "@/pages/admin/AdminPromotions";
 import AdminQuizLeads from "@/pages/admin/AdminQuizLeads";
@@ -186,6 +187,7 @@ const App = () => (
                 <Route path="customers" element={<PermissionGate module="customers" action="view"><AdminCustomers /></PermissionGate>} />
                 <Route path="inventory" element={<PermissionGate module="inventory" action="view"><AdminInventory /></PermissionGate>} />
                 <Route path="shipping-zones" element={<PermissionGate module="delivery" action="view"><AdminShippingZones /></PermissionGate>} />
+                <Route path="deliverable-states" element={<PermissionGate module="delivery" action="view"><AdminDeliverableStates /></PermissionGate>} />
                 <Route path="pages" element={<PermissionGate module="content" action="view"><AdminPages /></PermissionGate>} />
                 <Route path="promotions" element={<PermissionGate module="promotions" action="view"><AdminPromotions /></PermissionGate>} />
                 <Route path="quiz-leads" element={<PermissionGate module="content" action="manage_quiz"><AdminQuizLeads /></PermissionGate>} />

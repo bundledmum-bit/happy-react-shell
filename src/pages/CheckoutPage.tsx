@@ -6,12 +6,11 @@ import { toast } from "sonner";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import BMLoadingAnimation from "@/components/BMLoadingAnimation";
 import { useShippingZones, calculateDeliveryFee, type ShippingZone } from "@/hooks/useShippingZones";
+import { useDeliverableStates } from "@/hooks/useDeliverableStates";
 import { useSiteSettings } from "@/hooks/useSupabaseData";
 import { useSpendThresholds, getSpendPrompt } from "@/hooks/useSpendThresholds";
 import { trackEvent, getSessionId, getAttribution, markSessionConverted } from "@/lib/analytics";
 import { syncOrderToSheets } from "@/lib/googleSheets";
-
-const NIGERIAN_STATES = ["Lagos", "Abuja", "Rivers", "Ogun", "Oyo", "Kano", "Kaduna", "Anambra", "Enugu", "Delta", "Edo", "Imo", "Osun", "Kwara", "Benue"];
 
 interface FormData {
   firstName: string; lastName: string; phone: string; email: string;
@@ -45,6 +44,7 @@ export default function CheckoutPage() {
   const { data: settings } = useSiteSettings();
   const { data: zones } = useShippingZones();
   const { data: thresholds } = useSpendThresholds();
+  const { data: deliverableStates, isLoading: statesLoading } = useDeliverableStates(true);
 
   // Currently-selected delivery zone (null when the selected state has
   // no zones, or the user hasn't picked a zone yet).
@@ -53,9 +53,26 @@ export default function CheckoutPage() {
   // user picks one (or auto-selected when the zone has only one LGA).
   const [selectedLga, setSelectedLga] = useState<string>("");
   const zonesForState = (zones || []).filter(z => (z.states || []).includes(form.state));
-  const stateHasZones = zonesForState.length > 0;
+  // Zone availability is now driven by the DB's deliverable_states
+  // table: a state only shows the zone cascade when admins have flagged
+  // has_zones = true AND an active ShippingZone row references it.
+  const activeState = (deliverableStates || []).find(s => s.name === form.state);
+  const stateHasZones = activeState?.has_zones === true && zonesForState.length > 0;
   const lgasForZone = selectedZone?.lgas || [];
   const areasForLga = selectedZone?.lgas?.find(l => l.lga === selectedLga)?.areas || [];
+
+  // Once deliverable states load, set the form's state to the first
+  // active state if the current form.state isn't in the list.
+  useEffect(() => {
+    if (!deliverableStates || deliverableStates.length === 0) return;
+    const stillValid = deliverableStates.some(s => s.name === form.state);
+    if (!stillValid) {
+      setForm(p => ({ ...p, state: deliverableStates[0].name }));
+      setSelectedZone(null);
+      setSelectedLga("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deliverableStates]);
 
   // When a zone with exactly one LGA is selected, auto-fill the LGA.
   useEffect(() => {
@@ -621,20 +638,26 @@ export default function CheckoutPage() {
                 <div className="flex flex-col md:flex-row gap-3">
                   <div className="flex-1 flex flex-col gap-1">
                     <label className="text-xs font-semibold text-text-med uppercase tracking-wide">State</label>
-                    <select
-                      value={form.state}
-                      onChange={e => {
-                        const nextState = e.target.value;
-                        update("state", nextState);
-                        setSelectedZone(null);
-                        setSelectedLga("");
-                        update("city", "");
-                        setForm(p => ({ ...p, lga: "" }));
-                      }}
-                      className="w-full rounded-[10px] border-[1.5px] border-border px-3 py-2.5 text-sm bg-card font-body focus:border-forest outline-none transition-colors"
-                    >
-                      {NIGERIAN_STATES.map(s => <option key={s}>{s}</option>)}
-                    </select>
+                    {statesLoading ? (
+                      <div className="w-full h-[42px] rounded-[10px] border-[1.5px] border-border bg-muted/40 animate-pulse" aria-label="Loading states" />
+                    ) : (
+                      <select
+                        value={form.state}
+                        onChange={e => {
+                          const nextState = e.target.value;
+                          update("state", nextState);
+                          setSelectedZone(null);
+                          setSelectedLga("");
+                          update("city", "");
+                          setForm(p => ({ ...p, lga: "" }));
+                        }}
+                        className="w-full rounded-[10px] border-[1.5px] border-border px-3 py-2.5 text-sm bg-card font-body focus:border-forest outline-none transition-colors"
+                      >
+                        {(deliverableStates || []).map(s => (
+                          <option key={s.id} value={s.name}>{s.name}</option>
+                        ))}
+                      </select>
+                    )}
                   </div>
 
                   {stateHasZones && (
