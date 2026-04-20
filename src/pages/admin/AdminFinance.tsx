@@ -1,9 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { NavLink, Routes, Route, useNavigate } from "react-router-dom";
 import {
   BarChart3, FileText, Wallet, ShoppingCart, Users, Scale, Briefcase, Settings as SettingsIcon,
   Plus, Trash2, Save, Printer, AlertTriangle, CheckCircle2, TrendingUp, TrendingDown, Calendar,
-  Download,
+  Download, ChevronDown, ChevronRight, Info,
 } from "lucide-react";
 import bmLogoGreen from "@/assets/logos/BM-LOGO-GREEN.svg";
 import {
@@ -929,12 +929,19 @@ function PayrollTab() {
   const delP = useDeletePayroll();
 
   const now = new Date();
+  // Primary input is now the target NET salary. Basic / housing / transport
+  // are reverse-derived via binary search. `other_allowances` remains an
+  // explicit input (paid on top of the derived gross) and the displayed
+  // net shifts up when it's populated.
   const [form, setForm] = useState<any>({
     employee_name: "", role: "",
     pay_month: now.getMonth() + 1, pay_year: now.getFullYear(),
-    basic_salary: "", housing_allowance: "", transport_allowance: "", other_allowances: "",
-    include_nhf: false, notes: "",
+    target_net: "",
+    other_allowances: "",
+    include_nhf: false,
+    notes: "",
   });
+  const [employerExpanded, setEmployerExpanded] = useState(false);
 
   const bands = settings?.paye_bands || NTA_2025_PAYE_BANDS;
   const empPensionRate = Number(settings?.employee_pension_rate ?? 8);
@@ -943,41 +950,44 @@ function PayrollTab() {
   const nsitfRate = Number(settings?.nsitf_rate ?? 1);
   const itfRate = Number(settings?.itf_rate ?? 1);
 
-  // Live calculations — compute everything in KOBO to avoid double-rounding.
-  // Inputs arrive as ₦, convert to kobo up front, then all downstream math
-  // stays in integer kobo.
-  const basicK = toKobo(Number(form.basic_salary) || 0);
-  const housingK = toKobo(Number(form.housing_allowance) || 0);
-  const transportK = toKobo(Number(form.transport_allowance) || 0);
+  // Debounce the target-net input by 300 ms so we don't recompute on every
+  // keystroke.
+  const [debouncedNet, setDebouncedNet] = useState<string>("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedNet(String(form.target_net)), 300);
+    return () => clearTimeout(t);
+  }, [form.target_net]);
+
+  const targetNetK = toKobo(Number(debouncedNet) || 0);
   const otherK = toKobo(Number(form.other_allowances) || 0);
 
-  // Gross salary (kobo) — basic + housing + transport + other
-  const grossK = basicK + housingK + transportK + otherK;
-  // Pensionable emoluments (kobo) — basic + housing + transport
-  const pensionableK = basicK + housingK + transportK;
+  // Reverse-calculate basic salary so that computePayroll(basic).net ≈ target.
+  const reversed = useMemo(
+    () => reverseCalculatePayrollK(targetNetK, !!form.include_nhf, bands, {
+      empPensionRate, erPensionRate, nhfRate, nsitfRate, itfRate,
+    }),
+    [targetNetK, form.include_nhf, bands, empPensionRate, erPensionRate, nhfRate, nsitfRate, itfRate],
+  );
 
-  // Employee pension — 8 % of pensionable
-  const empPensionK = Math.round(pensionableK * (empPensionRate / 100));
-  // NHF — 2.5 % of basic (only if included)
-  const nhfK = form.include_nhf ? Math.round(basicK * (nhfRate / 100)) : 0;
+  // If admin added other allowances, keep basic / housing / transport fixed
+  // and re-run a single forward pass with the extra allowance added to gross
+  // (and only `other` excluded from the pension base, per spec).
+  const final = useMemo(
+    () => computePayrollWithOtherK(reversed.basicK, otherK, !!form.include_nhf, bands, {
+      empPensionRate, erPensionRate, nhfRate, nsitfRate, itfRate,
+    }),
+    [reversed.basicK, otherK, form.include_nhf, bands, empPensionRate, erPensionRate, nhfRate, nsitfRate, itfRate],
+  );
 
-  // PAYE — NTA 2025 progressive bands. Bands are defined in NGN so we
-  // compute annual tax in NGN then convert the result to kobo.
-  const annualTaxableNgn = Math.max(0, fromKobo(grossK) * 12 - fromKobo(empPensionK + nhfK) * 12);
-  const annualPayeNgn = computeAnnualPaye(annualTaxableNgn, bands);
-  const monthlyPayeK = Math.round(toKobo(annualPayeNgn) / 12);
+  const {
+    basicK, housingK, transportK, grossK, pensionableK,
+    empPensionK, nhfK, monthlyPayeK, totalDeductionsK, netK,
+    employerPensionK, nsitfK, itfK, totalEmployerCostK,
+  } = final;
 
-  // Totals (all kobo)
-  const totalEmpDedK = empPensionK + nhfK + monthlyPayeK;
-  const netK = grossK - totalEmpDedK;
+  const netAdjusted = otherK > 0;
 
-  // Employer-side costs
-  const erPensionK = Math.round(pensionableK * (erPensionRate / 100)); // 10 % of pensionable
-  const nsitfK = Math.round(grossK * (nsitfRate / 100));               // 1 % of gross
-  const itfK = Math.round(grossK * (itfRate / 100));                   // 1 % of annual payroll ÷ 12 → gross proxy
-  const erCostK = grossK + erPensionK + nsitfK + itfK;
-
-  const canSave = form.employee_name.trim() && basicK > 0;
+  const canSave = form.employee_name.trim() && basicK > 0 && targetNetK > 0;
 
   const handleSave = () => {
     // NOTE: All fields below are required by the DB — finance_payroll
@@ -996,16 +1006,21 @@ function PayrollTab() {
       employee_pension: empPensionK,
       nhf_deduction: nhfK,
       paye_tax: monthlyPayeK,
-      total_employee_deductions: totalEmpDedK,
+      total_employee_deductions: totalDeductionsK,
       net_salary: netK,
-      employer_pension: erPensionK,
+      employer_pension: employerPensionK,
       nsitf: nsitfK,
       itf: itfK,
-      total_employer_cost: erCostK,
+      total_employer_cost: totalEmployerCostK,
       notes: form.notes?.trim() || null,
     };
     addP.mutate(payload, {
-      onSuccess: () => setForm({ ...form, employee_name: "", role: "", basic_salary: "", housing_allowance: "", transport_allowance: "", other_allowances: "", notes: "" }),
+      onSuccess: () => setForm({
+        ...form,
+        employee_name: "", role: "",
+        target_net: "", other_allowances: "",
+        notes: "",
+      }),
     });
   };
 
@@ -1033,7 +1048,8 @@ function PayrollTab() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className={cardCls}>
           <h3 className="font-semibold text-sm mb-3 flex items-center gap-1.5"><Plus className="w-4 h-4" /> Add payroll entry</h3>
-          <div className="space-y-2">
+          <div className="space-y-3">
+            {/* Employee + period */}
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className={labelCls}>Employee Name</label>
@@ -1043,8 +1059,6 @@ function PayrollTab() {
                 <label className={labelCls}>Role</label>
                 <input value={form.role} onChange={e => setForm({ ...form, role: e.target.value })} className={inputCls} />
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className={labelCls}>Pay Month</label>
                 <select value={form.pay_month} onChange={e => setForm({ ...form, pay_month: Number(e.target.value) })} className={inputCls}>
@@ -1056,30 +1070,83 @@ function PayrollTab() {
                 <input type="number" value={form.pay_year} onChange={e => setForm({ ...form, pay_year: Number(e.target.value) })} className={inputCls} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className={labelCls}>Basic Salary (₦)</label>
-                <input type="number" min="0" value={form.basic_salary} onChange={e => setForm({ ...form, basic_salary: e.target.value })} className={inputCls} />
+
+            {/* Primary input: desired NET salary */}
+            <div className="bg-forest/5 border border-forest/20 rounded-xl p-3">
+              <label className={labelCls + " flex items-center gap-1.5"}>
+                Desired Net (Take-Home) Pay
+                <span title="Enter the exact take-home pay the employee should receive. We'll calculate basic salary and all statutory deductions for you." className="text-text-light">
+                  <Info className="w-3 h-3" />
+                </span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-med font-semibold">₦</span>
+                <input
+                  type="number" min="0" inputMode="numeric"
+                  value={form.target_net}
+                  onChange={e => setForm({ ...form, target_net: e.target.value })}
+                  placeholder="e.g. 200000"
+                  className="w-full border border-input rounded-lg pl-7 pr-3 py-2.5 text-base bg-background font-semibold"
+                />
               </div>
-              <div>
-                <label className={labelCls}>Housing (₦)</label>
-                <input type="number" min="0" value={form.housing_allowance} onChange={e => setForm({ ...form, housing_allowance: e.target.value })} className={inputCls} />
-              </div>
-              <div>
-                <label className={labelCls}>Transport (₦)</label>
-                <input type="number" min="0" value={form.transport_allowance} onChange={e => setForm({ ...form, transport_allowance: e.target.value })} className={inputCls} />
-              </div>
-              <div>
-                <label className={labelCls}>Other Allow. (₦)</label>
-                <input type="number" min="0" value={form.other_allowances} onChange={e => setForm({ ...form, other_allowances: e.target.value })} className={inputCls} />
-              </div>
+              <label className="flex items-center gap-2 text-xs mt-2">
+                <input type="checkbox" checked={form.include_nhf} onChange={e => setForm({ ...form, include_nhf: e.target.checked })} />
+                Include NHF ({nhfRate}% of basic — optional for private employees)
+              </label>
             </div>
-            <label className="flex items-center gap-2 text-xs">
-              <input type="checkbox" checked={form.include_nhf} onChange={e => setForm({ ...form, include_nhf: e.target.checked })} />
-              Include NHF ({nhfRate}% of basic — optional for private employees)
-            </label>
-            <button disabled={!canSave || addP.isPending} onClick={handleSave} className={btnPrimary + " w-full justify-center"}>
-              <Save className="w-4 h-4" /> Save payslip
+
+            {/* Breakdown of Gross */}
+            <div className={sectionCls}>Breakdown of Gross</div>
+            <AutoField label="Basic Salary" kobo={basicK} />
+            <AutoField label="Housing Allowance (30% of basic)" kobo={housingK} />
+            <AutoField label="Transport Allowance (20% of basic)" kobo={transportK} />
+            <div>
+              <label className={labelCls}>Other Allowances (₦) <span className="ml-1 text-[9px] font-normal normal-case text-text-light">(editable)</span></label>
+              <input
+                type="number" min="0"
+                value={form.other_allowances}
+                onChange={e => setForm({ ...form, other_allowances: e.target.value })}
+                placeholder="Optional — bonuses, etc."
+                className={inputCls}
+              />
+            </div>
+            <AutoField label="Gross Salary" kobo={grossK} strong />
+
+            {/* Deductions */}
+            <div className={sectionCls}>Deductions</div>
+            <AutoField label={`Employee Pension (${empPensionRate}% of pensionable)`} kobo={empPensionK} />
+            {form.include_nhf && <AutoField label={`NHF (${nhfRate}% of basic)`} kobo={nhfK} />}
+            <AutoField label="PAYE Tax (NTA 2025 bands)" kobo={monthlyPayeK} />
+            <AutoField label="Total Deductions" kobo={totalDeductionsK} tone="red" strong />
+
+            {/* Net pay */}
+            <AutoField label="NET PAY" kobo={netK} tone="green" big />
+            {netAdjusted && (
+              <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
+                Net adjusted to ₦{Math.round(fromKobo(netK)).toLocaleString()} due to additional allowances.
+              </div>
+            )}
+
+            {/* Employer costs (collapsible) */}
+            <button
+              type="button"
+              onClick={() => setEmployerExpanded(v => !v)}
+              className="flex items-center gap-1.5 text-xs font-semibold text-text-med hover:text-forest"
+            >
+              {employerExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+              Employer Costs (for your records)
+            </button>
+            {employerExpanded && (
+              <div className="space-y-2 pl-5 border-l-2 border-border">
+                <AutoField label={`Employer Pension (${erPensionRate}%)`} kobo={employerPensionK} />
+                <AutoField label={`NSITF (${nsitfRate}%)`} kobo={nsitfK} />
+                <AutoField label={`ITF (${itfRate}% monthly equiv)`} kobo={itfK} />
+                <AutoField label="Total Employer Cost" kobo={totalEmployerCostK} strong />
+              </div>
+            )}
+
+            <button disabled={!canSave || addP.isPending} onClick={handleSave} className={btnPrimary + " w-full justify-center mt-2"}>
+              <Save className="w-4 h-4" /> {addP.isPending ? "Saving…" : "Save payslip"}
             </button>
           </div>
         </div>
@@ -1093,13 +1160,13 @@ function PayrollTab() {
             <Row l={`Employee Pension (${empPensionRate}%)`} v={empPensionK} />
             {form.include_nhf && <Row l={`NHF (${nhfRate}%)`} v={nhfK} />}
             <Row l="PAYE Tax (NTA 2025 bands)" v={monthlyPayeK} />
-            <Row l="Total Deductions" v={totalEmpDedK} bold />
+            <Row l="Total Deductions" v={totalDeductionsK} bold />
             <Row l="Net Salary" v={netK} bold highlight />
             <div className={sectionCls}>Employer cost</div>
-            <Row l={`Employer Pension (${erPensionRate}%)`} v={erPensionK} />
+            <Row l={`Employer Pension (${erPensionRate}%)`} v={employerPensionK} />
             <Row l={`NSITF (${nsitfRate}%)`} v={nsitfK} />
             <Row l={`ITF (${itfRate}%)`} v={itfK} />
-            <Row l="Total Employer Cost" v={erCostK} bold highlight />
+            <Row l="Total Employer Cost" v={totalEmployerCostK} bold highlight />
           </div>
         </div>
       </div>
@@ -1204,6 +1271,107 @@ function Row({ l, v, bold, highlight, muted }: { l: string; v: number; bold?: bo
     <div className={`flex items-center justify-between py-1 border-b border-border/50 ${bold ? "font-bold" : ""} ${highlight ? "text-forest" : ""} ${muted ? "text-text-light" : ""}`}>
       <span>{l}</span>
       <span className="tabular-nums">{fmtNaira(v)}</span>
+    </div>
+  );
+}
+
+// ---------- Reverse payroll calculation ----------
+// These helpers operate purely in kobo. Rates come from the tax settings
+// with sensible fallbacks so the form still works before settings load.
+interface PayrollRates {
+  empPensionRate: number;
+  erPensionRate: number;
+  nhfRate: number;
+  nsitfRate: number;
+  itfRate: number;
+}
+const DEFAULT_RATES: PayrollRates = {
+  empPensionRate: 8, erPensionRate: 10, nhfRate: 2.5, nsitfRate: 1, itfRate: 1,
+};
+
+function computePayrollK(basicK: number, includeNhf: boolean, bands: PayeBand[], rates: PayrollRates = DEFAULT_RATES) {
+  return computePayrollWithOtherK(basicK, 0, includeNhf, bands, rates);
+}
+
+/**
+ * Forward pass with an optional other-allowances amount layered on top.
+ * `other` is added to gross for PAYE / NSITF / ITF but is NOT pensionable.
+ */
+function computePayrollWithOtherK(basicK: number, otherK: number, includeNhf: boolean, bands: PayeBand[], rates: PayrollRates = DEFAULT_RATES) {
+  const b = Math.max(0, Math.round(basicK));
+  const housingK = Math.round(b * 0.30);
+  const transportK = Math.round(b * 0.20);
+  const pensionableK = b + housingK + transportK;
+  const grossK = pensionableK + Math.max(0, Math.round(otherK));
+  const empPensionK = Math.round(pensionableK * (rates.empPensionRate / 100));
+  const nhfK = includeNhf ? Math.round(b * (rates.nhfRate / 100)) : 0;
+
+  // PAYE — bands are defined in NGN; go via NGN then convert back to kobo.
+  const annualChargeableNgn = Math.max(0, fromKobo(grossK - empPensionK - nhfK) * 12);
+  const annualPayeNgn = computeAnnualPaye(annualChargeableNgn, bands);
+  const monthlyPayeK = Math.round(toKobo(annualPayeNgn) / 12);
+
+  const totalDeductionsK = empPensionK + nhfK + monthlyPayeK;
+  const netK = grossK - totalDeductionsK;
+
+  const employerPensionK = Math.round(pensionableK * (rates.erPensionRate / 100));
+  const nsitfK = Math.round(grossK * (rates.nsitfRate / 100));
+  const itfK = Math.round(grossK * (rates.itfRate / 100));
+  const totalEmployerCostK = grossK + employerPensionK + nsitfK + itfK;
+
+  return {
+    basicK: b, housingK, transportK, otherK: Math.max(0, Math.round(otherK)),
+    grossK, pensionableK,
+    empPensionK, nhfK, monthlyPayeK, totalDeductionsK, netK,
+    employerPensionK, nsitfK, itfK, totalEmployerCostK,
+  };
+}
+
+/**
+ * Binary-search for the basic salary that produces the entered net pay.
+ * Works purely in kobo so PAYE rounding stays consistent with the forward
+ * computation used for display + insert.
+ */
+function reverseCalculatePayrollK(targetNetK: number, includeNhf: boolean, bands: PayeBand[], rates: PayrollRates = DEFAULT_RATES) {
+  if (targetNetK <= 0) return computePayrollK(0, includeNhf, bands, rates);
+
+  let lo = 0;
+  let hi = targetNetK * 3; // basic is never > 3× net under these bands
+  let closest = computePayrollK(0, includeNhf, bands, rates);
+  let closestDiff = Math.abs(closest.netK - targetNetK);
+
+  for (let i = 0; i < 100; i++) {
+    const mid = Math.round((lo + hi) / 2);
+    const attempt = computePayrollK(mid, includeNhf, bands, rates);
+    const diff = Math.abs(attempt.netK - targetNetK);
+    if (diff < closestDiff) { closest = attempt; closestDiff = diff; }
+    if (diff <= 100) return attempt; // within ₦1 tolerance
+    if (attempt.netK < targetNetK) lo = mid + 1;
+    else hi = mid - 1;
+    if (lo > hi) break;
+  }
+  return closest;
+}
+
+/** Read-only amount field with an "auto" badge. */
+function AutoField({ label, kobo, strong, big, tone }: {
+  label: string; kobo: number; strong?: boolean; big?: boolean; tone?: "red" | "green";
+}) {
+  const bgCls = tone === "green"
+    ? "bg-emerald-50 border-emerald-200"
+    : tone === "red"
+    ? "bg-red-50 border-red-200"
+    : "bg-muted/60 border-border";
+  const textCls = tone === "green" ? "text-emerald-700" : tone === "red" ? "text-red-700" : "text-foreground";
+  return (
+    <div>
+      <div className={labelCls + " flex items-center gap-1"}>
+        {label}
+        <span className="inline-flex items-center text-[9px] font-semibold text-text-light bg-muted px-1.5 py-0.5 rounded uppercase tracking-wider">auto</span>
+      </div>
+      <div className={`w-full border rounded-lg px-3 py-2 tabular-nums ${bgCls} ${textCls} ${strong ? "font-bold" : ""} ${big ? "text-lg font-bold py-3" : "text-sm"}`}>
+        {fmtNaira(kobo)}
+      </div>
     </div>
   );
 }
