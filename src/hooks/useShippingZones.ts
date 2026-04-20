@@ -26,7 +26,7 @@ export function useShippingZones() {
         .eq("is_active", true)
         .order("display_order");
       if (error) throw error;
-      return data as ShippingZone[];
+      return data as unknown as ShippingZone[];
     },
     staleTime: 5 * 60 * 1000,
   });
