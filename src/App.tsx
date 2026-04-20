@@ -66,6 +66,7 @@ import AdminQuizLeads from "@/pages/admin/AdminQuizLeads";
 import AdminQuizEngine from "@/pages/admin/AdminQuizEngine";
 import AdminEmailTemplates from "@/pages/admin/AdminEmailTemplates";
 import AdminComingSoon from "@/pages/admin/AdminComingSoon";
+import AdminFinance from "@/pages/admin/AdminFinance";
 import PermissionGate from "@/components/admin/PermissionGate";
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -196,6 +197,7 @@ const App = () => (
                 <Route path="quiz-engine" element={<PermissionGate module="content" action="manage_quiz"><AdminQuizEngine /></PermissionGate>} />
                 <Route path="email-templates" element={<PermissionGate module="content" action="edit_settings"><AdminEmailTemplates /></PermissionGate>} />
                 <Route path="coming-soon" element={<PermissionGate module="settings" action="manage_coming_soon"><AdminComingSoon /></PermissionGate>} />
+                <Route path="finance/*" element={<PermissionGate module="analytics" action="view"><AdminFinance /></PermissionGate>} />
               </Route>
 
               {/* Standalone public page — no navbar/footer, not redirected */}
