@@ -84,6 +84,56 @@ export function useUpdateCourier() {
   });
 }
 
+export function useCreateCourier() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (courier: Partial<Courier>) => {
+      const { data, error } = await (supabase as any)
+        .from("couriers")
+        .insert({ ...courier, updated_at: new Date().toISOString() })
+        .select("id")
+        .single();
+      if (error) throw error;
+      return data?.id as string;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-couriers"] });
+    },
+  });
+}
+
+export function useDeleteCourier() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase as any)
+        .from("couriers")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-couriers"] });
+    },
+  });
+}
+
+export function useReorderCouriers() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (idsInOrder: string[]) => {
+      await Promise.all(
+        idsInOrder.map((id, i) =>
+          (supabase as any).from("couriers").update({ display_order: i }).eq("id", id)
+        )
+      );
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-couriers"] });
+    },
+  });
+}
+
 export function useShippingZonesAdmin() {
   return useQuery({
     queryKey: ["admin-shipping-zones"],
