@@ -3,7 +3,9 @@ import { NavLink, Routes, Route, useNavigate } from "react-router-dom";
 import {
   BarChart3, FileText, Wallet, ShoppingCart, Users, Scale, Briefcase, Settings as SettingsIcon,
   Plus, Trash2, Save, Printer, AlertTriangle, CheckCircle2, TrendingUp, TrendingDown, Calendar,
+  Download,
 } from "lucide-react";
+import bmLogoGreen from "@/assets/logos/BM-LOGO-GREEN.svg";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell, BarChart, Bar,
@@ -1103,7 +1105,17 @@ function PayrollTab() {
       </div>
 
       <div className={cardCls}>
-        <h3 className="font-semibold text-sm mb-3">Payroll entries ({payroll?.length || 0})</h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold text-sm">Payroll entries ({payroll?.length || 0})</h3>
+          {(payroll || []).length > 0 && (
+            <button
+              onClick={() => generateAllPayslips(payroll || [])}
+              className="inline-flex items-center gap-1.5 border border-forest/30 text-forest hover:bg-forest/5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+            >
+              <Download className="w-3.5 h-3.5" /> Download All
+            </button>
+          )}
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
@@ -1133,9 +1145,16 @@ function PayrollTab() {
                   <td className="py-1.5 pr-2 text-right tabular-nums">{fmtNaira(r.nsitf)}</td>
                   <td className="py-1.5 pr-2 text-right tabular-nums font-semibold">{fmtNaira(r.net_salary)}</td>
                   <td className="py-1.5 pr-2 text-right tabular-nums">{fmtNaira(r.total_employer_cost)}</td>
-                  <td className="py-1.5 text-right">
+                  <td className="py-1.5 text-right whitespace-nowrap">
+                    <button
+                      onClick={() => generatePayslip(r)}
+                      className="inline-flex items-center gap-1 border border-forest/30 text-forest hover:bg-forest/5 px-2 py-1 rounded-lg text-[11px] font-semibold mr-1"
+                      title="Download payslip"
+                    >
+                      <Download className="w-3.5 h-3.5" /> Payslip
+                    </button>
                     <button onClick={() => { if (confirm("Delete entry?")) delP.mutate(r.id); }}
-                      className="text-red-600 hover:text-red-800"><Trash2 className="w-3.5 h-3.5" /></button>
+                      className="text-red-600 hover:text-red-800 p-1"><Trash2 className="w-3.5 h-3.5" /></button>
                   </td>
                 </tr>
               ))}
@@ -1187,6 +1206,197 @@ function Row({ l, v, bold, highlight, muted }: { l: string; v: number; bold?: bo
       <span className="tabular-nums">{fmtNaira(v)}</span>
     </div>
   );
+}
+
+// ---------- Payslip download helpers ----------
+
+/** Cached data-URL of the green logo so we only fetch once per session. */
+let _logoDataUrl: string | null = null;
+async function getLogoDataUrl(): Promise<string> {
+  if (_logoDataUrl) return _logoDataUrl;
+  try {
+    const res = await fetch(bmLogoGreen);
+    const blob = await res.blob();
+    const url = await new Promise<string>(resolve => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(blob);
+    });
+    _logoDataUrl = url;
+    return url;
+  } catch {
+    return "";
+  }
+}
+
+/** Format kobo → "₦NN,NNN" for payslip lines. */
+function ps(kobo: number | null | undefined): string {
+  const n = Math.round((kobo || 0) / 100);
+  return `₦${n.toLocaleString()}`;
+}
+
+/** Build the payslip HTML string for a single payroll record. */
+function buildPayslipHtml(r: PayrollEntry, logoDataUrl: string): { html: string; filename: string; title: string } {
+  const monthName = MONTHS[(r.pay_month - 1) % 12];
+  const periodLabel = `${monthName} ${r.pay_year}`;
+  const safeName = (r.employee_name || "Employee").replace(/[^a-zA-Z0-9]+/g, "");
+  const filename = `Payslip_${safeName}_${monthName}${r.pay_year}.pdf`;
+  const title = `Payslip_${safeName}_${monthName}${r.pay_year}`;
+  const now = new Date();
+  const payDate = `${String(now.getDate()).padStart(2, "0")}/${String(now.getMonth() + 1).padStart(2, "0")}/${now.getFullYear()}`;
+  const genStamp = `${payDate} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+
+  const hasNhf = (r.nhf_deduction || 0) > 0;
+  const hasOther = (r.other_allowances || 0) > 0;
+  const hasEmployer = (r.employer_pension || 0) + (r.nsitf || 0) + (r.itf || 0) > 0;
+
+  const row = (label: string, amount: number | null | undefined, cls = "") =>
+    `<tr class="${cls}"><td class="lbl">${label}</td><td class="amt">${ps(amount)}</td></tr>`;
+
+  const brand = "#2D6A4F";
+
+  const html = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>${title}</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #f5f5f5; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #1a1a1a; }
+  .sheet { background: #fff; margin: 20mm auto; padding: 14mm 16mm; max-width: 190mm; min-height: 257mm; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  .head { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 14px; border-bottom: 2px solid ${brand}; }
+  .brand img { max-height: 40px; display: block; }
+  .brand .url { font-size: 10px; color: #666; margin-top: 4px; letter-spacing: 0.5px; }
+  .title { text-align: right; }
+  .title h1 { margin: 0; font-size: 26px; letter-spacing: 3px; color: ${brand}; font-weight: 700; }
+  .title .sub { font-size: 10px; color: #666; margin-top: 4px; }
+  .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 18px 0; padding-bottom: 14px; border-bottom: 1px solid #e5e5e5; }
+  .meta .col .k { font-size: 9px; text-transform: uppercase; letter-spacing: 2px; color: #999; font-weight: 600; margin-bottom: 4px; }
+  .meta .col .v { font-size: 13px; font-weight: 600; color: #1a1a1a; }
+  .meta .col .v2 { font-size: 11px; color: #666; margin-top: 2px; }
+  .section { margin-top: 14px; }
+  .section h2 { font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: ${brand}; font-weight: 700; margin: 0 0 8px 0; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 7px 0; font-size: 12px; }
+  td.lbl { color: #333; }
+  td.amt { text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }
+  tr.line td { border-bottom: 1px solid #eee; }
+  tr.total td { border-top: 1px solid #ccc; padding-top: 8px; font-weight: 700; }
+  tr.netpay td { border-top: 2px solid ${brand}; border-bottom: 2px solid ${brand}; padding: 12px 0; font-weight: 700; font-size: 16px; color: ${brand}; }
+  .note { margin-top: 22px; padding-top: 10px; border-top: 1px dashed #ccc; font-size: 9.5px; color: #888; line-height: 1.5; text-align: center; }
+  @page { size: A4 portrait; margin: 0; }
+  @media print {
+    body { background: #fff; }
+    .sheet { margin: 0; padding: 20mm; box-shadow: none; max-width: none; min-height: auto; }
+  }
+</style>
+</head>
+<body>
+  <div class="sheet">
+    <div class="head">
+      <div class="brand">
+        ${logoDataUrl ? `<img src="${logoDataUrl}" alt="BundledMum">` : `<div style="font-size:18px;font-weight:700;color:${brand};letter-spacing:1px;">BundledMum</div>`}
+        <div class="url">bundledmum.com</div>
+      </div>
+      <div class="title">
+        <h1>PAYSLIP</h1>
+        <div class="sub">Pay period ${periodLabel}</div>
+      </div>
+    </div>
+
+    <div class="meta">
+      <div class="col">
+        <div class="k">Employee</div>
+        <div class="v">${escapeHtml(r.employee_name)}</div>
+        <div class="v2">${escapeHtml(r.role || "—")}</div>
+      </div>
+      <div class="col" style="text-align:right;">
+        <div class="k">Pay Period</div>
+        <div class="v">${periodLabel}</div>
+        <div class="v2">Pay date: ${payDate}</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Earnings</h2>
+      <table>
+        ${row("Basic Salary", r.basic_salary, "line")}
+        ${row("Housing Allowance", r.housing_allowance, "line")}
+        ${row("Transport Allowance", r.transport_allowance, "line")}
+        ${hasOther ? row("Other Allowances", r.other_allowances, "line") : ""}
+        ${row("GROSS SALARY", r.gross_salary, "total")}
+      </table>
+    </div>
+
+    <div class="section">
+      <h2>Deductions</h2>
+      <table>
+        ${row("Employee Pension (8%)", r.employee_pension, "line")}
+        ${hasNhf ? row("NHF (2.5%)", r.nhf_deduction, "line") : ""}
+        ${row("PAYE Tax", r.paye_tax, "line")}
+        ${row("TOTAL DEDUCTIONS", r.total_employee_deductions, "total")}
+      </table>
+    </div>
+
+    <div class="section">
+      <table>
+        <tr class="netpay"><td class="lbl">NET PAY</td><td class="amt">${ps(r.net_salary)}</td></tr>
+      </table>
+    </div>
+
+    ${hasEmployer ? `
+    <div class="section">
+      <h2>Employer Contributions (for your records)</h2>
+      <table>
+        ${row("Employer Pension (10%)", r.employer_pension, "line")}
+        ${row("NSITF (1%)", r.nsitf, "line")}
+        ${row("ITF", r.itf, "line")}
+        ${row("Total Employer Cost", r.total_employer_cost, "total")}
+      </table>
+    </div>` : ""}
+
+    <div class="note">
+      This payslip is computer-generated and valid without a signature.<br>
+      Generated: ${genStamp} · Confidential — for recipient only.
+    </div>
+  </div>
+  <script>
+    window.addEventListener("load", function () {
+      setTimeout(function () { window.focus(); window.print(); }, 150);
+    });
+  </script>
+</body>
+</html>`;
+
+  return { html, filename, title };
+}
+
+function escapeHtml(s: string): string {
+  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
+}
+
+/** Open the payslip in a new window and trigger the browser print dialog. */
+async function generatePayslip(r: PayrollEntry): Promise<void> {
+  const logo = await getLogoDataUrl();
+  const { html, title } = buildPayslipHtml(r, logo);
+  const win = window.open("", "_blank", "width=900,height=1100");
+  if (!win) {
+    alert("Popup blocked — please allow popups for this site to download payslips.");
+    return;
+  }
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+  try { win.document.title = title; } catch { /* cross-origin noop */ }
+}
+
+async function generateAllPayslips(rows: PayrollEntry[]): Promise<void> {
+  for (let i = 0; i < rows.length; i++) {
+    // eslint-disable-next-line no-await-in-loop
+    await generatePayslip(rows[i]);
+    // eslint-disable-next-line no-await-in-loop
+    await new Promise(res => setTimeout(res, 500));
+  }
 }
 
 // ================================================================
