@@ -3212,6 +3212,7 @@ export type Database = {
           free_delivery_threshold: number | null
           id: string
           is_active: boolean | null
+          lgas: Json | null
           name: string
           states: string[] | null
         }
@@ -3229,6 +3230,7 @@ export type Database = {
           free_delivery_threshold?: number | null
           id?: string
           is_active?: boolean | null
+          lgas?: Json | null
           name: string
           states?: string[] | null
         }
@@ -3246,6 +3248,7 @@ export type Database = {
           free_delivery_threshold?: number | null
           id?: string
           is_active?: boolean | null
+          lgas?: Json | null
           name?: string
           states?: string[] | null
         }
