@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import BMLoadingAnimation from "@/components/BMLoadingAnimation";
-import { useShippingZones, calculateDeliveryFee } from "@/hooks/useShippingZones";
+import { useShippingZones, calculateDeliveryFee, type ShippingZone } from "@/hooks/useShippingZones";
 import { useSiteSettings } from "@/hooks/useSupabaseData";
 import { useSpendThresholds, getSpendPrompt } from "@/hooks/useSpendThresholds";
 import { trackEvent, getSessionId, getAttribution, markSessionConverted } from "@/lib/analytics";
@@ -44,6 +44,12 @@ export default function CheckoutPage() {
   const { data: settings } = useSiteSettings();
   const { data: zones } = useShippingZones();
   const { data: thresholds } = useSpendThresholds();
+
+  // Currently-selected delivery zone (null when the selected state has
+  // no zones, or the user hasn't picked a zone yet).
+  const [selectedZone, setSelectedZone] = useState<ShippingZone | null>(null);
+  const zonesForState = (zones || []).filter(z => (z.states || []).includes(form.state));
+  const stateHasZones = zonesForState.length > 0;
 
   // Payment method toggles from site_settings
   const [enabledPayments, setEnabledPayments] = useState<Record<string, boolean>>({ card: true, transfer: true, ussd: true });
@@ -221,7 +227,10 @@ export default function CheckoutPage() {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) return "Enter a valid email address";
     }
     if (key === "address" && !val) return "Street address is required";
-    if (key === "city" && !val) return "City is required";
+    // City is only required when the selected state has mapped zones
+    // (today: Lagos). Other states can leave city blank since there's
+    // no zone-backed list to pick from.
+    if (key === "city" && !val && stateHasZones) return "City is required";
     return undefined;
   };
 
@@ -584,15 +593,68 @@ export default function CheckoutPage() {
                   <InputField label="Email Address" value={form.email} onChange={v => update("email", v)} onBlur={() => { handleBlur("email"); saveAbandonedCart(); }} error={errors.email} type="email" placeholder="you@example.com" />
                 </div>
                 <InputField label="Street Address" value={form.address} onChange={v => update("address", v)} onBlur={() => handleBlur("address")} error={errors.address} />
+
+                {/* State → Zone → City cascade */}
                 <div className="flex flex-col md:flex-row gap-3">
-                  <InputField label="City / Town" value={form.city} onChange={v => update("city", v)} onBlur={() => handleBlur("city")} error={errors.city} />
                   <div className="flex-1 flex flex-col gap-1">
                     <label className="text-xs font-semibold text-text-med uppercase tracking-wide">State</label>
-                    <select value={form.state} onChange={e => update("state", e.target.value)} className="w-full rounded-[10px] border-[1.5px] border-border px-3 py-2.5 text-sm bg-card font-body focus:border-forest outline-none transition-colors">
+                    <select
+                      value={form.state}
+                      onChange={e => {
+                        const nextState = e.target.value;
+                        update("state", nextState);
+                        setSelectedZone(null);
+                        update("city", "");
+                      }}
+                      className="w-full rounded-[10px] border-[1.5px] border-border px-3 py-2.5 text-sm bg-card font-body focus:border-forest outline-none transition-colors"
+                    >
                       {NIGERIAN_STATES.map(s => <option key={s}>{s}</option>)}
                     </select>
                   </div>
+
+                  {stateHasZones && (
+                    <div className="flex-1 flex flex-col gap-1">
+                      <label className="text-xs font-semibold text-text-med uppercase tracking-wide">Delivery Zone</label>
+                      <select
+                        value={selectedZone?.id || ""}
+                        onChange={e => {
+                          const zone = zonesForState.find(z => z.id === e.target.value) || null;
+                          setSelectedZone(zone);
+                          if (zone && zone.areas.length === 1) {
+                            update("city", zone.areas[0]);
+                          } else {
+                            update("city", "");
+                          }
+                        }}
+                        className="w-full rounded-[10px] border-[1.5px] border-border px-3 py-2.5 text-sm bg-card font-body focus:border-forest outline-none transition-colors"
+                      >
+                        <option value="">Select your zone</option>
+                        {zonesForState.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}
+                      </select>
+                    </div>
+                  )}
                 </div>
+
+                {/* City / Town — only when a zone is selected */}
+                {stateHasZones && selectedZone && (
+                  selectedZone.areas.length === 1 ? (
+                    <InputField label="City / Town" value={form.city} onChange={() => {}} disabled />
+                  ) : (
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs font-semibold text-text-med uppercase tracking-wide">City / Town</label>
+                      <select
+                        value={form.city}
+                        onChange={e => update("city", e.target.value)}
+                        onBlur={() => handleBlur("city")}
+                        className={`w-full rounded-[10px] border-[1.5px] px-3 py-2.5 text-sm bg-card font-body focus:border-forest outline-none transition-colors ${errors.city ? "border-destructive" : "border-border"}`}
+                      >
+                        <option value="">Select your city</option>
+                        {selectedZone.areas.map(area => <option key={area} value={area}>{area}</option>)}
+                      </select>
+                      {errors.city && <p className="text-destructive text-[11px]">{errors.city}</p>}
+                    </div>
+                  )
+                )}
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-semibold text-text-med uppercase tracking-wide">Delivery Notes (Optional)</label>
                   <textarea value={form.notes} onChange={e => update("notes", e.target.value)} className="w-full rounded-[10px] border-[1.5px] border-border px-3 py-2.5 text-sm bg-card font-body resize-y h-20 focus:border-forest outline-none" placeholder="E.g. Landmark, gate colour..." />
@@ -768,12 +830,12 @@ export default function CheckoutPage() {
   );
 }
 
-function InputField({ label, value, onChange, onBlur, error, type = "text", placeholder }: { label: string; value: string; onChange: (v: string) => void; onBlur?: () => void; error?: string; type?: string; placeholder?: string }) {
+function InputField({ label, value, onChange, onBlur, error, type = "text", placeholder, disabled }: { label: string; value: string; onChange: (v: string) => void; onBlur?: () => void; error?: string; type?: string; placeholder?: string; disabled?: boolean }) {
   return (
     <div className="flex-1 flex flex-col gap-1">
       <label className="text-xs font-semibold text-text-med uppercase tracking-wide">{label}</label>
-      <input type={type} value={value} onChange={e => onChange(e.target.value)} onBlur={onBlur} placeholder={placeholder}
-        className={`w-full rounded-[10px] border-[1.5px] px-3 py-2.5 text-sm bg-card font-body outline-none transition-colors ${error ? "border-destructive" : "border-border focus:border-forest"}`} />
+      <input type={type} value={value} onChange={e => onChange(e.target.value)} onBlur={onBlur} placeholder={placeholder} disabled={disabled}
+        className={`w-full rounded-[10px] border-[1.5px] px-3 py-2.5 text-sm bg-card font-body outline-none transition-colors ${error ? "border-destructive" : "border-border focus:border-forest"} ${disabled ? "opacity-70 cursor-not-allowed bg-muted/40" : ""}`} />
       {error && <p className="text-destructive text-[11px]">{error}</p>}
     </div>
   );
