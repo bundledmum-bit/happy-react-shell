@@ -6,6 +6,7 @@ export interface ShippingZone {
   name: string;
   areas: string[];
   states: string[] | null;
+  lgas?: Array<{ lga: string; areas: string[] }>;
   flat_rate: number;
   free_delivery_threshold: number | null;
   estimated_days_min: number;

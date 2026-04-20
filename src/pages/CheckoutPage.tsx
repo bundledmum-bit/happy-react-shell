@@ -16,6 +16,7 @@ const NIGERIAN_STATES = ["Lagos", "Abuja", "Rivers", "Ogun", "Oyo", "Kano", "Kad
 interface FormData {
   firstName: string; lastName: string; phone: string; email: string;
   address: string; city: string; state: string; notes: string;
+  lga?: string;
 }
 
 type SavedOrderResult = { id: string; orderNumber: string | null };
@@ -23,7 +24,7 @@ type SavedOrderResult = { id: string; orderNumber: string | null };
 export default function CheckoutPage() {
   const { cart, subtotal, clearCart, totalItems } = useCart();
   const navigate = useNavigate();
-  const [form, setForm] = useState<FormData>({ firstName: "", lastName: "", phone: "", email: "", address: "", city: "", state: "Lagos", notes: "" });
+  const [form, setForm] = useState<FormData>({ firstName: "", lastName: "", phone: "", email: "", address: "", city: "", state: "Lagos", notes: "", lga: "" });
   const [payment, setPayment] = useState<"card" | "transfer" | "ussd">("card");
   const [giftWrap, setGiftWrap] = useState(false);
   const [processing, setProcessing] = useState(false);
@@ -48,8 +49,30 @@ export default function CheckoutPage() {
   // Currently-selected delivery zone (null when the selected state has
   // no zones, or the user hasn't picked a zone yet).
   const [selectedZone, setSelectedZone] = useState<ShippingZone | null>(null);
+  // Name of the currently-selected LGA within the zone. Empty until the
+  // user picks one (or auto-selected when the zone has only one LGA).
+  const [selectedLga, setSelectedLga] = useState<string>("");
   const zonesForState = (zones || []).filter(z => (z.states || []).includes(form.state));
   const stateHasZones = zonesForState.length > 0;
+  const lgasForZone = selectedZone?.lgas || [];
+  const areasForLga = selectedZone?.lgas?.find(l => l.lga === selectedLga)?.areas || [];
+
+  // When a zone with exactly one LGA is selected, auto-fill the LGA.
+  useEffect(() => {
+    if (selectedZone && selectedZone.lgas && selectedZone.lgas.length === 1 && !selectedLga) {
+      setSelectedLga(selectedZone.lgas[0].lga);
+    }
+  }, [selectedZone, selectedLga]);
+
+  // When the chosen LGA has exactly one area, auto-fill form.city.
+  useEffect(() => {
+    if (!selectedLga || !selectedZone) return;
+    const lga = selectedZone.lgas?.find(l => l.lga === selectedLga);
+    if (lga && lga.areas.length === 1 && form.city !== lga.areas[0]) {
+      setForm(p => ({ ...p, city: lga.areas[0] }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLga, selectedZone]);
 
   // Payment method toggles from site_settings
   const [enabledPayments, setEnabledPayments] = useState<Record<string, boolean>>({ card: true, transfer: true, ussd: true });
@@ -349,7 +372,9 @@ export default function CheckoutPage() {
             customer_phone: form.phone,
             delivery_address: form.address,
             delivery_city: form.city,
+            delivery_area: form.city,
             delivery_state: form.state,
+            delivery_lga: form.lga || null,
             delivery_notes: form.notes || null,
             subtotal: orderData.subtotal,
             delivery_fee: orderData.deliveryFee,
@@ -594,7 +619,7 @@ export default function CheckoutPage() {
                 </div>
                 <InputField label="Street Address" value={form.address} onChange={v => update("address", v)} onBlur={() => handleBlur("address")} error={errors.address} />
 
-                {/* State → Zone → City cascade */}
+                {/* State → Zone → LGA → City cascade */}
                 <div className="flex flex-col md:flex-row gap-3">
                   <div className="flex-1 flex flex-col gap-1">
                     <label className="text-xs font-semibold text-text-med uppercase tracking-wide">State</label>
@@ -604,7 +629,9 @@ export default function CheckoutPage() {
                         const nextState = e.target.value;
                         update("state", nextState);
                         setSelectedZone(null);
+                        setSelectedLga("");
                         update("city", "");
+                        setForm(p => ({ ...p, lga: "" }));
                       }}
                       className="w-full rounded-[10px] border-[1.5px] border-border px-3 py-2.5 text-sm bg-card font-body focus:border-forest outline-none transition-colors"
                     >
@@ -620,24 +647,42 @@ export default function CheckoutPage() {
                         onChange={e => {
                           const zone = zonesForState.find(z => z.id === e.target.value) || null;
                           setSelectedZone(zone);
-                          if (zone && zone.areas.length === 1) {
-                            update("city", zone.areas[0]);
-                          } else {
-                            update("city", "");
-                          }
+                          setSelectedLga("");
+                          update("city", "");
+                          setForm(p => ({ ...p, lga: "" }));
                         }}
                         className="w-full rounded-[10px] border-[1.5px] border-border px-3 py-2.5 text-sm bg-card font-body focus:border-forest outline-none transition-colors"
                       >
-                        <option value="">Select your zone</option>
+                        <option value="">Select your delivery zone</option>
                         {zonesForState.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}
                       </select>
                     </div>
                   )}
                 </div>
 
-                {/* City / Town — only when a zone is selected */}
-                {stateHasZones && selectedZone && (
-                  selectedZone.areas.length === 1 ? (
+                {/* LGA — only when a zone is selected */}
+                {stateHasZones && selectedZone && lgasForZone.length > 0 && (
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-semibold text-text-med uppercase tracking-wide">Local Government Area</label>
+                    <select
+                      value={selectedLga}
+                      onChange={e => {
+                        const next = e.target.value;
+                        setSelectedLga(next);
+                        update("city", "");
+                        setForm(p => ({ ...p, lga: next }));
+                      }}
+                      className="w-full rounded-[10px] border-[1.5px] border-border px-3 py-2.5 text-sm bg-card font-body focus:border-forest outline-none transition-colors"
+                    >
+                      <option value="">Select your LGA</option>
+                      {lgasForZone.map(l => <option key={l.lga} value={l.lga}>{l.lga}</option>)}
+                    </select>
+                  </div>
+                )}
+
+                {/* City / Town — only when an LGA is selected */}
+                {stateHasZones && selectedZone && selectedLga && (
+                  areasForLga.length === 1 ? (
                     <InputField label="City / Town" value={form.city} onChange={() => {}} disabled />
                   ) : (
                     <div className="flex flex-col gap-1">
@@ -648,12 +693,17 @@ export default function CheckoutPage() {
                         onBlur={() => handleBlur("city")}
                         className={`w-full rounded-[10px] border-[1.5px] px-3 py-2.5 text-sm bg-card font-body focus:border-forest outline-none transition-colors ${errors.city ? "border-destructive" : "border-border"}`}
                       >
-                        <option value="">Select your city</option>
-                        {selectedZone.areas.map(area => <option key={area} value={area}>{area}</option>)}
+                        <option value="">Select your area</option>
+                        {areasForLga.map(area => <option key={area} value={area}>{area}</option>)}
                       </select>
                       {errors.city && <p className="text-destructive text-[11px]">{errors.city}</p>}
                     </div>
                   )
+                )}
+
+                {/* Non-Lagos states — free-text city/town fallback */}
+                {!stateHasZones && (
+                  <InputField label="City / Town" value={form.city} onChange={v => update("city", v)} onBlur={() => handleBlur("city")} error={errors.city} />
                 )}
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-semibold text-text-med uppercase tracking-wide">Delivery Notes (Optional)</label>
