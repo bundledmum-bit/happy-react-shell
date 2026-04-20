@@ -458,6 +458,27 @@ export default function CheckoutPage() {
         item_count: cart.length,
       });
 
+      // Auto-assign a courier (silent — never blocks checkout).
+      // The bundle tier comes from the quiz answers stored with the
+      // order; falls back to "standard" when no quiz context exists.
+      try {
+        const budgetTier = quizAnswers?.budget_tier || "standard";
+        const { data: courier } = await (supabase.rpc as any)("get_courier_assignment", {
+          p_delivery_city: form.city,
+          p_delivery_state: form.state,
+          p_bundle_tier: budgetTier,
+          p_order_day: new Date().toLocaleDateString("en-US", { weekday: "long" }),
+        });
+        if (courier) {
+          await (supabase.from("orders") as any).update({
+            delivery_partner: courier.partner,
+            courier_note: courier.note,
+          }).eq("id", result.id);
+        }
+      } catch (err) {
+        console.warn("Courier assignment skipped:", err);
+      }
+
       return { id: result.id, orderNumber: result.order_number };
     } catch (e) {
       console.error("DB save failed:", e);

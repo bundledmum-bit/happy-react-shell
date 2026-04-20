@@ -440,6 +440,23 @@ function OrderDetailPage({ order: o, adminUser, can, isSuperAdmin, onBack, onPri
         </div>
       </div>
 
+      {/* Courier Assignment — auto-populated when the order is placed */}
+      {(o as any).delivery_partner && (
+        <div className="rounded-lg border-2 border-forest/30 bg-forest-light p-3 mb-3">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-lg">🚚</span>
+            <span className="font-bold text-sm text-forest">
+              {(o as any).delivery_partner}
+            </span>
+          </div>
+          {(o as any).courier_note && (
+            <p className="text-xs text-text-med leading-relaxed">
+              {(o as any).courier_note}
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="grid md:grid-cols-2 gap-4 mb-4">
         {/* Customer Info — gated */}
         {showCustomer && (
