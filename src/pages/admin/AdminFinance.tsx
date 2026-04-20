@@ -941,49 +941,68 @@ function PayrollTab() {
   const nsitfRate = Number(settings?.nsitf_rate ?? 1);
   const itfRate = Number(settings?.itf_rate ?? 1);
 
-  // Live calculations (in NGN, then display)
-  const basic = Number(form.basic_salary) || 0;
-  const housing = Number(form.housing_allowance) || 0;
-  const transport = Number(form.transport_allowance) || 0;
-  const other = Number(form.other_allowances) || 0;
-  const gross = basic + housing + transport + other;
-  const pensionable = basic + housing + transport;
-  const empPension = Math.round(pensionable * (empPensionRate / 100));
-  const nhf = form.include_nhf ? Math.round(basic * (nhfRate / 100)) : 0;
-  const annualTaxable = gross * 12 - (empPension + nhf) * 12;
-  const annualPaye = computeAnnualPaye(Math.max(0, annualTaxable), bands);
-  const monthlyPaye = Math.round(annualPaye / 12);
-  const totalEmpDed = empPension + nhf + monthlyPaye;
-  const net = gross - totalEmpDed;
-  const erPension = Math.round(pensionable * (erPensionRate / 100));
-  const nsitf = Math.round(gross * (nsitfRate / 100));
-  const itf = Math.round(gross * (itfRate / 100));
-  const erCost = gross + erPension + nsitf + itf;
+  // Live calculations — compute everything in KOBO to avoid double-rounding.
+  // Inputs arrive as ₦, convert to kobo up front, then all downstream math
+  // stays in integer kobo.
+  const basicK = toKobo(Number(form.basic_salary) || 0);
+  const housingK = toKobo(Number(form.housing_allowance) || 0);
+  const transportK = toKobo(Number(form.transport_allowance) || 0);
+  const otherK = toKobo(Number(form.other_allowances) || 0);
 
-  const canSave = form.employee_name.trim() && basic > 0;
+  // Gross salary (kobo) — basic + housing + transport + other
+  const grossK = basicK + housingK + transportK + otherK;
+  // Pensionable emoluments (kobo) — basic + housing + transport
+  const pensionableK = basicK + housingK + transportK;
+
+  // Employee pension — 8 % of pensionable
+  const empPensionK = Math.round(pensionableK * (empPensionRate / 100));
+  // NHF — 2.5 % of basic (only if included)
+  const nhfK = form.include_nhf ? Math.round(basicK * (nhfRate / 100)) : 0;
+
+  // PAYE — NTA 2025 progressive bands. Bands are defined in NGN so we
+  // compute annual tax in NGN then convert the result to kobo.
+  const annualTaxableNgn = Math.max(0, fromKobo(grossK) * 12 - fromKobo(empPensionK + nhfK) * 12);
+  const annualPayeNgn = computeAnnualPaye(annualTaxableNgn, bands);
+  const monthlyPayeK = Math.round(toKobo(annualPayeNgn) / 12);
+
+  // Totals (all kobo)
+  const totalEmpDedK = empPensionK + nhfK + monthlyPayeK;
+  const netK = grossK - totalEmpDedK;
+
+  // Employer-side costs
+  const erPensionK = Math.round(pensionableK * (erPensionRate / 100)); // 10 % of pensionable
+  const nsitfK = Math.round(grossK * (nsitfRate / 100));               // 1 % of gross
+  const itfK = Math.round(grossK * (itfRate / 100));                   // 1 % of annual payroll ÷ 12 → gross proxy
+  const erCostK = grossK + erPensionK + nsitfK + itfK;
+
+  const canSave = form.employee_name.trim() && basicK > 0;
 
   const handleSave = () => {
-    addP.mutate({
+    // NOTE: All fields below are required by the DB — finance_payroll
+    // has no generated columns. Every calculated amount is sent as an
+    // integer kobo value.
+    const payload = {
       employee_name: form.employee_name.trim(),
       role: form.role?.trim() || null,
       pay_month: Number(form.pay_month),
       pay_year: Number(form.pay_year),
-      basic_salary: toKobo(basic),
-      housing_allowance: toKobo(housing),
-      transport_allowance: toKobo(transport),
-      other_allowances: toKobo(other),
-      gross_salary: toKobo(gross),
-      employee_pension: toKobo(empPension),
-      nhf_deduction: toKobo(nhf),
-      paye_tax: toKobo(monthlyPaye),
-      total_employee_deductions: toKobo(totalEmpDed),
-      net_salary: toKobo(net),
-      employer_pension: toKobo(erPension),
-      nsitf: toKobo(nsitf),
-      itf: toKobo(itf),
-      total_employer_cost: toKobo(erCost),
+      basic_salary: basicK,
+      housing_allowance: housingK,
+      transport_allowance: transportK,
+      other_allowances: otherK,
+      gross_salary: grossK,
+      employee_pension: empPensionK,
+      nhf_deduction: nhfK,
+      paye_tax: monthlyPayeK,
+      total_employee_deductions: totalEmpDedK,
+      net_salary: netK,
+      employer_pension: erPensionK,
+      nsitf: nsitfK,
+      itf: itfK,
+      total_employer_cost: erCostK,
       notes: form.notes?.trim() || null,
-    }, {
+    };
+    addP.mutate(payload, {
       onSuccess: () => setForm({ ...form, employee_name: "", role: "", basic_salary: "", housing_allowance: "", transport_allowance: "", other_allowances: "", notes: "" }),
     });
   };
@@ -1066,19 +1085,19 @@ function PayrollTab() {
         <div className={cardCls}>
           <h3 className="font-semibold text-sm mb-3">Payslip preview</h3>
           <div className="space-y-1 text-sm">
-            <Row l="Gross Salary" v={toKobo(gross)} />
-            <Row l="Pensionable Emoluments" v={toKobo(pensionable)} muted />
+            <Row l="Gross Salary" v={grossK} />
+            <Row l="Pensionable Emoluments" v={pensionableK} muted />
             <div className={sectionCls}>Employee deductions</div>
-            <Row l={`Employee Pension (${empPensionRate}%)`} v={toKobo(empPension)} />
-            {form.include_nhf && <Row l={`NHF (${nhfRate}%)`} v={toKobo(nhf)} />}
-            <Row l="PAYE Tax (NTA 2025 bands)" v={toKobo(monthlyPaye)} />
-            <Row l="Total Deductions" v={toKobo(totalEmpDed)} bold />
-            <Row l="Net Salary" v={toKobo(net)} bold highlight />
+            <Row l={`Employee Pension (${empPensionRate}%)`} v={empPensionK} />
+            {form.include_nhf && <Row l={`NHF (${nhfRate}%)`} v={nhfK} />}
+            <Row l="PAYE Tax (NTA 2025 bands)" v={monthlyPayeK} />
+            <Row l="Total Deductions" v={totalEmpDedK} bold />
+            <Row l="Net Salary" v={netK} bold highlight />
             <div className={sectionCls}>Employer cost</div>
-            <Row l={`Employer Pension (${erPensionRate}%)`} v={toKobo(erPension)} />
-            <Row l={`NSITF (${nsitfRate}%)`} v={toKobo(nsitf)} />
-            <Row l={`ITF (${itfRate}%)`} v={toKobo(itf)} />
-            <Row l="Total Employer Cost" v={toKobo(erCost)} bold highlight />
+            <Row l={`Employer Pension (${erPensionRate}%)`} v={erPensionK} />
+            <Row l={`NSITF (${nsitfRate}%)`} v={nsitfK} />
+            <Row l={`ITF (${itfRate}%)`} v={itfK} />
+            <Row l="Total Employer Cost" v={erCostK} bold highlight />
           </div>
         </div>
       </div>
