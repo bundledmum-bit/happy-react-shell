@@ -409,7 +409,7 @@ export default function AdminOrders() {
                     {o.delivery_partner ? (
                       <span
                         className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-forest/10 text-forest"
-                        title={o.courier_note || ""}
+                        title={stripProfitSegments(o.courier_note) || ""}
                       >
                         <Truck className="w-3 h-3" /> {o.delivery_partner}
                       </span>
@@ -593,7 +593,7 @@ function OrderDetailPage({ order: o, adminUser, can, isSuperAdmin, onBack, onPri
           </div>
           {(o as any).courier_note && (
             <p className="text-xs text-text-med leading-relaxed">
-              {(o as any).courier_note}
+              {stripProfitSegments((o as any).courier_note)}
             </p>
           )}
         </div>
@@ -875,6 +875,19 @@ async function getLabelLogo(): Promise<string> {
   } catch {
     return "";
   }
+}
+
+/**
+ * Strip any "| Profit: NGN xxx" or "| Delivery profit: NGN xxx" or
+ * "Profit on delivery: ..." segment from a legacy courier_note so the
+ * admin list never exposes margin figures. Safe on null/undefined.
+ */
+function stripProfitSegments(note: string | null | undefined): string {
+  if (!note) return "";
+  return String(note)
+    .replace(/\s*\|\s*(?:Delivery\s+p|P)rofit(?:\s+on\s+delivery)?:\s*(?:NGN|₦|N)\s*[-\d,.]+/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 }
 
 function escapeHtml(s: string | null | undefined): string {
