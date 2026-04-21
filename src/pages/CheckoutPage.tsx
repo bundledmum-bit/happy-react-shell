@@ -210,6 +210,7 @@ export default function CheckoutPage() {
     note: string | null;
     deliverable: boolean;
     zone: string | null;
+    isFreeDelivery: boolean;
   } | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
@@ -237,6 +238,7 @@ export default function CheckoutPage() {
           p_order_day: new Date().toLocaleDateString("en-US", { weekday: "long" }),
           p_daily_order_count: 1,
           p_order_weight_kg: cartWeightKg,
+          p_order_subtotal: subtotal,
         });
         if (cancelled) return;
         if (error) {
@@ -253,6 +255,7 @@ export default function CheckoutPage() {
             note: r.note || null,
             deliverable: r.deliverable !== false,
             zone: r.zone || null,
+            isFreeDelivery: r.is_free_delivery === true,
           });
           setQuoteError(null);
         }
@@ -267,7 +270,7 @@ export default function CheckoutPage() {
     }, 300);
     return () => { cancelled = true; clearTimeout(t); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.city, form.state, selectedZone?.id, selectedLga, stateHasZones, cartWeightKg, budgetTier]);
+  }, [form.city, form.state, selectedZone?.id, selectedLga, stateHasZones, cartWeightKg, budgetTier, subtotal]);
 
   // Use the courier quote when we have one; otherwise fall back to the
   // zone flat-rate calc (used only while the quote is loading or when
@@ -639,6 +642,7 @@ export default function CheckoutPage() {
             p_order_day: new Date().toLocaleDateString("en-US", { weekday: "long" }),
             p_daily_order_count: 1,
             p_order_weight_kg: cartWeightKg,
+            p_order_subtotal: orderData.subtotal,
           });
           partner = partner || data?.partner || null;
           note = note || data?.note || null;
@@ -809,14 +813,22 @@ export default function CheckoutPage() {
                     <div className="flex justify-between">
                       <span className="text-text-med">
                         Delivery ({deliveryCalc.zoneName})
-                        {quoteLoading ? null : (hasQuote && (deliveryCalc as any).bookingsNeeded) ? (
+                        {quoteLoading ? null : (courierQuote?.isFreeDelivery) ? (
+                          <span className="block text-[10px] text-forest mt-0.5 font-semibold">
+                            🎉 Free delivery on orders over ₦200,000
+                          </span>
+                        ) : (hasQuote && (deliveryCalc as any).bookingsNeeded) ? (
                           <span className="block text-[10px] text-text-light mt-0.5">
                             ~{Number((deliveryCalc as any).weightKg).toFixed(1)}kg order · {(deliveryCalc as any).bookingsNeeded} booking{(deliveryCalc as any).bookingsNeeded === 1 ? "" : "s"} · {deliveryCalc.daysMin}–{deliveryCalc.daysMax} business days
                           </span>
                         ) : null}
                       </span>
                       <span className={delivery === 0 ? "text-forest" : ""}>
-                        {quoteLoading ? <span className="text-text-light italic">Calculating…</span> : (delivery === 0 ? "FREE 🎉" : fmt(delivery))}
+                        {courierQuote?.isFreeDelivery ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-forest/10 text-forest text-[10px] font-bold uppercase tracking-wide">Free Delivery</span>
+                        ) : quoteLoading ? (
+                          <span className="text-text-light italic">Calculating…</span>
+                        ) : (delivery === 0 ? "FREE 🎉" : fmt(delivery))}
                       </span>
                     </div>
                     {notDeliverable && (
@@ -1122,14 +1134,22 @@ export default function CheckoutPage() {
                     <div className="flex justify-between">
                       <span className="text-text-med">
                         Delivery ({deliveryCalc.zoneName})
-                        {quoteLoading ? null : (hasQuote && (deliveryCalc as any).bookingsNeeded) ? (
+                        {quoteLoading ? null : (courierQuote?.isFreeDelivery) ? (
+                          <span className="block text-[10px] text-forest mt-0.5 font-semibold">
+                            🎉 Free delivery on orders over ₦200,000
+                          </span>
+                        ) : (hasQuote && (deliveryCalc as any).bookingsNeeded) ? (
                           <span className="block text-[10px] text-text-light mt-0.5">
                             ~{Number((deliveryCalc as any).weightKg).toFixed(1)}kg order · {(deliveryCalc as any).bookingsNeeded} booking{(deliveryCalc as any).bookingsNeeded === 1 ? "" : "s"} · {deliveryCalc.daysMin}–{deliveryCalc.daysMax} business days
                           </span>
                         ) : null}
                       </span>
                       <span className={delivery === 0 ? "text-forest" : ""}>
-                        {quoteLoading ? <span className="text-text-light italic">Calculating…</span> : (delivery === 0 ? "FREE 🎉" : fmt(delivery))}
+                        {courierQuote?.isFreeDelivery ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-forest/10 text-forest text-[10px] font-bold uppercase tracking-wide">Free Delivery</span>
+                        ) : quoteLoading ? (
+                          <span className="text-text-light italic">Calculating…</span>
+                        ) : (delivery === 0 ? "FREE 🎉" : fmt(delivery))}
                       </span>
                     </div>
                     {notDeliverable && (
