@@ -2113,7 +2113,7 @@ function SettingsTab() {
           <Save className="w-4 h-4" /> {upd.isPending ? "Saving…" : "Save settings"}
         </button>
       </div>
-      {autoSmall === false && null /* keep compiler happy */}
+      
     </div>
   );
 }
