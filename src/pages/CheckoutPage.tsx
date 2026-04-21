@@ -798,7 +798,7 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-[calc(1rem+64px)] md:pb-0">
       <div className="pt-20" style={{ background: "linear-gradient(135deg, #2D6A4F 0%, #1E5C44 100%)" }}>
         <div className="max-w-[1100px] mx-auto px-4 md:px-10 py-8 md:py-10">
           <Link to="/cart" className="text-primary-foreground/50 text-xs hover:text-primary-foreground/70 transition-colors">← Back to Cart</Link>
@@ -1218,6 +1218,34 @@ export default function CheckoutPage() {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Sticky mobile Place Order bar — checkout has no MobileBottomNav, so pin to bottom */}
+      <div
+        className="fixed left-0 right-0 bottom-0 z-40 bg-card border-t border-border md:hidden"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      >
+        <div className="px-4 py-3 flex items-center gap-3">
+          <div className="flex-shrink-0">
+            <div className="text-[10px] text-text-light font-semibold uppercase tracking-wide">Total</div>
+            <div className="text-sm font-bold text-forest tabular-nums">{fmt(grand)}</div>
+          </div>
+          <button
+            onClick={placeOrder}
+            disabled={processing || notDeliverable || quoteLoading || !deliveryReady}
+            className="flex-1 rounded-pill bg-forest text-primary-foreground py-2.5 text-sm font-semibold hover:bg-forest-deep disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {processing
+              ? "Processing…"
+              : !deliveryReady
+              ? (stateHasZones ? "Select delivery area" : "Enter your state")
+              : notDeliverable
+              ? "Unavailable"
+              : quoteLoading
+              ? "Calculating…"
+              : <>Place Order →</>}
+          </button>
         </div>
       </div>
     </div>

@@ -127,7 +127,7 @@ export default function CartPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background pt-24">
+    <div className="min-h-screen bg-background pt-24 pb-[calc(1rem+56px+72px)] md:pb-0">
       <div className="max-w-[1200px] mx-auto px-4 md:px-10 py-8">
         <Link to="/shop" className="inline-flex items-center gap-1.5 text-forest text-sm font-semibold font-body mb-4 hover:underline">
           <ArrowLeft className="h-4 w-4" /> Continue Shopping
@@ -255,6 +255,27 @@ export default function CartPage() {
           </div>
         </div>
       </div>
+
+      {/* Sticky mobile checkout bar — sits above MobileBottomNav (h-14 + safe-area) */}
+      {totalItems > 0 && (
+        <div
+          className="fixed left-0 right-0 z-40 bg-card border-t border-border md:hidden"
+          style={{ bottom: "calc(56px + env(safe-area-inset-bottom))" }}
+        >
+          <div className="px-4 py-3 flex items-center gap-3">
+            <div className="flex-shrink-0">
+              <div className="text-[10px] text-text-light font-semibold uppercase tracking-wide">Subtotal</div>
+              <div className="text-sm font-bold text-forest tabular-nums">{fmt(subtotal)}</div>
+            </div>
+            <Link
+              to="/checkout"
+              className="flex-1 inline-flex items-center justify-center rounded-pill bg-forest text-primary-foreground py-2.5 text-sm font-semibold hover:bg-forest-deep"
+            >
+              Proceed to Checkout →
+            </Link>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

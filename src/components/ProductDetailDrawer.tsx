@@ -21,7 +21,7 @@ export default function ProductDetailDrawer({ product, defaultBudget = "standard
 
   return (
     <Drawer open={!!product} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DrawerContent className="max-h-[calc(100vh-60px)] flex flex-col outline-none">
+      <DrawerContent className="max-h-[92svh] flex flex-col outline-none">
         <DrawerInner product={product} defaultBudget={defaultBudget} onClose={onClose} />
       </DrawerContent>
     </Drawer>
@@ -111,7 +111,7 @@ function DrawerInner({ product, defaultBudget, onClose }: { product: Product; de
         </button>
       </div>
 
-      <div className="overflow-y-auto flex-1 overscroll-contain">
+      <div className="overflow-y-auto flex-1 overscroll-contain touch-pan-y">
         {/* Product Image */}
         <div
           className="h-52 md:h-64 flex items-center justify-center relative overflow-hidden cursor-zoom-in group"
