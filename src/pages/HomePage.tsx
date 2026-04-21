@@ -8,6 +8,48 @@ import ProductImage from "@/components/ProductImage";
 import QtyControl from "@/components/QtyControl";
 import HomeQuiz from "@/components/home/HomeQuiz";
 import ShopShortcuts from "@/components/home/ShopShortcuts";
+import FeaturedProductsRail from "@/components/home/FeaturedProductsRail";
+import HowItWorksSection from "@/components/home/HowItWorksSection";
+import TestimonialsSection from "@/components/home/TestimonialsSection";
+import TrustBarDb from "@/components/home/TrustBar";
+import RecentlyViewedStrip from "@/components/home/RecentlyViewedStrip";
+import { useHomepageSections, type HomepageSection } from "@/hooks/useHomepage";
+import { Search } from "lucide-react";
+
+/**
+ * Compact search input rendered inside the hero — routes to /shop?q=…
+ * where the Shop page already reads the q param into its search state.
+ */
+function HeroSearch() {
+  const navigate = useNavigate();
+  const [q, setQ] = useState("");
+  return (
+    <form
+      onSubmit={e => {
+        e.preventDefault();
+        const v = q.trim();
+        if (!v) return navigate("/shop");
+        navigate(`/shop?q=${encodeURIComponent(v)}`);
+      }}
+      className="animate-fade-up-3 relative mb-4 max-w-[480px]"
+    >
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-light pointer-events-none" />
+      <input
+        type="search"
+        value={q}
+        onChange={e => setQ(e.target.value)}
+        placeholder="Search products, bundles, brands…"
+        className="w-full pl-9 pr-20 py-3 rounded-pill bg-primary-foreground/95 text-foreground placeholder:text-text-light text-sm outline-none focus:ring-2 focus:ring-coral"
+      />
+      <button
+        type="submit"
+        className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-coral text-primary-foreground text-xs font-semibold px-3 py-1.5 rounded-pill hover:bg-coral-dark"
+      >
+        Search
+      </button>
+    </form>
+  );
+}
 
 function HeroSection() {
   const { data: settings } = useSiteSettings();
@@ -45,6 +87,11 @@ function HeroSection() {
           <p className="animate-fade-up-3 text-primary-foreground/70 text-[13px] md:text-[15px] leading-[1.65] mb-4 max-w-[480px] font-body">
             Shop baby essentials, mum items, and baby gifts without stepping foot in any market.
           </p>
+
+          {/* Homepage search — submits to /shop?q=… which the Shop page
+              already reads to pre-populate its search input */}
+          <HeroSearch />
+
           {trustStats.length > 0 && (
             <div className="animate-fade-up-4 hidden md:flex gap-6 md:gap-8 pt-3 border-t border-primary-foreground/10">
               {trustStats.map(([v, l]: string[]) => (
@@ -239,7 +286,9 @@ function FeaturedProducts() {
   );
 }
 
-function TestimonialsSection() {
+// Legacy in-file testimonials — superseded by @/components/home/TestimonialsSection
+// which is DB-driven. Kept for reference; not rendered from the new router.
+function _LegacyTestimonialsSection() {
   const { data: testimonials } = useTestimonials(true);
   const { data: settings } = useSiteSettings();
 
@@ -329,6 +378,27 @@ function StickyMobileCTA() {
   );
 }
 
+/**
+ * Maps a `homepage_sections.section_key` to the component that should
+ * render it. Keys unknown to us are ignored, so new sections can be
+ * added in the DB first and wired up later without breaking.
+ */
+function renderSection(s: HomepageSection) {
+  const settings = (s.settings || {}) as Record<string, any>;
+  const maxItems = Number(settings.max_items) || undefined;
+  switch (s.section_key) {
+    case "hero":              return <HeroSection key={s.id} />;
+    case "trust_bar":         return <TrustBarDb key={s.id} title={s.title} />;
+    case "bundle_tiers":      return <ShopShortcuts key={s.id} />; // the 2x2 category/bundle grid
+    case "featured_products":
+    case "most_loved":        return <FeaturedProductsRail key={s.id} title={s.title} subtitle={s.subtitle} maxItems={maxItems} />;
+    case "how_it_works":      return <HowItWorksSection key={s.id} title={s.title} subtitle={s.subtitle} />;
+    case "testimonials":      return <TestimonialsSection key={s.id} title={s.title} subtitle={s.subtitle} maxItems={maxItems} />;
+    case "recently_viewed":   return <RecentlyViewedStrip key={s.id} title={s.title} />;
+    default:                  return null;
+  }
+}
+
 export default function HomePage() {
   useEffect(() => { document.title = "BundledMum — ...making being a mum easier."; }, []);
 
@@ -340,10 +410,25 @@ export default function HomePage() {
     }
   }, []);
 
+  const { data: sections, isLoading } = useHomepageSections();
+
+  // If the DB hasn't responded yet (or the table is empty), render the
+  // minimal skeleton: Hero + ShopShortcuts. This preserves the old
+  // behaviour for cold loads and guarantees the page never renders
+  // blank.
+  if (isLoading || !sections || sections.length === 0) {
+    return (
+      <>
+        <HeroSection />
+        <ShopShortcuts />
+        <StickyMobileCTA />
+      </>
+    );
+  }
+
   return (
     <>
-      <HeroSection />
-      <ShopShortcuts />
+      {sections.map(renderSection)}
       <StickyMobileCTA />
     </>
   );

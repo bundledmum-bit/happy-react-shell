@@ -4,6 +4,7 @@ import { useAllProducts, useSiteSettings } from "@/hooks/useSupabaseData";
 import { useSpendThresholds, getSpendPrompt } from "@/hooks/useSpendThresholds";
 import ProductImage from "@/components/ProductImage";
 import SpendMoreBanner from "@/components/SpendMoreBanner";
+import { useCrossSellRules } from "@/hooks/useHomepage";
 import { Minus, Plus, X, ShoppingBag, ArrowLeft, Bookmark, MapPin } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -71,12 +72,35 @@ export default function CartPage() {
   const { data: allProductsData } = useAllProducts();
   const ALL_PRODUCTS = allProductsData || [];
   const cartIds = new Set(cart.map(i => i.id));
-  const hasBaby = cart.some(i => ALL_PRODUCTS.find(p => p.id === i.id)?.category === "baby");
-  const hasMum = cart.some(i => ALL_PRODUCTS.find(p => p.id === i.id)?.category === "mum");
-  const crossSell = ALL_PRODUCTS
-    .filter(p => !cartIds.has(p.id) && p.priority !== "nice-to-have")
-    .filter(p => (hasBaby && p.category === "mum") || (hasMum && p.category === "baby") || (!hasBaby && !hasMum))
-    .slice(0, 3);
+  const hasBundleItem = cart.some(i => !!i.bundleName);
+
+  // DB-driven cross-sell: pick the rule that matches the current cart.
+  // bundle_item trigger wins when the cart already contains a bundle;
+  // otherwise fall back to 'always'. Heading + max_items come from the
+  // rule. If the rule specifies product_ids, show those exactly;
+  // otherwise use is_bestseller products.
+  const { data: crossSellRules } = useCrossSellRules();
+  const activeRule = (crossSellRules || []).find(r =>
+    hasBundleItem ? r.trigger_type === "bundle_item" : r.trigger_type === "always"
+  ) || (crossSellRules || []).find(r => r.trigger_type === "always");
+
+  const crossSellHeading = activeRule?.heading || "You might also like";
+  const crossSellMax = activeRule?.max_items ?? 3;
+  const crossSell = (() => {
+    if (activeRule?.product_ids && activeRule.product_ids.length > 0) {
+      return activeRule.product_ids
+        .map(id => ALL_PRODUCTS.find(p => p.id === id))
+        .filter((p): p is typeof ALL_PRODUCTS[number] => !!p && !cartIds.has(p.id))
+        .slice(0, crossSellMax);
+    }
+    // Fall back to bestsellers, then to the legacy category-swap logic.
+    const hasBaby = cart.some(i => ALL_PRODUCTS.find(p => p.id === i.id)?.category === "baby");
+    const hasMum = cart.some(i => ALL_PRODUCTS.find(p => p.id === i.id)?.category === "mum");
+    return ALL_PRODUCTS
+      .filter(p => !cartIds.has(p.id))
+      .filter(p => (p as any).is_bestseller || (hasBaby && p.category === "mum") || (hasMum && p.category === "baby") || (!hasBaby && !hasMum))
+      .slice(0, crossSellMax);
+  })();
 
   if (!totalItems && savedItems.length === 0) {
     return (
@@ -195,7 +219,7 @@ export default function CartPage() {
 
             {crossSell.length > 0 && totalItems > 0 && (
               <div className="mt-6">
-                <h3 className="pf text-lg mb-3">💡 Mums also added</h3>
+                <h3 className="pf text-lg mb-3">💡 {crossSellHeading}</h3>
                 <div className="grid grid-cols-3 gap-2">
                   {crossSell.map(p => {
                     const brand = p.brands[Math.min(1, p.brands.length - 1)];
