@@ -53,11 +53,18 @@ function HeroSearch() {
 
 function HeroSection() {
   const { data: settings } = useSiteSettings();
+  const { data: sections } = useHomepageSections();
   const navigate = useNavigate();
 
   const heroBadge = settings?.hero_badge || "";
   const heroTitle = settings?.hero_title || "";
   const trustStats: string[][] = Array.isArray(settings?.trust_stats) ? settings.trust_stats : [];
+
+  // Hero-level toggles from homepage_sections.settings (JSONB).
+  // Defaults to show_search=true so we don't accidentally hide the
+  // bar when the row hasn't been seeded with the key yet.
+  const heroSettings = ((sections || []).find(s => s.section_key === "hero")?.settings || {}) as Record<string, any>;
+  const showSearch = heroSettings.show_search !== false;
 
   return (
     <section className="md:h-screen md:min-h-[720px] md:max-h-[1000px] flex items-center relative overflow-hidden" style={{ background: "linear-gradient(135deg, #2D6A4F 0%, #1E5C44 55%, #163D2E 100%)" }}>
@@ -89,8 +96,9 @@ function HeroSection() {
           </p>
 
           {/* Homepage search — submits to /shop?q=… which the Shop page
-              already reads to pre-populate its search input */}
-          <HeroSearch />
+              already reads to pre-populate its search input. Gated by
+              homepage_sections.hero.settings.show_search. */}
+          {showSearch && <HeroSearch />}
 
           {trustStats.length > 0 && (
             <div className="animate-fade-up-4 hidden md:flex gap-6 md:gap-8 pt-3 border-t border-primary-foreground/10">

@@ -179,6 +179,16 @@ function SectionRow({
                 Show quiz CTA
               </label>
             ) : null}
+            {draft.section_key === "hero" ? (
+              <label className="flex items-center gap-2 text-xs mt-4">
+                <input
+                  type="checkbox"
+                  checked={settings.show_search !== false}
+                  onChange={e => setSetting("show_search", e.target.checked)}
+                />
+                Show search bar
+              </label>
+            ) : null}
           </div>
 
           <div className="flex justify-end">
