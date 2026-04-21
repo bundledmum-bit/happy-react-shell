@@ -162,10 +162,10 @@ export default function CheckoutPage() {
   const bankAccountName = settings?.bank_account_name || "";
   const bankAccountNumber = settings?.bank_account_number || "";
 
-  // Total cart weight (kg) — used for weight-based interstate delivery
-  // pricing. Look up each cart item's weight_kg on the live product record;
-  // fall back to a conservative 0.5 kg per item when a product has no
-  // weight set so the interstate fee is never 0.
+  // Total cart weight (kg) — used for weight-based delivery pricing via
+  // the get_courier_assignment RPC. Look up each cart item's weight_kg
+  // on the live product record; fall back to a conservative 0.5 kg per
+  // item when a product has no weight set so the fee is never 0.
   const cartWeightKg = (() => {
     if (!cart?.length) return 0;
     const byId = new Map<string, number>();
@@ -179,11 +179,103 @@ export default function CheckoutPage() {
     }, 0);
   })();
 
-  // Delivery fee from DB zones
-  const deliveryCalc = zones?.length
+  // Bundle tier (for the RPC) — try to read from the saved quiz first.
+  const budgetTier = (() => {
+    try {
+      const saved = localStorage.getItem("bm-saved-bundle");
+      if (saved) {
+        const p = JSON.parse(saved);
+        if (p?.answers?.budget) return String(p.answers.budget);
+      }
+    } catch {}
+    return "standard";
+  })();
+
+  // Zone-based fallback (used before the RPC responds, and for the
+  // zoneName label / estimated days).
+  const zoneCalc = zones?.length
     ? calculateDeliveryFee(subtotal, form.city, form.state, zones, serviceFee, defaultDeliveryFee, defaultFreeThreshold, cartWeightKg)
     : { fee: defaultFreeThreshold && subtotal >= defaultFreeThreshold ? 0 : defaultDeliveryFee, isFree: defaultFreeThreshold > 0 && subtotal >= defaultFreeThreshold, zoneName: "Standard", daysMin: 1, daysMax: 3, freeThreshold: defaultFreeThreshold, isInterstate: false as const };
-  const delivery = deliveryCalc.fee;
+
+  // ---- Live courier quote ---------------------------------------------------
+  // Calls get_courier_assignment whenever the shipping inputs change,
+  // debounced to 300 ms so rapid typing doesn't spam the RPC. The
+  // result drives the customer-visible delivery fee.
+  const [courierQuote, setCourierQuote] = useState<{
+    customerRateKobo: number;
+    partnerCostKobo: number;
+    bookings: number;
+    weightKg: number;
+    partner: string | null;
+    note: string | null;
+    deliverable: boolean;
+    zone: string | null;
+  } | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Gate: we need state + city AND a weight to ask for a quote.
+    if (!form.state || !form.city || cartWeightKg <= 0) {
+      setCourierQuote(null);
+      setQuoteError(null);
+      return;
+    }
+    let cancelled = false;
+    setQuoteLoading(true);
+    const t = setTimeout(async () => {
+      try {
+        const { data, error } = await (supabase.rpc as any)("get_courier_assignment", {
+          p_delivery_city: form.city,
+          p_delivery_state: form.state,
+          p_bundle_tier: budgetTier,
+          p_order_day: new Date().toLocaleDateString("en-US", { weekday: "long" }),
+          p_daily_order_count: 1,
+          p_order_weight_kg: cartWeightKg,
+        });
+        if (cancelled) return;
+        if (error) {
+          setCourierQuote(null);
+          setQuoteError("Could not calculate delivery fee right now — please try again.");
+        } else {
+          const r = data || {};
+          setCourierQuote({
+            customerRateKobo: Number(r.customer_rate || 0),
+            partnerCostKobo: Number(r.partner_cost || 0),
+            bookings: Number(r.bookings || 0),
+            weightKg: Number(r.order_weight_kg ?? cartWeightKg),
+            partner: r.partner || null,
+            note: r.note || null,
+            deliverable: r.deliverable !== false,
+            zone: r.zone || null,
+          });
+          setQuoteError(null);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setCourierQuote(null);
+          setQuoteError("Could not calculate delivery fee right now — please try again.");
+        }
+      } finally {
+        if (!cancelled) setQuoteLoading(false);
+      }
+    }, 300);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [form.city, form.state, cartWeightKg, budgetTier]);
+
+  // Use the courier quote when we have one; otherwise fall back to the
+  // zone flat-rate calc (used only while the quote is loading or when
+  // cart has no resolvable weight).
+  const hasQuote = courierQuote != null && courierQuote.deliverable;
+  const deliveryCalc = {
+    ...zoneCalc,
+    // surface the interstate-style breakdown using the RPC's numbers
+    isInterstate: zoneCalc.isInterstate,
+    weightKg: courierQuote?.weightKg ?? (zoneCalc as any).weightKg,
+    bookingsNeeded: courierQuote?.bookings ?? (zoneCalc as any).bookingsNeeded,
+  };
+  const delivery = hasQuote ? Math.round((courierQuote!.customerRateKobo) / 100) : zoneCalc.fee;
+  const notDeliverable = courierQuote != null && courierQuote.deliverable === false;
 
   // Spend threshold discount
   const spendPrompt = thresholds?.length ? getSpendPrompt(subtotal, thresholds) : null;
@@ -515,21 +607,30 @@ export default function CheckoutPage() {
         item_count: cart.length,
       });
 
-      // Auto-assign a courier (silent — never blocks checkout).
-      // The bundle tier comes from the quiz answers stored with the
-      // order; falls back to "standard" when no quiz context exists.
+      // Persist the courier assignment derived from the live checkout
+      // quote — partner + internal routing note. If we happen not to
+      // have a cached quote (e.g. the customer placed the order before
+      // it returned) we refetch once here so the order record is still
+      // complete.
       try {
-        const budgetTier = quizAnswers?.budget_tier || "standard";
-        const { data: courier } = await (supabase.rpc as any)("get_courier_assignment", {
-          p_delivery_city: form.city,
-          p_delivery_state: form.state,
-          p_bundle_tier: budgetTier,
-          p_order_day: new Date().toLocaleDateString("en-US", { weekday: "long" }),
-        });
-        if (courier) {
+        let partner = courierQuote?.partner || null;
+        let note = courierQuote?.note || null;
+        if (!partner || !note) {
+          const { data } = await (supabase.rpc as any)("get_courier_assignment", {
+            p_delivery_city: form.city,
+            p_delivery_state: form.state,
+            p_bundle_tier: quizAnswers?.budget_tier || "standard",
+            p_order_day: new Date().toLocaleDateString("en-US", { weekday: "long" }),
+            p_daily_order_count: 1,
+            p_order_weight_kg: cartWeightKg,
+          });
+          partner = partner || data?.partner || null;
+          note = note || data?.note || null;
+        }
+        if (partner || note) {
           await (supabase.from("orders") as any).update({
-            delivery_partner: courier.partner,
-            courier_note: courier.note,
+            delivery_partner: partner,
+            courier_note: note,
           }).eq("id", result.id);
         }
       } catch (err) {
@@ -550,6 +651,10 @@ export default function CheckoutPage() {
       return;
     }
     if (!validate()) return;
+    if (notDeliverable) {
+      toast.error(`Sorry, we don't currently deliver to ${form.city || "this area"}. Please contact us on WhatsApp.`);
+      return;
+    }
 
     const cartSnapshot = [...cart];
     setProcessing(true);
@@ -686,14 +791,26 @@ export default function CheckoutPage() {
                 <div className="flex justify-between">
                   <span className="text-text-med">
                     Delivery ({deliveryCalc.zoneName})
-                    {deliveryCalc.isInterstate && (deliveryCalc as any).bookingsNeeded ? (
+                    {quoteLoading ? null : (hasQuote && (deliveryCalc as any).bookingsNeeded) ? (
                       <span className="block text-[10px] text-text-light mt-0.5">
-                        Based on order weight (~{Number((deliveryCalc as any).weightKg).toFixed(1)}kg) — final fee confirmed at dispatch
+                        ~{Number((deliveryCalc as any).weightKg).toFixed(1)}kg order · {(deliveryCalc as any).bookingsNeeded} booking{(deliveryCalc as any).bookingsNeeded === 1 ? "" : "s"} · {deliveryCalc.daysMin}–{deliveryCalc.daysMax} business days
                       </span>
                     ) : null}
                   </span>
-                  <span className={delivery === 0 ? "text-forest" : ""}>{delivery === 0 ? "FREE 🎉" : fmt(delivery)}</span>
+                  <span className={delivery === 0 ? "text-forest" : ""}>
+                    {quoteLoading ? <span className="text-text-light italic">Calculating…</span> : (delivery === 0 ? "FREE 🎉" : fmt(delivery))}
+                  </span>
                 </div>
+                {notDeliverable && (
+                  <div className="text-[11px] text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-2 py-1.5 mt-1">
+                    Sorry, we don't currently deliver to {form.city || "this area"}. Please contact us on WhatsApp for assistance.
+                  </div>
+                )}
+                {quoteError && !quoteLoading && !notDeliverable && (
+                  <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5 mt-1">
+                    {quoteError}
+                  </div>
+                )}
                 <div className="flex justify-between"><span className="text-text-med">{serviceFeeLabel}</span><span>{fmt(serviceFee)}</span></div>
                 {giftWrap && <div className="flex justify-between"><span className="text-text-med">Gift Wrapping</span><span>{fmt(giftWrapPrice)}</span></div>}
                 {couponDiscount > 0 && <div className="flex justify-between text-forest"><span>🏷️ Coupon ({appliedCoupon?.code})</span><span>-{fmt(couponDiscount)}</span></div>}
@@ -939,8 +1056,18 @@ export default function CheckoutPage() {
               )}
             </div>
 
-            <button onClick={placeOrder} className="w-full rounded-pill bg-forest py-4 text-center font-body font-semibold text-primary-foreground hover:bg-forest-deep interactive text-base">
-              Place Order — {fmt(grand)} 🔒
+            <button
+              onClick={placeOrder}
+              disabled={processing || notDeliverable || quoteLoading}
+              className="w-full rounded-pill bg-forest py-4 text-center font-body font-semibold text-primary-foreground hover:bg-forest-deep interactive text-base disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {processing
+                ? "Processing…"
+                : notDeliverable
+                ? "Delivery unavailable to this area"
+                : quoteLoading
+                ? "Calculating delivery…"
+                : <>Place Order — {fmt(grand)} 🔒</>}
             </button>
             <div className="text-center text-text-light text-[11px]">By placing your order, you agree to our <Link to="/terms" className="underline">Terms of Service</Link> and <Link to="/privacy" className="underline">Privacy Policy</Link></div>
           </div>
@@ -967,14 +1094,26 @@ export default function CheckoutPage() {
                 <div className="flex justify-between">
                   <span className="text-text-med">
                     Delivery ({deliveryCalc.zoneName})
-                    {deliveryCalc.isInterstate && (deliveryCalc as any).bookingsNeeded ? (
+                    {quoteLoading ? null : (hasQuote && (deliveryCalc as any).bookingsNeeded) ? (
                       <span className="block text-[10px] text-text-light mt-0.5">
-                        Based on order weight (~{Number((deliveryCalc as any).weightKg).toFixed(1)}kg) — final fee confirmed at dispatch
+                        ~{Number((deliveryCalc as any).weightKg).toFixed(1)}kg order · {(deliveryCalc as any).bookingsNeeded} booking{(deliveryCalc as any).bookingsNeeded === 1 ? "" : "s"} · {deliveryCalc.daysMin}–{deliveryCalc.daysMax} business days
                       </span>
                     ) : null}
                   </span>
-                  <span className={delivery === 0 ? "text-forest" : ""}>{delivery === 0 ? "FREE 🎉" : fmt(delivery)}</span>
+                  <span className={delivery === 0 ? "text-forest" : ""}>
+                    {quoteLoading ? <span className="text-text-light italic">Calculating…</span> : (delivery === 0 ? "FREE 🎉" : fmt(delivery))}
+                  </span>
                 </div>
+                {notDeliverable && (
+                  <div className="text-[11px] text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-2 py-1.5 mt-1">
+                    Sorry, we don't currently deliver to {form.city || "this area"}. Please contact us on WhatsApp for assistance.
+                  </div>
+                )}
+                {quoteError && !quoteLoading && !notDeliverable && (
+                  <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5 mt-1">
+                    {quoteError}
+                  </div>
+                )}
                 <div className="flex justify-between"><span className="text-text-med flex items-center gap-1">📦 {serviceFeeLabel}</span><span>{fmt(serviceFee)}</span></div>
                 {giftWrap && <div className="flex justify-between"><span className="text-text-med">🎀 Gift Wrapping</span><span className="text-[#7B5E00]">{fmt(giftWrapPrice)}</span></div>}
                 {couponDiscount > 0 && <div className="flex justify-between text-forest"><span className="font-semibold">🏷️ Coupon ({appliedCoupon?.code})</span><span className="font-bold">-{fmt(couponDiscount)}</span></div>}

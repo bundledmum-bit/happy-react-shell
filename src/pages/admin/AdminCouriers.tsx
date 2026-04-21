@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ChevronDown, ChevronRight, GripVertical, Plus, Save, Search, Trash2, Truck, X, Calculator } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { supabase } from "@/integrations/supabase/client";
 import {
   useCouriers,
   useUpdateCourier,
@@ -544,6 +545,7 @@ function ZoneAssignmentsTab() {
 
   return (
     <div className="space-y-6">
+      <CostSimulator zones={zones || []} couriers={couriers || []} />
       {(zones || []).map(zone => {
         const rows = (grouped.get(zone.id) || []).sort((a, b) => a.priority - b.priority);
         return (
@@ -1426,6 +1428,250 @@ function RoutingRulesTab() {
           <Save className="w-4 h-4" /> {upsert.isPending ? "Saving…" : "Save routing rules"}
         </button>
       </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Cost Simulator (top of Zone Assignments tab)
+// ---------------------------------------------------------------------------
+
+/**
+ * Courier cost comparison + live get_courier_assignment call.
+ * Renders a small form (weight, zone, daily orders) and a two-row table
+ * comparing Brain Express vs eFTD Africa, highlights the winner, shows
+ * customer price + profit, and lists the crossover points derived from
+ * the live rate cards.
+ */
+function CostSimulator({ zones, couriers }: { zones: AdminShippingZone[]; couriers: Courier[] }) {
+  const { data: rateCards } = useCourierRateCards();
+
+  // Lagos zones only for the simulator — interstate rates live in a
+  // separate table and have their own preview on that tab.
+  const lagosZones = zones.filter(z => (z.states || []).includes("Lagos"));
+
+  const [weight, setWeight] = useState<number>(9.2);
+  const [zoneId, setZoneId] = useState<string>("");
+  const [dailyOrders, setDailyOrders] = useState<number>(1);
+  const [debouncedWeight, setDebouncedWeight] = useState<number>(9.2);
+  const [quote, setQuote] = useState<any>(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
+
+  useEffect(() => {
+    if (!zoneId && lagosZones.length) setZoneId(lagosZones[0].id);
+  }, [zoneId, lagosZones]);
+
+  // Debounce the weight input so we don't recompute every keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedWeight(weight), 300);
+    return () => clearTimeout(t);
+  }, [weight]);
+
+  const zone = lagosZones.find(z => z.id === zoneId);
+
+  // Resolve courier IDs by name (the rate cards are joined to the
+  // couriers table, but we want to show both regardless of whether
+  // they've been added to this zone yet).
+  const brainExpress = couriers.find(c => c.name.toLowerCase().includes("brain"));
+  const eftd = couriers.find(c => c.name.toLowerCase().includes("eftd") || c.name.toLowerCase().includes("efdt"));
+
+  const cardsForZone = (rateCards || []).filter(rc => rc.zone_id === zoneId && rc.is_active);
+  const beCard = brainExpress ? cardsForZone.find(rc => rc.courier_id === brainExpress.id) : undefined;
+  const eftdCard = eftd ? cardsForZone.find(rc => rc.courier_id === eftd.id) : undefined;
+
+  const costForCard = (card: CourierRateCard | undefined, wantedCourier: Courier | undefined, weightKg: number) => {
+    if (!card) return null;
+    const limit = Number(card.weight_limit_kg || wantedCourier?.weight_limit_kg || 10);
+    const bookings = Math.max(1, Math.ceil(weightKg / Math.max(0.1, limit)));
+    const partnerCost = bookings * (card.partner_cost || 0);
+    const override = card.customer_rate_override;
+    const customerRate = override != null ? override : Math.round(partnerCost * (1 + (Number(card.markup_pct) || 0) / 100));
+    return { bookings, partnerCost, customerRate, markup: Number(card.markup_pct) || 0, weightLimit: limit };
+  };
+
+  const beCost = costForCard(beCard, brainExpress, debouncedWeight);
+  const eftdCost = costForCard(eftdCard, eftd, debouncedWeight);
+
+  const candidates: Array<{ name: string; card: CourierRateCard | undefined; cost: ReturnType<typeof costForCard> }> = [
+    { name: "Brain Express", card: beCard, cost: beCost },
+    { name: "eFTD Africa",   card: eftdCard, cost: eftdCost },
+  ];
+  const winner = candidates
+    .filter(c => c.cost != null)
+    .sort((a, b) => (a.cost!.partnerCost) - (b.cost!.partnerCost))[0];
+
+  // Live RPC call — uses the zone's first area as a representative
+  // city so the routing logic evaluates assignments.
+  useEffect(() => {
+    if (!zone || !debouncedWeight) { setQuote(null); return; }
+    const city = (zone.areas || [])[0] || zone.name;
+    const stateName = (zone.states || [])[0] || "Lagos";
+    let cancelled = false;
+    setQuoteLoading(true);
+    (async () => {
+      try {
+        const { data } = await (supabase.rpc as any)("get_courier_assignment", {
+          p_delivery_city: city,
+          p_delivery_state: stateName,
+          p_bundle_tier: "standard",
+          p_order_day: new Date().toLocaleDateString("en-US", { weekday: "long" }),
+          p_daily_order_count: dailyOrders,
+          p_order_weight_kg: debouncedWeight,
+        });
+        if (!cancelled) setQuote(data || null);
+      } catch {
+        if (!cancelled) setQuote(null);
+      } finally {
+        if (!cancelled) setQuoteLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [zone?.id, debouncedWeight, dailyOrders, zone]);
+
+  // Crossover points for this zone — scan 1→30 kg and note where the
+  // winner flips. Useful for the admin to eyeball who wins where.
+  const crossovers = useMemo(() => {
+    if (!beCost || !eftdCost) return [] as Array<{ from: number; to: number; winner: string }>;
+    const beLimit = Number(beCard?.weight_limit_kg || brainExpress?.weight_limit_kg || 10);
+    const eftdLimit = Number(eftdCard?.weight_limit_kg || eftd?.weight_limit_kg || 10);
+    const beUnit = beCard?.partner_cost || 0;
+    const eftdUnit = eftdCard?.partner_cost || 0;
+    const ranges: Array<{ from: number; to: number; winner: string }> = [];
+    let start = 1;
+    let currentWinner: string | null = null;
+    for (let kg = 1; kg <= 30; kg++) {
+      const be = Math.ceil(kg / beLimit) * beUnit;
+      const ef = Math.ceil(kg / eftdLimit) * eftdUnit;
+      const w = be === ef ? "Tie" : be < ef ? "Brain Express" : "eFTD Africa";
+      if (currentWinner == null) { currentWinner = w; start = kg; continue; }
+      if (w !== currentWinner) {
+        ranges.push({ from: start, to: kg - 1, winner: currentWinner });
+        currentWinner = w;
+        start = kg;
+      }
+    }
+    if (currentWinner) ranges.push({ from: start, to: 30, winner: currentWinner });
+    return ranges;
+  }, [beCost, eftdCost, beCard, eftdCard, brainExpress, eftd]);
+
+  const customerPaysKobo = Number(quote?.customer_rate || 0);
+  const ourCostKobo = Number(quote?.partner_cost || 0);
+  const profitKobo = customerPaysKobo - ourCostKobo;
+
+  return (
+    <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+      <div className="flex items-center gap-2">
+        <Truck className="w-5 h-5 text-forest" />
+        <h3 className="font-bold text-sm">Courier Cost Simulator</h3>
+      </div>
+
+      <div className="grid md:grid-cols-3 gap-3">
+        <div>
+          <label className={labelCls}>Order Weight (kg)</label>
+          <input type="number" min="0.1" step="0.1" className={inputCls} value={weight} onChange={e => setWeight(Number(e.target.value) || 0)} />
+        </div>
+        <div>
+          <label className={labelCls}>Zone</label>
+          <select className={inputCls} value={zoneId} onChange={e => setZoneId(e.target.value)}>
+            {lagosZones.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>Daily Orders</label>
+          <input type="number" min="1" className={inputCls} value={dailyOrders} onChange={e => setDailyOrders(Number(e.target.value) || 1)} />
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead className="bg-muted/40">
+            <tr className="text-left">
+              <th className="px-3 py-2">Courier</th>
+              <th className="px-3 py-2 text-right">Bookings</th>
+              <th className="px-3 py-2 text-right">Our Cost</th>
+              <th className="px-3 py-2 text-right">Customer Rate</th>
+              <th className="px-3 py-2 w-28 text-center">Verdict</th>
+            </tr>
+          </thead>
+          <tbody>
+            {candidates.map(c => {
+              const isWinner = winner && c.name === winner.name && c.cost != null;
+              const isLoser = winner && c.name !== winner.name && c.cost != null;
+              return (
+                <tr key={c.name} className={`border-t border-border ${isWinner ? "bg-emerald-50" : ""}`}>
+                  <td className="px-3 py-2 font-semibold">{c.name}</td>
+                  {c.cost ? (
+                    <>
+                      <td className="px-3 py-2 text-right tabular-nums">{c.cost.bookings}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{fmtNaira(c.cost.partnerCost)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{fmtNaira(c.cost.customerRate)}</td>
+                      <td className="px-3 py-2 text-center">
+                        {isWinner ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700">✓ Cheapest</span>
+                        ) : isLoser ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-text-light">×</span>
+                        ) : null}
+                      </td>
+                    </>
+                  ) : (
+                    <td colSpan={4} className="px-3 py-2 text-text-light italic">No rate card for this zone</td>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Live assignment result */}
+      <div className="bg-forest/5 border border-forest/20 rounded-lg p-3 text-xs">
+        {quoteLoading ? (
+          <span className="text-text-med italic">Calculating live assignment…</span>
+        ) : quote ? (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <div>
+              <span className="text-text-med">Customer pays:</span>{" "}
+              <span className="font-bold text-forest tabular-nums">{fmtNaira(customerPaysKobo)}</span>
+            </div>
+            <div>
+              <span className="text-text-med">Our cost:</span>{" "}
+              <span className="font-semibold tabular-nums">{fmtNaira(ourCostKobo)}</span>
+            </div>
+            <div>
+              <span className="text-text-med">Delivery profit:</span>{" "}
+              <span className={`font-bold tabular-nums ${profitKobo >= 0 ? "text-forest" : "text-destructive"}`}>{fmtNaira(profitKobo)}</span>
+            </div>
+            <div className="text-text-light">
+              via <b>{quote.partner || "—"}</b> · {quote.bookings || 0} booking{(quote.bookings || 0) === 1 ? "" : "s"} · {quote.rate_type || "standard"}
+            </div>
+          </div>
+        ) : (
+          <span className="text-text-light italic">No live quote yet.</span>
+        )}
+      </div>
+
+      {/* Breakdown text */}
+      {quote && winner?.cost && (
+        <div className="text-[11px] text-text-med leading-relaxed">
+          At {Number(debouncedWeight).toFixed(1)}kg via <b>{quote.partner}</b>:
+          {" "}{quote.bookings} booking{quote.bookings === 1 ? "" : "s"} × {fmtNaira((quote.partner_cost || 0) / (quote.bookings || 1))}
+          {" "}= <b>{fmtNaira(ourCostKobo)}</b> cost to us.
+          {" "}Customer pays <b>{fmtNaira(customerPaysKobo)}</b> ({Number(quote.markup_pct || 0)}% markup).
+          {" "}Delivery profit: <b>{fmtNaira(profitKobo)}</b>.
+        </div>
+      )}
+
+      {/* Crossover points */}
+      {crossovers.length > 0 && (
+        <div className="bg-muted/40 rounded-lg p-3 text-[11px] text-text-med">
+          <div className="font-semibold text-text-dark mb-1">Crossover points (this zone, 1–30kg)</div>
+          {crossovers.map((r, i) => (
+            <div key={i}>
+              {r.from}kg{r.from !== r.to ? `–${r.to}kg` : ""}: <b>{r.winner}</b> wins
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
