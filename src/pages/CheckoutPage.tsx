@@ -7,7 +7,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import BMLoadingAnimation from "@/components/BMLoadingAnimation";
 import { useShippingZones, calculateDeliveryFee, type ShippingZone } from "@/hooks/useShippingZones";
 import { useDeliverableStates } from "@/hooks/useDeliverableStates";
-import { useSiteSettings } from "@/hooks/useSupabaseData";
+import { useSiteSettings, useAllProducts } from "@/hooks/useSupabaseData";
 import { useSpendThresholds, getSpendPrompt } from "@/hooks/useSpendThresholds";
 import { trackEvent, getSessionId, getAttribution, markSessionConverted } from "@/lib/analytics";
 import { syncOrderToSheets } from "@/lib/googleSheets";
@@ -45,6 +45,7 @@ export default function CheckoutPage() {
   const { data: zones } = useShippingZones();
   const { data: thresholds } = useSpendThresholds();
   const { data: deliverableStates, isLoading: statesLoading } = useDeliverableStates(true);
+  const { data: allProducts } = useAllProducts();
 
   // Currently-selected delivery zone (null when the selected state has
   // no zones, or the user hasn't picked a zone yet).
@@ -161,10 +162,27 @@ export default function CheckoutPage() {
   const bankAccountName = settings?.bank_account_name || "";
   const bankAccountNumber = settings?.bank_account_number || "";
 
+  // Total cart weight (kg) — used for weight-based interstate delivery
+  // pricing. Look up each cart item's weight_kg on the live product record;
+  // fall back to a conservative 0.5 kg per item when a product has no
+  // weight set so the interstate fee is never 0.
+  const cartWeightKg = (() => {
+    if (!cart?.length) return 0;
+    const byId = new Map<string, number>();
+    (allProducts || []).forEach((p: any) => {
+      const w = Number(p?.weight_kg);
+      if (p?.id != null && isFinite(w) && w > 0) byId.set(String(p.id), w);
+    });
+    return cart.reduce((sum, item) => {
+      const w = byId.get(String(item.id)) ?? 0.5;
+      return sum + w * (item.qty || 0);
+    }, 0);
+  })();
+
   // Delivery fee from DB zones
   const deliveryCalc = zones?.length
-    ? calculateDeliveryFee(subtotal, form.city, form.state, zones, serviceFee, defaultDeliveryFee, defaultFreeThreshold)
-    : { fee: defaultFreeThreshold && subtotal >= defaultFreeThreshold ? 0 : defaultDeliveryFee, isFree: defaultFreeThreshold > 0 && subtotal >= defaultFreeThreshold, zoneName: "Standard", daysMin: 1, daysMax: 3, freeThreshold: defaultFreeThreshold };
+    ? calculateDeliveryFee(subtotal, form.city, form.state, zones, serviceFee, defaultDeliveryFee, defaultFreeThreshold, cartWeightKg)
+    : { fee: defaultFreeThreshold && subtotal >= defaultFreeThreshold ? 0 : defaultDeliveryFee, isFree: defaultFreeThreshold > 0 && subtotal >= defaultFreeThreshold, zoneName: "Standard", daysMin: 1, daysMax: 3, freeThreshold: defaultFreeThreshold, isInterstate: false as const };
   const delivery = deliveryCalc.fee;
 
   // Spend threshold discount
@@ -626,7 +644,17 @@ export default function CheckoutPage() {
               ))}
               <div className="border-t border-border pt-2 space-y-1 text-xs">
                 <div className="flex justify-between"><span className="text-text-med">Subtotal</span><span>{fmt(subtotal)}</span></div>
-                <div className="flex justify-between"><span className="text-text-med">Delivery ({deliveryCalc.zoneName})</span><span className={delivery === 0 ? "text-forest" : ""}>{delivery === 0 ? "FREE 🎉" : fmt(delivery)}</span></div>
+                <div className="flex justify-between">
+                  <span className="text-text-med">
+                    Delivery ({deliveryCalc.zoneName})
+                    {deliveryCalc.isInterstate && (deliveryCalc as any).bookingsNeeded ? (
+                      <span className="block text-[10px] text-text-light mt-0.5">
+                        ~{Number((deliveryCalc as any).weightKg).toFixed(1)}kg · {(deliveryCalc as any).bookingsNeeded} eFTD booking{(deliveryCalc as any).bookingsNeeded === 1 ? "" : "s"} · final fee confirmed at dispatch
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className={delivery === 0 ? "text-forest" : ""}>{delivery === 0 ? "FREE 🎉" : fmt(delivery)}</span>
+                </div>
                 <div className="flex justify-between"><span className="text-text-med">{serviceFeeLabel}</span><span>{fmt(serviceFee)}</span></div>
                 {giftWrap && <div className="flex justify-between"><span className="text-text-med">Gift Wrapping</span><span>{fmt(giftWrapPrice)}</span></div>}
                 {couponDiscount > 0 && <div className="flex justify-between text-forest"><span>🏷️ Coupon ({appliedCoupon?.code})</span><span>-{fmt(couponDiscount)}</span></div>}
@@ -895,7 +923,17 @@ export default function CheckoutPage() {
               </div>
               <div className="space-y-2 font-body text-[13px]">
                 <div className="flex justify-between"><span className="text-text-med">Subtotal ({totalItems} items)</span><span>{fmt(subtotal)}</span></div>
-                <div className="flex justify-between"><span className="text-text-med">Delivery ({deliveryCalc.zoneName})</span><span className={delivery === 0 ? "text-forest" : ""}>{delivery === 0 ? "FREE 🎉" : fmt(delivery)}</span></div>
+                <div className="flex justify-between">
+                  <span className="text-text-med">
+                    Delivery ({deliveryCalc.zoneName})
+                    {deliveryCalc.isInterstate && (deliveryCalc as any).bookingsNeeded ? (
+                      <span className="block text-[10px] text-text-light mt-0.5">
+                        ~{Number((deliveryCalc as any).weightKg).toFixed(1)}kg · {(deliveryCalc as any).bookingsNeeded} eFTD booking{(deliveryCalc as any).bookingsNeeded === 1 ? "" : "s"} · final fee confirmed at dispatch
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className={delivery === 0 ? "text-forest" : ""}>{delivery === 0 ? "FREE 🎉" : fmt(delivery)}</span>
+                </div>
                 <div className="flex justify-between"><span className="text-text-med flex items-center gap-1">📦 {serviceFeeLabel}</span><span>{fmt(serviceFee)}</span></div>
                 {giftWrap && <div className="flex justify-between"><span className="text-text-med">🎀 Gift Wrapping</span><span className="text-[#7B5E00]">{fmt(giftWrapPrice)}</span></div>}
                 {couponDiscount > 0 && <div className="flex justify-between text-forest"><span className="font-semibold">🏷️ Coupon ({appliedCoupon?.code})</span><span className="font-bold">-{fmt(couponDiscount)}</span></div>}
