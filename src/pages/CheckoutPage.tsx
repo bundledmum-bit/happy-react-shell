@@ -1162,7 +1162,7 @@ export default function CheckoutPage() {
                 </div>
                 {!deliveryCalc.isFree && deliveryCalc.freeThreshold && (
                   <div className="mt-2 bg-warm-cream rounded-lg p-2 text-center">
-                    <p className="text-text-med text-[11px]">Add {fmt(deliveryCalc.freeThreshold - subtotal)} more for <span className="font-bold text-forest">FREE delivery</span></p>
+                    <p className="text-text-med text-[11px]">Free delivery is available on qualifying orders that meet the threshold.</p>
                   </div>
                 )}
               </div>

@@ -96,7 +96,7 @@ export default function CartPage() {
 
           {/* Trust badges */}
           <div className="flex flex-wrap gap-3 justify-center mb-10">
-            <div className="bg-forest-light rounded-lg px-4 py-3 text-xs text-forest font-semibold">🚚 {defaultFreeThreshold ? `Free delivery over ${fmt(defaultFreeThreshold)}` : "Free delivery available"}</div>
+            <div className="bg-forest-light rounded-lg px-4 py-3 text-xs text-forest font-semibold">🚚 Free delivery available on qualifying orders</div>
             <div className="bg-forest-light rounded-lg px-4 py-3 text-xs text-forest font-semibold">🔒 Secure Paystack checkout</div>
             <div className="bg-forest-light rounded-lg px-4 py-3 text-xs text-forest font-semibold">💬 WhatsApp support</div>
           </div>

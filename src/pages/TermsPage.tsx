@@ -22,9 +22,9 @@ export default function TermsPage() {
       ? `${z.delivery_days_min} business day${z.delivery_days_min > 1 ? "s" : ""}`
       : `${z.delivery_days_min}–${z.delivery_days_max} business days`;
     const freeText = z.free_delivery_threshold
-      ? `Free delivery on orders over ${fmt(z.free_delivery_threshold)}.`
+      ? "Free delivery is available on qualifying orders that meet the threshold."
       : "";
-    const feeText = `A delivery fee of ${fmt(z.delivery_fee)} applies${z.free_delivery_threshold ? ` to orders under ${fmt(z.free_delivery_threshold)}` : ""}.`;
+    const feeText = `A delivery fee applies${z.free_delivery_threshold ? " unless your order qualifies for free delivery" : ""}.`;
     return `${z.zone_name}: ${days}. ${freeText} ${feeText}`.trim();
   }).join(" ");
 
