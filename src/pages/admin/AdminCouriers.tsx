@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ChevronDown, ChevronRight, GripVertical, Plus, Save, Search, Trash2, Truck, X } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, GripVertical, Plus, Save, Search, Trash2, Truck, X, Calculator } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
@@ -9,10 +9,26 @@ import {
   useDeleteCourier,
   useReorderCouriers,
   useShippingZonesAdmin,
-  useUpdateShippingZone,
+  useCourierZoneAssignments,
+  useUpsertZoneAssignment,
+  useDeleteZoneAssignment,
+  useCourierRateCards,
+  useUpsertRateCard,
+  useDeleteRateCard,
+  useCourierInterstateRates,
+  useUpsertInterstateRate,
+  useDeleteInterstateRate,
+  useCourierRoutingRules,
+  useUpsertRoutingRule,
   type Courier,
   type AdminShippingZone,
   type SubscriptionPlan,
+  type CourierZoneAssignment,
+  type ZoneConditionType,
+  type CourierRateCard,
+  type CourierInterstateRate,
+  type CourierRoutingRule,
+  type RoutingStrategy,
 } from "@/hooks/useCouriers";
 
 const inputCls = "w-full border border-input rounded-lg px-3 py-2 text-sm bg-background";
@@ -40,15 +56,19 @@ export default function AdminCouriers() {
       </div>
 
       <Tabs defaultValue="partners">
-        <TabsList className="mb-4">
+        <TabsList className="mb-4 flex-wrap h-auto">
           <TabsTrigger value="partners">Partners</TabsTrigger>
-          <TabsTrigger value="routing">Zone Routing</TabsTrigger>
+          <TabsTrigger value="assignments">Zone Assignments</TabsTrigger>
+          <TabsTrigger value="rate_cards">Rate Cards</TabsTrigger>
           <TabsTrigger value="interstate">Interstate Rates</TabsTrigger>
+          <TabsTrigger value="routing">Routing Rules</TabsTrigger>
         </TabsList>
 
         <TabsContent value="partners" className="space-y-3"><PartnersTab /></TabsContent>
-        <TabsContent value="routing" className="space-y-4"><ZoneRoutingTab /></TabsContent>
-        <TabsContent value="interstate" className="space-y-4"><InterstateTab /></TabsContent>
+        <TabsContent value="assignments" className="space-y-4"><ZoneAssignmentsTab /></TabsContent>
+        <TabsContent value="rate_cards" className="space-y-4"><RateCardsTab /></TabsContent>
+        <TabsContent value="interstate" className="space-y-4"><InterstateRatesTab /></TabsContent>
+        <TabsContent value="routing" className="space-y-4"><RoutingRulesTab /></TabsContent>
       </Tabs>
     </div>
   );
@@ -475,622 +495,935 @@ function CourierCard({
 }
 
 // ---------------------------------------------------------------------------
-// TAB 2 — Zone Routing
+// Shared helpers
 // ---------------------------------------------------------------------------
 
-function ZoneRoutingTab() {
-  const { data: zones, isLoading } = useShippingZonesAdmin();
-  const { data: couriers } = useCouriers();
+const fromKobo = (k: number | null | undefined) => (k || 0) / 100;
+const toKobo = (ngn: number | string) => Math.round((Number(ngn) || 0) * 100);
+const fmtNaira = (kobo: number | null | undefined) => `₦${Math.round(fromKobo(kobo)).toLocaleString()}`;
 
-  if (isLoading) return <div className="text-center py-10 text-text-med text-sm">Loading zones…</div>;
-  if (!zones || zones.length === 0) return <div className="text-center py-10 text-text-med text-sm">No zones configured.</div>;
-
-  const lagosZones = zones.filter(z => (z.states || []).includes("Lagos"));
-
-  return (
-    <div className="space-y-4">
-      {lagosZones.map(z => <ZoneRoutingCard key={z.id} zone={z} couriers={couriers || []} />)}
-    </div>
-  );
+function customerRateFromCard(card: Pick<CourierRateCard, "partner_cost" | "markup_pct" | "customer_rate_override">): number {
+  if (card.customer_rate_override != null) return card.customer_rate_override;
+  return Math.round((card.partner_cost || 0) * (1 + (Number(card.markup_pct) || 0) / 100));
 }
 
-function ZoneRoutingCard({ zone, couriers }: { zone: AdminShippingZone; couriers: Courier[] }) {
-  const [draft, setDraft] = useState<AdminShippingZone>(zone);
-  const update = useUpdateShippingZone();
-
-  useEffect(() => { setDraft(zone); }, [zone]);
-
-  const schedule = (draft.partner_schedule || {}) as Record<string, any>;
-  const isIkorodu = zone.name === "Ikorodu";
-  const hasExcludedAreas = zone.name === "Island" || zone.name === "Mainland";
-
-  const setSchedule = (patch: Record<string, any>) =>
-    setDraft(d => ({ ...d, partner_schedule: { ...(d.partner_schedule || {}), ...patch } }));
-
-  const toggleEfdtDay = (day: string) => {
-    const cur: string[] = schedule.efdt_days || [];
-    const next = cur.includes(day) ? cur.filter(d => d !== day) : [...cur, day];
-    const brainDays = WEEKDAYS.filter(d => !next.includes(d));
-    setSchedule({ efdt_days: next, brain_express_days: brainDays });
-  };
-
-  const toggleActive = async () => {
-    try {
-      await update.mutateAsync({ id: zone.id, is_active: !zone.is_active });
-      toast.success(`${zone.name} zone ${!zone.is_active ? "activated" : "deactivated"}`);
-    } catch (e: any) { toast.error(e.message || "Failed to update"); }
-  };
-
-  const save = async () => {
-    if (warnings.length > 0) { toast.error(warnings[0]); return; }
-    try {
-      await update.mutateAsync({
-        id: draft.id,
-        primary_partner: draft.primary_partner,
-        secondary_partner: draft.secondary_partner,
-        flat_rate: draft.flat_rate,
-        free_delivery_threshold: draft.free_delivery_threshold,
-        partner_schedule: draft.partner_schedule,
-        areas: draft.areas,
-        lgas: draft.lgas,
-        estimated_days_min: draft.estimated_days_min,
-        estimated_days_max: draft.estimated_days_max,
-        express_available: draft.express_available,
-        express_rate: draft.express_rate,
-        express_days_min: draft.express_days_min,
-        express_days_max: draft.express_days_max,
-      });
-      toast.success(`${draft.name} zone saved`);
-    } catch (e: any) { toast.error(e.message || "Save failed"); }
-  };
-
-  const ourCost = zone.name === "Island" ? 6000 : zone.name === "Mainland" ? 8000 : (schedule.brain_express_rate || 0);
-  const markupPct = ourCost > 0 ? Math.round(((draft.flat_rate - ourCost) / ourCost) * 100) : 0;
-
-  const warnings: string[] = [];
-  if (draft.flat_rate < 0) warnings.push("Flat rate must be ≥ 0");
-  if ((draft.free_delivery_threshold ?? 0) < 0) warnings.push("Free threshold must be ≥ 0");
-  if ((draft.estimated_days_min ?? 0) < 0 || (draft.estimated_days_max ?? 0) < 0) warnings.push("Days must be ≥ 0");
-  if (draft.estimated_days_min != null && draft.estimated_days_max != null && draft.estimated_days_min > draft.estimated_days_max) {
-    warnings.push("Estimated days min must be ≤ max");
-  }
-
-  // Routing preview for Ikorodu: what happens today?
-  const todayStr = new Date().toLocaleDateString("en-US", { weekday: "long" });
-  const todayRouting = isIkorodu ? (
-    (schedule.efdt_days || []).includes(todayStr)
-      ? { partner: "eFTD Africa", rate: schedule.efdt_rate || 0 }
-      : { partner: "Brain Express", rate: schedule.brain_express_rate || 0 }
-  ) : null;
-
-  return (
-    <div className={`bg-card border rounded-xl p-5 ${draft.is_active ? "border-border" : "border-border/60 bg-muted/20"}`}>
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-3">
-          <div>
-            <div className="font-bold text-base">{zone.name}</div>
-            <div className="flex flex-wrap gap-1.5 mt-1">
-              {(zone.states || []).map(s => (
-                <span key={s} className="text-[10px] font-semibold px-2 py-0.5 rounded-pill bg-muted text-text-med">{s}</span>
-              ))}
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] text-text-med">Active</span>
-          <label className="relative inline-flex cursor-pointer items-center">
-            <input type="checkbox" className="peer sr-only" checked={zone.is_active} onChange={toggleActive} />
-            <div className="peer h-5 w-9 rounded-full bg-muted after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow after:transition-all peer-checked:bg-forest peer-checked:after:translate-x-4" />
-          </label>
-        </div>
-      </div>
-
-      <h4 className={sectionCls}>Routing</h4>
-      <div className="grid md:grid-cols-2 gap-3">
-        <div>
-          <label className={labelCls}>Primary Partner</label>
-          <select className={inputCls} value={draft.primary_partner || ""} onChange={e => setDraft(d => ({ ...d, primary_partner: e.target.value || null }))}>
-            <option value="">None</option>
-            {couriers.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className={labelCls}>Secondary Partner</label>
-          <select className={inputCls} value={draft.secondary_partner || ""} onChange={e => setDraft(d => ({ ...d, secondary_partner: e.target.value || null }))}>
-            <option value="">None</option>
-            {couriers.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-          </select>
-        </div>
-      </div>
-
-      {isIkorodu && (
-        <>
-          <h4 className={sectionCls}>Day-of-week routing</h4>
-          <div>
-            <div className={labelCls}>eFTD days</div>
-            <div className="flex flex-wrap gap-2">
-              {WEEKDAYS.map(d => {
-                const on = (schedule.efdt_days || []).includes(d);
-                return (
-                  <label key={d} className={`text-xs font-semibold px-3 py-1.5 rounded-pill border-[1.5px] cursor-pointer transition-colors ${on ? "border-forest bg-forest-light text-forest" : "border-border text-text-med"}`}>
-                    <input type="checkbox" className="sr-only" checked={on} onChange={() => toggleEfdtDay(d)} />
-                    {d.slice(0, 3)}
-                  </label>
-                );
-              })}
-            </div>
-            <p className="text-[11px] text-text-light mt-2">
-              Brain Express fallback days: <span className="font-mono">{(WEEKDAYS.filter(d => !(schedule.efdt_days || []).includes(d))).join(", ") || "—"}</span>
-            </p>
-          </div>
-          <div className="grid md:grid-cols-2 gap-3 mt-3">
-            <div>
-              <label className={labelCls}>eFTD rate (₦)</label>
-              <input type="number" className={inputCls} value={schedule.efdt_rate ?? ""} onChange={e => setSchedule({ efdt_rate: e.target.value ? Number(e.target.value) : null })} />
-            </div>
-            <div>
-              <label className={labelCls}>Brain Express rate (₦)</label>
-              <input type="number" className={inputCls} value={schedule.brain_express_rate ?? ""} onChange={e => setSchedule({ brain_express_rate: e.target.value ? Number(e.target.value) : null })} />
-            </div>
-          </div>
-          {todayRouting && (
-            <div className="mt-3 bg-forest-light border border-forest/30 rounded-lg p-3 text-xs">
-              <div className="font-semibold text-forest">📅 Today is {todayStr}</div>
-              <div className="text-text-med mt-1">Orders will go via <span className="font-bold">{todayRouting.partner}</span> at <span className="font-mono">{fmtN(todayRouting.rate)}</span></div>
-            </div>
-          )}
-        </>
-      )}
-
-      {hasExcludedAreas && (
-        <>
-          <h4 className={sectionCls}>eFTD excluded areas</h4>
-          <p className="text-[11px] text-text-light mb-2">Areas listed here force Brain Express instead of eFTD. Start typing to pick from this zone's areas.</p>
-          <ChipList
-            value={schedule.efdt_excluded_areas || []}
-            onChange={v => setSchedule({ efdt_excluded_areas: v })}
-            color="red"
-            suggestions={draft.areas || []}
-            placeholder="e.g. Awoyaya"
-          />
-        </>
-      )}
-
-      <h4 className={sectionCls}>Zone Areas</h4>
-      <ChipList
-        value={draft.areas || []}
-        onChange={v => setDraft(d => ({ ...d, areas: v }))}
-        color="grey"
-        placeholder="e.g. Lekki Phase 1"
-      />
-
-      <h4 className={sectionCls}>LGAs</h4>
-      <LgasEditor
-        value={draft.lgas || []}
-        onChange={v => setDraft(d => ({ ...d, lgas: v }))}
-        zoneAreas={draft.areas || []}
-      />
-
-      <h4 className={sectionCls}>Rates & ETA</h4>
-      <div className="grid md:grid-cols-3 gap-3">
-        <div>
-          <label className={labelCls}>Customer delivery fee (₦)</label>
-          <input type="number" className={inputCls} value={draft.flat_rate} onChange={e => setDraft(d => ({ ...d, flat_rate: Number(e.target.value) }))} />
-        </div>
-        <div>
-          <label className={labelCls}>Free delivery threshold (₦)</label>
-          <input type="number" className={inputCls} value={draft.free_delivery_threshold ?? ""} onChange={e => setDraft(d => ({ ...d, free_delivery_threshold: e.target.value ? Number(e.target.value) : null }))} />
-        </div>
-        <div className="bg-muted/30 rounded-lg px-3 py-2 text-xs">
-          <div className="text-text-med">Our cost</div>
-          <div className="font-mono font-semibold text-foreground">{fmtN(ourCost)}</div>
-          <div className="text-text-med mt-1">Markup</div>
-          <div className="font-mono font-semibold text-forest">{markupPct}%</div>
-        </div>
-        <div>
-          <label className={labelCls}>Est. days min</label>
-          <input type="number" className={inputCls} value={draft.estimated_days_min ?? ""} onChange={e => setDraft(d => ({ ...d, estimated_days_min: e.target.value ? Number(e.target.value) : 0 }))} />
-        </div>
-        <div>
-          <label className={labelCls}>Est. days max</label>
-          <input type="number" className={inputCls} value={draft.estimated_days_max ?? ""} onChange={e => setDraft(d => ({ ...d, estimated_days_max: e.target.value ? Number(e.target.value) : 0 }))} />
-        </div>
-      </div>
-
-      <h4 className={sectionCls}>Express</h4>
-      <div className="grid md:grid-cols-4 gap-3">
-        <div className="flex items-center gap-2 pt-5">
-          <label className="flex items-center gap-2 text-xs font-semibold">
-            <input type="checkbox" checked={draft.express_available} onChange={e => setDraft(d => ({ ...d, express_available: e.target.checked }))} />
-            Express available
-          </label>
-        </div>
-        {draft.express_available && <>
-          <div>
-            <label className={labelCls}>Express rate (₦)</label>
-            <input type="number" className={inputCls} value={draft.express_rate ?? ""} onChange={e => setDraft(d => ({ ...d, express_rate: e.target.value ? Number(e.target.value) : null }))} />
-          </div>
-          <div>
-            <label className={labelCls}>Express days min</label>
-            <input type="number" className={inputCls} value={draft.express_days_min ?? ""} onChange={e => setDraft(d => ({ ...d, express_days_min: e.target.value ? Number(e.target.value) : null }))} />
-          </div>
-          <div>
-            <label className={labelCls}>Express days max</label>
-            <input type="number" className={inputCls} value={draft.express_days_max ?? ""} onChange={e => setDraft(d => ({ ...d, express_days_max: e.target.value ? Number(e.target.value) : null }))} />
-          </div>
-        </>}
-      </div>
-
-      {warnings.length > 0 && (
-        <div className="mt-4 bg-amber-50 border border-amber-300 text-amber-900 rounded-lg p-3 text-xs">
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-            <div>
-              <div className="font-bold mb-1">Validation issues</div>
-              <ul className="list-disc list-inside space-y-0.5">
-                {warnings.map((w, i) => <li key={i}>{w}</li>)}
-              </ul>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="flex justify-end mt-4">
-        <button onClick={save} disabled={update.isPending || warnings.length > 0} className={saveBtnCls}>
-          <Save className="w-4 h-4" /> {update.isPending ? "Saving…" : "Save Zone"}
-        </button>
-      </div>
-    </div>
-  );
+function customerRateFromInterstate(row: Pick<CourierInterstateRate, "partner_cost" | "markup_pct">): number {
+  return Math.round((row.partner_cost || 0) * (1 + (Number(row.markup_pct) || 0) / 100));
 }
 
-// Nested LGA + areas editor — list of {lga, areas[]} blocks
-function LgasEditor({
-  value,
-  onChange,
-  zoneAreas,
-}: {
-  value: Array<{ lga: string; areas: string[] }>;
-  onChange: (next: Array<{ lga: string; areas: string[] }>) => void;
-  zoneAreas: string[];
-}) {
-  const addLga = () => onChange([...value, { lga: "", areas: [] }]);
-  const removeLga = (i: number) => onChange(value.filter((_, idx) => idx !== i));
-  const updateLga = (i: number, patch: Partial<{ lga: string; areas: string[] }>) =>
-    onChange(value.map((l, idx) => idx === i ? { ...l, ...patch } : l));
+const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 
-  return (
-    <div className="space-y-3">
-      {value.length === 0 && <p className="text-text-light text-xs">No LGAs configured yet.</p>}
-      {value.map((l, i) => (
-        <div key={i} className="border border-border rounded-lg p-3 bg-muted/20 space-y-2">
-          <div className="flex items-center gap-2">
-            <input
-              className={inputCls + " flex-1"}
-              value={l.lga}
-              onChange={e => updateLga(i, { lga: e.target.value })}
-              placeholder="LGA name, e.g. Eti-Osa"
-            />
-            <button onClick={() => removeLga(i)} className="p-1.5 text-destructive hover:bg-destructive/10 rounded" title="Remove LGA">
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </div>
-          <div>
-            <div className="text-[10px] uppercase tracking-widest font-semibold text-text-med mb-1">Areas in this LGA</div>
-            <ChipList
-              value={l.areas}
-              onChange={v => updateLga(i, { areas: v })}
-              color="grey"
-              suggestions={zoneAreas}
-              placeholder="e.g. Lekki Phase 1"
-            />
-          </div>
-        </div>
-      ))}
-      <button onClick={addLga} className="text-xs font-semibold text-forest hover:underline inline-flex items-center gap-1">
-        <Plus className="w-3 h-3" /> Add LGA
-      </button>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// TAB 3 — Interstate Rates
-// ---------------------------------------------------------------------------
-
-const DEFAULT_BUNDLE_WEIGHTS = {
-  starter: { bookings: 1, weight_kg: 9.2, rounded_kg: 10 as string | number },
-  standard: { bookings: 2, weight_kg: 16.1, rounded_kg: "10+7" as string | number },
-  premium: { bookings: 3, weight_kg: 28.3, rounded_kg: "10+10+9" as string | number },
+const CONDITION_BADGE: Record<string, { label: string; cls: string }> = {
+  always:           { label: "Always",           cls: "bg-emerald-100 text-emerald-700" },
+  fallback:         { label: "Fallback",         cls: "bg-muted text-text-med" },
+  area_exclusion:   { label: "Area Exclusion",   cls: "bg-orange-100 text-orange-700" },
+  volume_threshold: { label: "Volume Threshold", cls: "bg-blue-100 text-blue-700" },
+  day_of_week:      { label: "Day of Week",      cls: "bg-purple-100 text-purple-700" },
 };
 
-function InterstateTab() {
-  const { data: zones, isLoading } = useShippingZonesAdmin();
-  const update = useUpdateShippingZone();
+// ---------------------------------------------------------------------------
+// TAB 2 — Zone Assignments
+// ---------------------------------------------------------------------------
 
-  if (isLoading) return <div className="text-center py-10 text-text-med text-sm">Loading interstate zones…</div>;
-  if (!zones) return null;
+function ZoneAssignmentsTab() {
+  const { data: zones } = useShippingZonesAdmin();
+  const { data: couriers } = useCouriers();
+  const { data: assignments, isLoading } = useCourierZoneAssignments();
+  const upsert = useUpsertZoneAssignment();
+  const del = useDeleteZoneAssignment();
 
-  const interstate = zones.filter(z => !((z.states || []).includes("Lagos")) && z.is_active !== false);
+  if (isLoading) return <div className="text-center py-10 text-text-med text-sm">Loading zone assignments…</div>;
 
-  if (interstate.length === 0) return <div className="text-center py-10 text-text-med text-sm">No interstate zones found.</div>;
-
-  const applyMarkupEverywhere = async (pct: number) => {
-    if (!confirm(`Apply ${pct}% markup to all ${interstate.length} interstate zones?`)) return;
-    try {
-      await Promise.all(interstate.map(z => {
-        const sched = { ...(z.partner_schedule || {}), markup_percent: pct };
-        return update.mutateAsync({ id: z.id, partner_schedule: sched });
-      }));
-      toast.success(`Applied ${pct}% markup to all interstate zones`);
-    } catch (e: any) { toast.error(e.message || "Failed"); }
-  };
+  const grouped = new Map<string, CourierZoneAssignment[]>();
+  (zones || []).forEach(z => grouped.set(z.id, []));
+  (assignments || []).forEach(a => {
+    if (!grouped.has(a.zone_id)) grouped.set(a.zone_id, []);
+    grouped.get(a.zone_id)!.push(a);
+  });
 
   return (
-    <div className="space-y-4">
-      {interstate.map(z => (
-        <InterstateCard key={z.id} zone={z} onApplyMarkupEverywhere={applyMarkupEverywhere} />
-      ))}
+    <div className="space-y-6">
+      {(zones || []).map(zone => {
+        const rows = (grouped.get(zone.id) || []).sort((a, b) => a.priority - b.priority);
+        return (
+          <div key={zone.id} className="bg-card border border-border rounded-xl overflow-hidden">
+            <div className="p-4 border-b border-border flex items-center justify-between">
+              <h3 className="font-bold text-sm">{zone.name}</h3>
+              <span className="text-[10px] text-text-light">{rows.length} assignment{rows.length === 1 ? "" : "s"}</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="bg-muted/40">
+                  <tr className="text-left">
+                    <th className="px-3 py-2 w-16">Priority</th>
+                    <th className="px-3 py-2">Courier</th>
+                    <th className="px-3 py-2">Condition</th>
+                    <th className="px-3 py-2">Value</th>
+                    <th className="px-3 py-2 w-20">Active</th>
+                    <th className="px-3 py-2 w-24 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.length === 0 && (
+                    <tr><td colSpan={6} className="px-3 py-4 text-center text-text-light">No assignments for this zone.</td></tr>
+                  )}
+                  {rows.map(r => (
+                    <AssignmentRow
+                      key={r.id}
+                      assignment={r}
+                      couriers={couriers || []}
+                      zones={zones || []}
+                      onSave={p => upsert.mutateAsync(p).then(() => toast.success("Saved")).catch(e => toast.error(e.message || "Save failed"))}
+                      onDelete={() => { if (confirm("Delete this assignment?")) del.mutateAsync(r.id).then(() => toast.success("Deleted")).catch(e => toast.error(e.message || "Delete failed")); }}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="p-3 border-t border-border">
+              <AssignmentAddForm
+                zoneId={zone.id}
+                couriers={couriers || []}
+                zones={zones || []}
+                nextPriority={(rows[rows.length - 1]?.priority ?? 0) + 1}
+                onCreate={p => upsert.mutateAsync(p).then(() => toast.success("Assignment created")).catch(e => toast.error(e.message || "Create failed"))}
+              />
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
 
-type RateRow = { max_kg: number; fee: number };
+function AssignmentRow({
+  assignment, couriers, onSave, onDelete,
+}: {
+  assignment: CourierZoneAssignment;
+  couriers: Courier[];
+  zones: AdminShippingZone[];
+  onSave: (p: Partial<CourierZoneAssignment>) => Promise<any>;
+  onDelete: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [valueOpen, setValueOpen] = useState(false);
+  const [draft, setDraft] = useState<CourierZoneAssignment>(assignment);
 
-function InterstateCard({ zone, onApplyMarkupEverywhere }: { zone: AdminShippingZone; onApplyMarkupEverywhere: (pct: number) => void }) {
-  const schedule = (zone.partner_schedule || {}) as Record<string, any>;
+  useEffect(() => { setDraft(assignment); }, [assignment]);
 
-  const initialRates: RateRow[] = Array.isArray(schedule.rates_per_10kg_block)
-    ? schedule.rates_per_10kg_block.map((r: any) => ({ max_kg: Number(r.max_kg), fee: Number(r.fee) }))
-    : [];
+  const badge = CONDITION_BADGE[assignment.condition_type] || { label: assignment.condition_type, cls: "bg-muted text-text-med" };
 
-  const initialMarkup = (() => {
-    if (schedule.markup_percent != null) return Number(schedule.markup_percent);
-    const bc = schedule.bundle_costs as Record<string, any> | undefined;
-    const sample = bc?.starter || bc?.standard || bc?.premium;
-    if (sample && sample.efdt_cost > 0) return Math.round(((sample.customer_charge / sample.efdt_cost) - 1) * 1000) / 10;
-    return 10;
-  })();
+  const toggleActive = () => onSave({ id: assignment.id, is_active: !assignment.is_active });
 
-  const initialWeights = (() => {
-    const bc = schedule.bundle_costs as Record<string, any> | undefined;
-    return {
-      starter: {
-        bookings: bc?.starter?.bookings ?? DEFAULT_BUNDLE_WEIGHTS.starter.bookings,
-        weight_kg: bc?.starter?.weight_kg ?? DEFAULT_BUNDLE_WEIGHTS.starter.weight_kg,
-        rounded_kg: bc?.starter?.rounded_kg ?? DEFAULT_BUNDLE_WEIGHTS.starter.rounded_kg,
-      },
-      standard: {
-        bookings: bc?.standard?.bookings ?? DEFAULT_BUNDLE_WEIGHTS.standard.bookings,
-        weight_kg: bc?.standard?.weight_kg ?? DEFAULT_BUNDLE_WEIGHTS.standard.weight_kg,
-        rounded_kg: bc?.standard?.rounded_kg ?? DEFAULT_BUNDLE_WEIGHTS.standard.rounded_kg,
-      },
-      premium: {
-        bookings: bc?.premium?.bookings ?? DEFAULT_BUNDLE_WEIGHTS.premium.bookings,
-        weight_kg: bc?.premium?.weight_kg ?? DEFAULT_BUNDLE_WEIGHTS.premium.weight_kg,
-        rounded_kg: bc?.premium?.rounded_kg ?? DEFAULT_BUNDLE_WEIGHTS.premium.rounded_kg,
-      },
-    };
-  })();
-
-  const [rates, setRates] = useState<RateRow[]>(initialRates);
-  const [markupPct, setMarkupPct] = useState<number>(initialMarkup);
-  const [threshold, setThreshold] = useState<number | null>(zone.free_delivery_threshold);
-  const [weights, setWeights] = useState(initialWeights);
-  const [previewKg, setPreviewKg] = useState<number>(10);
-  const update = useUpdateShippingZone();
-
-  useEffect(() => {
-    setRates(initialRates);
-    setMarkupPct(initialMarkup);
-    setThreshold(zone.free_delivery_threshold);
-    setWeights(initialWeights);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [zone.id]);
-
-  const sortedRates = useMemo(() => [...rates].sort((a, b) => a.max_kg - b.max_kg), [rates]);
-
-  const feeAt = (kg: number): number => {
-    const match = sortedRates.find(r => kg <= r.max_kg) || sortedRates[sortedRates.length - 1];
-    return match?.fee || 0;
+  const saveEdit = () => {
+    onSave({
+      id: draft.id,
+      courier_id: draft.courier_id,
+      priority: draft.priority,
+      condition_type: draft.condition_type,
+      condition_value: draft.condition_value,
+      notes: draft.notes,
+    }).then(() => setEditing(false));
   };
 
-  // Parse rounded_kg like "10+7" or number 10 into numeric parts
-  const parseRounded = (rounded: string | number): number[] => {
-    if (typeof rounded === "number") return [rounded];
-    return String(rounded).split("+").map(s => Number(s.trim())).filter(n => !isNaN(n));
-  };
-
-  const costForTier = (tier: "starter" | "standard" | "premium") => {
-    const parts = parseRounded(weights[tier].rounded_kg);
-    return parts.reduce((sum, kg) => sum + feeAt(kg), 0);
-  };
-
-  const withMarkup = (cost: number) => Math.round(cost * (1 + markupPct / 100));
-
-  const bundleCostsComputed = {
-    starter: { ...weights.starter, efdt_cost: costForTier("starter"), customer_charge: withMarkup(costForTier("starter")) },
-    standard: { ...weights.standard, efdt_cost: costForTier("standard"), customer_charge: withMarkup(costForTier("standard")) },
-    premium: { ...weights.premium, efdt_cost: costForTier("premium"), customer_charge: withMarkup(costForTier("premium")) },
-  };
-
-  const updateRate = (i: number, fee: number) => setRates(prev => prev.map((r, idx) => idx === i ? { ...r, fee } : r));
-  const updateRateWeight = (i: number, max_kg: number) => setRates(prev => prev.map((r, idx) => idx === i ? { ...r, max_kg } : r));
-  const addRateRow = () => {
-    const last = sortedRates[sortedRates.length - 1];
-    setRates(prev => [...prev, { max_kg: (last?.max_kg || 0) + 5, fee: last?.fee || 0 }]);
-  };
-  const removeRateRow = (i: number) => setRates(prev => prev.filter((_, idx) => idx !== i));
-
-  // Validation
-  const warnings: string[] = [];
-  for (let i = 1; i < sortedRates.length; i++) {
-    if (sortedRates[i].max_kg <= sortedRates[i - 1].max_kg) { warnings.push("Rate rows must have ascending max_kg values"); break; }
+  if (editing) {
+    return (
+      <tr className="border-t border-border bg-forest/5">
+        <td className="px-3 py-2"><input type="number" className={inputCls} value={draft.priority} onChange={e => setDraft({ ...draft, priority: Number(e.target.value) })} /></td>
+        <td className="px-3 py-2">
+          <select className={inputCls} value={draft.courier_id} onChange={e => setDraft({ ...draft, courier_id: e.target.value })}>
+            {couriers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </td>
+        <td className="px-3 py-2">
+          <select className={inputCls} value={draft.condition_type} onChange={e => setDraft({ ...draft, condition_type: e.target.value as ZoneConditionType, condition_value: null })}>
+            {Object.entries(CONDITION_BADGE).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+          </select>
+        </td>
+        <td className="px-3 py-2" colSpan={2}>
+          <ConditionValueEditor type={draft.condition_type as ZoneConditionType} value={draft.condition_value} onChange={v => setDraft({ ...draft, condition_value: v })} />
+        </td>
+        <td className="px-3 py-2 text-right whitespace-nowrap">
+          <button onClick={saveEdit} className="text-forest hover:underline text-xs font-semibold mr-2">Save</button>
+          <button onClick={() => { setDraft(assignment); setEditing(false); }} className="text-text-med hover:text-foreground text-xs">Cancel</button>
+        </td>
+      </tr>
+    );
   }
-  if (sortedRates.some(r => r.fee < 0)) warnings.push("Rates cannot be negative");
-  if (markupPct < 0) warnings.push("Markup cannot be negative");
-
-  const save = async () => {
-    if (warnings.length > 0) { toast.error(warnings[0]); return; }
-    try {
-      const nextSchedule = {
-        ...(zone.partner_schedule || {}),
-        markup_percent: markupPct,
-        rates_per_10kg_block: sortedRates,
-        bundle_costs: bundleCostsComputed,
-      };
-      await update.mutateAsync({
-        id: zone.id,
-        free_delivery_threshold: threshold,
-        flat_rate: bundleCostsComputed.standard.customer_charge,
-        partner_schedule: nextSchedule,
-      });
-      toast.success(`${zone.name} rates saved`);
-    } catch (e: any) { toast.error(e.message || "Save failed"); }
-  };
-
-  const previewCost = feeAt(previewKg);
-  const previewCharge = withMarkup(previewCost);
 
   return (
-    <div className="bg-card border border-border rounded-xl p-5">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <div className="font-bold text-base">{zone.name}</div>
-          <div className="flex flex-wrap gap-1.5 mt-1">
-            {(zone.states || []).map(s => (
-              <span key={s} className="text-[10px] font-semibold px-2 py-0.5 rounded-pill bg-muted text-text-med">{s}</span>
-            ))}
-          </div>
-        </div>
-        <span className="text-[10px] font-semibold px-2 py-1 rounded-pill bg-green-100 text-green-700">
-          {zone.primary_partner || "eFTD Africa"}
-        </span>
-      </div>
-
-      <div className="grid md:grid-cols-2 gap-4">
-        <div>
-          <h4 className={sectionCls}>Rate table</h4>
-          <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <label className="text-xs font-semibold text-text-med">Markup (%)</label>
-            <input type="number" step="0.1" className="border border-input rounded-lg px-3 py-1 text-sm bg-background w-24" value={markupPct} onChange={e => setMarkupPct(Number(e.target.value) || 0)} />
-            <button onClick={() => onApplyMarkupEverywhere(markupPct)} className="text-[11px] font-semibold text-forest hover:underline">
-              Apply to all zones
+    <tr className="border-t border-border hover:bg-muted/30">
+      <td className="px-3 py-2 tabular-nums">{assignment.priority}</td>
+      <td className="px-3 py-2 font-medium">{assignment.courier?.name || <span className="text-text-light">—</span>}</td>
+      <td className="px-3 py-2">
+        <span className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-pill ${badge.cls}`}>{badge.label}</span>
+      </td>
+      <td className="px-3 py-2">
+        {assignment.condition_value ? (
+          <div>
+            <button onClick={() => setValueOpen(o => !o)} className="text-text-med hover:text-forest text-[11px] inline-flex items-center gap-1">
+              {valueOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+              {valueOpen ? "Hide" : "Show"} JSON
             </button>
+            {valueOpen && <pre className="mt-1 bg-muted/40 rounded px-2 py-1 text-[10px] overflow-x-auto max-w-[320px]">{JSON.stringify(assignment.condition_value, null, 2)}</pre>}
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead className="bg-muted/50">
-                <tr>
-                  <th className="px-2 py-2 text-left">Max kg</th>
-                  <th className="px-2 py-2 text-right">eFTD cost (₦)</th>
-                  <th className="px-2 py-2 text-right">Customer fee (₦)</th>
-                  <th className="w-10" />
-                </tr>
-              </thead>
-              <tbody>
-                {rates.map((r, i) => (
-                  <tr key={i} className="border-t border-border">
-                    <td className="px-1 py-1">
-                      <input type="number" className={inputCls + " text-right w-20"} value={r.max_kg} onChange={e => updateRateWeight(i, Number(e.target.value) || 0)} />
-                    </td>
-                    <td className="px-1 py-1"><input type="number" className={inputCls + " text-right"} value={r.fee} onChange={e => updateRate(i, Number(e.target.value) || 0)} /></td>
-                    <td className="px-2 py-1 text-right font-mono text-forest">{fmtN(withMarkup(r.fee))}</td>
-                    <td className="px-1 py-1 text-right">
-                      <button onClick={() => removeRateRow(i)} className="p-1 text-destructive hover:bg-destructive/10 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <button onClick={addRateRow} className="mt-2 text-xs font-semibold text-forest hover:underline inline-flex items-center gap-1">
-            <Plus className="w-3 h-3" /> Add weight row
-          </button>
+        ) : (
+          <span className="text-text-light text-[11px]">—</span>
+        )}
+      </td>
+      <td className="px-3 py-2">
+        <label className="relative inline-flex cursor-pointer items-center">
+          <input type="checkbox" className="peer sr-only" checked={assignment.is_active} onChange={toggleActive} />
+          <div className="peer h-5 w-9 rounded-full bg-muted after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow after:transition-all peer-checked:bg-forest peer-checked:after:translate-x-4" />
+        </label>
+      </td>
+      <td className="px-3 py-2 text-right whitespace-nowrap">
+        <button onClick={() => setEditing(true)} className="text-forest hover:underline text-xs font-semibold mr-2">Edit</button>
+        <button onClick={onDelete} className="text-destructive hover:underline text-xs"><Trash2 className="w-3 h-3 inline-block" /></button>
+      </td>
+    </tr>
+  );
+}
 
-          <h4 className={sectionCls}>Customer-fee preview</h4>
-          <div className="bg-muted/30 rounded-lg p-3 text-xs flex items-center gap-3 flex-wrap">
-            <label className="text-text-med">Preview fee for</label>
-            <input type="number" step="0.1" className="border border-input rounded-lg px-2 py-1 text-xs bg-background w-20" value={previewKg} onChange={e => setPreviewKg(Number(e.target.value) || 0)} />
-            <span className="text-text-med">kg →</span>
-            <span className="font-mono">eFTD {fmtN(previewCost)}</span>
-            <span className="text-text-med">·</span>
-            <span className="font-mono text-forest font-bold">Customer {fmtN(previewCharge)}</span>
-          </div>
-        </div>
+function ConditionValueEditor({ type, value, onChange }: { type: ZoneConditionType; value: any; onChange: (v: any) => void }) {
+  if (type === "area_exclusion") {
+    const text = Array.isArray(value?.areas) ? value.areas.join("\n") : "";
+    return (
+      <textarea
+        placeholder="One area per line"
+        className={inputCls + " h-20"}
+        value={text}
+        onChange={e => onChange({ areas: e.target.value.split("\n").map(s => s.trim()).filter(Boolean) })}
+      />
+    );
+  }
+  if (type === "volume_threshold") {
+    return (
+      <div>
+        <label className={labelCls}>Min orders</label>
+        <input type="number" className={inputCls} value={value?.min_orders ?? ""} onChange={e => onChange({ min_orders: e.target.value ? Number(e.target.value) : null })} />
+      </div>
+    );
+  }
+  if (type === "day_of_week") {
+    const selected: string[] = Array.isArray(value?.days) ? value.days : [];
+    const toggle = (k: string) => {
+      const next = selected.includes(k) ? selected.filter(d => d !== k) : [...selected, k];
+      onChange({ days: next });
+    };
+    return (
+      <div className="flex flex-wrap gap-1">
+        {WEEKDAY_KEYS.map((k, i) => (
+          <label key={k} className="inline-flex items-center gap-1 text-[11px] px-2 py-1 border border-border rounded-lg cursor-pointer hover:bg-muted/30">
+            <input type="checkbox" checked={selected.includes(k)} onChange={() => toggle(k)} />
+            {WEEKDAY_LABELS[i]}
+          </label>
+        ))}
+      </div>
+    );
+  }
+  return <span className="text-text-light text-[11px]">No extra fields for this condition.</span>;
+}
 
+function AssignmentAddForm({
+  zoneId, couriers, zones, nextPriority, onCreate,
+}: {
+  zoneId: string;
+  couriers: Courier[];
+  zones: AdminShippingZone[];
+  nextPriority: number;
+  onCreate: (p: Partial<CourierZoneAssignment>) => Promise<any>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<Partial<CourierZoneAssignment>>({
+    zone_id: zoneId, courier_id: "", priority: nextPriority,
+    condition_type: "always", condition_value: null, is_active: true, notes: "",
+  });
+
+  useEffect(() => { setDraft(d => ({ ...d, priority: nextPriority, zone_id: zoneId })); }, [zoneId, nextPriority]);
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className="inline-flex items-center gap-1.5 bg-forest-light text-forest px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-forest/20">
+        <Plus className="w-3.5 h-3.5" /> Add assignment
+      </button>
+    );
+  }
+
+  const submit = async () => {
+    if (!draft.courier_id) { toast.error("Courier is required"); return; }
+    await onCreate({ ...draft });
+    setOpen(false);
+    setDraft({ zone_id: zoneId, courier_id: "", priority: nextPriority + 1, condition_type: "always", condition_value: null, is_active: true, notes: "" });
+  };
+
+  return (
+    <div className="bg-muted/30 border border-border rounded-lg p-3 space-y-2">
+      <div className="grid md:grid-cols-4 gap-2">
         <div>
-          <h4 className={sectionCls}>Bundle weights & breakdown</h4>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead className="bg-muted/50">
-                <tr>
-                  <th className="px-2 py-2 text-left">Bundle</th>
-                  <th className="px-2 py-2 text-right">Weight (kg)</th>
-                  <th className="px-2 py-2 text-right">Rounded</th>
-                  <th className="px-2 py-2 text-right">Bookings</th>
-                  <th className="px-2 py-2 text-right">eFTD</th>
-                  <th className="px-2 py-2 text-right">Customer</th>
-                  <th className="px-2 py-2 text-right">Profit</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(["starter", "standard", "premium"] as const).map(tier => {
-                  const bc = bundleCostsComputed[tier];
-                  const profit = bc.customer_charge - bc.efdt_cost;
-                  return (
-                    <tr key={tier} className="border-t border-border">
-                      <td className="px-2 py-1 capitalize font-semibold">{tier}</td>
-                      <td className="px-1 py-1">
-                        <input type="number" step="0.1" className={inputCls + " text-right w-20"} value={weights[tier].weight_kg}
-                          onChange={e => setWeights(w => ({ ...w, [tier]: { ...w[tier], weight_kg: Number(e.target.value) || 0 } }))} />
-                      </td>
-                      <td className="px-1 py-1">
-                        <input type="text" className={inputCls + " text-right w-24"} value={String(weights[tier].rounded_kg)}
-                          onChange={e => {
-                            const val = e.target.value;
-                            const asNum = Number(val);
-                            setWeights(w => ({ ...w, [tier]: { ...w[tier], rounded_kg: isNaN(asNum) || val.includes("+") ? val : asNum } }));
-                          }} />
-                      </td>
-                      <td className="px-1 py-1">
-                        <input type="number" className={inputCls + " text-right w-14"} value={weights[tier].bookings}
-                          onChange={e => setWeights(w => ({ ...w, [tier]: { ...w[tier], bookings: Number(e.target.value) || 1 } }))} />
-                      </td>
-                      <td className="px-2 py-1 text-right font-mono">{fmtN(bc.efdt_cost)}</td>
-                      <td className="px-2 py-1 text-right font-mono">{fmtN(bc.customer_charge)}</td>
-                      <td className="px-2 py-1 text-right font-mono text-forest font-semibold">{fmtN(profit)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="mt-3">
-            <label className={labelCls}>Free delivery threshold (₦)</label>
-            <input type="number" className={inputCls} value={threshold ?? ""} onChange={e => setThreshold(e.target.value ? Number(e.target.value) : null)} placeholder="Leave blank for none" />
-          </div>
+          <label className={labelCls}>Zone</label>
+          <select className={inputCls} value={draft.zone_id} onChange={e => setDraft({ ...draft, zone_id: e.target.value })}>
+            {zones.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>Courier</label>
+          <select className={inputCls} value={draft.courier_id} onChange={e => setDraft({ ...draft, courier_id: e.target.value })}>
+            <option value="">Select…</option>
+            {couriers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>Priority</label>
+          <input type="number" className={inputCls} value={draft.priority} onChange={e => setDraft({ ...draft, priority: Number(e.target.value) })} />
+        </div>
+        <div>
+          <label className={labelCls}>Condition Type</label>
+          <select className={inputCls} value={draft.condition_type} onChange={e => setDraft({ ...draft, condition_type: e.target.value, condition_value: null })}>
+            {Object.entries(CONDITION_BADGE).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+          </select>
         </div>
       </div>
+      <div>
+        <label className={labelCls}>Condition Value</label>
+        <ConditionValueEditor type={(draft.condition_type || "always") as ZoneConditionType} value={draft.condition_value} onChange={v => setDraft({ ...draft, condition_value: v })} />
+      </div>
+      <div>
+        <label className={labelCls}>Notes</label>
+        <textarea className={inputCls + " h-16"} value={draft.notes || ""} onChange={e => setDraft({ ...draft, notes: e.target.value })} />
+      </div>
+      <div className="flex items-center gap-2 justify-end">
+        <button onClick={() => setOpen(false)} className="text-xs text-text-med hover:text-foreground">Cancel</button>
+        <button onClick={submit} className={saveBtnCls}><Save className="w-3.5 h-3.5" /> Save</button>
+      </div>
+    </div>
+  );
+}
 
-      {warnings.length > 0 && (
-        <div className="mt-4 bg-amber-50 border border-amber-300 text-amber-900 rounded-lg p-3 text-xs">
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-            <div>
-              <div className="font-bold mb-1">Validation issues</div>
-              <ul className="list-disc list-inside space-y-0.5">
-                {warnings.map((w, i) => <li key={i}>{w}</li>)}
-              </ul>
+// ---------------------------------------------------------------------------
+// TAB 3 — Rate Cards
+// ---------------------------------------------------------------------------
+
+function RateCardsTab() {
+  const { data: zones } = useShippingZonesAdmin();
+  const { data: couriers } = useCouriers();
+  const { data: cards, isLoading } = useCourierRateCards();
+  const upsert = useUpsertRateCard();
+  const del = useDeleteRateCard();
+
+  if (isLoading) return <div className="text-center py-10 text-text-med text-sm">Loading rate cards…</div>;
+
+  const byZone = new Map<string, CourierRateCard[]>();
+  (zones || []).forEach(z => byZone.set(z.id, []));
+  (cards || []).forEach(c => {
+    if (!byZone.has(c.zone_id)) byZone.set(c.zone_id, []);
+    byZone.get(c.zone_id)!.push(c);
+  });
+
+  return (
+    <div className="space-y-6">
+      {(zones || []).map(zone => {
+        const rows = byZone.get(zone.id) || [];
+        return (
+          <div key={zone.id} className="bg-card border border-border rounded-xl overflow-hidden">
+            <div className="p-4 border-b border-border">
+              <h3 className="font-bold text-sm">{zone.name}</h3>
+              <div className="text-[10px] text-text-light mt-0.5">{rows.length} rate card{rows.length === 1 ? "" : "s"}</div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="bg-muted/40">
+                  <tr className="text-left">
+                    <th className="px-3 py-2">Courier</th>
+                    <th className="px-3 py-2">Rate Type</th>
+                    <th className="px-3 py-2 text-right">Partner Cost</th>
+                    <th className="px-3 py-2 text-right">Markup %</th>
+                    <th className="px-3 py-2 text-right">Customer Rate</th>
+                    <th className="px-3 py-2 text-right">Weight limit</th>
+                    <th className="px-3 py-2 text-right">Bulk min</th>
+                    <th className="px-3 py-2">Days</th>
+                    <th className="px-3 py-2 text-right">Override</th>
+                    <th className="px-3 py-2 w-16">Active</th>
+                    <th className="px-3 py-2 w-24 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.length === 0 && (
+                    <tr><td colSpan={11} className="px-3 py-4 text-center text-text-light">No rate cards for this zone.</td></tr>
+                  )}
+                  {rows.map(c => (
+                    <RateCardRow
+                      key={c.id}
+                      card={c}
+                      couriers={couriers || []}
+                      onSave={p => upsert.mutateAsync(p).then(() => toast.success("Saved")).catch(e => toast.error(e.message || "Save failed"))}
+                      onDelete={() => { if (confirm("Delete this rate card?")) del.mutateAsync(c.id).then(() => toast.success("Deleted")).catch(e => toast.error(e.message || "Delete failed")); }}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="p-3 border-t border-border">
+              <RateCardAddForm
+                zoneId={zone.id}
+                couriers={couriers || []}
+                onCreate={p => upsert.mutateAsync(p).then(() => toast.success("Created")).catch(e => toast.error(e.message || "Create failed"))}
+              />
             </div>
           </div>
-        </div>
-      )}
+        );
+      })}
+    </div>
+  );
+}
 
-      <div className="flex justify-end mt-4">
-        <button onClick={save} disabled={update.isPending || warnings.length > 0} className={saveBtnCls}>
-          <Save className="w-4 h-4" /> {update.isPending ? "Saving…" : "Save Zone"}
+function RateCardRow({
+  card, couriers, onSave, onDelete,
+}: {
+  card: CourierRateCard;
+  couriers: Courier[];
+  onSave: (p: Partial<CourierRateCard>) => Promise<any>;
+  onDelete: () => void;
+}) {
+  const [draft, setDraft] = useState<CourierRateCard>(card);
+  useEffect(() => { setDraft(card); }, [card]);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(card);
+  const overridden = draft.customer_rate_override != null;
+  const customerRate = customerRateFromCard(draft);
+  const daysStr = (draft.applies_on_days || []).join(",");
+
+  const save = () => onSave({
+    id: draft.id,
+    courier_id: draft.courier_id,
+    rate_type: draft.rate_type,
+    partner_cost: draft.partner_cost,
+    markup_pct: draft.markup_pct,
+    customer_rate_override: draft.customer_rate_override,
+    bulk_min_orders: draft.bulk_min_orders,
+    weight_limit_kg: draft.weight_limit_kg,
+    applies_on_days: draft.applies_on_days,
+    notes: draft.notes,
+    is_active: draft.is_active,
+  });
+
+  return (
+    <tr className="border-t border-border align-top">
+      <td className="px-3 py-2">
+        <select className={inputCls + " w-32"} value={draft.courier_id} onChange={e => setDraft({ ...draft, courier_id: e.target.value })}>
+          {couriers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+      </td>
+      <td className="px-3 py-2">
+        <input className={inputCls + " w-28"} value={draft.rate_type} onChange={e => setDraft({ ...draft, rate_type: e.target.value })} placeholder="standard" />
+      </td>
+      <td className="px-3 py-2 text-right">
+        <div className="flex items-center gap-1 justify-end">
+          <span className="text-text-light">₦</span>
+          <input type="number" className={inputCls + " w-24 text-right"} value={fromKobo(draft.partner_cost)} onChange={e => setDraft({ ...draft, partner_cost: toKobo(e.target.value) })} />
+        </div>
+      </td>
+      <td className="px-3 py-2 text-right">
+        <input type="number" step="0.1" className={inputCls + " w-20 text-right"} value={draft.markup_pct} onChange={e => setDraft({ ...draft, markup_pct: Number(e.target.value) })} />
+      </td>
+      <td className="px-3 py-2 text-right tabular-nums">
+        <span className={overridden ? "text-text-light line-through" : "font-semibold"}>{fmtNaira(customerRateFromCard({ ...draft, customer_rate_override: null }))}</span>
+        {overridden && (
+          <div className="text-[9px] text-amber-700 font-semibold inline-flex items-center gap-1 mt-0.5">
+            <AlertTriangle className="w-2.5 h-2.5" /> override
+          </div>
+        )}
+        {overridden && <div className="font-bold text-forest">{fmtNaira(customerRate)}</div>}
+      </td>
+      <td className="px-3 py-2 text-right">
+        <input type="number" step="0.1" className={inputCls + " w-20 text-right"} value={draft.weight_limit_kg ?? ""} onChange={e => setDraft({ ...draft, weight_limit_kg: e.target.value ? Number(e.target.value) : null })} />
+      </td>
+      <td className="px-3 py-2 text-right">
+        <input type="number" className={inputCls + " w-16 text-right"} value={draft.bulk_min_orders ?? ""} onChange={e => setDraft({ ...draft, bulk_min_orders: e.target.value ? Number(e.target.value) : null })} />
+      </td>
+      <td className="px-3 py-2">
+        <input className={inputCls + " w-28"} placeholder="mon,tue,…" value={daysStr}
+          onChange={e => setDraft({ ...draft, applies_on_days: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })} />
+      </td>
+      <td className="px-3 py-2 text-right">
+        <div className="flex items-center gap-1 justify-end">
+          <span className="text-text-light">₦</span>
+          <input type="number" className={inputCls + " w-24 text-right"} value={draft.customer_rate_override != null ? fromKobo(draft.customer_rate_override) : ""} placeholder="—"
+            onChange={e => setDraft({ ...draft, customer_rate_override: e.target.value === "" ? null : toKobo(e.target.value) })} />
+        </div>
+      </td>
+      <td className="px-3 py-2">
+        <label className="relative inline-flex cursor-pointer items-center">
+          <input type="checkbox" className="peer sr-only" checked={draft.is_active} onChange={() => setDraft({ ...draft, is_active: !draft.is_active })} />
+          <div className="peer h-5 w-9 rounded-full bg-muted after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow after:transition-all peer-checked:bg-forest peer-checked:after:translate-x-4" />
+        </label>
+      </td>
+      <td className="px-3 py-2 text-right whitespace-nowrap">
+        <button onClick={save} disabled={!dirty} className="text-forest hover:underline text-xs font-semibold mr-2 disabled:text-text-light disabled:no-underline">Save</button>
+        <button onClick={onDelete} className="text-destructive"><Trash2 className="w-3.5 h-3.5 inline-block" /></button>
+      </td>
+    </tr>
+  );
+}
+
+function RateCardAddForm({ zoneId, couriers, onCreate }: {
+  zoneId: string; couriers: Courier[]; onCreate: (p: Partial<CourierRateCard>) => Promise<any>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<Partial<CourierRateCard>>({
+    zone_id: zoneId, courier_id: "", rate_type: "standard",
+    partner_cost: 0, markup_pct: 10, customer_rate_override: null,
+    bulk_min_orders: 5, weight_limit_kg: null, applies_on_days: [], notes: "", is_active: true,
+  });
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className="inline-flex items-center gap-1.5 bg-forest-light text-forest px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-forest/20">
+        <Plus className="w-3.5 h-3.5" /> Add rate card
+      </button>
+    );
+  }
+
+  const preview = customerRateFromCard({
+    partner_cost: Number(draft.partner_cost) || 0,
+    markup_pct: Number(draft.markup_pct) || 0,
+    customer_rate_override: draft.customer_rate_override ?? null,
+  });
+
+  const submit = async () => {
+    if (!draft.courier_id) { toast.error("Courier required"); return; }
+    await onCreate({ ...draft, zone_id: zoneId });
+    setOpen(false);
+  };
+
+  return (
+    <div className="bg-muted/30 border border-border rounded-lg p-3 space-y-2">
+      <div className="grid md:grid-cols-4 gap-2">
+        <div>
+          <label className={labelCls}>Courier</label>
+          <select className={inputCls} value={draft.courier_id} onChange={e => setDraft({ ...draft, courier_id: e.target.value })}>
+            <option value="">Select…</option>
+            {couriers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>Rate type</label>
+          <input className={inputCls} value={draft.rate_type} onChange={e => setDraft({ ...draft, rate_type: e.target.value })} />
+        </div>
+        <div>
+          <label className={labelCls}>Partner cost (₦)</label>
+          <input type="number" className={inputCls} value={fromKobo(draft.partner_cost)} onChange={e => setDraft({ ...draft, partner_cost: toKobo(e.target.value) })} />
+        </div>
+        <div>
+          <label className={labelCls}>Markup %</label>
+          <input type="number" step="0.1" className={inputCls} value={draft.markup_pct} onChange={e => setDraft({ ...draft, markup_pct: Number(e.target.value) })} />
+        </div>
+        <div>
+          <label className={labelCls}>Weight limit (kg)</label>
+          <input type="number" step="0.1" className={inputCls} value={draft.weight_limit_kg ?? ""} onChange={e => setDraft({ ...draft, weight_limit_kg: e.target.value ? Number(e.target.value) : null })} />
+        </div>
+        <div>
+          <label className={labelCls}>Bulk min orders</label>
+          <input type="number" className={inputCls} value={draft.bulk_min_orders ?? ""} onChange={e => setDraft({ ...draft, bulk_min_orders: e.target.value ? Number(e.target.value) : null })} />
+        </div>
+        <div>
+          <label className={labelCls}>Override (₦)</label>
+          <input type="number" className={inputCls} placeholder="—"
+            value={draft.customer_rate_override != null ? fromKobo(draft.customer_rate_override) : ""}
+            onChange={e => setDraft({ ...draft, customer_rate_override: e.target.value === "" ? null : toKobo(e.target.value) })} />
+        </div>
+        <div>
+          <label className={labelCls}>Customer rate preview</label>
+          <div className="px-3 py-2 text-sm font-bold text-forest bg-forest/5 rounded-lg">{fmtNaira(preview)}</div>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 justify-end">
+        <button onClick={() => setOpen(false)} className="text-xs text-text-med hover:text-foreground">Cancel</button>
+        <button onClick={submit} className={saveBtnCls}><Save className="w-3.5 h-3.5" /> Save</button>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// TAB 4 — Interstate Rates
+// ---------------------------------------------------------------------------
+
+// Bundle weight profile (Starter / Standard / Premium). `bookings` = how many
+// 10kg (or defined weight_limit) bookings the bundle requires.
+const BUNDLES = [
+  { name: "Starter",  actualKg: 9.2,  bookings: 1, breakdown: "10kg" },
+  { name: "Standard", actualKg: 16.1, bookings: 2, breakdown: "10+7kg" },
+  { name: "Premium",  actualKg: 28.3, bookings: 3, breakdown: "10+10+9kg" },
+];
+
+function InterstateRatesTab() {
+  const { data: zones } = useShippingZonesAdmin();
+  const { data: couriers } = useCouriers();
+  const { data: rates, isLoading } = useCourierInterstateRates();
+  const upsert = useUpsertInterstateRate();
+  const del = useDeleteInterstateRate();
+
+  if (isLoading) return <div className="text-center py-10 text-text-med text-sm">Loading interstate rates…</div>;
+
+  // Interstate zones are the non-Lagos ones.
+  const interstateZones = (zones || []).filter(z => !(z.states || []).includes("Lagos"));
+  const byZone = new Map<string, CourierInterstateRate[]>();
+  interstateZones.forEach(z => byZone.set(z.id, []));
+  (rates || []).forEach(r => {
+    if (!byZone.has(r.zone_id)) byZone.set(r.zone_id, []);
+    byZone.get(r.zone_id)!.push(r);
+  });
+
+  return (
+    <div className="space-y-6">
+      {interstateZones.length === 0 && (
+        <div className="text-center py-10 text-text-med text-sm">No interstate zones configured (non-Lagos).</div>
+      )}
+      {interstateZones.map(zone => {
+        const rows = (byZone.get(zone.id) || []).sort((a, b) => a.weight_kg_max - b.weight_kg_max);
+        return (
+          <InterstateZoneCard
+            key={zone.id}
+            zone={zone}
+            rows={rows}
+            couriers={couriers || []}
+            onSave={p => upsert.mutateAsync(p).then(() => toast.success("Saved")).catch(e => toast.error(e.message || "Save failed"))}
+            onDelete={id => del.mutateAsync(id).then(() => toast.success("Deleted")).catch(e => toast.error(e.message || "Delete failed"))}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function InterstateZoneCard({
+  zone, rows, couriers, onSave, onDelete,
+}: {
+  zone: AdminShippingZone;
+  rows: CourierInterstateRate[];
+  couriers: Courier[];
+  onSave: (p: Partial<CourierInterstateRate>) => Promise<any>;
+  onDelete: (id: string) => Promise<any>;
+}) {
+  const [local, setLocal] = useState<CourierInterstateRate[]>(rows);
+  const [globalMarkup, setGlobalMarkup] = useState<string>("");
+
+  useEffect(() => { setLocal(rows); }, [rows]);
+
+  // Make sure we always have 10 rows (1kg through 10kg) — any missing kg
+  // becomes a placeholder the admin can fill & save.
+  const completeRows = useMemo(() => {
+    const result: Array<Partial<CourierInterstateRate> & { weight_kg_max: number }> = [];
+    for (let kg = 1; kg <= 10; kg++) {
+      const existing = local.find(r => Number(r.weight_kg_max) === kg);
+      if (existing) result.push(existing);
+      else result.push({
+        zone_id: zone.id,
+        weight_kg_max: kg,
+        partner_cost: 0,
+        markup_pct: 10,
+        courier_id: couriers[0]?.id || "",
+        is_active: true,
+      });
+    }
+    return result;
+  }, [local, zone.id, couriers]);
+
+  const updateRow = (idx: number, patch: Partial<CourierInterstateRate>) => {
+    // Keep the full 10-row draft list in `local`, saved rows and unsaved
+    // placeholders alike. We re-derive `completeRows` from `local` via the
+    // weight_kg_max lookup above, so this is the single source of truth.
+    const next = [...completeRows];
+    next[idx] = { ...next[idx], ...patch } as any;
+    setLocal(next as any);
+  };
+
+  const saveRow = async (row: any) => {
+    const payload: Partial<CourierInterstateRate> = {
+      id: row.id,
+      courier_id: row.courier_id,
+      zone_id: zone.id,
+      weight_kg_max: Number(row.weight_kg_max),
+      partner_cost: Number(row.partner_cost) || 0,
+      markup_pct: Number(row.markup_pct) || 0,
+      is_active: row.is_active ?? true,
+    };
+    if (!payload.courier_id) { toast.error("Pick a courier first"); return; }
+    await onSave(payload);
+  };
+
+  const applyGlobalMarkup = async () => {
+    const pct = Number(globalMarkup);
+    if (!isFinite(pct) || pct < 0) { toast.error("Enter a valid markup %"); return; }
+    if (!confirm(`Apply ${pct}% markup to all rows in ${zone.name}?`)) return;
+    await Promise.all(
+      completeRows.filter(r => r.id).map(r => onSave({ id: r.id, markup_pct: pct }))
+    );
+    toast.success("Markup applied to all rows");
+    setGlobalMarkup("");
+  };
+
+  // Bundle cost breakdown
+  const bundleRows = BUNDLES.map(b => {
+    const perBookingKg = 10;
+    const totalKg = b.actualKg;
+    // Naively: cost per booking = rate for the max-kg row (10kg). Profit per booking
+    // uses customer rate (cost + markup).
+    const kgRow = completeRows.find(r => Number(r.weight_kg_max) === perBookingKg);
+    const ourCost = (kgRow ? Number(kgRow.partner_cost) || 0 : 0) * b.bookings;
+    const customer = (kgRow ? customerRateFromInterstate({ partner_cost: Number(kgRow.partner_cost) || 0, markup_pct: Number(kgRow.markup_pct) || 0 }) : 0) * b.bookings;
+    return { ...b, totalKg, ourCost, customer, profit: customer - ourCost };
+  });
+
+  return (
+    <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="p-4 border-b border-border flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h3 className="font-bold text-sm">{zone.name}</h3>
+          <div className="text-[10px] text-text-light mt-0.5">{rows.length} rows · interstate</div>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-[11px] text-text-med">Apply same markup to all rows:</label>
+          <input type="number" step="0.1" className={inputCls + " w-20"} value={globalMarkup} onChange={e => setGlobalMarkup(e.target.value)} placeholder="%" />
+          <button onClick={applyGlobalMarkup} className={saveBtnCls + " !py-1.5"}>Apply</button>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead className="bg-muted/40">
+            <tr className="text-left">
+              <th className="px-3 py-2 w-16">Weight</th>
+              <th className="px-3 py-2">Courier</th>
+              <th className="px-3 py-2 text-right">Partner Cost</th>
+              <th className="px-3 py-2 text-right">Markup %</th>
+              <th className="px-3 py-2 text-right">Customer Rate</th>
+              <th className="px-3 py-2 w-24 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {completeRows.map((r, idx) => {
+              const customer = customerRateFromInterstate({ partner_cost: Number(r.partner_cost) || 0, markup_pct: Number(r.markup_pct) || 0 });
+              return (
+                <tr key={r.id || `new-${r.weight_kg_max}`} className="border-t border-border">
+                  <td className="px-3 py-2 font-semibold">{r.weight_kg_max} kg</td>
+                  <td className="px-3 py-2">
+                    <select className={inputCls + " w-36"} value={r.courier_id || ""} onChange={e => updateRow(idx, { courier_id: e.target.value })}>
+                      <option value="">Select…</option>
+                      {couriers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    <div className="flex items-center gap-1 justify-end">
+                      <span className="text-text-light">₦</span>
+                      <input type="number" className={inputCls + " w-24 text-right"} value={fromKobo(r.partner_cost)} onChange={e => updateRow(idx, { partner_cost: toKobo(e.target.value) })} />
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    <input type="number" step="0.1" className={inputCls + " w-20 text-right"} value={r.markup_pct ?? 10} onChange={e => updateRow(idx, { markup_pct: Number(e.target.value) })} />
+                  </td>
+                  <td className="px-3 py-2 text-right font-bold text-forest tabular-nums">{fmtNaira(customer)}</td>
+                  <td className="px-3 py-2 text-right whitespace-nowrap">
+                    <button onClick={() => saveRow(r)} className="text-forest hover:underline text-xs font-semibold mr-2">Save</button>
+                    {r.id && <button onClick={() => { if (confirm("Delete row?")) onDelete(r.id!); }} className="text-destructive"><Trash2 className="w-3.5 h-3.5 inline-block" /></button>}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="p-4 border-t border-border">
+        <h4 className={sectionCls + " flex items-center gap-1"}><Calculator className="w-3.5 h-3.5" /> Bundle cost breakdown</h4>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-muted/40">
+              <tr className="text-left">
+                <th className="px-3 py-2">Bundle</th>
+                <th className="px-3 py-2">Weight</th>
+                <th className="px-3 py-2 text-right">Bookings</th>
+                <th className="px-3 py-2 text-right">Our Cost</th>
+                <th className="px-3 py-2 text-right">Customer Rate</th>
+                <th className="px-3 py-2 text-right">Profit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {bundleRows.map(b => (
+                <tr key={b.name} className="border-t border-border">
+                  <td className="px-3 py-2 font-semibold">{b.name}</td>
+                  <td className="px-3 py-2 text-text-med">{b.actualKg}kg → {b.breakdown}</td>
+                  <td className="px-3 py-2 text-right">{b.bookings}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{fmtNaira(b.ourCost)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums font-semibold">{fmtNaira(b.customer)}</td>
+                  <td className={`px-3 py-2 text-right tabular-nums font-bold ${b.profit >= 0 ? "text-forest" : "text-destructive"}`}>{fmtNaira(b.profit)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// TAB 5 — Routing Rules
+// ---------------------------------------------------------------------------
+
+function RoutingRulesTab() {
+  const { data: rule, isLoading } = useCourierRoutingRules();
+  const { data: couriers } = useCouriers();
+  const { data: zones } = useShippingZonesAdmin();
+  const { data: assignments } = useCourierZoneAssignments();
+  const upsert = useUpsertRoutingRule();
+
+  const [draft, setDraft] = useState<Partial<CourierRoutingRule> | null>(null);
+  useEffect(() => {
+    if (rule) setDraft(rule);
+    else if (!isLoading) {
+      setDraft({
+        rule_name: "default", strategy: "cheapest",
+        preferred_courier_id: null, bulk_order_threshold: 5, bulk_window_hours: 24,
+        interstate_courier_id: null, fallback_courier_id: null, is_active: true, notes: "",
+      });
+    }
+  }, [rule, isLoading]);
+
+  if (isLoading || !draft) return <div className="text-center py-10 text-text-med text-sm">Loading routing rules…</div>;
+
+  const strategy = (draft.strategy || "cheapest") as RoutingStrategy;
+
+  const save = async () => {
+    try {
+      await upsert.mutateAsync(draft);
+      toast.success("Routing rules saved");
+    } catch (e: any) {
+      toast.error(e.message || "Save failed");
+    }
+  };
+
+  // Today's picked courier per active zone, based on strategy.
+  const today = new Date();
+  const dayKey = WEEKDAY_KEYS[(today.getDay() + 6) % 7]; // JS 0=Sun → our mon-first index
+  const todaysDecisions = (zones || []).map(z => {
+    const zoneAssignments = (assignments || []).filter(a => a.zone_id === z.id && a.is_active);
+    if (zoneAssignments.length === 0) return { zone: z.name, chosen: "— no assignment —" };
+
+    if (strategy === "preferred" && draft.preferred_courier_id) {
+      const pref = couriers?.find(c => c.id === draft.preferred_courier_id);
+      if (pref && zoneAssignments.some(a => a.courier_id === pref.id)) {
+        return { zone: z.name, chosen: `${pref.name} (preferred)` };
+      }
+    }
+
+    // Filter by day-of-week if condition requires
+    const applicable = zoneAssignments.filter(a => {
+      if (a.condition_type === "day_of_week") {
+        const days: string[] = Array.isArray(a.condition_value?.days) ? a.condition_value.days : [];
+        return days.includes(dayKey);
+      }
+      return true;
+    });
+    if (applicable.length === 0) {
+      const fallback = zoneAssignments.find(a => a.condition_type === "fallback");
+      return { zone: z.name, chosen: fallback ? `${fallback.courier?.name || "—"} (fallback)` : "— none eligible —" };
+    }
+    const sorted = [...applicable].sort((a, b) => a.priority - b.priority);
+    return { zone: z.name, chosen: `${sorted[0].courier?.name || "—"} (priority ${sorted[0].priority})` };
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+        <h3 className="font-bold text-sm">Routing Strategy</h3>
+        <div className="space-y-2">
+          {(["cheapest", "preferred", "priority"] as const).map(s => (
+            <label key={s} className="flex items-start gap-3 cursor-pointer">
+              <input type="radio" name="strategy" className="mt-1" checked={strategy === s} onChange={() => setDraft({ ...draft, strategy: s })} />
+              <div>
+                <div className="font-semibold text-sm capitalize">
+                  {s === "cheapest" ? "Cheapest Always" : s === "preferred" ? "Preferred Partner" : "Priority Order"}
+                </div>
+                <div className="text-[11px] text-text-med">
+                  {s === "cheapest"
+                    ? "Auto-selects the lowest-cost eligible courier per order."
+                    : s === "preferred"
+                    ? "Always uses the preferred partner when available in that zone."
+                    : "Follows the priority rank set in zone assignments."}
+                </div>
+              </div>
+            </label>
+          ))}
+        </div>
+        {strategy === "preferred" && (
+          <div>
+            <label className={labelCls}>Preferred Partner</label>
+            <select className={inputCls} value={draft.preferred_courier_id || ""} onChange={e => setDraft({ ...draft, preferred_courier_id: e.target.value || null })}>
+              <option value="">Select…</option>
+              {(couriers || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+        )}
+      </div>
+
+      <div className="bg-card border border-border rounded-xl p-5 space-y-3">
+        <h3 className="font-bold text-sm">Bulk Settings</h3>
+        <div className="grid md:grid-cols-2 gap-3">
+          <div>
+            <label className={labelCls}>Bulk order threshold</label>
+            <input type="number" className={inputCls} value={draft.bulk_order_threshold ?? 5} onChange={e => setDraft({ ...draft, bulk_order_threshold: e.target.value ? Number(e.target.value) : null })} />
+            <div className="text-[10px] text-text-light mt-1">Use bulk rates when dispatching this many orders on the same day.</div>
+          </div>
+          <div>
+            <label className={labelCls}>Bulk window (hours)</label>
+            <input type="number" className={inputCls} value={draft.bulk_window_hours ?? 24} onChange={e => setDraft({ ...draft, bulk_window_hours: e.target.value ? Number(e.target.value) : null })} />
+            <div className="text-[10px] text-text-light mt-1">Rolling window used to count same-day orders.</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-card border border-border rounded-xl p-5 space-y-3">
+        <h3 className="font-bold text-sm">Special Couriers</h3>
+        <div className="grid md:grid-cols-2 gap-3">
+          <div>
+            <label className={labelCls}>Interstate courier</label>
+            <select className={inputCls} value={draft.interstate_courier_id || ""} onChange={e => setDraft({ ...draft, interstate_courier_id: e.target.value || null })}>
+              <option value="">Select…</option>
+              {(couriers || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <div className="text-[10px] text-text-light mt-1">Always use this courier for non-Lagos orders.</div>
+          </div>
+          <div>
+            <label className={labelCls}>Fallback courier</label>
+            <select className={inputCls} value={draft.fallback_courier_id || ""} onChange={e => setDraft({ ...draft, fallback_courier_id: e.target.value || null })}>
+              <option value="">Select…</option>
+              {(couriers || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <div className="text-[10px] text-text-light mt-1">Use this when no zone matches the customer address.</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-forest/5 border border-forest/20 rounded-xl p-5">
+        <h3 className="font-bold text-sm mb-3">Today's routing preview</h3>
+        <div className="text-[11px] text-text-med mb-3">
+          Based on the current settings, {new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}'s orders will be dispatched as follows:
+        </div>
+        <div className="space-y-1.5">
+          {todaysDecisions.map(d => (
+            <div key={d.zone} className="flex items-center justify-between text-xs border-b border-border/40 py-1.5">
+              <span className="font-semibold">{d.zone}</span>
+              <span className="text-text-med">{d.chosen}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex justify-end">
+        <button onClick={save} disabled={upsert.isPending} className={saveBtnCls}>
+          <Save className="w-4 h-4" /> {upsert.isPending ? "Saving…" : "Save routing rules"}
         </button>
       </div>
     </div>
