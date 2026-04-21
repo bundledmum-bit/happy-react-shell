@@ -4573,6 +4573,29 @@ export type Database = {
             }
             Returns: Json
           }
+        | {
+            Args: {
+              p_bundle_tier?: string
+              p_daily_order_count?: number
+              p_delivery_city: string
+              p_delivery_state: string
+              p_order_day?: string
+              p_order_weight_kg?: number
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_bundle_tier?: string
+              p_daily_order_count?: number
+              p_delivery_city: string
+              p_delivery_state: string
+              p_order_day?: string
+              p_order_subtotal?: number
+              p_order_weight_kg?: number
+            }
+            Returns: Json
+          }
       get_delivery_fee: {
         Args: { p_city: string; p_state: string; p_subtotal: number }
         Returns: {
