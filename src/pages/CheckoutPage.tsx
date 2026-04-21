@@ -649,7 +649,7 @@ export default function CheckoutPage() {
                     Delivery ({deliveryCalc.zoneName})
                     {deliveryCalc.isInterstate && (deliveryCalc as any).bookingsNeeded ? (
                       <span className="block text-[10px] text-text-light mt-0.5">
-                        ~{Number((deliveryCalc as any).weightKg).toFixed(1)}kg · {(deliveryCalc as any).bookingsNeeded} eFTD booking{(deliveryCalc as any).bookingsNeeded === 1 ? "" : "s"} · final fee confirmed at dispatch
+                        Based on order weight (~{Number((deliveryCalc as any).weightKg).toFixed(1)}kg) — final fee confirmed at dispatch
                       </span>
                     ) : null}
                   </span>
@@ -928,7 +928,7 @@ export default function CheckoutPage() {
                     Delivery ({deliveryCalc.zoneName})
                     {deliveryCalc.isInterstate && (deliveryCalc as any).bookingsNeeded ? (
                       <span className="block text-[10px] text-text-light mt-0.5">
-                        ~{Number((deliveryCalc as any).weightKg).toFixed(1)}kg · {(deliveryCalc as any).bookingsNeeded} eFTD booking{(deliveryCalc as any).bookingsNeeded === 1 ? "" : "s"} · final fee confirmed at dispatch
+                        Based on order weight (~{Number((deliveryCalc as any).weightKg).toFixed(1)}kg) — final fee confirmed at dispatch
                       </span>
                     ) : null}
                   </span>
