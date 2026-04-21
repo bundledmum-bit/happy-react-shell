@@ -938,6 +938,328 @@ export type Database = {
         }
         Relationships: []
       }
+      courier_interstate_rates: {
+        Row: {
+          courier_id: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          markup_pct: number
+          partner_cost: number
+          updated_at: string | null
+          weight_kg_max: number
+          weight_limit_per_booking_kg: number | null
+          weight_rounding: string | null
+          zone_id: string
+        }
+        Insert: {
+          courier_id: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          markup_pct?: number
+          partner_cost: number
+          updated_at?: string | null
+          weight_kg_max: number
+          weight_limit_per_booking_kg?: number | null
+          weight_rounding?: string | null
+          zone_id: string
+        }
+        Update: {
+          courier_id?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          markup_pct?: number
+          partner_cost?: number
+          updated_at?: string | null
+          weight_kg_max?: number
+          weight_limit_per_booking_kg?: number | null
+          weight_rounding?: string | null
+          zone_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "courier_interstate_rates_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "couriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courier_interstate_rates_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "shipping_zones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      courier_rate_cards: {
+        Row: {
+          applies_on_days: string[] | null
+          bulk_min_orders: number | null
+          courier_id: string
+          created_at: string | null
+          customer_rate_override: number | null
+          id: string
+          is_active: boolean | null
+          markup_pct: number
+          notes: string | null
+          partner_cost: number
+          rate_type: string
+          updated_at: string | null
+          weight_limit_kg: number | null
+          weight_rounding: string | null
+          zone_id: string
+        }
+        Insert: {
+          applies_on_days?: string[] | null
+          bulk_min_orders?: number | null
+          courier_id: string
+          created_at?: string | null
+          customer_rate_override?: number | null
+          id?: string
+          is_active?: boolean | null
+          markup_pct?: number
+          notes?: string | null
+          partner_cost?: number
+          rate_type: string
+          updated_at?: string | null
+          weight_limit_kg?: number | null
+          weight_rounding?: string | null
+          zone_id: string
+        }
+        Update: {
+          applies_on_days?: string[] | null
+          bulk_min_orders?: number | null
+          courier_id?: string
+          created_at?: string | null
+          customer_rate_override?: number | null
+          id?: string
+          is_active?: boolean | null
+          markup_pct?: number
+          notes?: string | null
+          partner_cost?: number
+          rate_type?: string
+          updated_at?: string | null
+          weight_limit_kg?: number | null
+          weight_rounding?: string | null
+          zone_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "courier_rate_cards_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "couriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courier_rate_cards_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "shipping_zones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      courier_routing_rules: {
+        Row: {
+          bulk_order_threshold: number | null
+          bulk_window_hours: number | null
+          created_at: string | null
+          fallback_courier_id: string | null
+          id: string
+          interstate_courier_id: string | null
+          is_active: boolean | null
+          notes: string | null
+          preferred_courier_id: string | null
+          rule_name: string
+          strategy: string
+          undeliverable_areas: string[] | null
+          updated_at: string | null
+        }
+        Insert: {
+          bulk_order_threshold?: number | null
+          bulk_window_hours?: number | null
+          created_at?: string | null
+          fallback_courier_id?: string | null
+          id?: string
+          interstate_courier_id?: string | null
+          is_active?: boolean | null
+          notes?: string | null
+          preferred_courier_id?: string | null
+          rule_name?: string
+          strategy?: string
+          undeliverable_areas?: string[] | null
+          updated_at?: string | null
+        }
+        Update: {
+          bulk_order_threshold?: number | null
+          bulk_window_hours?: number | null
+          created_at?: string | null
+          fallback_courier_id?: string | null
+          id?: string
+          interstate_courier_id?: string | null
+          is_active?: boolean | null
+          notes?: string | null
+          preferred_courier_id?: string | null
+          rule_name?: string
+          strategy?: string
+          undeliverable_areas?: string[] | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "courier_routing_rules_fallback_courier_id_fkey"
+            columns: ["fallback_courier_id"]
+            isOneToOne: false
+            referencedRelation: "couriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courier_routing_rules_interstate_courier_id_fkey"
+            columns: ["interstate_courier_id"]
+            isOneToOne: false
+            referencedRelation: "couriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courier_routing_rules_preferred_courier_id_fkey"
+            columns: ["preferred_courier_id"]
+            isOneToOne: false
+            referencedRelation: "couriers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      courier_zone_assignments: {
+        Row: {
+          condition_type: string
+          condition_value: Json | null
+          courier_id: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          notes: string | null
+          priority: number
+          zone_id: string
+        }
+        Insert: {
+          condition_type?: string
+          condition_value?: Json | null
+          courier_id: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          notes?: string | null
+          priority?: number
+          zone_id: string
+        }
+        Update: {
+          condition_type?: string
+          condition_value?: Json | null
+          courier_id?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          notes?: string | null
+          priority?: number
+          zone_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "courier_zone_assignments_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "couriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courier_zone_assignments_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "shipping_zones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      couriers: {
+        Row: {
+          address: string | null
+          contact_email: string | null
+          contact_phone: string | null
+          contact_whatsapp: string | null
+          coverage: string[] | null
+          created_at: string | null
+          display_order: number | null
+          excluded_areas: string[] | null
+          express_available: boolean | null
+          express_surcharge: number | null
+          id: string
+          is_active: boolean | null
+          name: string
+          pricing_model: string | null
+          special_notes: string | null
+          subscription_plans: Json | null
+          updated_at: string | null
+          website: string | null
+          weight_limit_kg: number | null
+          weight_rounding: string | null
+          working_days: string | null
+          working_hours: string | null
+        }
+        Insert: {
+          address?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          contact_whatsapp?: string | null
+          coverage?: string[] | null
+          created_at?: string | null
+          display_order?: number | null
+          excluded_areas?: string[] | null
+          express_available?: boolean | null
+          express_surcharge?: number | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          pricing_model?: string | null
+          special_notes?: string | null
+          subscription_plans?: Json | null
+          updated_at?: string | null
+          website?: string | null
+          weight_limit_kg?: number | null
+          weight_rounding?: string | null
+          working_days?: string | null
+          working_hours?: string | null
+        }
+        Update: {
+          address?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          contact_whatsapp?: string | null
+          coverage?: string[] | null
+          created_at?: string | null
+          display_order?: number | null
+          excluded_areas?: string[] | null
+          express_available?: boolean | null
+          express_surcharge?: number | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          pricing_model?: string | null
+          special_notes?: string | null
+          subscription_plans?: Json | null
+          updated_at?: string | null
+          website?: string | null
+          weight_limit_kg?: number | null
+          weight_rounding?: string | null
+          working_days?: string | null
+          working_hours?: string | null
+        }
+        Relationships: []
+      }
       custom_reports: {
         Row: {
           comparison_enabled: boolean | null
@@ -1081,6 +1403,39 @@ export type Database = {
         }
         Relationships: []
       }
+      deliverable_states: {
+        Row: {
+          created_at: string | null
+          display_order: number | null
+          has_zones: boolean | null
+          id: string
+          is_active: boolean | null
+          name: string
+          note: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          display_order?: number | null
+          has_zones?: boolean | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          note?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          display_order?: number | null
+          has_zones?: boolean | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          note?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       delivery_settings: {
         Row: {
           cities: string[] | null
@@ -1189,6 +1544,382 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           question?: string
+        }
+        Relationships: []
+      }
+      finance_assets: {
+        Row: {
+          annual_depreciation: number | null
+          asset_name: string
+          asset_type: string
+          created_at: string | null
+          depreciation_method: string | null
+          id: string
+          is_active: boolean | null
+          monthly_depreciation: number | null
+          notes: string | null
+          purchase_cost: number
+          purchase_date: string
+          residual_value: number | null
+          useful_life_years: number
+        }
+        Insert: {
+          annual_depreciation?: number | null
+          asset_name: string
+          asset_type: string
+          created_at?: string | null
+          depreciation_method?: string | null
+          id?: string
+          is_active?: boolean | null
+          monthly_depreciation?: number | null
+          notes?: string | null
+          purchase_cost: number
+          purchase_date: string
+          residual_value?: number | null
+          useful_life_years?: number
+        }
+        Update: {
+          annual_depreciation?: number | null
+          asset_name?: string
+          asset_type?: string
+          created_at?: string | null
+          depreciation_method?: string | null
+          id?: string
+          is_active?: boolean | null
+          monthly_depreciation?: number | null
+          notes?: string | null
+          purchase_cost?: number
+          purchase_date?: string
+          residual_value?: number | null
+          useful_life_years?: number
+        }
+        Relationships: []
+      }
+      finance_cogs: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          notes: string | null
+          period_month: number | null
+          period_year: number | null
+          product_id: string | null
+          product_name: string
+          purchase_date: string
+          quantity: number
+          supplier: string | null
+          total_cost: number | null
+          unit_cost: number
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          period_month?: number | null
+          period_year?: number | null
+          product_id?: string | null
+          product_name: string
+          purchase_date: string
+          quantity?: number
+          supplier?: string | null
+          total_cost?: number | null
+          unit_cost: number
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          period_month?: number | null
+          period_year?: number | null
+          product_id?: string | null
+          product_name?: string
+          purchase_date?: string
+          quantity?: number
+          supplier?: string | null
+          total_cost?: number | null
+          unit_cost?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_cogs_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_expense_categories: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          display_order: number | null
+          id: string
+          is_active: boolean | null
+          is_system: boolean | null
+          name: string
+          type: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          is_system?: boolean | null
+          name: string
+          type: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          is_system?: boolean | null
+          name?: string
+          type?: string
+        }
+        Relationships: []
+      }
+      finance_expenses: {
+        Row: {
+          amount: number
+          category_id: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string
+          expense_date: string
+          id: string
+          is_recurring: boolean | null
+          notes: string | null
+          period_month: number | null
+          period_year: number | null
+          receipt_url: string | null
+          recurrence: string | null
+          updated_at: string | null
+          vendor: string | null
+        }
+        Insert: {
+          amount: number
+          category_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description: string
+          expense_date: string
+          id?: string
+          is_recurring?: boolean | null
+          notes?: string | null
+          period_month?: number | null
+          period_year?: number | null
+          receipt_url?: string | null
+          recurrence?: string | null
+          updated_at?: string | null
+          vendor?: string | null
+        }
+        Update: {
+          amount?: number
+          category_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string
+          expense_date?: string
+          id?: string
+          is_recurring?: boolean | null
+          notes?: string | null
+          period_month?: number | null
+          period_year?: number | null
+          receipt_url?: string | null
+          recurrence?: string | null
+          updated_at?: string | null
+          vendor?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_expenses_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "finance_expense_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_payroll: {
+        Row: {
+          basic_salary: number
+          created_at: string | null
+          created_by: string | null
+          employee_name: string
+          employee_pension: number | null
+          employer_pension: number | null
+          gross_salary: number
+          housing_allowance: number | null
+          id: string
+          itf: number | null
+          net_salary: number | null
+          nhf_deduction: number | null
+          notes: string | null
+          nsitf: number | null
+          other_allowances: number | null
+          pay_month: number
+          pay_year: number
+          paye_tax: number | null
+          role: string | null
+          total_employee_deductions: number | null
+          total_employer_cost: number | null
+          transport_allowance: number | null
+        }
+        Insert: {
+          basic_salary: number
+          created_at?: string | null
+          created_by?: string | null
+          employee_name: string
+          employee_pension?: number | null
+          employer_pension?: number | null
+          gross_salary?: number
+          housing_allowance?: number | null
+          id?: string
+          itf?: number | null
+          net_salary?: number | null
+          nhf_deduction?: number | null
+          notes?: string | null
+          nsitf?: number | null
+          other_allowances?: number | null
+          pay_month: number
+          pay_year: number
+          paye_tax?: number | null
+          role?: string | null
+          total_employee_deductions?: number | null
+          total_employer_cost?: number | null
+          transport_allowance?: number | null
+        }
+        Update: {
+          basic_salary?: number
+          created_at?: string | null
+          created_by?: string | null
+          employee_name?: string
+          employee_pension?: number | null
+          employer_pension?: number | null
+          gross_salary?: number
+          housing_allowance?: number | null
+          id?: string
+          itf?: number | null
+          net_salary?: number | null
+          nhf_deduction?: number | null
+          notes?: string | null
+          nsitf?: number | null
+          other_allowances?: number | null
+          pay_month?: number
+          pay_year?: number
+          paye_tax?: number | null
+          role?: string | null
+          total_employee_deductions?: number | null
+          total_employer_cost?: number | null
+          transport_allowance?: number | null
+        }
+        Relationships: []
+      }
+      finance_periods: {
+        Row: {
+          cogs_target: number | null
+          created_at: string | null
+          id: string
+          is_closed: boolean | null
+          notes: string | null
+          opex_target: number | null
+          period_month: number | null
+          period_type: string
+          period_year: number
+          revenue_target: number | null
+        }
+        Insert: {
+          cogs_target?: number | null
+          created_at?: string | null
+          id?: string
+          is_closed?: boolean | null
+          notes?: string | null
+          opex_target?: number | null
+          period_month?: number | null
+          period_type?: string
+          period_year: number
+          revenue_target?: number | null
+        }
+        Update: {
+          cogs_target?: number | null
+          created_at?: string | null
+          id?: string
+          is_closed?: boolean | null
+          notes?: string | null
+          opex_target?: number | null
+          period_month?: number | null
+          period_type?: string
+          period_year?: number
+          revenue_target?: number | null
+        }
+        Relationships: []
+      }
+      finance_tax_settings: {
+        Row: {
+          annual_turnover_threshold: number | null
+          cit_rate: number | null
+          company_size: string
+          created_at: string | null
+          development_levy_rate: number | null
+          employee_pension_rate: number | null
+          employer_pension_rate: number | null
+          fiscal_year: number
+          id: string
+          itf_rate: number | null
+          nhf_rate: number | null
+          nsitf_rate: number | null
+          paye_bands: Json | null
+          updated_at: string | null
+          vat_rate: number | null
+          vat_registered: boolean | null
+          wht_rate_goods: number | null
+          wht_rate_services: number | null
+        }
+        Insert: {
+          annual_turnover_threshold?: number | null
+          cit_rate?: number | null
+          company_size?: string
+          created_at?: string | null
+          development_levy_rate?: number | null
+          employee_pension_rate?: number | null
+          employer_pension_rate?: number | null
+          fiscal_year: number
+          id?: string
+          itf_rate?: number | null
+          nhf_rate?: number | null
+          nsitf_rate?: number | null
+          paye_bands?: Json | null
+          updated_at?: string | null
+          vat_rate?: number | null
+          vat_registered?: boolean | null
+          wht_rate_goods?: number | null
+          wht_rate_services?: number | null
+        }
+        Update: {
+          annual_turnover_threshold?: number | null
+          cit_rate?: number | null
+          company_size?: string
+          created_at?: string | null
+          development_levy_rate?: number | null
+          employee_pension_rate?: number | null
+          employer_pension_rate?: number | null
+          fiscal_year?: number
+          id?: string
+          itf_rate?: number | null
+          nhf_rate?: number | null
+          nsitf_rate?: number | null
+          paye_bands?: Json | null
+          updated_at?: string | null
+          vat_rate?: number | null
+          vat_registered?: boolean | null
+          wht_rate_goods?: number | null
+          wht_rate_services?: number | null
         }
         Relationships: []
       }
@@ -1736,6 +2467,7 @@ export type Database = {
           cancelled_at: string | null
           cancelled_by: string | null
           coupon_id: string | null
+          courier_note: string | null
           created_at: string | null
           customer_email: string
           customer_name: string
@@ -1745,11 +2477,13 @@ export type Database = {
           delivery_city: string
           delivery_fee: number
           delivery_notes: string | null
+          delivery_partner: string | null
           delivery_state: string
           discount: number | null
           discount_amount: number | null
           estimated_delivery_end: string | null
           estimated_delivery_start: string | null
+          estimated_weight_kg: number | null
           fulfillment_notes: string | null
           gift_message: string | null
           gift_wrapping: boolean | null
@@ -1793,6 +2527,7 @@ export type Database = {
           cancelled_at?: string | null
           cancelled_by?: string | null
           coupon_id?: string | null
+          courier_note?: string | null
           created_at?: string | null
           customer_email: string
           customer_name: string
@@ -1802,11 +2537,13 @@ export type Database = {
           delivery_city: string
           delivery_fee?: number
           delivery_notes?: string | null
+          delivery_partner?: string | null
           delivery_state: string
           discount?: number | null
           discount_amount?: number | null
           estimated_delivery_end?: string | null
           estimated_delivery_start?: string | null
+          estimated_weight_kg?: number | null
           fulfillment_notes?: string | null
           gift_message?: string | null
           gift_wrapping?: boolean | null
@@ -1850,6 +2587,7 @@ export type Database = {
           cancelled_at?: string | null
           cancelled_by?: string | null
           coupon_id?: string | null
+          courier_note?: string | null
           created_at?: string | null
           customer_email?: string
           customer_name?: string
@@ -1859,11 +2597,13 @@ export type Database = {
           delivery_city?: string
           delivery_fee?: number
           delivery_notes?: string | null
+          delivery_partner?: string | null
           delivery_state?: string
           discount?: number | null
           discount_amount?: number | null
           estimated_delivery_end?: string | null
           estimated_delivery_start?: string | null
+          estimated_weight_kg?: number | null
           fulfillment_notes?: string | null
           gift_message?: string | null
           gift_wrapping?: boolean | null
@@ -2247,6 +2987,7 @@ export type Database = {
           subcategory: string | null
           updated_at: string | null
           video_url: string | null
+          weight_kg: number | null
           why_included: string | null
           why_included_variants: Json | null
         }
@@ -2295,6 +3036,7 @@ export type Database = {
           subcategory?: string | null
           updated_at?: string | null
           video_url?: string | null
+          weight_kg?: number | null
           why_included?: string | null
           why_included_variants?: Json | null
         }
@@ -2343,6 +3085,7 @@ export type Database = {
           subcategory?: string | null
           updated_at?: string | null
           video_url?: string | null
+          weight_kg?: number | null
           why_included?: string | null
           why_included_variants?: Json | null
         }
@@ -3214,6 +3957,9 @@ export type Database = {
           is_active: boolean | null
           lgas: Json | null
           name: string
+          partner_schedule: Json | null
+          primary_partner: string | null
+          secondary_partner: string | null
           states: string[] | null
         }
         Insert: {
@@ -3232,6 +3978,9 @@ export type Database = {
           is_active?: boolean | null
           lgas?: Json | null
           name: string
+          partner_schedule?: Json | null
+          primary_partner?: string | null
+          secondary_partner?: string | null
           states?: string[] | null
         }
         Update: {
@@ -3250,6 +3999,9 @@ export type Database = {
           is_active?: boolean | null
           lgas?: Json | null
           name?: string
+          partner_schedule?: Json | null
+          primary_partner?: string | null
+          secondary_partner?: string | null
           states?: string[] | null
         }
         Relationships: []
@@ -3583,6 +4335,34 @@ export type Database = {
         }
         Relationships: []
       }
+      finance_pl_summary: {
+        Row: {
+          avg_order_value_ngn: number | null
+          cogs_ngn: number | null
+          delivery_revenue_ngn: number | null
+          depreciation_ngn: number | null
+          ebit_ngn: number | null
+          ebitda_margin_pct: number | null
+          ebitda_ngn: number | null
+          fixed_opex_ngn: number | null
+          gross_margin_pct: number | null
+          gross_profit_ngn: number | null
+          gross_revenue_ngn: number | null
+          month: number | null
+          net_margin_pct: number | null
+          net_profit_ngn: number | null
+          order_count: number | null
+          payroll_cost_ngn: number | null
+          period_label: string | null
+          product_revenue_ngn: number | null
+          service_fee_revenue_ngn: number | null
+          tax_expenses_ngn: number | null
+          total_opex_ngn: number | null
+          variable_opex_ngn: number | null
+          year: number | null
+        }
+        Relationships: []
+      }
       order_lines_report: {
         Row: {
           Attributed_Channel: string | null
@@ -3712,6 +4492,10 @@ export type Database = {
         }
         Returns: Json
       }
+      calculate_tax_position: {
+        Args: { p_month?: number; p_year?: number }
+        Returns: Json
+      }
       check_realtime_access: {
         Args: { channel_name: string }
         Returns: boolean
@@ -3769,6 +4553,26 @@ export type Database = {
         }
         Returns: Json
       }
+      get_courier_assignment:
+        | {
+            Args: {
+              p_bundle_tier?: string
+              p_delivery_city: string
+              p_delivery_state: string
+              p_order_day?: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_bundle_tier?: string
+              p_daily_order_count?: number
+              p_delivery_city: string
+              p_delivery_state: string
+              p_order_day?: string
+            }
+            Returns: Json
+          }
       get_delivery_fee: {
         Args: { p_city: string; p_state: string; p_subtotal: number }
         Returns: {
