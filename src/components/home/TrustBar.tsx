@@ -10,7 +10,10 @@ export default function TrustBar({ title }: Props) {
     let sublabel = item.sublabel;
 
     if (label === "Lagos Delivery") label = "Fast Delivery";
-    if (label === "Brain Express & eFTD") label = "Same & next day delivery";
+    if (label === "Brain Express & eFTD" || sublabel === "Brain Express & eFTD") {
+      if (label === "Brain Express & eFTD") label = "Same & next day delivery";
+      if (sublabel === "Brain Express & eFTD") sublabel = "Same & next day delivery";
+    }
     if (sublabel === "Hassle-free within 7 days") sublabel = "Hassle-free within 7 days or less";
 
     return { ...item, label, sublabel };
