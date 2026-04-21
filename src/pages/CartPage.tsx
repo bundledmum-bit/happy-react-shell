@@ -8,6 +8,39 @@ import SpendMoreBanner from "@/components/SpendMoreBanner";
 import { Minus, Plus, X, ShoppingBag, ArrowLeft, Bookmark } from "lucide-react";
 import { useEffect, useState } from "react";
 
+/**
+ * Coerce a cart item's `img` value to a usable <img src>. Accepts:
+ *   - absolute URLs: http://… / https://…
+ *   - protocol-relative URLs: //…  (Jumia CDN uses these)
+ *   - paths:        /images/…  (app-local)
+ * Anything else (an emoji, or a stray filename) returns undefined so we
+ * fall back to the emoji/placeholder path instead of attempting a fetch.
+ */
+function resolveImgUrl(raw: unknown): string | undefined {
+  if (typeof raw !== "string") return undefined;
+  const s = raw.trim();
+  if (!s) return undefined;
+  if (s.startsWith("http://") || s.startsWith("https://")) return s;
+  if (s.startsWith("//")) return `https:${s}`;
+  if (s.startsWith("/")) return s;
+  return undefined;
+}
+
+/**
+ * Only pass the raw value through as an emoji fallback if it is short
+ * enough to plausibly BE an emoji. A URL or long filename must never
+ * end up rendered inside a text span — that's what causes the giant
+ * URL-bleed we've seen on broken images.
+ */
+function resolveEmojiFallback(raw: unknown): string | undefined {
+  if (typeof raw !== "string") return undefined;
+  const s = raw.trim();
+  if (!s) return undefined;
+  if (s.length > 4) return undefined;                  // too long to be a single emoji
+  if (/[a-zA-Z0-9/.:_\-\\]/.test(s)) return undefined; // looks like a URL / path / filename
+  return s;
+}
+
 export default function CartPage() {
   const { cart, setCart, subtotal, totalItems, savedItems, saveForLater, moveToCart, removeSaved } = useCart();
   const [deliveryState, setDeliveryState] = useState("Lagos");
@@ -128,7 +161,7 @@ export default function CartPage() {
             {cart.map(item => (
               <div key={item._key} className="bg-card rounded-card shadow-card p-3 sm:p-4">
                 <div className="flex items-start gap-3">
-                  <ProductImage imageUrl={typeof item.img === 'string' && item.img.startsWith('http') ? item.img : undefined} emoji={item.img || item.baseImg} alt={item.name} className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-warm-cream" emojiClassName="text-xl sm:text-2xl" />
+                  <ProductImage imageUrl={resolveImgUrl(item.img)} emoji={resolveEmojiFallback(item.img) || resolveEmojiFallback(item.baseImg)} alt={item.name} className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-warm-cream" emojiClassName="text-xl sm:text-2xl" />
                   <div className="flex-1 min-w-0">
                     <h3 className="font-body font-semibold text-[13px] sm:text-sm leading-tight line-clamp-2">{item.name}</h3>
                     <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
@@ -168,7 +201,7 @@ export default function CartPage() {
                 <div className="space-y-2">
                   {savedItems.map(item => (
                     <div key={item._key} className="bg-warm-cream rounded-card p-3 flex items-center gap-3">
-                      <ProductImage imageUrl={typeof item.img === 'string' && item.img.startsWith('http') ? item.img : undefined} emoji={item.img || item.baseImg} alt={item.name} className="w-10 h-10 rounded-lg bg-card" emojiClassName="text-xl" />
+                      <ProductImage imageUrl={resolveImgUrl(item.img)} emoji={resolveEmojiFallback(item.img) || resolveEmojiFallback(item.baseImg)} alt={item.name} className="w-10 h-10 rounded-lg bg-card" emojiClassName="text-xl" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold truncate">{item.name}</p>
                         <p className="text-coral text-xs font-bold">{fmt(item.price)}</p>

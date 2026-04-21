@@ -27,12 +27,19 @@ export default function ProductImage({
   const [broken, setBroken] = useState(false);
   const [loading, setLoading] = useState(!!imageUrl);
 
-  const fallbackEmoji = emoji || "📦";
+  // Only accept a short, non-URL-looking string as an emoji. A raw image
+  // URL accidentally passed as `emoji` would otherwise render as giant
+  // text when the image fails to load.
+  const looksLikeEmoji = typeof emoji === "string"
+    && emoji.trim().length > 0
+    && emoji.trim().length <= 4
+    && !/[a-zA-Z0-9/.:_\-\\]/.test(emoji.trim());
+  const fallbackEmoji = looksLikeEmoji ? (emoji as string).trim() : "📦";
 
   if (!imageUrl || broken) {
     return (
       <div
-        className={cn("flex items-center justify-center", className)}
+        className={cn("flex items-center justify-center overflow-hidden", className)}
         style={bgColor ? { backgroundColor: bgColor } : undefined}
       >
         <span className={emojiClassName}>{fallbackEmoji}</span>
@@ -41,7 +48,7 @@ export default function ProductImage({
   }
 
   return (
-    <div className={cn("relative", className)} style={bgColor ? { backgroundColor: bgColor } : undefined}>
+    <div className={cn("relative overflow-hidden", className)} style={bgColor ? { backgroundColor: bgColor } : undefined}>
       {loading && (
         <div className="absolute inset-0 animate-pulse bg-muted rounded-md" />
       )}
