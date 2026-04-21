@@ -115,7 +115,6 @@ export default function AdminProductForm({ product, onClose, onSaved }: Props) {
             is_default_for_tier: b.is_default_for_tier || false, size_variant: b.size_variant || null,
             display_order: i,
             image_url: b.image_url || images[0] || null,
-            images,
             logo_url: b.logo_url || null,
             thumbnail_url: b.thumbnail_url || null, compare_at_price: b.compare_at_price || null,
             stock_quantity: b.stock_quantity, in_stock: b.in_stock ?? true,
