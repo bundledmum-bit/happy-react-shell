@@ -10,12 +10,11 @@ import { usePermissions } from "@/hooks/useAdminPermissionsContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import bmLogoGreen from "@/assets/logos/BM-LOGO-GREEN.svg";
 
-const COURIER_OPTIONS = [
-  { value: "all",        label: "All Couriers" },
-  { value: "Brain Express", label: "Brain Express" },
-  { value: "eFTD Africa",   label: "eFTD Africa" },
-  { value: "unassigned",    label: "Unassigned" },
-];
+// Couriers that should always appear in the filter even before any
+// orders have been assigned to them. Anything else the backend reports
+// on existing orders is merged in at render time (see courierOptions
+// below).
+const DEFAULT_COURIER_PARTNERS = ["Brain Express", "eFTD Africa"];
 
 const ORDER_STATUSES = ["pending", "confirmed", "processing", "packed", "shipped", "delivered", "cancelled", "returned", "refunded", "failed"];
 const PAYMENT_STATUSES = ["pending", "paid", "failed", "refunded"];
@@ -122,6 +121,22 @@ export default function AdminOrders() {
   const toggleSelect = (id: string) => { const n = new Set(selected); n.has(id) ? n.delete(id) : n.add(id); setSelected(n); };
   const allSelected = filtered.length > 0 && filtered.every((o: any) => selected.has(o.id));
 
+  // Courier filter options — always include "All" + "Unassigned", plus
+  // the default known partners, plus any other partner actually present
+  // in the current orders list (so manually-set values still show up).
+  const courierOptions = useMemo(() => {
+    const seen = new Set<string>(DEFAULT_COURIER_PARTNERS);
+    (orders || []).forEach((o: any) => {
+      if (o.delivery_partner) seen.add(String(o.delivery_partner));
+    });
+    const partners = Array.from(seen).sort();
+    return [
+      { value: "all", label: "All Couriers" },
+      ...partners.map(p => ({ value: p, label: p })),
+      { value: "unassigned", label: "Unassigned" },
+    ];
+  }, [orders]);
+
   const bulkStatusUpdate = useMutation({
     mutationFn: async ({ ids, status, paymentStatus }: { ids: string[]; status?: string; paymentStatus?: string }) => {
       const update: any = {};
@@ -135,9 +150,9 @@ export default function AdminOrders() {
 
   const exportCSV = () => {
     const rows = (selected.size > 0 ? filtered.filter((o: any) => selected.has(o.id)) : filtered).map((o: any) =>
-      [o.order_number, o.customer_name, o.customer_phone, o.total, o.payment_status, o.order_status, o.payment_method, o.created_at].join(",")
+      [o.order_number, o.customer_name, o.customer_phone, o.total, o.payment_status, o.order_status, o.payment_method, o.delivery_partner || "Unassigned", o.created_at].join(",")
     );
-    const csv = "Order,Name,Phone,Total,Payment,Status,Method,Date\n" + rows.join("\n");
+    const csv = "Order,Name,Phone,Total,Payment,Status,Method,Courier,Date\n" + rows.join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = "orders-export.csv"; a.click();
@@ -301,11 +316,11 @@ export default function AdminOrders() {
           <Truck className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
           <select value={courierFilter} onChange={e => setCourierFilter(e.target.value)}
             className="border border-input rounded-lg pl-7 pr-3 py-2 text-xs bg-background">
-            {COURIER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            {courierOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
           {courierFilter !== "all" && (
             <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full bg-forest/10 text-forest text-[10px] font-semibold">
-              {COURIER_OPTIONS.find(o => o.value === courierFilter)?.label} ({filtered.length})
+              {courierOptions.find(o => o.value === courierFilter)?.label} ({filtered.length})
             </span>
           )}
         </div>
@@ -365,6 +380,7 @@ export default function AdminOrders() {
                 {showFinance && <th className="p-2 text-right">Total</th>}
                 <th className="p-2 text-center">Payment</th>
                 <th className="p-2 text-center">Status</th>
+                <th className="p-2 text-center">Courier</th>
                 <th className="p-2 text-center">Method</th>
                 <th className="p-2 text-left">Date</th>
                 <th className="p-2 text-center">Actions</th>
@@ -387,6 +403,18 @@ export default function AdminOrders() {
                       <span className="ml-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-green-100 text-green-700">Quiz</span>
                     ) : (
                       <span className="ml-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-gray-100 text-gray-500">Direct</span>
+                    )}
+                  </td>
+                  <td className="p-2 text-center">
+                    {o.delivery_partner ? (
+                      <span
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-forest/10 text-forest"
+                        title={o.courier_note || ""}
+                      >
+                        <Truck className="w-3 h-3" /> {o.delivery_partner}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-muted text-muted-foreground">Unassigned</span>
                     )}
                   </td>
                   <td className="p-2 text-center capitalize text-muted-foreground">{o.payment_method}</td>
