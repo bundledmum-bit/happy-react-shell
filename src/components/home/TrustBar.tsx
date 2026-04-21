@@ -3,7 +3,19 @@ import { useTrustSignals } from "@/hooks/useHomepage";
 interface Props { title?: string | null }
 
 export default function TrustBar({ title }: Props) {
-  const { data: items } = useTrustSignals();
+  const { data: rawItems } = useTrustSignals();
+  
+  const items = rawItems?.map(item => {
+    let label = item.label;
+    let sublabel = item.sublabel;
+
+    if (label === "Lagos Delivery") label = "Fast Delivery";
+    if (label === "Brain Express & eFTD") label = "Same & next day delivery";
+    if (sublabel === "Hassle-free within 7 days") sublabel = "Hassle-free within 7 days or less";
+
+    return { ...item, label, sublabel };
+  });
+
   if (!items || items.length === 0) return null;
 
   return (
