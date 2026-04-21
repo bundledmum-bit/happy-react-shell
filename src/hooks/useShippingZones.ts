@@ -124,14 +124,22 @@ export function calculateDeliveryFee(
    */
   cartWeightKg?: number,
 ) {
-  // Match zone: area first, then state, then wildcard
-  const zone = zones.find(z =>
-    z.areas?.some(a => a.toLowerCase() === customerArea.toLowerCase())
-  ) || zones.find(z =>
-    z.states?.some(s => s.toLowerCase() === customerState.toLowerCase())
-  ) || zones.find(z =>
-    z.states?.includes("*")
-  );
+  // Match zone: area first; then state (picking the CHEAPEST matching
+  // zone, so a state-only match surfaces the lowest fee rather than an
+  // arbitrary first-by-insert-order hit like Ikorodu for Lagos); then
+  // wildcard.
+  const stateMatches = customerState
+    ? (zones || []).filter(z => z.states?.some(s => s.toLowerCase() === customerState.toLowerCase()))
+    : [];
+  const cheapestForState = stateMatches.length > 0
+    ? [...stateMatches].sort((a, b) => (a.flat_rate || 0) - (b.flat_rate || 0))[0]
+    : undefined;
+
+  const zone = (customerArea
+      ? zones.find(z => z.areas?.some(a => a.toLowerCase() === customerArea.toLowerCase()))
+      : undefined)
+    || cheapestForState
+    || zones.find(z => z.states?.includes("*"));
 
   if (!zone) {
     const isFree = defaultThreshold != null && defaultThreshold > 0 && cartTotal >= defaultThreshold;

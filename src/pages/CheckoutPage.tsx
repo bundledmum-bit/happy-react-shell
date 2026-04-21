@@ -315,12 +315,51 @@ export default function CheckoutPage() {
     }
   };
 
+  // Human-friendly labels used in the "please complete …" toast so the
+  // customer knows exactly which fields are blocking checkout.
+  const FIELD_LABELS: Record<keyof FormData, string> = {
+    firstName: "First Name",
+    lastName: "Last Name",
+    phone: "Phone Number",
+    email: "Email Address",
+    address: "Street Address",
+    city: "City / Town",
+    state: "State",
+    notes: "Delivery Notes",
+    lga: "LGA",
+  };
+
   const validate = () => {
     const fields: (keyof FormData)[] = ["firstName", "lastName", "phone", "email", "address", "city"];
     const e: Partial<FormData> = {};
-    fields.forEach(key => { const err = validateField(key); if (err) e[key] = err; });
+    const missing: string[] = [];   // fields that are simply empty
+    const invalid: string[] = [];   // fields with a format problem
+    fields.forEach(key => {
+      const err = validateField(key);
+      if (!err) return;
+      e[key] = err;
+      const val = (form[key] || "").trim();
+      (val ? invalid : missing).push(FIELD_LABELS[key]);
+    });
     setErrors(e);
-    if (Object.keys(e).length) toast.error("Please fill all required fields correctly");
+
+    if (Object.keys(e).length) {
+      const parts: string[] = [];
+      if (missing.length) parts.push(`Please complete: ${missing.join(", ")}`);
+      if (invalid.length) parts.push(`Fix: ${invalid.join(", ")}`);
+      toast.error(parts.join(" · "), { duration: 6000 });
+
+      // Scroll to the first offending field so the customer sees it
+      // without hunting for the red outline.
+      const firstKey = fields.find(k => e[k]);
+      if (firstKey) {
+        // Try an explicit id first (set by InputField via label-for), then
+        // fall back to a name attribute.
+        const el = document.querySelector<HTMLElement>(`[data-field="${firstKey}"], [name="${firstKey}"]`);
+        el?.scrollIntoView({ behavior: "smooth", block: "center" });
+        (el as HTMLInputElement)?.focus?.();
+      }
+    }
     return !Object.keys(e).length;
   };
 
@@ -674,14 +713,14 @@ export default function CheckoutPage() {
               <h2 className="pf text-lg mb-4">📍 Delivery Details</h2>
               <div className="flex flex-col gap-3">
                 <div className="flex flex-col md:flex-row gap-3">
-                  <InputField label="First Name" value={form.firstName} onChange={v => update("firstName", v)} onBlur={() => handleBlur("firstName")} error={errors.firstName} />
-                  <InputField label="Last Name" value={form.lastName} onChange={v => update("lastName", v)} onBlur={() => handleBlur("lastName")} error={errors.lastName} />
+                  <InputField name="firstName" label="First Name" value={form.firstName} onChange={v => update("firstName", v)} onBlur={() => handleBlur("firstName")} error={errors.firstName} />
+                  <InputField name="lastName" label="Last Name" value={form.lastName} onChange={v => update("lastName", v)} onBlur={() => handleBlur("lastName")} error={errors.lastName} />
                 </div>
                 <div className="flex flex-col md:flex-row gap-3">
-                  <InputField label="Phone Number" value={form.phone} onChange={v => update("phone", v)} onBlur={() => handleBlur("phone")} error={errors.phone} type="tel" placeholder="08012345678" />
-                  <InputField label="Email Address" value={form.email} onChange={v => update("email", v)} onBlur={() => { handleBlur("email"); saveAbandonedCart(); }} error={errors.email} type="email" placeholder="you@example.com" />
+                  <InputField name="phone" label="Phone Number" value={form.phone} onChange={v => update("phone", v)} onBlur={() => handleBlur("phone")} error={errors.phone} type="tel" placeholder="08012345678" />
+                  <InputField name="email" label="Email Address" value={form.email} onChange={v => update("email", v)} onBlur={() => { handleBlur("email"); saveAbandonedCart(); }} error={errors.email} type="email" placeholder="you@example.com" />
                 </div>
-                <InputField label="Street Address" value={form.address} onChange={v => update("address", v)} onBlur={() => handleBlur("address")} error={errors.address} />
+                <InputField name="address" label="Street Address" value={form.address} onChange={v => update("address", v)} onBlur={() => handleBlur("address")} error={errors.address} />
 
                 {/* State → Zone → LGA → City cascade */}
                 <div className="flex flex-col md:flex-row gap-3">
@@ -758,6 +797,8 @@ export default function CheckoutPage() {
                     <div className="flex flex-col gap-1">
                       <label className="text-xs font-semibold text-text-med uppercase tracking-wide">City / Town</label>
                       <select
+                        name="city"
+                        data-field="city"
                         value={form.city}
                         onChange={e => update("city", e.target.value)}
                         onBlur={() => handleBlur("city")}
@@ -773,7 +814,7 @@ export default function CheckoutPage() {
 
                 {/* Non-Lagos states — free-text city/town fallback */}
                 {!stateHasZones && (
-                  <InputField label="City / Town" value={form.city} onChange={v => update("city", v)} onBlur={() => handleBlur("city")} error={errors.city} />
+                  <InputField name="city" label="City / Town" value={form.city} onChange={v => update("city", v)} onBlur={() => handleBlur("city")} error={errors.city} />
                 )}
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-semibold text-text-med uppercase tracking-wide">Delivery Notes (Optional)</label>
@@ -960,11 +1001,11 @@ export default function CheckoutPage() {
   );
 }
 
-function InputField({ label, value, onChange, onBlur, error, type = "text", placeholder, disabled }: { label: string; value: string; onChange: (v: string) => void; onBlur?: () => void; error?: string; type?: string; placeholder?: string; disabled?: boolean }) {
+function InputField({ label, value, onChange, onBlur, error, type = "text", placeholder, disabled, name }: { label: string; value: string; onChange: (v: string) => void; onBlur?: () => void; error?: string; type?: string; placeholder?: string; disabled?: boolean; name?: string }) {
   return (
     <div className="flex-1 flex flex-col gap-1">
       <label className="text-xs font-semibold text-text-med uppercase tracking-wide">{label}</label>
-      <input type={type} value={value} onChange={e => onChange(e.target.value)} onBlur={onBlur} placeholder={placeholder} disabled={disabled}
+      <input name={name} data-field={name} type={type} value={value} onChange={e => onChange(e.target.value)} onBlur={onBlur} placeholder={placeholder} disabled={disabled}
         className={`w-full rounded-[10px] border-[1.5px] px-3 py-2.5 text-sm bg-card font-body outline-none transition-colors ${error ? "border-destructive" : "border-border focus:border-forest"} ${disabled ? "opacity-70 cursor-not-allowed bg-muted/40" : ""}`} />
       {error && <p className="text-destructive text-[11px]">{error}</p>}
     </div>
