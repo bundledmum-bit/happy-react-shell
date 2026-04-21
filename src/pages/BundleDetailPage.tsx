@@ -1,13 +1,12 @@
 import { useParams, Link } from "react-router-dom";
 import { useCart, fmt } from "@/lib/cart";
 import { toast } from "sonner";
-import { ArrowLeft, Share2, ArrowLeftRight, Plus, Trash2, ZoomIn, X, Pencil } from "lucide-react";
+import { ArrowLeft, Share2, ArrowLeftRight, Plus, Trash2, X, Pencil } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { useBundle, useBundles, useAllProducts } from "@/hooks/useSupabaseData";
 import type { BundleItem } from "@/lib/supabaseAdapters";
 import ProductImage from "@/components/ProductImage";
 import BundleItemSwapPopup from "@/components/BundleItemSwapPopup";
-import BundleImageZoom from "@/components/BundleImageZoom";
 import ShareModal from "@/components/ShareModal";
 
 export default function BundleDetailPage() {
@@ -34,7 +33,6 @@ export default function BundleDetailPage() {
   const [attrPicker, setAttrPicker] = useState<{ item: BundleItem; section: "baby" | "mum" | "hospital" | "convenience"; index: number } | null>(null);
   const [pickerBrandId, setPickerBrandId] = useState<string>("");
   const [pickerSize, setPickerSize] = useState<string>("");
-  const [zoomImage, setZoomImage] = useState<string | null>(null);
   const [showShare, setShowShare] = useState(false);
 
   useEffect(() => {
@@ -231,19 +229,19 @@ export default function BundleDetailPage() {
       <div className="flex items-center gap-0.5 flex-shrink-0">
         <button
           onClick={() => handleSwap(section, index)}
-          className="w-9 h-9 rounded-full flex items-center justify-center bg-forest-light hover:bg-forest/20 transition-colors"
+          className="w-10 h-10 p-2 rounded-full flex items-center justify-center bg-forest-light hover:bg-forest/20 transition-colors"
           title="Swap product"
           aria-label="Swap product"
         >
-          <ArrowLeftRight className="h-3.5 w-3.5 text-forest" />
+          <ArrowLeftRight className="h-4 w-4 text-forest" />
         </button>
         <button
           onClick={() => handleRemoveItem(section, index)}
-          className="w-9 h-9 rounded-full flex items-center justify-center bg-destructive/10 hover:bg-destructive/20 transition-colors"
+          className="w-10 h-10 p-2 rounded-full flex items-center justify-center bg-destructive/10 hover:bg-destructive/20 transition-colors"
           title="Remove product"
           aria-label="Remove product"
         >
-          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+          <Trash2 className="h-4 w-4 text-destructive" />
         </button>
       </div>
     </div>
@@ -256,8 +254,6 @@ export default function BundleDetailPage() {
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-8">
-      {zoomImage && <BundleImageZoom src={zoomImage} alt="Product" onClose={() => setZoomImage(null)} />}
-
       {/* Attribute picker — change brand / size / colour for a bundle item */}
       {attrPicker && (
         <div
@@ -383,7 +379,7 @@ export default function BundleDetailPage() {
       {/* Hero Header – compact on mobile */}
       <div className="pt-[68px]" style={{ background: `linear-gradient(135deg, ${bundle.color}CC, ${bundle.color}88)` }}>
         <div className="max-w-[900px] mx-auto px-4 md:px-10 py-5 md:py-14">
-          <Link to="/bundles" className="text-primary-foreground/60 text-xs hover:text-primary-foreground/80 mb-2 inline-flex items-center gap-1">
+          <Link to="/bundles" className="text-primary-foreground/60 text-xs hover:text-primary-foreground/80 mb-2 inline-flex items-center gap-1 py-2 -my-2">
             <ArrowLeft className="h-3 w-3" /> All Bundles
           </Link>
 

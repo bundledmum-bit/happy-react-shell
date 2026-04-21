@@ -19,6 +19,8 @@ interface Props {
   categories: ProductCategory[];
   brandNames: string[];
   productCounts: Record<string, number>;
+  /** When set to "sort", the Sort By section is pre-expanded. */
+  openSection?: "filter" | "sort";
 }
 
 const SHOP_TABS = [
@@ -55,8 +57,10 @@ function Section({ title, open: defaultOpen = false, children }: { title: string
   );
 }
 
-export default function ShopFilterDrawer({ open, onClose, filters, onApply, categories, brandNames, productCounts }: Props) {
+export default function ShopFilterDrawer({ open, onClose, filters, onApply, categories, brandNames, productCounts, openSection }: Props) {
   const [local, setLocal] = useState<FilterState>(filters);
+  const sortDefaultOpen = openSection === "sort";
+  const shopDefaultOpen = openSection !== "sort";
 
   const activeCount = [
     local.tab !== "all" ? 1 : 0,
@@ -83,7 +87,7 @@ export default function ShopFilterDrawer({ open, onClose, filters, onApply, cate
         </div>
 
         <div className="overflow-y-auto flex-1 px-5">
-          <Section title="Shop" open>
+          <Section title="Shop" open={shopDefaultOpen}>
             <div className="flex flex-wrap gap-2">
               {SHOP_TABS.map(t => (
                 <button key={t.key} onClick={() => setLocal(p => ({ ...p, tab: t.key, category: "", brand: "" }))}
@@ -139,7 +143,7 @@ export default function ShopFilterDrawer({ open, onClose, filters, onApply, cate
             </Section>
           )}
 
-          <Section title="Sort By">
+          <Section title="Sort By" open={sortDefaultOpen}>
             <div className="flex flex-col gap-1">
               {SORT_OPTIONS.map(s => (
                 <button key={s.key} onClick={() => setLocal(p => ({ ...p, sort: s.key }))}

@@ -261,13 +261,6 @@ function DrawerInner({ product, defaultBudget, onClose }: { product: Product; de
             </button>
           )}
         </div>
-        {/* Bottom close button */}
-        <button
-          onClick={onClose}
-          className="w-full mt-3 py-2.5 text-sm font-semibold text-muted-foreground hover:text-foreground border border-border rounded-xl transition-colors min-h-[44px]"
-        >
-          Close
-        </button>
       </div>
     </>
   );

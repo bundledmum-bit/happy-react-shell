@@ -29,7 +29,7 @@ export default function BundlesPage() {
   const compareBundles = compareIds.map(id => allBundles.find(b => b.id === id)!).filter(Boolean);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-20 md:pb-8">
       <div className="pt-[68px]" style={{ background: "linear-gradient(135deg, #2D6A4F 0%, #1A3D2E 100%)" }}>
         <div className="max-w-[1200px] mx-auto px-4 md:px-10 py-6 md:py-14">
           <h1 className="pf text-3xl md:text-[46px] text-primary-foreground mb-2.5">🏥 Our Pre-Packed Hospital Lists</h1>
@@ -52,7 +52,7 @@ export default function BundlesPage() {
                 <button key={v} onClick={() => setTierF(v)} className={`rounded-pill px-3 py-2 text-xs font-semibold border-[1.5px] transition-all font-body whitespace-nowrap min-h-[44px] ${tierF === v ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-muted-foreground"}`}>{l}</button>
               ))}
               {compareIds.length >= 2 && (
-                <button onClick={() => setShowCompare(true)} className="ml-2 rounded-pill bg-coral px-3 py-1.5 text-xs font-semibold text-primary-foreground font-body interactive whitespace-nowrap">
+                <button onClick={() => setShowCompare(true)} className="ml-2 rounded-pill bg-coral px-3 py-2 text-xs font-semibold text-primary-foreground font-body interactive whitespace-nowrap min-h-[40px]">
                   Compare ({compareIds.length}) →
                 </button>
               )}
@@ -294,7 +294,7 @@ function BundleCard({ bundle: b, compareSelected, onToggleCompare }: { bundle: B
           )}
         </div>
 
-        <button onClick={onToggleCompare} className={`w-full text-center text-[10px] font-semibold font-body py-1 rounded-pill border transition-all ${compareSelected ? "border-coral bg-coral/10 text-coral" : "border-border text-text-light hover:text-forest hover:border-forest"}`}>
+        <button onClick={onToggleCompare} className={`w-full text-center text-[11px] font-semibold font-body py-2 rounded-pill border transition-all ${compareSelected ? "border-coral bg-coral/10 text-coral" : "border-border text-text-light hover:text-forest hover:border-forest"}`}>
           {compareSelected ? "✓ Selected for compare" : "Compare"}
         </button>
       </div>

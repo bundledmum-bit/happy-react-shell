@@ -10,7 +10,8 @@ import ProductImage from "@/components/ProductImage";
 import SpendMoreBanner from "@/components/SpendMoreBanner";
 import QtyControl from "@/components/QtyControl";
 import ShopFilterDrawer from "@/components/ShopFilterDrawer";
-import { Filter, ArrowUpDown } from "lucide-react";
+import { Drawer, DrawerContent } from "@/components/ui/drawer";
+import { Filter, ArrowUpDown, Check } from "lucide-react";
 
 function ProductCard({ product, defaultBudget = "standard", forceBrand, onAdd, onViewDetail, deliveryText }: { product: Product; defaultBudget?: string; forceBrand?: string; onAdd: (item: any) => void; onViewDetail: () => void; deliveryText?: string }) {
   const defaultBrand = getBrandForBudget(product, defaultBudget);
@@ -91,7 +92,7 @@ function ProductCard({ product, defaultBudget = "standard", forceBrand, onAdd, o
               const bOos = b.inStock === false || b.stockQuantity === 0;
               return (
                 <button key={b.id} onClick={() => setSelectedBrand(b)}
-                  className={`px-2 py-1 rounded-pill text-[10px] font-semibold border-[1.5px] transition-all font-body min-h-[32px] ${bOos ? "opacity-50" : ""} ${selectedBrand.id === b.id ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-muted-foreground"}`}>
+                  className={`px-2 py-1 rounded-pill text-[10px] font-semibold border-[1.5px] transition-all font-body min-h-[40px] ${bOos ? "opacity-50" : ""} ${selectedBrand.id === b.id ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-muted-foreground"}`}>
                   {b.label} {fmt(b.price)}
                   {b.id === defaultBrand.id && !bOos && <span className="text-coral ml-0.5">★</span>}
                 </button>
@@ -99,7 +100,7 @@ function ProductCard({ product, defaultBudget = "standard", forceBrand, onAdd, o
             })}
             {hiddenCount > 0 && (
               <button onClick={() => { trackView(); onViewDetail(); }}
-                className="px-2 py-1 rounded-pill text-[10px] font-semibold border-[1.5px] border-border bg-card text-forest font-body hover:border-forest min-h-[32px]">
+                className="px-2 py-1 rounded-pill text-[10px] font-semibold border-[1.5px] border-border bg-card text-forest font-body hover:border-forest min-h-[40px]">
                 +{hiddenCount} more
               </button>
             )}
@@ -112,7 +113,7 @@ function ProductCard({ product, defaultBudget = "standard", forceBrand, onAdd, o
             <div className="flex flex-wrap gap-1">
               {product.sizes.map(s => (
                 <button key={s} onClick={() => setSelectedSize(s)}
-                  className={`px-2 py-1 rounded-pill text-[10px] font-semibold border-[1.5px] transition-all font-body min-h-[32px] ${selectedSize === s ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-muted-foreground"}`}>
+                  className={`px-2 py-1 rounded-pill text-[10px] font-semibold border-[1.5px] transition-all font-body min-h-[40px] ${selectedSize === s ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-muted-foreground"}`}>
                   {s}
                 </button>
               ))}
@@ -161,6 +162,8 @@ export default function ShopPage() {
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [sortSheetOpen, setSortSheetOpen] = useState(false);
+  const [filterDrawerInitialSection, setFilterDrawerInitialSection] = useState<"filter" | "sort" | undefined>(undefined);
   const { addToCart } = useCart();
 
   const { data: allProducts, isLoading } = useAllProducts();
@@ -230,18 +233,37 @@ export default function ShopPage() {
     });
 
     let sorted = [...raw];
-    if (sortBy === "price-low") sorted.sort((a, b) => Math.min(...a.brands.map(br => br.price)) - Math.min(...b.brands.map(br => br.price)));
-    if (sortBy === "price-high") sorted.sort((a, b) => Math.min(...b.brands.map(br => br.price)) - Math.min(...a.brands.map(br => br.price)));
+    // Accept both the legacy URL keys (price-low / price-high) and the
+    // canonical DB keys (price_asc / price_desc / name_asc / newest).
+    if (sortBy === "price-low" || sortBy === "price_asc") sorted.sort((a, b) => Math.min(...a.brands.map(br => br.price)) - Math.min(...b.brands.map(br => br.price)));
+    if (sortBy === "price-high" || sortBy === "price_desc") sorted.sort((a, b) => Math.min(...b.brands.map(br => br.price)) - Math.min(...a.brands.map(br => br.price)));
     if (sortBy === "rating") sorted.sort((a, b) => b.rating - a.rating);
+    if (sortBy === "name_asc") sorted.sort((a, b) => a.name.localeCompare(b.name));
+    if (sortBy === "newest") sorted.sort((a: any, b: any) => (b.created_at || "").localeCompare(a.created_at || ""));
     return sorted;
   }, [allProducts, tab, search, categoryF, brandF, sortBy]);
 
   const visibleProducts = filtered.slice(0, visibleCount);
   const hasMore = visibleCount < filtered.length;
 
-  const recentlyViewedIds: string[] = (() => {
+  // Recently-viewed ids live in localStorage; re-read when the custom
+  // 'bm-recently-viewed-changed' event fires (see useRecentlyViewed).
+  const [recentlyViewedIds, setRecentlyViewedIds] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem("bm-recently-viewed") || "[]"); } catch { return []; }
-  })();
+  });
+  useEffect(() => {
+    const handler = () => {
+      try {
+        setRecentlyViewedIds(JSON.parse(localStorage.getItem("bm-recently-viewed") || "[]"));
+      } catch { /* ignore */ }
+    };
+    window.addEventListener("bm-recently-viewed-changed", handler);
+    window.addEventListener("storage", handler);
+    return () => {
+      window.removeEventListener("bm-recently-viewed-changed", handler);
+      window.removeEventListener("storage", handler);
+    };
+  }, []);
   const recentlyViewed = recentlyViewedIds.map(id => (allProducts || []).find(p => p.id === id)).filter(Boolean).slice(0, 5) as Product[];
 
   const isBaby = tab === "baby";
@@ -254,7 +276,25 @@ export default function ShopPage() {
     brandF ? 1 : 0,
   ].reduce((a, b) => a + b, 0);
 
-  const sortLabel = { popular: "Popular", "price-low": "Price ↑", "price-high": "Price ↓", rating: "Top Rated" }[sortBy] || "Sort";
+  // Canonical sort-option metadata. Supports both DB keys and legacy
+  // URL keys so existing links still work.
+  const ALL_SORT_OPTIONS: Array<{ key: string; label: string; aliases?: string[] }> = [
+    { key: "rating",     label: "Top Rated" },
+    { key: "price_asc",  label: "Price: Low to High", aliases: ["price-low"] },
+    { key: "price_desc", label: "Price: High to Low", aliases: ["price-high"] },
+    { key: "name_asc",   label: "Name: A – Z" },
+    { key: "newest",     label: "Newest First" },
+  ];
+  const FALLBACK_ENABLED_SORTS = ["rating", "price_asc", "price_desc", "name_asc", "newest"];
+  const enabledSortsRaw = (siteSettings as any)?.shop_enabled_sorts;
+  const enabledSortKeys: string[] = Array.isArray(enabledSortsRaw)
+    ? enabledSortsRaw
+    : FALLBACK_ENABLED_SORTS;
+  const enabledSortOptions = ALL_SORT_OPTIONS.filter(o => enabledSortKeys.includes(o.key));
+  // Resolve the current sort (URL) back to a canonical key so the sheet
+  // can highlight the correct row even when the URL uses a legacy alias.
+  const canonicalSort = ALL_SORT_OPTIONS.find(o => o.key === sortBy || o.aliases?.includes(sortBy))?.key || sortBy;
+  const sortLabel = ALL_SORT_OPTIONS.find(o => o.key === canonicalSort)?.label || "Sort";
 
   const handleFilterApply = (f: { tab: string; budget: string; category: string; brand: string; sort: string }) => {
     const params = new URLSearchParams();
@@ -290,19 +330,17 @@ export default function ShopPage() {
       {/* MOBILE: Filter + Sort buttons */}
       <div className="md:hidden bg-card border-b border-border py-2.5 px-4 sticky top-[68px] z-50">
         <div className="flex gap-2 items-center">
-          <button onClick={() => setFilterDrawerOpen(true)}
+          <button onClick={() => { setFilterDrawerInitialSection("filter"); setFilterDrawerOpen(true); }}
             className="flex-1 flex items-center justify-center gap-2 rounded-pill border-[1.5px] border-border py-2.5 text-sm font-semibold font-body min-h-[44px] relative">
             <Filter className="h-4 w-4" /> Filter
             {activeFilterCount > 0 && (
               <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-coral text-primary-foreground text-[10px] font-bold flex items-center justify-center">{activeFilterCount}</span>
             )}
           </button>
-          <button onClick={() => {
-            const sortOrder = ["popular", "price-low", "price-high", "rating"];
-            const nextIdx = (sortOrder.indexOf(sortBy) + 1) % sortOrder.length;
-            setFilter("sort", sortOrder[nextIdx]);
-          }}
-            className="flex-1 flex items-center justify-center gap-2 rounded-pill border-[1.5px] border-border py-2.5 text-sm font-semibold font-body min-h-[44px]">
+          <button
+            onClick={() => setSortSheetOpen(true)}
+            className="flex-1 flex items-center justify-center gap-2 rounded-pill border-[1.5px] border-border py-2.5 text-sm font-semibold font-body min-h-[44px]"
+          >
             <ArrowUpDown className="h-4 w-4" /> {sortLabel}
           </button>
           <span className="text-muted-foreground text-xs whitespace-nowrap">{filtered.length}</span>
@@ -402,7 +440,18 @@ export default function ShopPage() {
           <div className="text-center py-16">
             <div className="text-4xl mb-4">🔍</div>
             <h2 className="pf text-xl mb-2">No products found</h2>
-            <p className="text-muted-foreground text-sm">Try adjusting your filters or search term.</p>
+            <p className="text-muted-foreground text-sm mb-4">Try adjusting your filters or search term.</p>
+            <button
+              onClick={() => {
+                // One-tap recovery — clear all URL params AND the local search box.
+                setSearch("");
+                setSearchParams(new URLSearchParams(), { replace: true });
+                setVisibleCount(ITEMS_PER_PAGE);
+              }}
+              className="inline-flex items-center gap-1.5 border-[1.5px] border-forest text-forest rounded-pill px-5 py-2.5 text-sm font-semibold hover:bg-forest/5 min-h-[44px]"
+            >
+              Reset filters
+            </button>
           </div>
         ) : (
           <>
@@ -461,7 +510,32 @@ export default function ShopPage() {
         categories={filteredCategories}
         brandNames={allBrandNames}
         productCounts={categoryCounts}
+        openSection={filterDrawerInitialSection}
       />
+
+      {/* Mobile sort bottom sheet — single-select, closes on pick */}
+      <Drawer open={sortSheetOpen} onOpenChange={o => { if (!o) setSortSheetOpen(false); }}>
+        <DrawerContent className="max-h-[70svh] flex flex-col outline-none">
+          <div className="px-5 pt-2 pb-3 border-b border-border">
+            <h3 className="font-bold text-base">Sort by</h3>
+          </div>
+          <div className="py-2">
+            {enabledSortOptions.map(opt => {
+              const selected = canonicalSort === opt.key;
+              return (
+                <button
+                  key={opt.key}
+                  onClick={() => { setFilter("sort", opt.key); setSortSheetOpen(false); }}
+                  className={`w-full flex items-center justify-between px-5 py-4 text-left min-h-[52px] ${selected ? "bg-forest-light text-forest font-semibold" : "text-foreground hover:bg-muted/50"}`}
+                >
+                  <span className="text-sm">{opt.label}</span>
+                  {selected && <Check className="w-4 h-4 flex-shrink-0" />}
+                </button>
+              );
+            })}
+          </div>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }
