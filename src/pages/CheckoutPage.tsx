@@ -215,8 +215,13 @@ export default function CheckoutPage() {
   const [quoteError, setQuoteError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Gate: we need state + city AND a weight to ask for a quote.
-    if (!form.state || !form.city || cartWeightKg <= 0) {
+    // Gate: wait until we have enough location + a weight to quote.
+    // For Lagos/zone-backed states we accept zone / LGA / city; for
+    // other states, state alone is enough.
+    const locationReady = stateHasZones
+      ? Boolean(form.state && (selectedZone || selectedLga || form.city))
+      : Boolean(form.state);
+    if (!locationReady || cartWeightKg <= 0) {
       setCourierQuote(null);
       setQuoteError(null);
       return;
@@ -261,7 +266,8 @@ export default function CheckoutPage() {
       }
     }, 300);
     return () => { cancelled = true; clearTimeout(t); };
-  }, [form.city, form.state, cartWeightKg, budgetTier]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.city, form.state, selectedZone?.id, selectedLga, stateHasZones, cartWeightKg, budgetTier]);
 
   // Use the courier quote when we have one; otherwise fall back to the
   // zone flat-rate calc (used only while the quote is loading or when
@@ -274,8 +280,18 @@ export default function CheckoutPage() {
     weightKg: courierQuote?.weightKg ?? (zoneCalc as any).weightKg,
     bookingsNeeded: courierQuote?.bookings ?? (zoneCalc as any).bookingsNeeded,
   };
-  const delivery = hasQuote ? Math.round((courierQuote!.customerRateKobo) / 100) : zoneCalc.fee;
-  const notDeliverable = courierQuote != null && courierQuote.deliverable === false;
+
+  // Gate: don't show / charge delivery until we have enough location to
+  // quote. For zone-backed states (Lagos) that's when any of the zone,
+  // LGA, or city/area selectors has a value — the customer doesn't
+  // have to traverse the whole cascade for us to route. For states
+  // without zones, state alone is sufficient.
+  const deliveryReady = stateHasZones
+    ? Boolean(form.state && (selectedZone || selectedLga || form.city))
+    : Boolean(form.state);
+
+  const delivery = !deliveryReady ? 0 : (hasQuote ? Math.round((courierQuote!.customerRateKobo) / 100) : zoneCalc.fee);
+  const notDeliverable = deliveryReady && courierQuote != null && courierQuote.deliverable === false;
 
   // Spend threshold discount
   const spendPrompt = thresholds?.length ? getSpendPrompt(subtotal, thresholds) : null;
@@ -788,27 +804,35 @@ export default function CheckoutPage() {
               ))}
               <div className="border-t border-border pt-2 space-y-1 text-xs">
                 <div className="flex justify-between"><span className="text-text-med">Subtotal</span><span>{fmt(subtotal)}</span></div>
-                <div className="flex justify-between">
-                  <span className="text-text-med">
-                    Delivery ({deliveryCalc.zoneName})
-                    {quoteLoading ? null : (hasQuote && (deliveryCalc as any).bookingsNeeded) ? (
-                      <span className="block text-[10px] text-text-light mt-0.5">
-                        ~{Number((deliveryCalc as any).weightKg).toFixed(1)}kg order · {(deliveryCalc as any).bookingsNeeded} booking{(deliveryCalc as any).bookingsNeeded === 1 ? "" : "s"} · {deliveryCalc.daysMin}–{deliveryCalc.daysMax} business days
+                {deliveryReady ? (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-text-med">
+                        Delivery ({deliveryCalc.zoneName})
+                        {quoteLoading ? null : (hasQuote && (deliveryCalc as any).bookingsNeeded) ? (
+                          <span className="block text-[10px] text-text-light mt-0.5">
+                            ~{Number((deliveryCalc as any).weightKg).toFixed(1)}kg order · {(deliveryCalc as any).bookingsNeeded} booking{(deliveryCalc as any).bookingsNeeded === 1 ? "" : "s"} · {deliveryCalc.daysMin}–{deliveryCalc.daysMax} business days
+                          </span>
+                        ) : null}
                       </span>
-                    ) : null}
-                  </span>
-                  <span className={delivery === 0 ? "text-forest" : ""}>
-                    {quoteLoading ? <span className="text-text-light italic">Calculating…</span> : (delivery === 0 ? "FREE 🎉" : fmt(delivery))}
-                  </span>
-                </div>
-                {notDeliverable && (
-                  <div className="text-[11px] text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-2 py-1.5 mt-1">
-                    Sorry, we don't currently deliver to {form.city || "this area"}. Please contact us on WhatsApp for assistance.
-                  </div>
-                )}
-                {quoteError && !quoteLoading && !notDeliverable && (
-                  <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5 mt-1">
-                    {quoteError}
+                      <span className={delivery === 0 ? "text-forest" : ""}>
+                        {quoteLoading ? <span className="text-text-light italic">Calculating…</span> : (delivery === 0 ? "FREE 🎉" : fmt(delivery))}
+                      </span>
+                    </div>
+                    {notDeliverable && (
+                      <div className="text-[11px] text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-2 py-1.5 mt-1">
+                        Sorry, we don't currently deliver to {form.city || "this area"}. Please contact us on WhatsApp for assistance.
+                      </div>
+                    )}
+                    {quoteError && !quoteLoading && !notDeliverable && (
+                      <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5 mt-1">
+                        {quoteError}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-[11px] text-text-med bg-muted/40 rounded-lg px-2 py-1.5">
+                    📍 Delivery fee will appear once you {stateHasZones ? "select your zone, LGA or area" : "enter your state"}.
                   </div>
                 )}
                 <div className="flex justify-between"><span className="text-text-med">{serviceFeeLabel}</span><span>{fmt(serviceFee)}</span></div>
@@ -1058,11 +1082,13 @@ export default function CheckoutPage() {
 
             <button
               onClick={placeOrder}
-              disabled={processing || notDeliverable || quoteLoading}
+              disabled={processing || notDeliverable || quoteLoading || !deliveryReady}
               className="w-full rounded-pill bg-forest py-4 text-center font-body font-semibold text-primary-foreground hover:bg-forest-deep interactive text-base disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {processing
                 ? "Processing…"
+                : !deliveryReady
+                ? (stateHasZones ? "Select your delivery area to continue" : "Enter your state to continue")
                 : notDeliverable
                 ? "Delivery unavailable to this area"
                 : quoteLoading
@@ -1091,27 +1117,35 @@ export default function CheckoutPage() {
               </div>
               <div className="space-y-2 font-body text-[13px]">
                 <div className="flex justify-between"><span className="text-text-med">Subtotal ({totalItems} items)</span><span>{fmt(subtotal)}</span></div>
-                <div className="flex justify-between">
-                  <span className="text-text-med">
-                    Delivery ({deliveryCalc.zoneName})
-                    {quoteLoading ? null : (hasQuote && (deliveryCalc as any).bookingsNeeded) ? (
-                      <span className="block text-[10px] text-text-light mt-0.5">
-                        ~{Number((deliveryCalc as any).weightKg).toFixed(1)}kg order · {(deliveryCalc as any).bookingsNeeded} booking{(deliveryCalc as any).bookingsNeeded === 1 ? "" : "s"} · {deliveryCalc.daysMin}–{deliveryCalc.daysMax} business days
+                {deliveryReady ? (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-text-med">
+                        Delivery ({deliveryCalc.zoneName})
+                        {quoteLoading ? null : (hasQuote && (deliveryCalc as any).bookingsNeeded) ? (
+                          <span className="block text-[10px] text-text-light mt-0.5">
+                            ~{Number((deliveryCalc as any).weightKg).toFixed(1)}kg order · {(deliveryCalc as any).bookingsNeeded} booking{(deliveryCalc as any).bookingsNeeded === 1 ? "" : "s"} · {deliveryCalc.daysMin}–{deliveryCalc.daysMax} business days
+                          </span>
+                        ) : null}
                       </span>
-                    ) : null}
-                  </span>
-                  <span className={delivery === 0 ? "text-forest" : ""}>
-                    {quoteLoading ? <span className="text-text-light italic">Calculating…</span> : (delivery === 0 ? "FREE 🎉" : fmt(delivery))}
-                  </span>
-                </div>
-                {notDeliverable && (
-                  <div className="text-[11px] text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-2 py-1.5 mt-1">
-                    Sorry, we don't currently deliver to {form.city || "this area"}. Please contact us on WhatsApp for assistance.
-                  </div>
-                )}
-                {quoteError && !quoteLoading && !notDeliverable && (
-                  <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5 mt-1">
-                    {quoteError}
+                      <span className={delivery === 0 ? "text-forest" : ""}>
+                        {quoteLoading ? <span className="text-text-light italic">Calculating…</span> : (delivery === 0 ? "FREE 🎉" : fmt(delivery))}
+                      </span>
+                    </div>
+                    {notDeliverable && (
+                      <div className="text-[11px] text-destructive bg-destructive/10 border border-destructive/30 rounded-lg px-2 py-1.5 mt-1">
+                        Sorry, we don't currently deliver to {form.city || "this area"}. Please contact us on WhatsApp for assistance.
+                      </div>
+                    )}
+                    {quoteError && !quoteLoading && !notDeliverable && (
+                      <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5 mt-1">
+                        {quoteError}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-[11px] text-text-med bg-muted/40 rounded-lg px-2 py-1.5">
+                    📍 Delivery fee will appear once you {stateHasZones ? "select your zone, LGA or area" : "enter your state"}.
                   </div>
                 )}
                 <div className="flex justify-between"><span className="text-text-med flex items-center gap-1">📦 {serviceFeeLabel}</span><span>{fmt(serviceFee)}</span></div>
