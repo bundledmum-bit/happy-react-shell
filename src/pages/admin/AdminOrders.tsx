@@ -2,12 +2,20 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Search, Download, ChevronDown, ChevronUp, Printer, MessageSquare, Clock, Send, ExternalLink, ArrowLeft } from "lucide-react";
+import { Search, Download, ChevronDown, ChevronUp, Printer, MessageSquare, Clock, Send, ExternalLink, ArrowLeft, Truck, CheckCircle2, Package, X as XIcon } from "lucide-react";
 import BulkActionsBar from "@/components/admin/BulkActionsBar";
 import { openBrandedInvoice } from "@/components/admin/PrintInvoice";
 import { Checkbox } from "@/components/ui/checkbox";
 import { usePermissions } from "@/hooks/useAdminPermissionsContext";
 import { Skeleton } from "@/components/ui/skeleton";
+import bmLogoGreen from "@/assets/logos/BM-LOGO-GREEN.svg";
+
+const COURIER_OPTIONS = [
+  { value: "all",        label: "All Couriers" },
+  { value: "Brain Express", label: "Brain Express" },
+  { value: "eFTD Africa",   label: "eFTD Africa" },
+  { value: "unassigned",    label: "Unassigned" },
+];
 
 const ORDER_STATUSES = ["pending", "confirmed", "processing", "packed", "shipped", "delivered", "cancelled", "returned", "refunded", "failed"];
 const PAYMENT_STATUSES = ["pending", "paid", "failed", "refunded"];
@@ -40,9 +48,11 @@ export default function AdminOrders() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [paymentFilter, setPaymentFilter] = useState("all");
   const [methodFilter, setMethodFilter] = useState("all");
+  const [courierFilter, setCourierFilter] = useState("all");
   const [datePreset, setDatePreset] = useState("This Month");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [detailOrder, setDetailOrder] = useState<string | null>(null);
+  const [bulkRunning, setBulkRunning] = useState<string | null>(null);
 
   useEffect(() => {
     const channel = supabase.channel("admin-new-orders")
@@ -85,9 +95,16 @@ export default function AdminOrders() {
     return (orders || []).filter((o: any) => {
       if (methodFilter !== "all" && o.payment_method !== methodFilter) return false;
       if (o.created_at < dateFrom) return false;
+      if (courierFilter !== "all") {
+        if (courierFilter === "unassigned") {
+          if (o.delivery_partner) return false;
+        } else if (o.delivery_partner !== courierFilter) {
+          return false;
+        }
+      }
       return true;
     });
-  }, [orders, methodFilter, dateFrom]);
+  }, [orders, methodFilter, dateFrom, courierFilter]);
 
   const stats = useMemo(() => {
     const f = filtered;
@@ -135,6 +152,57 @@ export default function AdminOrders() {
     if (action === "mark_paid") bulkStatusUpdate.mutate({ ids, paymentStatus: "paid" });
     if (action === "export") exportCSV();
   };
+
+  // ---- Bulk shipping / delivery / label helpers ----
+  const bulkMarkShipped = async () => {
+    // Only applies to orders not already shipped or delivered.
+    const eligible = filtered.filter((o: any) => selected.has(o.id) && o.order_status !== "shipped" && o.order_status !== "delivered");
+    if (eligible.length === 0) { toast.message("No eligible orders (already shipped/delivered)"); return; }
+    setBulkRunning(`Marking ${eligible.length} orders as shipped…`);
+    const { error } = await supabase
+      .from("orders")
+      .update({ order_status: "shipped", shipped_at: new Date().toISOString() })
+      .in("id", eligible.map((o: any) => o.id));
+    setBulkRunning(null);
+    if (error) { toast.error(error.message || "Bulk update failed"); return; }
+    queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+    setSelected(new Set());
+    toast.success(`${eligible.length} order${eligible.length === 1 ? "" : "s"} marked as shipped`);
+  };
+
+  const bulkMarkDelivered = async () => {
+    const eligible = filtered.filter((o: any) => selected.has(o.id) && o.order_status !== "delivered");
+    if (eligible.length === 0) { toast.message("No eligible orders (already delivered)"); return; }
+    setBulkRunning(`Marking ${eligible.length} orders as delivered…`);
+    const { error } = await supabase
+      .from("orders")
+      .update({ order_status: "delivered", delivered_at: new Date().toISOString() })
+      .in("id", eligible.map((o: any) => o.id));
+    setBulkRunning(null);
+    if (error) { toast.error(error.message || "Bulk update failed"); return; }
+    queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+    setSelected(new Set());
+    toast.success(`${eligible.length} order${eligible.length === 1 ? "" : "s"} marked as delivered`);
+  };
+
+  const bulkPrintLabels = async () => {
+    const ids = Array.from(selected);
+    if (!ids.length) return;
+    setBulkRunning(`Fetching ${ids.length} orders…`);
+    // Pull full records so we have the delivery fields (address, phone, weight…)
+    const { data, error } = await supabase.from("orders").select("*").in("id", ids);
+    setBulkRunning(null);
+    if (error) { toast.error(error.message || "Failed to fetch orders"); return; }
+    const rows = (data || []) as any[];
+    if (rows.length === 0) { toast.error("No orders found"); return; }
+    try {
+      await openDeliveryLabels(rows);
+    } catch (e: any) {
+      toast.error(e?.message || "Could not open labels window");
+    }
+  };
+
+  const clearSelection = () => setSelected(new Set());
 
   const bulkActions = [
     ...(can("orders", "edit_status") ? [{ label: "Mark as confirmed", value: "confirmed" }, { label: "Mark transfers as paid", value: "mark_paid" }] : []),
@@ -229,12 +297,56 @@ export default function AdminOrders() {
           <option value="all">All methods</option>
           {PAYMENT_METHODS.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
+        <div className="relative inline-flex items-center">
+          <Truck className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+          <select value={courierFilter} onChange={e => setCourierFilter(e.target.value)}
+            className="border border-input rounded-lg pl-7 pr-3 py-2 text-xs bg-background">
+            {COURIER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          {courierFilter !== "all" && (
+            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full bg-forest/10 text-forest text-[10px] font-semibold">
+              {COURIER_OPTIONS.find(o => o.value === courierFilter)?.label} ({filtered.length})
+            </span>
+          )}
+        </div>
       </div>
 
       {bulkActions.length > 0 && (
         <BulkActionsBar selectedCount={selected.size} actions={bulkActions} onApply={handleBulkAction}
           onSelectAll={() => setSelected(new Set(filtered.map((o: any) => o.id)))}
           onDeselectAll={() => setSelected(new Set())} totalCount={filtered.length} allSelected={allSelected} />
+      )}
+
+      {selected.size > 0 && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 bg-card border border-border shadow-2xl rounded-xl px-4 py-3 flex items-center gap-3 flex-wrap max-w-[96vw]">
+          <div className="flex items-center gap-2 text-sm">
+            <CheckCircle2 className="w-4 h-4 text-forest" />
+            <span className="font-semibold">{selected.size} order{selected.size === 1 ? "" : "s"} selected</span>
+          </div>
+          {bulkRunning && <span className="text-xs text-muted-foreground">{bulkRunning}</span>}
+          <div className="flex items-center gap-2 ml-1">
+            {can("orders", "edit_status") && (
+              <>
+                <button onClick={bulkMarkShipped} disabled={!!bulkRunning}
+                  className="inline-flex items-center gap-1.5 bg-forest text-primary-foreground px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-forest-deep disabled:opacity-40">
+                  <Truck className="w-3.5 h-3.5" /> Mark Shipped
+                </button>
+                <button onClick={bulkMarkDelivered} disabled={!!bulkRunning}
+                  className="inline-flex items-center gap-1.5 bg-forest text-primary-foreground px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-forest-deep disabled:opacity-40">
+                  <Package className="w-3.5 h-3.5" /> Mark Delivered
+                </button>
+              </>
+            )}
+            <button onClick={bulkPrintLabels} disabled={!!bulkRunning}
+              className="inline-flex items-center gap-1.5 border border-forest/30 text-forest hover:bg-forest/5 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-40">
+              <Printer className="w-3.5 h-3.5" /> Print Labels
+            </button>
+            <button onClick={clearSelection}
+              className="inline-flex items-center gap-1.5 text-text-med hover:text-foreground text-xs font-semibold px-2 py-1.5">
+              <XIcon className="w-3.5 h-3.5" /> Clear
+            </button>
+          </div>
+        </div>
       )}
 
       {isLoading ? (
@@ -260,7 +372,9 @@ export default function AdminOrders() {
             </thead>
             <tbody>
               {filtered.map((o: any) => (
-                <tr key={o.id} className="border-b border-border hover:bg-muted/30 cursor-pointer" onClick={() => setDetailOrder(o.id)}>
+                <tr key={o.id}
+                  className={`border-b border-border hover:bg-muted/30 cursor-pointer ${selected.has(o.id) ? "bg-emerald-50/60" : ""}`}
+                  onClick={() => setDetailOrder(o.id)}>
                   <td className="p-2" onClick={e => e.stopPropagation()}><Checkbox checked={selected.has(o.id)} onCheckedChange={() => toggleSelect(o.id)} /></td>
                   <td className="p-2 font-semibold">{o.order_number || "—"}</td>
                   {can("orders", "view_customer") && <td className="p-2">{o.customer_name}</td>}
@@ -713,4 +827,120 @@ function OrderDetailPage({ order: o, adminUser, can, isSuperAdmin, onBack, onPri
       )}
     </div>
   );
+}
+
+// ---------- Delivery labels (print) ----------
+
+let _labelLogoDataUrl: string | null = null;
+async function getLabelLogo(): Promise<string> {
+  if (_labelLogoDataUrl) return _labelLogoDataUrl;
+  try {
+    const res = await fetch(bmLogoGreen);
+    const blob = await res.blob();
+    const url = await new Promise<string>(resolve => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(blob);
+    });
+    _labelLogoDataUrl = url;
+    return url;
+  } catch {
+    return "";
+  }
+}
+
+function escapeHtml(s: string | null | undefined): string {
+  if (s == null) return "";
+  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
+}
+
+/** Open a new window with one A6 delivery label per order, 2 per A4 page. */
+async function openDeliveryLabels(orders: any[]): Promise<void> {
+  const logo = await getLabelLogo();
+  const today = new Date();
+  const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  const title = `DeliveryLabels_${dateStr}_${orders.length}orders`;
+  const brand = "#2D6A4F";
+
+  const labels = orders.map(o => {
+    const cityLine = [o.delivery_city, o.delivery_state].filter(Boolean).join(", ");
+    const weightStr = o.estimated_weight_kg != null ? `${Number(o.estimated_weight_kg).toFixed(1)}kg` : "—";
+    return `
+      <div class="label">
+        <div class="brand">
+          ${logo ? `<img src="${logo}" alt="BundledMum">` : `<span class="wordmark">BundledMum</span>`}
+          <div class="url">bundledmum.com</div>
+        </div>
+        <div class="section">
+          <div class="section-label">TO</div>
+          <div class="to-name">${escapeHtml(o.customer_name)}</div>
+          ${o.delivery_address ? `<div class="to-line">${escapeHtml(o.delivery_address)}</div>` : ""}
+          ${cityLine ? `<div class="to-line">${escapeHtml(cityLine)}</div>` : ""}
+          ${o.customer_phone ? `<div class="to-phone">${escapeHtml(o.customer_phone)}</div>` : ""}
+        </div>
+        <div class="meta">
+          <div class="row"><span class="k">ORDER</span><span class="v">${escapeHtml(o.order_number || "—")}</span></div>
+          <div class="row"><span class="k">COURIER</span><span class="v">${escapeHtml(o.delivery_partner || "Unassigned")}</span></div>
+          <div class="row"><span class="k">WEIGHT</span><span class="v">${escapeHtml(weightStr)}</span></div>
+        </div>
+        ${o.delivery_notes ? `<div class="notes">${escapeHtml(o.delivery_notes)}</div>` : ""}
+      </div>`;
+  }).join("");
+
+  const html = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>${title}</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #f5f5f5; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #1a1a1a; }
+  .sheet { display: flex; flex-direction: column; align-items: center; padding: 10mm 0; gap: 4mm; }
+  .label {
+    width: 105mm; height: 148mm;
+    background: #fff; border: 1px solid #ccc;
+    padding: 10mm; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    display: flex; flex-direction: column;
+    page-break-inside: avoid;
+  }
+  .brand { display: flex; justify-content: space-between; align-items: center; padding-bottom: 6mm; border-bottom: 2px solid ${brand}; }
+  .brand img { max-height: 10mm; display: block; }
+  .brand .wordmark { font-weight: 700; color: ${brand}; font-size: 14px; letter-spacing: 1px; }
+  .brand .url { font-size: 9px; color: #666; letter-spacing: 0.5px; }
+  .section { margin-top: 5mm; padding-bottom: 4mm; border-bottom: 1px solid #e5e5e5; flex: 1; }
+  .section-label { font-size: 9px; letter-spacing: 2px; color: #999; font-weight: 600; margin-bottom: 2mm; }
+  .to-name { font-size: 14px; font-weight: 700; margin-bottom: 1mm; }
+  .to-line { font-size: 11px; color: #333; margin-bottom: 0.5mm; }
+  .to-phone { font-size: 11px; color: #333; margin-top: 1.5mm; font-weight: 600; }
+  .meta { margin-top: 4mm; border-bottom: 1px solid #e5e5e5; padding-bottom: 4mm; }
+  .meta .row { display: flex; justify-content: space-between; font-size: 10px; padding: 1.2mm 0; }
+  .meta .k { color: #999; font-weight: 600; letter-spacing: 1px; }
+  .meta .v { font-weight: 600; color: #222; font-family: ui-monospace, Menlo, monospace; }
+  .notes { margin-top: 3mm; font-size: 9.5px; color: #555; font-style: italic; line-height: 1.4; }
+  @page { size: A4 portrait; margin: 0; }
+  @media print {
+    body { background: #fff; }
+    .sheet { padding: 0; gap: 0; }
+    .label { border: none; box-shadow: none; margin: 0 auto; }
+  }
+</style>
+</head>
+<body>
+  <div class="sheet">
+    ${labels}
+  </div>
+  <script>
+    window.addEventListener("load", function () {
+      setTimeout(function () { window.focus(); window.print(); }, 150);
+    });
+  </script>
+</body>
+</html>`;
+
+  const win = window.open("", "_blank", "width=900,height=1100");
+  if (!win) { throw new Error("Popup blocked — please allow popups to print labels"); }
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+  try { win.document.title = title; } catch { /* cross-origin noop */ }
 }
