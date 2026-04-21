@@ -113,6 +113,8 @@ export default function AdminProducts() {
         </div>
       </div>
 
+      <CogsCoverageBanner products={activeProducts} />
+
       <TrashTabs activeTab={trashTab} onTabChange={t => { setTrashTab(t); setSelected(new Set()); }} activeCount={activeProducts.length} trashCount={trashedProducts.length} />
 
       <div className="flex gap-3 mb-4">
@@ -253,6 +255,32 @@ export default function AdminProducts() {
           onClose={() => { setShowForm(false); setEditingProduct(null); }}
           onSaved={() => { setShowForm(false); setEditingProduct(null); queryClient.invalidateQueries({ queryKey: ["admin-products"] }); }} />
       )}
+    </div>
+  );
+}
+
+// Summary banner — counts brands (across all active products) that have a
+// non-zero cost_price. Drives the auto-COGS % tracked figure on the P&L.
+function CogsCoverageBanner({ products }: { products: any[] }) {
+  const brandTotals = products.reduce<{ total: number; withCost: number }>((acc, p) => {
+    const brands = Array.isArray(p.brands) ? p.brands : [];
+    brands.forEach((b: any) => {
+      acc.total += 1;
+      if ((b.cost_price || 0) > 0) acc.withCost += 1;
+    });
+    return acc;
+  }, { total: 0, withCost: 0 });
+
+  if (brandTotals.total === 0) return null;
+  const pct = Math.round((brandTotals.withCost / brandTotals.total) * 100);
+  const green = pct === 100;
+  return (
+    <div className={`mb-3 rounded-lg border px-3 py-2 text-xs flex items-center gap-2 ${green ? "bg-emerald-50 border-emerald-200 text-emerald-800" : "bg-amber-50 border-amber-200 text-amber-900"}`}>
+      <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: green ? "#10B981" : "#F59E0B" }} />
+      <span>
+        <b>{brandTotals.withCost}</b> of <b>{brandTotals.total}</b> brand variants have cost prices set —
+        auto-COGS tracking active for <b>{pct}%</b>.
+      </span>
     </div>
   );
 }

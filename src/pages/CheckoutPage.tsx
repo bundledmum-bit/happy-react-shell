@@ -474,6 +474,14 @@ export default function CheckoutPage() {
     return !Object.keys(e).length;
   };
 
+  // Paystack fee per Nigerian card pricing:
+  //   1.5% of order total + ₦100 (only for orders > ₦2,500)
+  //   capped at ₦2,000.
+  const computePaystackFee = (orderTotalNaira: number): number => {
+    const base = Math.round(orderTotalNaira * 0.015) + (orderTotalNaira > 2500 ? 100 : 0);
+    return Math.min(base, 2000);
+  };
+
   const buildOrderData = (cartItems: typeof cart, paystackRef?: string, paystackStatus?: string) => ({
     timestamp: new Date().toISOString(),
     customerName: `${form.firstName} ${form.lastName}`,
@@ -587,6 +595,12 @@ export default function CheckoutPage() {
             traffic_source: attribution.traffic_source,
             referrer: attribution.referrer,
             landing_page: attribution.landing_page,
+            // Financial fields — give the finance dashboard data from
+            // the moment the order is placed. Kobo → naira for partner_cost.
+            partner_cost: Math.round((courierQuote?.partnerCostKobo || 0) / 100),
+            actual_courier_partner: courierQuote?.partner || null,
+            paystack_fee: computePaystackFee(orderData.total),
+            packaging_cost: 0,
           },
           items: orderItemsPayload,
           customer: {
@@ -625,6 +639,22 @@ export default function CheckoutPage() {
         total: orderData.total,
         item_count: cart.length,
       });
+
+      // Belt-and-braces financial fields write — in case the edge
+      // function dropped the new keys, we stamp them directly on the
+      // order row so the finance dashboard has data immediately.
+      try {
+        const partnerCostNaira = Math.round((courierQuote?.partnerCostKobo || 0) / 100);
+        const fee = computePaystackFee(orderData.total);
+        await (supabase.from("orders") as any).update({
+          partner_cost: partnerCostNaira,
+          actual_courier_partner: courierQuote?.partner || null,
+          paystack_fee: fee,
+          packaging_cost: 0,
+        }).eq("id", result.id);
+      } catch (err) {
+        console.warn("Financial fields backfill skipped:", err);
+      }
 
       // Persist the courier assignment derived from the live checkout
       // quote — partner + internal routing note. If we happen not to

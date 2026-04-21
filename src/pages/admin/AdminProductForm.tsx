@@ -275,13 +275,22 @@ export default function AdminProductForm({ product, onClose, onSaved }: Props) {
                       </select></div>
                   </div>
                   <div className="grid grid-cols-4 gap-2">
-                    <div><label className="text-[10px] font-semibold text-text-med block mb-0.5">Price (₦)</label>
+                    <div><label className="text-[10px] font-semibold text-text-med block mb-0.5">Selling Price (₦)</label>
                       <input type="number" value={b.price} onChange={e => setBrands(bs => bs.map((br, idx) => idx === i ? { ...br, price: parseInt(e.target.value) || 0 } : br))}
                         className="w-full border border-input rounded-lg px-2 py-1.5 text-xs bg-background" /></div>
-                    <div><label className="text-[10px] font-semibold text-text-med block mb-0.5">Cost Price (₦)</label>
-                      <input type="number" value={b.cost_price || ""} placeholder="COGS"
+                    <div>
+                      <label className="text-[10px] font-semibold text-text-med block mb-0.5 flex items-center gap-1">
+                        Cost Price (₦)
+                        {(b.cost_price || 0) > 0 ? (
+                          <span className="inline-flex items-center text-[9px] font-semibold text-emerald-700 bg-emerald-100 px-1 rounded">COGS tracked</span>
+                        ) : (
+                          <span className="inline-flex items-center text-[9px] font-semibold text-text-light bg-muted px-1 rounded">No cost set</span>
+                        )}
+                      </label>
+                      <input type="number" value={b.cost_price || ""} placeholder="What we pay supplier"
                         onChange={e => setBrands(bs => bs.map((br, idx) => idx === i ? { ...br, cost_price: parseInt(e.target.value) || 0 } : br))}
-                        className="w-full border border-input rounded-lg px-2 py-1.5 text-xs bg-background" /></div>
+                        className="w-full border border-input rounded-lg px-2 py-1.5 text-xs bg-background" />
+                    </div>
                     <div><label className="text-[10px] font-semibold text-text-med block mb-0.5">Compare-at (₦)</label>
                       <input type="number" value={b.compare_at_price || ""} placeholder="Optional"
                         onChange={e => setBrands(bs => bs.map((br, idx) => idx === i ? { ...br, compare_at_price: parseInt(e.target.value) || null } : br))}

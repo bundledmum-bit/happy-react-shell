@@ -583,21 +583,8 @@ function OrderDetailPage({ order: o, adminUser, can, isSuperAdmin, onBack, onPri
       </div>
 
       {/* Courier Assignment — auto-populated when the order is placed */}
-      {(o as any).delivery_partner && (
-        <div className="rounded-lg border-2 border-forest/30 bg-forest-light p-3 mb-3">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-lg">🚚</span>
-            <span className="font-bold text-sm text-forest">
-              {(o as any).delivery_partner}
-            </span>
-          </div>
-          {(o as any).courier_note && (
-            <p className="text-xs text-text-med leading-relaxed">
-              {stripProfitSegments((o as any).courier_note)}
-            </p>
-          )}
-        </div>
-      )}
+      <CourierAssignmentEditor order={o} />
+
 
       <div className="grid md:grid-cols-2 gap-4 mb-4">
         {/* Customer Info — gated */}
@@ -875,6 +862,161 @@ async function getLabelLogo(): Promise<string> {
   } catch {
     return "";
   }
+}
+
+// Editable courier card shown above the order detail grid. Lets admin
+// override the auto-assigned courier + log the actual delivery cost.
+function CourierAssignmentEditor({ order: o }: { order: any }) {
+  const queryClient = useQueryClient();
+  const autoPartner: string | null = o.delivery_partner || null;
+  const initialPartner: string = o.actual_courier_partner || autoPartner || "";
+  const initialCostKobo: number = Number(o.actual_delivery_cost ?? o.partner_cost ?? 0);
+  const initialConfirmed: boolean = !!o.courier_cost_confirmed;
+
+  const [partner, setPartner] = useState<string>(initialPartner);
+  const [costNaira, setCostNaira] = useState<string>(String(Math.round(initialCostKobo / 100)));
+  const [confirmed, setConfirmed] = useState<boolean>(initialConfirmed);
+  const [reason, setReason] = useState<string>(o.courier_changed_reason || "");
+  const [noteOpen, setNoteOpen] = useState<boolean>(false);
+
+  const { data: couriers } = useQuery({
+    queryKey: ["order-courier-options"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("couriers")
+        .select("id,name,is_active")
+        .eq("is_active", true)
+        .order("display_order");
+      if (error) throw error;
+      return (data || []) as Array<{ id: string; name: string }>;
+    },
+    staleTime: 5 * 60_000,
+  });
+
+  // Reset when the underlying order refetches (e.g. after save).
+  useEffect(() => {
+    setPartner(o.actual_courier_partner || autoPartner || "");
+    setCostNaira(String(Math.round(Number(o.actual_delivery_cost ?? o.partner_cost ?? 0) / 100)));
+    setConfirmed(!!o.courier_cost_confirmed);
+    setReason(o.courier_changed_reason || "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [o.id, o.actual_courier_partner, o.actual_delivery_cost, o.courier_cost_confirmed]);
+
+  const costKobo = Math.round((Number(costNaira) || 0) * 100);
+  const partnerChanged = autoPartner && partner && partner !== autoPartner;
+  const dirty =
+    partner !== (o.actual_courier_partner || autoPartner || "") ||
+    costKobo !== Number(o.actual_delivery_cost ?? o.partner_cost ?? 0) ||
+    confirmed !== initialConfirmed ||
+    (partnerChanged && reason !== (o.courier_changed_reason || ""));
+
+  const save = async () => {
+    const payload: any = {
+      actual_courier_partner: partner || null,
+      actual_delivery_cost: costKobo || null,
+      courier_cost_confirmed: true,
+    };
+    if (partnerChanged) payload.courier_changed_reason = reason.trim() || null;
+    const { error } = await supabase.from("orders").update(payload).eq("id", o.id);
+    if (error) { toast.error(error.message || "Save failed"); return; }
+    setConfirmed(true);
+    queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+    queryClient.invalidateQueries({ queryKey: ["admin-order-detail", o.id] });
+    toast.success("Courier assignment saved");
+  };
+
+  // Always render something — even when auto-partner is unset, the
+  // admin should still be able to type one in.
+  return (
+    <div className="rounded-lg border-2 border-forest/30 bg-forest-light p-3 mb-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-lg">🚚</span>
+          <span className="font-bold text-sm text-forest uppercase tracking-wide">Courier Assignment</span>
+        </div>
+        {confirmed ? (
+          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">✓ Verified</span>
+        ) : (
+          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">⚠ Auto-assigned — verify actual courier and cost</span>
+        )}
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-2">
+        <div>
+          <label className="text-[10px] font-semibold text-text-med uppercase tracking-wide block mb-1">Partner</label>
+          <select
+            value={partner}
+            onChange={e => setPartner(e.target.value)}
+            className="w-full border border-input rounded-lg px-2 py-1.5 text-sm bg-background"
+          >
+            <option value="">— Select —</option>
+            {(couriers || []).map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+            {/* Fall back to any pre-existing value not in the active list */}
+            {partner && !(couriers || []).some(c => c.name === partner) && (
+              <option value={partner}>{partner} (custom)</option>
+            )}
+          </select>
+          {autoPartner && (
+            <div className="text-[10px] text-text-light mt-1">Auto-assigned: {autoPartner}</div>
+          )}
+        </div>
+        <div>
+          <label className="text-[10px] font-semibold text-text-med uppercase tracking-wide block mb-1">Actual Cost (₦)</label>
+          <input
+            type="number"
+            min="0"
+            value={costNaira}
+            onChange={e => setCostNaira(e.target.value)}
+            className="w-full border border-input rounded-lg px-2 py-1.5 text-sm bg-background tabular-nums"
+          />
+          {Number(o.partner_cost) > 0 && (
+            <div className="text-[10px] text-text-light mt-1">Auto-quoted: ₦{Math.round(Number(o.partner_cost) / 100).toLocaleString()}</div>
+          )}
+        </div>
+      </div>
+
+      <label className="flex items-center gap-2 text-xs text-text-med">
+        <input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} />
+        Cost confirmed
+      </label>
+
+      {partnerChanged && (
+        <div>
+          <label className="text-[10px] font-semibold text-text-med uppercase tracking-wide block mb-1">Why changed?</label>
+          <input
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+            placeholder="e.g. Customer requested Brain Express"
+            className="w-full border border-input rounded-lg px-2 py-1.5 text-xs bg-background"
+          />
+        </div>
+      )}
+
+      {o.courier_note && (
+        <div>
+          <button onClick={() => setNoteOpen(v => !v)} className="text-[11px] font-semibold text-forest hover:underline">
+            {noteOpen ? "Hide" : "Show"} dispatch note
+          </button>
+          {noteOpen && (
+            <p className="text-[11px] text-text-med leading-relaxed mt-1 bg-background/60 rounded p-2">
+              {stripProfitSegments(o.courier_note)}
+            </p>
+          )}
+        </div>
+      )}
+
+      {dirty && (
+        <div className="flex justify-end">
+          <button
+            onClick={save}
+            className="inline-flex items-center gap-1.5 bg-forest text-primary-foreground px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-forest-deep"
+          >
+            <Send className="w-3 h-3" /> Save changes
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 /**

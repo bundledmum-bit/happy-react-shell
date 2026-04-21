@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { NavLink, Routes, Route, useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import {
   BarChart3, FileText, Wallet, ShoppingCart, Users, Scale, Briefcase, Settings as SettingsIcon,
   Plus, Trash2, Save, Printer, AlertTriangle, CheckCircle2, TrendingUp, TrendingDown, Calendar,
@@ -232,25 +234,30 @@ function DashboardTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <PeriodSelector p={p} />
         <span className="text-[10px] text-text-light">Live — refreshes every 30s</span>
       </div>
 
+      <SourceLegend />
+
       {/* KPI Row 1 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <KpiCard title="Gross Revenue" value={fmtNaira(revCur)} delta={pctChange(revCur, revPrev)} />
-        <KpiCard title="Gross Profit" value={fmtNaira(gpCur)} badge={fmtPct(Number(cur?.gross_margin_pct))} />
-        <KpiCard title="EBITDA" value={fmtNaira(ebitdaCur)} badge={fmtPct(Number(cur?.ebitda_margin_pct))} />
-        <KpiCard title="Net Profit" value={fmtNaira(netCur, { brackets: true })} badge={fmtPct(Number(cur?.net_margin_pct))} negative={netCur < 0} />
+        <KpiCard title="Gross Revenue" source="auto" value={fmtNaira(revCur)} delta={pctChange(revCur, revPrev)} />
+        <KpiCard title="Gross Profit" source="mixed" value={fmtNaira(gpCur)} badge={fmtPct(Number(cur?.gross_margin_pct))} />
+        <KpiCard title="EBITDA" source="mixed" value={fmtNaira(ebitdaCur)} badge={fmtPct(Number(cur?.ebitda_margin_pct))} />
+        <KpiCard title="Net Profit" source="mixed" value={fmtNaira(netCur, { brackets: true })} badge={fmtPct(Number(cur?.net_margin_pct))} negative={netCur < 0} />
       </div>
 
       {/* KPI Row 2 */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <KpiCard title="Total Orders" value={String(cur?.order_count ?? 0)} subtitle={`AOV: ${fmtNaira(ngnToKoboNum(Number(cur?.avg_order_value_ngn) || 0))}`} />
-        <KpiCard title="Total COGS" value={fmtNaira(cogsCur)} subtitle={revCur > 0 ? `${((cogsCur / revCur) * 100).toFixed(1)}% of revenue` : "—"} />
-        <KpiCard title="Total OpEx" value={fmtNaira(opexCur + payrollCur)} subtitle={`Payroll: ${fmtNaira(payrollCur)}`} />
+        <KpiCard title="Total Orders" source="auto" value={String(cur?.order_count ?? 0)} subtitle={`AOV: ${fmtNaira(ngnToKoboNum(Number(cur?.avg_order_value_ngn) || 0))}`} />
+        <KpiCard title="Total COGS" source="mixed" value={fmtNaira(cogsCur)} subtitle={revCur > 0 ? `${((cogsCur / revCur) * 100).toFixed(1)}% of revenue` : "—"} />
+        <KpiCard title="Total OpEx" source="manual" value={fmtNaira(opexCur + payrollCur)} subtitle={`Payroll: ${fmtNaira(payrollCur)}`} />
       </div>
+
+      <CourierCostsSection year={p.resolved.year} />
+
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
@@ -323,12 +330,44 @@ function DashboardTab() {
   );
 }
 
-function KpiCard({ title, value, delta, badge, subtitle, negative }: {
-  title: string; value: string; delta?: number | null; badge?: string; subtitle?: string; negative?: boolean;
+type SourceKind = "auto" | "manual" | "mixed";
+
+function SourceDot({ source, className = "" }: { source?: SourceKind; className?: string }) {
+  if (!source) return null;
+  const map: Record<SourceKind, { color: string; label: string }> = {
+    auto:   { color: "#10B981", label: "Auto-pulled from orders" },
+    manual: { color: "#F59E0B", label: "Needs manual entry" },
+    mixed:  { color: "#3B82F6", label: "Mixed auto + manual" },
+  };
+  const { color, label } = map[source];
+  return (
+    <span
+      title={label}
+      className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${className}`}
+      style={{ backgroundColor: color }}
+    />
+  );
+}
+
+function SourceLegend() {
+  return (
+    <div className="flex flex-wrap items-center gap-3 text-[10px] text-text-med bg-muted/30 border border-border rounded-lg px-3 py-1.5">
+      <span className="flex items-center gap-1"><SourceDot source="auto" /> Auto-pulled from orders</span>
+      <span className="flex items-center gap-1"><SourceDot source="manual" /> Needs manual entry</span>
+      <span className="flex items-center gap-1"><SourceDot source="mixed" /> Mixed</span>
+    </div>
+  );
+}
+
+function KpiCard({ title, value, delta, badge, subtitle, negative, source }: {
+  title: string; value: string; delta?: number | null; badge?: string; subtitle?: string; negative?: boolean; source?: SourceKind;
 }) {
   return (
     <div className={cardCls}>
-      <div className="text-[10px] uppercase tracking-widest font-semibold text-text-light">{title}</div>
+      <div className="flex items-center gap-1.5">
+        <SourceDot source={source} />
+        <div className="text-[10px] uppercase tracking-widest font-semibold text-text-light">{title}</div>
+      </div>
       <div className={`text-xl font-bold mt-1 ${negative ? "text-red-600" : "text-forest"}`}>{value}</div>
       <div className="flex items-center gap-2 mt-1">
         {delta != null && (
@@ -343,6 +382,122 @@ function KpiCard({ title, value, delta, badge, subtitle, negative }: {
           </span>
         )}
         {subtitle && <span className="text-[10px] text-text-light">{subtitle}</span>}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Courier costs section — summarises partner_cost / actual_delivery_cost
+ * from the orders table, grouped by month + courier.
+ */
+function CourierCostsSection({ year }: { year?: number }) {
+  const { data: orders } = useQuery({
+    queryKey: ["finance-courier-costs", year],
+    queryFn: async () => {
+      const start = `${year}-01-01`;
+      const end = `${year + 1}-01-01`;
+      const { data, error } = await (supabase as any)
+        .from("orders")
+        .select("created_at,total,actual_courier_partner,delivery_partner,actual_delivery_cost,partner_cost,courier_cost_confirmed")
+        .gte("created_at", start)
+        .lt("created_at", end);
+      if (error) throw error;
+      return (data || []) as Array<any>;
+    },
+    staleTime: 60_000,
+  });
+
+  const { summary, totalRevenue, unconfirmed } = useMemo(() => {
+    const rows = orders || [];
+    const map: Record<number, Record<string, { orders: number; cost: number }>> = {};
+    let tr = 0;
+    let un = 0;
+    rows.forEach(o => {
+      const m = new Date(o.created_at).getMonth();
+      const partner = o.actual_courier_partner || o.delivery_partner || "Unassigned";
+      const cost = Number(o.actual_delivery_cost ?? o.partner_cost ?? 0);
+      tr += Number(o.total || 0);
+      if (!o.courier_cost_confirmed) un += 1;
+      if (!map[m]) map[m] = {};
+      if (!map[m][partner]) map[m][partner] = { orders: 0, cost: 0 };
+      map[m][partner].orders += 1;
+      map[m][partner].cost += cost;
+    });
+    return { summary: map, totalRevenue: tr, unconfirmed: un };
+  }, [orders]);
+
+  const months = Array.from({ length: 12 }, (_, i) => i);
+  const totals = months.reduce((acc, m) => {
+    const row = summary[m] || {};
+    const monthTotal = Object.values(row).reduce((s, v) => s + v.cost, 0);
+    const monthOrders = Object.values(row).reduce((s, v) => s + v.orders, 0);
+    return { cost: acc.cost + monthTotal, orders: acc.orders + monthOrders };
+  }, { cost: 0, orders: 0 });
+  const pctOfRevenue = totalRevenue > 0 ? (totals.cost / totalRevenue) * 100 : 0;
+
+  return (
+    <div className={cardCls}>
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <h3 className="font-semibold text-sm flex items-center gap-1.5">
+          <SourceDot source="auto" /> Courier Costs ({year})
+        </h3>
+        <div className="flex items-center gap-3 text-[11px] text-text-med">
+          <span>Delivery as % of revenue: <b className="text-forest">{pctOfRevenue.toFixed(2)}%</b></span>
+          {unconfirmed > 0 && (
+            <span className="inline-flex items-center gap-1 bg-amber-50 border border-amber-200 text-amber-800 px-2 py-0.5 rounded-full">
+              ⚠ {unconfirmed} order{unconfirmed === 1 ? "" : "s"} still unverified — actual costs may differ
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead className="bg-muted/40">
+            <tr className="text-left">
+              <th className="px-3 py-2">Month</th>
+              <th className="px-3 py-2 text-right">Brain Express Orders</th>
+              <th className="px-3 py-2 text-right">BE Cost</th>
+              <th className="px-3 py-2 text-right">eFTD Orders</th>
+              <th className="px-3 py-2 text-right">eFTD Cost</th>
+              <th className="px-3 py-2 text-right">Total Courier Cost</th>
+              <th className="px-3 py-2 text-right">Avg / Order</th>
+            </tr>
+          </thead>
+          <tbody>
+            {months.map(m => {
+              const row = summary[m] || {};
+              const be = row["Brain Express"] || { orders: 0, cost: 0 };
+              const eftd = row["eFTD Africa"] || { orders: 0, cost: 0 };
+              const other = Object.entries(row)
+                .filter(([k]) => k !== "Brain Express" && k !== "eFTD Africa")
+                .reduce((s, [, v]) => ({ orders: s.orders + v.orders, cost: s.cost + v.cost }), { orders: 0, cost: 0 });
+              const total = be.cost + eftd.cost + other.cost;
+              const totalOrders = be.orders + eftd.orders + other.orders;
+              if (totalOrders === 0) return null;
+              return (
+                <tr key={m} className="border-t border-border">
+                  <td className="px-3 py-2 font-semibold">{MONTHS[m]}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{be.orders}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{fmtNaira(be.cost)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{eftd.orders}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{fmtNaira(eftd.cost)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums font-semibold">{fmtNaira(total)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-text-light">
+                    {totalOrders ? fmtNaira(Math.round(total / totalOrders)) : "—"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr className="font-bold border-t-2 border-border">
+              <td colSpan={5} className="px-3 py-2">YTD</td>
+              <td className="px-3 py-2 text-right tabular-nums">{fmtNaira(totals.cost)}</td>
+              <td className="px-3 py-2 text-right tabular-nums">{totals.orders ? fmtNaira(Math.round(totals.cost / totals.orders)) : "—"}</td>
+            </tr>
+          </tfoot>
+        </table>
       </div>
     </div>
   );
@@ -467,29 +622,29 @@ function PLTab() {
           <PLHeader compare={compare} />
 
           <PLSection title="REVENUE" />
-          <PLLine label="Product Sales" v={plRowKobo(cur, "product_revenue_ngn")} p={plRowKobo(prev, "product_revenue_ngn")} compare={compare} />
-          <PLLine label="Delivery Revenue" v={plRowKobo(cur, "delivery_revenue_ngn")} p={plRowKobo(prev, "delivery_revenue_ngn")} compare={compare} />
-          <PLLine label="Service & Packaging Fees" v={plRowKobo(cur, "service_fee_revenue_ngn")} p={plRowKobo(prev, "service_fee_revenue_ngn")} compare={compare} />
+          <PLLine label="Product Sales" source="auto" v={plRowKobo(cur, "product_revenue_ngn")} p={plRowKobo(prev, "product_revenue_ngn")} compare={compare} />
+          <PLLine label="Delivery Revenue" source="auto" v={plRowKobo(cur, "delivery_revenue_ngn")} p={plRowKobo(prev, "delivery_revenue_ngn")} compare={compare} />
+          <PLLine label="Service & Packaging Fees" source="auto" v={plRowKobo(cur, "service_fee_revenue_ngn")} p={plRowKobo(prev, "service_fee_revenue_ngn")} compare={compare} />
           <PLTotal label="TOTAL REVENUE" v={plRowKobo(cur, "gross_revenue_ngn")} p={plRowKobo(prev, "gross_revenue_ngn")} compare={compare} />
 
           <PLSection title="COST OF GOODS SOLD" />
-          <PLLine label="Product Procurement, Packaging & Inbound" v={plRowKobo(cur, "cogs_ngn")} p={plRowKobo(prev, "cogs_ngn")} compare={compare} />
+          <PLLine label="Product Procurement, Packaging & Inbound" source="mixed" v={plRowKobo(cur, "cogs_ngn")} p={plRowKobo(prev, "cogs_ngn")} compare={compare} />
           <PLTotal label="TOTAL COGS" v={plRowKobo(cur, "cogs_ngn")} p={plRowKobo(prev, "cogs_ngn")} compare={compare} />
           <PLTotal label="GROSS PROFIT" v={plRowKobo(cur, "gross_profit_ngn")} p={plRowKobo(prev, "gross_profit_ngn")} compare={compare} badge={fmtPct(Number(cur?.gross_margin_pct))} />
 
           <PLSection title="OPERATING EXPENSES" />
-          <PLLine label="Salaries & Wages" v={plRowKobo(cur, "payroll_cost_ngn")} p={plRowKobo(prev, "payroll_cost_ngn")} compare={compare} />
+          <PLLine label="Salaries & Wages" source="manual" v={plRowKobo(cur, "payroll_cost_ngn")} p={plRowKobo(prev, "payroll_cost_ngn")} compare={compare} />
           {opexByCat.map(c => (
-            <PLLine key={c.name} label={c.name} v={c.amount} p={0} compare={compare} />
+            <PLLine key={c.name} label={c.name} source="manual" v={c.amount} p={0} compare={compare} />
           ))}
           <PLTotal label="TOTAL OPEX" v={plRowKobo(cur, "total_opex_ngn") + plRowKobo(cur, "payroll_cost_ngn")} p={plRowKobo(prev, "total_opex_ngn") + plRowKobo(prev, "payroll_cost_ngn")} compare={compare} />
 
           <PLTotal label="EBITDA" v={plRowKobo(cur, "ebitda_ngn")} p={plRowKobo(prev, "ebitda_ngn")} compare={compare} badge={fmtPct(Number(cur?.ebitda_margin_pct))} />
 
-          <PLLine label="Depreciation & Amortisation" v={plRowKobo(cur, "depreciation_ngn")} p={plRowKobo(prev, "depreciation_ngn")} compare={compare} />
+          <PLLine label="Depreciation & Amortisation" source="manual" v={plRowKobo(cur, "depreciation_ngn")} p={plRowKobo(prev, "depreciation_ngn")} compare={compare} />
           <PLTotal label="EBIT (Operating Profit)" v={plRowKobo(cur, "ebit_ngn")} p={plRowKobo(prev, "ebit_ngn")} compare={compare} />
 
-          <PLLine label="Tax Expenses" v={plRowKobo(cur, "tax_expenses_ngn")} p={plRowKobo(prev, "tax_expenses_ngn")} compare={compare} />
+          <PLLine label="Tax Expenses" source="manual" v={plRowKobo(cur, "tax_expenses_ngn")} p={plRowKobo(prev, "tax_expenses_ngn")} compare={compare} />
           <PLTotal label="NET PROFIT / (LOSS)" v={plRowKobo(cur, "net_profit_ngn")} p={plRowKobo(prev, "net_profit_ngn")} compare={compare} badge={fmtPct(Number(cur?.net_margin_pct))} highlight />
         </div>
 
@@ -519,10 +674,13 @@ function PLSection({ title }: { title: string }) {
   );
 }
 
-function PLLine({ label, v, p, compare }: { label: string; v: number; p: number; compare: boolean }) {
+function PLLine({ label, v, p, compare, source }: { label: string; v: number; p: number; compare: boolean; source?: SourceKind }) {
   return (
     <>
-      <div className="text-sm text-text-med py-1 pl-3">{label}</div>
+      <div className="text-sm text-text-med py-1 pl-3 flex items-center gap-1.5">
+        <SourceDot source={source} />
+        <span>{label}</span>
+      </div>
       <div className={`text-sm text-right py-1 tabular-nums ${v < 0 ? "text-red-600" : ""}`}>{fmtNaira(v, { brackets: true })}</div>
       {compare && <div className={`text-sm text-right py-1 tabular-nums text-text-light ${p < 0 ? "text-red-600" : ""}`}>{fmtNaira(p, { brackets: true })}</div>}
     </>
