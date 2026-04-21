@@ -5,7 +5,7 @@ import { useShippingZones, calculateDeliveryFee } from "@/hooks/useShippingZones
 import { useSpendThresholds, getSpendPrompt } from "@/hooks/useSpendThresholds";
 import ProductImage from "@/components/ProductImage";
 import SpendMoreBanner from "@/components/SpendMoreBanner";
-import { Minus, Plus, X, ShoppingBag, ArrowLeft, Bookmark } from "lucide-react";
+import { Minus, Plus, X, ShoppingBag, ArrowLeft, Bookmark, MapPin } from "lucide-react";
 import { useEffect, useState } from "react";
 
 /**
@@ -65,7 +65,10 @@ export default function CartPage() {
   // Spend threshold discount
   const spendPrompt = thresholds?.length ? getSpendPrompt(subtotal, thresholds) : null;
   const spendDiscount = spendPrompt?.appliedDiscount || 0;
-  const total = subtotal + deliveryCalc.fee + serviceFee - spendDiscount;
+  // Delivery fee is NOT added in the cart total — it's only known once
+  // the customer enters their full location at checkout. See the
+  // "Delivery fee calculated at checkout" note in the order summary.
+  const total = subtotal + serviceFee - spendDiscount;
 
   // Delivery date estimate
   const now = new Date();
@@ -258,9 +261,12 @@ export default function CartPage() {
 
               <div className="space-y-2 font-body text-sm">
                 <div className="flex justify-between"><span className="text-text-med">Subtotal</span><span>{fmt(subtotal)}</span></div>
-                <div className="flex justify-between">
-                  <span className="text-text-med">Delivery {deliveryCalc.zoneName !== "Standard" && <span className="text-[10px]">({deliveryCalc.zoneName})</span>}</span>
-                  <span className={deliveryCalc.isFree ? "text-forest font-bold" : ""}>{deliveryCalc.isFree ? "FREE 🎉" : fmt(deliveryCalc.fee)}</span>
+                <div className="bg-muted/40 rounded-lg px-3 py-2 flex items-start gap-2 text-xs text-text-med">
+                  <MapPin className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                  <span>
+                    Delivery fee calculated at checkout. Enter your delivery
+                    location to see the exact fee for your area.
+                  </span>
                 </div>
                 {serviceFeeEnabled && (
                   <div className="flex justify-between">
