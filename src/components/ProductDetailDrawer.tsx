@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { Star, ShoppingBag, X, ZoomIn } from "lucide-react";
 import QtyControl from "@/components/QtyControl";
@@ -68,6 +68,34 @@ function DrawerInner({ product, defaultBudget, onClose }: { product: Product; de
   }, [product.id, product.name]);
 
   const displayImage = selectedBrand?.imageUrl || product.imageUrl;
+
+  // Gallery images for the currently-selected brand. Falls back to
+  // [selectedBrand.imageUrl] and finally to [product.imageUrl] so
+  // older products still render at least one slide.
+  const galleryImages = useMemo<string[]>(() => {
+    const arr: string[] = [];
+    if (Array.isArray(selectedBrand?.images)) arr.push(...selectedBrand.images.filter(Boolean));
+    if (arr.length === 0 && selectedBrand?.imageUrl) arr.push(selectedBrand.imageUrl);
+    if (arr.length === 0 && product.imageUrl) arr.push(product.imageUrl);
+    return arr;
+  }, [selectedBrand, product.imageUrl]);
+  const galleryRef = useRef<HTMLDivElement | null>(null);
+  const [activeSlide, setActiveSlide] = useState(0);
+
+  // Reset scroll to first slide on brand change.
+  useEffect(() => {
+    setActiveSlide(0);
+    if (galleryRef.current) galleryRef.current.scrollTo({ left: 0, behavior: "auto" });
+  }, [selectedBrand?.id]);
+
+  // Update the active dot on scroll using a simple scroll-position
+  // divide-by-width — avoids the overhead of an IntersectionObserver.
+  const onGalleryScroll = () => {
+    const el = galleryRef.current;
+    if (!el) return;
+    const idx = Math.round(el.scrollLeft / Math.max(1, el.clientWidth));
+    if (idx !== activeSlide) setActiveSlide(idx);
+  };
   const isOutOfStock = selectedBrand?.inStock === false || selectedBrand?.stockQuantity === 0;
   const isLowStock = selectedBrand?.stockQuantity != null && selectedBrand.stockQuantity > 0 && selectedBrand.stockQuantity <= 5;
   const showSalePrice = selectedBrand?.compareAtPrice && selectedBrand.compareAtPrice > selectedBrand.price;
@@ -114,12 +142,8 @@ function DrawerInner({ product, defaultBudget, onClose }: { product: Product; de
       </div>
 
       <div className="overflow-y-auto flex-1 overscroll-contain touch-pan-y">
-        {/* Product Image */}
-        <div
-          className="h-52 md:h-64 flex items-center justify-center relative overflow-hidden cursor-zoom-in group"
-          style={{ backgroundColor: displayImage ? '#f5f5f5' : (selectedBrand.color || "#F0F7F4") }}
-          onClick={() => displayImage && setZoomImage(displayImage)}
-        >
+        {/* Product gallery — swipeable on mobile, with dot indicators */}
+        <div className="relative" style={{ backgroundColor: displayImage ? "#f5f5f5" : (selectedBrand.color || "#F0F7F4") }}>
           {product.badge && (
             <span className="absolute top-3 left-3 bg-coral text-primary-foreground text-[10px] font-bold px-2.5 py-1 rounded-pill uppercase z-10">{product.badge}</span>
           )}
@@ -128,10 +152,57 @@ function DrawerInner({ product, defaultBudget, onClose }: { product: Product; de
               Save {savingsPercent}%
             </span>
           )}
-          <ProductImage imageUrl={displayImage} emoji={selectedBrand.img || product.baseImg} alt={product.name} className="w-full h-full object-contain p-4" emojiClassName="text-7xl" />
-          {displayImage && (
-            <div className="absolute bottom-2 right-2 bg-card/80 rounded-full p-1.5 opacity-70 group-hover:opacity-100 transition-opacity pointer-events-none">
-              <ZoomIn className="h-4 w-4 text-foreground" />
+
+          {galleryImages.length > 0 ? (
+            <>
+              <div
+                ref={galleryRef}
+                onScroll={onGalleryScroll}
+                className="flex overflow-x-auto snap-x snap-mandatory scrollbar-none h-52 md:h-64 touch-pan-x"
+                style={{ scrollbarWidth: "none" }}
+              >
+                {galleryImages.map((src, i) => (
+                  <button
+                    key={`${selectedBrand.id}-${i}`}
+                    type="button"
+                    onClick={() => setZoomImage(src)}
+                    className="snap-start flex-shrink-0 w-full h-full flex items-center justify-center cursor-zoom-in"
+                    aria-label={`Product image ${i + 1} of ${galleryImages.length}`}
+                  >
+                    <img src={src} alt={product.name} className="max-w-full max-h-full object-contain p-4" loading="lazy" />
+                  </button>
+                ))}
+              </div>
+              {galleryImages.length > 1 && (
+                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+                  {galleryImages.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        const el = galleryRef.current;
+                        if (!el) return;
+                        el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" });
+                      }}
+                      aria-label={`Go to image ${i + 1}`}
+                      className={`rounded-full transition-all ${i === activeSlide ? "bg-forest w-2.5 h-2.5" : "bg-forest/30 w-2 h-2"}`}
+                    />
+                  ))}
+                </div>
+              )}
+              <div className="pointer-events-none absolute bottom-2 right-2 bg-card/80 rounded-full p-1.5 opacity-70">
+                <ZoomIn className="h-4 w-4 text-foreground" />
+              </div>
+            </>
+          ) : (
+            // Fallback — no image data at all, use the emoji placeholder.
+            <div className="h-52 md:h-64 flex items-center justify-center">
+              <ProductImage
+                imageUrl={null}
+                emoji={selectedBrand.img || product.baseImg}
+                alt={product.name}
+                className="w-full h-full"
+                emojiClassName="text-7xl"
+              />
             </div>
           )}
         </div>

@@ -9,6 +9,11 @@ interface FilterState {
   category: string;
   brand: string;
   sort: string;
+  /** Price range in naira — both null means "no limit". */
+  priceMin?: number | null;
+  priceMax?: number | null;
+  /** Hide brands that are out of stock. */
+  inStockOnly?: boolean;
 }
 
 interface Props {
@@ -21,6 +26,11 @@ interface Props {
   productCounts: Record<string, number>;
   /** When set to "sort", the Sort By section is pre-expanded. */
   openSection?: "filter" | "sort";
+  /** Visibility toggles for the optional filter sections (site_settings). */
+  showPriceFilter?: boolean;
+  showInStockFilter?: boolean;
+  /** Price range bounds in naira — used to seed the inputs. */
+  priceBounds?: { min: number; max: number };
 }
 
 const SHOP_TABS = [
@@ -57,7 +67,7 @@ function Section({ title, open: defaultOpen = false, children }: { title: string
   );
 }
 
-export default function ShopFilterDrawer({ open, onClose, filters, onApply, categories, brandNames, productCounts, openSection }: Props) {
+export default function ShopFilterDrawer({ open, onClose, filters, onApply, categories, brandNames, productCounts, openSection, showPriceFilter, showInStockFilter, priceBounds }: Props) {
   const [local, setLocal] = useState<FilterState>(filters);
   const sortDefaultOpen = openSection === "sort";
   const shopDefaultOpen = openSection !== "sort";
@@ -67,10 +77,12 @@ export default function ShopFilterDrawer({ open, onClose, filters, onApply, cate
     local.budget !== "all" ? 1 : 0,
     local.category ? 1 : 0,
     local.brand ? 1 : 0,
+    (local.priceMin != null || local.priceMax != null) ? 1 : 0,
+    local.inStockOnly ? 1 : 0,
   ].reduce((a, b) => a + b, 0);
 
   const handleClear = () => {
-    setLocal({ tab: "all", budget: "all", category: "", brand: "", sort: local.sort });
+    setLocal({ tab: "all", budget: "all", category: "", brand: "", sort: local.sort, priceMin: null, priceMax: null, inStockOnly: false });
   };
 
   const handleApply = () => {
@@ -140,6 +152,51 @@ export default function ShopFilterDrawer({ open, onClose, filters, onApply, cate
                   </button>
                 ))}
               </div>
+            </Section>
+          )}
+
+          {showPriceFilter && (
+            <Section title="Price">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-text-light">Min</span>
+                <input
+                  type="number"
+                  min={0}
+                  placeholder={priceBounds ? String(priceBounds.min) : "0"}
+                  value={local.priceMin ?? ""}
+                  onChange={e => setLocal(p => ({ ...p, priceMin: e.target.value === "" ? null : Number(e.target.value) }))}
+                  className="flex-1 rounded-lg border border-input px-3 py-2 text-sm bg-background min-h-[44px]"
+                />
+                <span className="text-xs text-text-light">–</span>
+                <input
+                  type="number"
+                  min={0}
+                  placeholder={priceBounds ? String(priceBounds.max) : "500000"}
+                  value={local.priceMax ?? ""}
+                  onChange={e => setLocal(p => ({ ...p, priceMax: e.target.value === "" ? null : Number(e.target.value) }))}
+                  className="flex-1 rounded-lg border border-input px-3 py-2 text-sm bg-background min-h-[44px]"
+                />
+              </div>
+              {priceBounds && (
+                <p className="text-[10px] text-text-light mt-2">Available range: ₦{priceBounds.min.toLocaleString()} – ₦{priceBounds.max.toLocaleString()}</p>
+              )}
+            </Section>
+          )}
+
+          {showInStockFilter && (
+            <Section title="Availability">
+              <label className="flex items-center justify-between min-h-[44px] px-1">
+                <span className="text-sm font-semibold">In stock only</span>
+                <span className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="peer sr-only"
+                    checked={!!local.inStockOnly}
+                    onChange={e => setLocal(p => ({ ...p, inStockOnly: e.target.checked }))}
+                  />
+                  <span className="peer h-6 w-11 rounded-full bg-muted after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-all peer-checked:bg-forest peer-checked:after:translate-x-5" />
+                </span>
+              </label>
             </Section>
           )}
 

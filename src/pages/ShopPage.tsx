@@ -158,6 +158,9 @@ export default function ShopPage() {
   const categoryF = searchParams.get("category") || "";
   const brandF = searchParams.get("brand") || "";
   const sortBy = searchParams.get("sort") || "popular";
+  const priceMinF = searchParams.get("priceMin") ? Number(searchParams.get("priceMin")) : null;
+  const priceMaxF = searchParams.get("priceMax") ? Number(searchParams.get("priceMax")) : null;
+  const inStockOnlyF = searchParams.get("inStock") === "1";
   const [search, setSearch] = useState(searchParams.get("q") || "");
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
@@ -223,6 +226,19 @@ export default function ShopPage() {
     if (categoryF) raw = raw.filter(p => p.subcategory === categoryF);
     if (brandF) raw = raw.filter(p => p.brands.some(b => b.label.toLowerCase() === brandF.toLowerCase()));
 
+    // In-stock only — keep products that have at least one in-stock brand.
+    if (inStockOnlyF) raw = raw.filter(p => p.brands.some(b => b.inStock !== false && b.stockQuantity !== 0));
+
+    // Price range — keep products where at least one brand price is in range.
+    if (priceMinF != null || priceMaxF != null) {
+      raw = raw.filter(p => p.brands.some(b => {
+        const pr = Number(b.price) || 0;
+        if (priceMinF != null && pr < priceMinF) return false;
+        if (priceMaxF != null && pr > priceMaxF) return false;
+        return true;
+      }));
+    }
+
     // Dedup by product name
     const seen = new Set<string>();
     raw = raw.filter(p => {
@@ -241,7 +257,7 @@ export default function ShopPage() {
     if (sortBy === "name_asc") sorted.sort((a, b) => a.name.localeCompare(b.name));
     if (sortBy === "newest") sorted.sort((a: any, b: any) => (b.created_at || "").localeCompare(a.created_at || ""));
     return sorted;
-  }, [allProducts, tab, search, categoryF, brandF, sortBy]);
+  }, [allProducts, tab, search, categoryF, brandF, sortBy, inStockOnlyF, priceMinF, priceMaxF]);
 
   const visibleProducts = filtered.slice(0, visibleCount);
   const hasMore = visibleCount < filtered.length;
@@ -274,7 +290,25 @@ export default function ShopPage() {
     budgetF !== "all" ? 1 : 0,
     categoryF ? 1 : 0,
     brandF ? 1 : 0,
+    (priceMinF != null || priceMaxF != null) ? 1 : 0,
+    inStockOnlyF ? 1 : 0,
+    search ? 1 : 0,
   ].reduce((a, b) => a + b, 0);
+
+  // Available price range for the seed inputs — min / max price of
+  // the currently-filtered-by-tab products. Falls back to 0 / 500000.
+  const priceBounds = useMemo(() => {
+    let min = Infinity, max = 0;
+    const pool = (allProducts || []).filter(p =>
+      tab === "all" || p.category === tab || (tab === "push-gift" && p.category === "push-gift")
+    );
+    pool.forEach(p => p.brands.forEach(b => {
+      const pr = Number(b.price) || 0;
+      if (pr > 0) { if (pr < min) min = pr; if (pr > max) max = pr; }
+    }));
+    if (!isFinite(min) || max === 0) return { min: 0, max: 500000 };
+    return { min: Math.floor(min), max: Math.ceil(max) };
+  }, [allProducts, tab]);
 
   // Canonical sort-option metadata. Supports both DB keys and legacy
   // URL keys so existing links still work.
@@ -296,7 +330,7 @@ export default function ShopPage() {
   const canonicalSort = ALL_SORT_OPTIONS.find(o => o.key === sortBy || o.aliases?.includes(sortBy))?.key || sortBy;
   const sortLabel = ALL_SORT_OPTIONS.find(o => o.key === canonicalSort)?.label || "Sort";
 
-  const handleFilterApply = (f: { tab: string; budget: string; category: string; brand: string; sort: string }) => {
+  const handleFilterApply = (f: { tab: string; budget: string; category: string; brand: string; sort: string; priceMin?: number | null; priceMax?: number | null; inStockOnly?: boolean }) => {
     const params = new URLSearchParams();
     if (f.tab !== "all") params.set("tab", f.tab);
     if (f.budget !== "all") params.set("budget", f.budget);
@@ -304,6 +338,9 @@ export default function ShopPage() {
     if (f.brand) params.set("brand", f.brand);
     if (f.sort !== "popular") params.set("sort", f.sort);
     if (search) params.set("q", search);
+    if (f.priceMin != null) params.set("priceMin", String(f.priceMin));
+    if (f.priceMax != null) params.set("priceMax", String(f.priceMax));
+    if (f.inStockOnly) params.set("inStock", "1");
     setSearchParams(params, { replace: true });
     setVisibleCount(ITEMS_PER_PAGE);
   };
@@ -427,6 +464,57 @@ export default function ShopPage() {
         </div>
       </div>
 
+      {/* Active filter chips — renders when any filter is active; each chip has
+          an × to remove just that one. "Clear all" surfaces when 2+ are on. */}
+      {activeFilterCount > 0 && (
+        <div className="max-w-[1200px] mx-auto px-4 md:px-10 pt-3">
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-none -mx-4 md:mx-0 px-4 md:px-0">
+            {tab !== "all" && (
+              <FilterChip label={`Shop: ${tab === "baby" ? "Baby" : tab === "mum" ? "Mum" : "Push Gifts"}`} onRemove={() => setFilter("tab", "all")} />
+            )}
+            {budgetF !== "all" && (
+              <FilterChip label={`Budget: ${budgetF[0].toUpperCase() + budgetF.slice(1)}`} onRemove={() => setFilter("budget", "all")} />
+            )}
+            {categoryF && (
+              <FilterChip label={`Category: ${filteredCategories.find(c => c.slug === categoryF)?.name || categoryF}`} onRemove={() => setFilter("category", "")} />
+            )}
+            {brandF && <FilterChip label={`Brand: ${brandF}`} onRemove={() => setFilter("brand", "")} />}
+            {(priceMinF != null || priceMaxF != null) && (
+              <FilterChip
+                label={`₦${(priceMinF ?? 0).toLocaleString()} – ${priceMaxF != null ? `₦${priceMaxF.toLocaleString()}` : "∞"}`}
+                onRemove={() => {
+                  const params = new URLSearchParams(searchParams);
+                  params.delete("priceMin"); params.delete("priceMax");
+                  setSearchParams(params, { replace: true });
+                }}
+              />
+            )}
+            {inStockOnlyF && (
+              <FilterChip label="In stock only" onRemove={() => {
+                const params = new URLSearchParams(searchParams);
+                params.delete("inStock");
+                setSearchParams(params, { replace: true });
+              }} />
+            )}
+            {search && (
+              <FilterChip label={`Search: ${search}`} onRemove={() => { setSearch(""); setFilter("q", ""); }} />
+            )}
+            {activeFilterCount >= 2 && (
+              <button
+                onClick={() => {
+                  setSearch("");
+                  setSearchParams(new URLSearchParams(), { replace: true });
+                  setVisibleCount(ITEMS_PER_PAGE);
+                }}
+                className="ml-auto flex-shrink-0 text-xs font-semibold text-destructive hover:underline whitespace-nowrap"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="max-w-[1200px] mx-auto px-4 md:px-10 py-6 md:py-10">
         <SpendMoreBanner variant="shop" />
 
@@ -505,12 +593,15 @@ export default function ShopPage() {
       <ShopFilterDrawer
         open={filterDrawerOpen}
         onClose={() => setFilterDrawerOpen(false)}
-        filters={{ tab, budget: budgetF, category: categoryF, brand: brandF, sort: sortBy }}
+        filters={{ tab, budget: budgetF, category: categoryF, brand: brandF, sort: sortBy, priceMin: priceMinF, priceMax: priceMaxF, inStockOnly: inStockOnlyF }}
         onApply={handleFilterApply}
         categories={filteredCategories}
         brandNames={allBrandNames}
         productCounts={categoryCounts}
         openSection={filterDrawerInitialSection}
+        showPriceFilter={(siteSettings as any)?.shop_show_price_filter !== false}
+        showInStockFilter={(siteSettings as any)?.shop_show_instock_filter !== false}
+        priceBounds={priceBounds}
       />
 
       {/* Mobile sort bottom sheet — single-select, closes on pick */}
@@ -539,3 +630,12 @@ export default function ShopPage() {
     </div>
   );
 }
+function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <span className="inline-flex items-center gap-1 flex-shrink-0 bg-forest/10 text-forest border border-forest/30 rounded-full px-3 py-1 text-xs">
+      <span className="truncate max-w-[160px]">{label}</span>
+      <button onClick={onRemove} aria-label={`Remove ${label}`} className="hover:text-destructive">×</button>
+    </span>
+  );
+}
+

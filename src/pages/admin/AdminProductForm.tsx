@@ -104,14 +104,24 @@ export default function AdminProductForm({ product, onClose, onSaved }: Props) {
       // Upsert brands
       if (isEdit) await supabase.from("brands").delete().eq("product_id", productId);
       if (brands.length > 0) {
-        const brandRows = brands.map((b, i) => ({
-          product_id: productId, brand_name: b.brand_name, price: b.price, tier: b.tier,
-          is_default_for_tier: b.is_default_for_tier || false, size_variant: b.size_variant || null,
-          display_order: i, image_url: b.image_url || null, logo_url: b.logo_url || null,
-          thumbnail_url: b.thumbnail_url || null, compare_at_price: b.compare_at_price || null,
-          stock_quantity: b.stock_quantity, in_stock: b.in_stock ?? true,
-          cost_price: b.cost_price || 0,
-        }));
+        const brandRows = brands.map((b, i) => {
+          // Keep images[0] in sync with image_url when one is empty —
+          // lets admins keep filling in the single image_url and still
+          // have the gallery array populated.
+          const existing: string[] = Array.isArray(b.images) ? b.images.filter(Boolean) : [];
+          const images = existing.length > 0 ? existing : (b.image_url ? [b.image_url] : []);
+          return {
+            product_id: productId, brand_name: b.brand_name, price: b.price, tier: b.tier,
+            is_default_for_tier: b.is_default_for_tier || false, size_variant: b.size_variant || null,
+            display_order: i,
+            image_url: b.image_url || images[0] || null,
+            images,
+            logo_url: b.logo_url || null,
+            thumbnail_url: b.thumbnail_url || null, compare_at_price: b.compare_at_price || null,
+            stock_quantity: b.stock_quantity, in_stock: b.in_stock ?? true,
+            cost_price: b.cost_price || 0,
+          };
+        });
         const { error } = await supabase.from("brands").insert(brandRows);
         if (error) throw error;
       }
@@ -324,6 +334,12 @@ export default function AdminProductForm({ product, onClose, onSaved }: Props) {
                       onUploaded={url => setBrands(bs => bs.map((br, idx) => idx === i ? { ...br, logo_url: url } : br))}
                       onRemove={() => setBrands(bs => bs.map((br, idx) => idx === i ? { ...br, logo_url: null } : br))} />
                   </div>
+
+                  <BrandGalleryEditor
+                    images={Array.isArray(b.images) ? b.images : []}
+                    fallback={b.image_url}
+                    onChange={next => setBrands(bs => bs.map((br, idx) => idx === i ? { ...br, images: next } : br))}
+                  />
                 </div>
               ))}
               {brands.length === 0 && <p className="text-xs text-text-light text-center py-4">No brands added yet. Click "Add Brand" above.</p>}
@@ -448,6 +464,92 @@ export default function AdminProductForm({ product, onClose, onSaved }: Props) {
             {saving ? "Saving..." : isEdit ? "Update Product" : "Create Product"}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Inline editor for a brand's images[] gallery. Primary (index 0) is
+ * flagged with a coral badge. Thumbnails can be removed individually;
+ * new images are added via URL input + "Add Image" button.
+ */
+function BrandGalleryEditor({ images, fallback, onChange }: {
+  images: string[];
+  fallback?: string | null;
+  onChange: (next: string[]) => void;
+}) {
+  const [url, setUrl] = useState("");
+  // Surface the fallback image as a read-only preview if the array is
+  // empty, so the admin isn't staring at a blank section.
+  const display = images.length > 0 ? images : (fallback ? [fallback] : []);
+  const add = () => {
+    const v = url.trim();
+    if (!v) return;
+    onChange([...images, v]);
+    setUrl("");
+  };
+  const remove = (idx: number) => onChange(images.filter((_, i) => i !== idx));
+  const makePrimary = (idx: number) => {
+    if (idx === 0) return;
+    const next = [...images];
+    const [m] = next.splice(idx, 1);
+    next.unshift(m);
+    onChange(next);
+  };
+  return (
+    <div className="mt-3 border-t border-border pt-3">
+      <div className="flex items-center justify-between mb-2">
+        <label className="text-xs font-semibold">Product Images (gallery)</label>
+        <span className="text-[10px] text-text-light">First image is the primary. Shown in the swipeable drawer gallery.</span>
+      </div>
+      {display.length === 0 ? (
+        <p className="text-[11px] text-text-light">No gallery images yet. Add a URL below.</p>
+      ) : (
+        <div className="flex gap-2 flex-wrap">
+          {display.map((src, i) => (
+            <div key={`${src}-${i}`} className="relative w-20 h-20 rounded-lg overflow-hidden border border-border bg-muted/40">
+              <img src={src} alt="" className="w-full h-full object-cover" />
+              {i === 0 && (
+                <span className="absolute bottom-0 left-0 right-0 text-[9px] font-bold text-white bg-coral text-center py-0.5">Primary</span>
+              )}
+              {images.length > 0 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => remove(i)}
+                    aria-label="Remove image"
+                    className="absolute top-1 right-1 w-5 h-5 rounded-full bg-foreground/70 text-white text-[11px] flex items-center justify-center hover:bg-destructive"
+                  >×</button>
+                  {i > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => makePrimary(i)}
+                      className="absolute top-1 left-1 text-[9px] font-semibold bg-card/90 px-1 rounded hover:bg-card"
+                    >Set 1st</button>
+                  )}
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="flex gap-2 mt-2">
+        <input
+          type="url"
+          value={url}
+          onChange={e => setUrl(e.target.value)}
+          placeholder="https://… image URL"
+          className="flex-1 border border-input rounded-lg px-2 py-1.5 text-xs bg-background"
+        />
+        <button
+          type="button"
+          onClick={add}
+          disabled={!url.trim()}
+          className="px-3 py-1.5 text-xs font-semibold bg-forest text-primary-foreground rounded-lg hover:bg-forest-deep disabled:opacity-40"
+        >
+          Add Image
+        </button>
       </div>
     </div>
   );

@@ -402,6 +402,33 @@ export default function BundleDetailPage() {
             </ol>
           </nav>
 
+          {/* Hero collage — first item from each section. Falls back to
+              a brand-green placeholder cell when a section is empty. */}
+          {(() => {
+            const cells = [mumItems[0], babyItems[0], hospitalItems[0], convenienceItems[0]];
+            return (
+              <div className="mb-4 rounded-2xl overflow-hidden grid grid-cols-2 aspect-square md:aspect-video max-w-[420px] md:max-w-[560px]">
+                {cells.map((item, i) => (
+                  <div
+                    key={i}
+                    className="bg-forest-light flex items-center justify-center overflow-hidden"
+                    style={item ? undefined : { background: "linear-gradient(135deg, #2D6A4F, #1E5C44)" }}
+                  >
+                    {item ? (
+                      item.imageUrl ? (
+                        <img src={item.imageUrl} alt={item.name || ""} className="w-full h-full object-cover" loading="lazy" />
+                      ) : (
+                        <span className="text-4xl md:text-5xl">{item.emoji || "📦"}</span>
+                      )
+                    ) : (
+                      <span className="text-3xl md:text-4xl opacity-70">💛</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+
           {/* Badges */}
           <div className="flex flex-wrap gap-1.5 mb-3">
             {[

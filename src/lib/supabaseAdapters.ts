@@ -13,6 +13,9 @@ export interface Brand {
   compareAtPrice?: number | null;
   img: string;
   imageUrl?: string | null;
+  /** Gallery images for this brand variant. Falls back to [imageUrl]
+   *  when the DB array is empty — populated from brands.images (TEXT[]). */
+  images?: string[];
   logoUrl?: string | null;
   tier: number;
   color: string;
@@ -131,20 +134,28 @@ export function adaptProduct(row: any): Product {
 
   const brands: Brand[] = ((row.brands || []) as any[])
     .sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0))
-    .map((b: any) => ({
-      id: b.id,
-      label: b.brand_name,
-      price: b.price,
-      compareAtPrice: b.compare_at_price || null,
-      img: row.emoji || "📦",
-      imageUrl: b.image_url || null,
-      logoUrl: b.logo_url || null,
-      tier: TIER_MAP[b.tier] ?? 1,
-      color: TIER_COLORS[b.tier] || "#E8F5E9",
-      stockQuantity: b.stock_quantity,
-      inStock: b.in_stock !== false,
-      sizeVariant: b.size_variant || null,
-    }));
+    .map((b: any) => {
+      // Gallery images: prefer the DB array, fall back to the single
+      // image_url so older variants still render something.
+      const dbImages: string[] = Array.isArray(b.images) ? b.images.filter(Boolean) : [];
+      const fallback = b.image_url || b.thumbnail_url;
+      const images = dbImages.length > 0 ? dbImages : (fallback ? [fallback] : []);
+      return {
+        id: b.id,
+        label: b.brand_name,
+        price: b.price,
+        compareAtPrice: b.compare_at_price || null,
+        img: row.emoji || "📦",
+        imageUrl: b.image_url || null,
+        images,
+        logoUrl: b.logo_url || null,
+        tier: TIER_MAP[b.tier] ?? 1,
+        color: TIER_COLORS[b.tier] || "#E8F5E9",
+        stockQuantity: b.stock_quantity,
+        inStock: b.in_stock !== false,
+        sizeVariant: b.size_variant || null,
+      };
+    });
 
   const sizes = ((row.product_sizes || []) as any[])
     .sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0))
