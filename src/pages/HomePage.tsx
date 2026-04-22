@@ -13,6 +13,7 @@ import HowItWorksSection from "@/components/home/HowItWorksSection";
 import TestimonialsSection from "@/components/home/TestimonialsSection";
 import TrustBarDb from "@/components/home/TrustBar";
 import RecentlyViewedStrip from "@/components/home/RecentlyViewedStrip";
+import HeroVideoBackground from "@/components/home/HeroVideoBackground";
 import { useHomepageSections, type HomepageSection } from "@/hooks/useHomepage";
 import { Search } from "lucide-react";
 
