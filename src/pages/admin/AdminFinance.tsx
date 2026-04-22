@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   BarChart3, FileText, Wallet, ShoppingCart, Users, Scale, Briefcase, Settings as SettingsIcon,
   Plus, Trash2, Save, Printer, AlertTriangle, CheckCircle2, TrendingUp, TrendingDown, Calendar,
-  Download, ChevronDown, ChevronRight, Info,
+  Download, ChevronDown, ChevronRight, Info, FileCheck, Bell,
 } from "lucide-react";
 import bmLogoGreen from "@/assets/logos/BM-LOGO-GREEN.svg";
 import {
@@ -60,6 +60,7 @@ const SUBNAV = [
   { to: "/admin/finance/payroll", label: "Payroll", icon: Users },
   { to: "/admin/finance/tax", label: "Tax Position", icon: Scale },
   { to: "/admin/finance/assets", label: "Assets", icon: Briefcase },
+  { to: "/admin/finance/compliance", label: "Compliance", icon: FileCheck },
   { to: "/admin/finance/settings", label: "Settings", icon: SettingsIcon },
 ];
 
@@ -103,6 +104,7 @@ export default function AdminFinance() {
         <Route path="payroll" element={<PayrollTab />} />
         <Route path="tax" element={<TaxTab />} />
         <Route path="assets" element={<AssetsTab />} />
+        <Route path="compliance" element={<ComplianceTab />} />
         <Route path="settings" element={<SettingsTab />} />
       </Routes>
     </div>
@@ -2271,8 +2273,337 @@ function SettingsTab() {
           <Save className="w-4 h-4" /> {upd.isPending ? "Saving…" : "Save settings"}
         </button>
       </div>
-      
+
     </div>
+  );
+}
+
+// ================================================================
+// PAGE 9 — COMPLIANCE DEADLINES
+// ================================================================
+
+interface ComplianceDeadline {
+  id: string;
+  name: string;
+  description: string | null;
+  regulatory_body: string | null;
+  due_date: string;
+  is_recurring: boolean | null;
+  recurrence_months: number | null;
+  status: "pending" | "filed" | "overdue" | "not_applicable" | string;
+  penalty_description: string | null;
+  notes: string | null;
+  filed_at: string | null;
+  filed_by: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+function fmtDueDate(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function daysBetween(iso: string): number {
+  // Positive = days until due (in the future), negative = days overdue.
+  const due = new Date(iso + (iso.includes("T") ? "" : "T00:00:00"));
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  due.setHours(0, 0, 0, 0);
+  return Math.round((due.getTime() - today.getTime()) / 86_400_000);
+}
+
+const BODY_COLORS: Record<string, string> = {
+  CAC: "bg-blue-100 text-blue-700",
+  FIRS: "bg-purple-100 text-purple-700",
+  LIRS: "bg-emerald-100 text-emerald-700",
+  PENCOM: "bg-indigo-100 text-indigo-700",
+  NSITF: "bg-amber-100 text-amber-700",
+  ITF: "bg-rose-100 text-rose-700",
+  NAFDAC: "bg-orange-100 text-orange-700",
+  SON: "bg-teal-100 text-teal-700",
+};
+
+function ComplianceTab() {
+  const qc = useQueryClient();
+
+  const { data: rows, isLoading } = useQuery({
+    queryKey: ["finance-compliance-deadlines"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("finance_compliance_deadlines")
+        .select("*")
+        .order("due_date", { ascending: true });
+      if (error) throw error;
+      return (data || []) as ComplianceDeadline[];
+    },
+    staleTime: 30_000,
+  });
+
+  const { data: unreadNotifs } = useQuery({
+    queryKey: ["finance-compliance-notifications"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("admin_notifications")
+        .select("id")
+        .eq("type", "compliance_deadline")
+        .eq("is_read", false);
+      if (error) throw error;
+      return (data || []) as Array<{ id: string }>;
+    },
+    staleTime: 30_000,
+  });
+
+  const markFiled = useMutation({
+    mutationFn: async (payload: { id: string; filedDate: string; notes: string | null; existingNotes: string | null }) => {
+      const { error } = await (supabase as any)
+        .from("finance_compliance_deadlines")
+        .update({
+          status: "filed",
+          filed_at: payload.filedDate,
+          notes: payload.notes || payload.existingNotes || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", payload.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["finance-compliance-deadlines"] });
+      toast.success("Deadline marked as filed.");
+    },
+    onError: (e: any) => toast.error(e?.message || "Could not mark as filed"),
+  });
+
+  const dismissNotifs = useMutation({
+    mutationFn: async () => {
+      const { error } = await (supabase as any)
+        .from("admin_notifications")
+        .update({ is_read: true })
+        .eq("type", "compliance_deadline")
+        .eq("is_read", false);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["finance-compliance-notifications"] }),
+  });
+
+  // Summary counts — derived client-side from the already-fetched list.
+  const summary = useMemo(() => {
+    const out = { filed: 0, pending: 0, overdue: 0, nextDue: null as string | null };
+    let nextTs = Infinity;
+    (rows || []).forEach(r => {
+      const s = r.status;
+      // Compute dynamic overdue on client even if the DB hasn't flipped it yet.
+      const days = daysBetween(r.due_date);
+      const isOverdueNow = s === "overdue" || (s === "pending" && days < 0);
+      if (s === "filed") out.filed += 1;
+      if (s === "pending" && !isOverdueNow) out.pending += 1;
+      if (isOverdueNow) out.overdue += 1;
+      if (s === "pending" && !isOverdueNow) {
+        const t = new Date(r.due_date).getTime();
+        if (t < nextTs) { nextTs = t; out.nextDue = r.due_date; }
+      }
+    });
+    return out;
+  }, [rows]);
+
+  const unreadCount = unreadNotifs?.length || 0;
+
+  return (
+    <div className="space-y-4">
+      {/* Notifications banner */}
+      {unreadCount > 0 && (
+        <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-3">
+          <Bell className="w-4 h-4 text-amber-700 mt-0.5 flex-shrink-0" />
+          <div className="flex-1 text-xs text-amber-900">
+            You have <b>{unreadCount}</b> compliance reminder{unreadCount === 1 ? "" : "s"} — check your notifications.
+          </div>
+          <button
+            onClick={() => dismissNotifs.mutate()}
+            disabled={dismissNotifs.isPending}
+            className="text-[11px] font-semibold text-amber-700 hover:underline disabled:opacity-50"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Summary bar */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+        <SummaryPill label="Filed" value={String(summary.filed)} tone="green" />
+        <SummaryPill label="Pending" value={String(summary.pending)} tone="amber" />
+        <SummaryPill
+          label="Overdue"
+          value={String(summary.overdue)}
+          tone={summary.overdue > 0 ? "red" : "grey"}
+        />
+        <SummaryPill
+          label="Next due"
+          value={summary.nextDue ? fmtDueDate(summary.nextDue) : "—"}
+          tone="grey"
+        />
+      </div>
+
+      {isLoading ? (
+        <div className="text-center text-xs text-text-light py-8">Loading deadlines…</div>
+      ) : !rows || rows.length === 0 ? (
+        <div className="bg-card border border-border rounded-xl p-6 text-center">
+          <FileCheck className="w-6 h-6 mx-auto text-text-light mb-2" />
+          <p className="font-semibold text-sm">No compliance deadlines recorded.</p>
+          <p className="text-[11px] text-text-light mt-1">Deadlines are managed by your system administrator.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {rows.map(r => (
+            <ComplianceCard
+              key={r.id}
+              deadline={r}
+              onFile={(filedDate, notes) => markFiled.mutate({ id: r.id, filedDate, notes, existingNotes: r.notes })}
+              busy={markFiled.isPending}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SummaryPill({ label, value, tone }: { label: string; value: string; tone: "green" | "amber" | "red" | "grey" }) {
+  const toneCls = {
+    green: "bg-emerald-50 border-emerald-200 text-emerald-800",
+    amber: "bg-amber-50 border-amber-200 text-amber-800",
+    red:   "bg-red-50 border-red-200 text-red-700",
+    grey:  "bg-muted/50 border-border text-text-med",
+  }[tone];
+  return (
+    <div className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 ${toneCls}`}>
+      <span className="text-[10px] uppercase tracking-widest font-semibold">{label}</span>
+      <span className="font-bold tabular-nums">{value}</span>
+    </div>
+  );
+}
+
+function ComplianceCard({ deadline: d, onFile, busy }: {
+  deadline: ComplianceDeadline;
+  onFile: (filedDate: string, notes: string | null) => void;
+  busy: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [filedDate, setFiledDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [notes, setNotes] = useState("");
+
+  const days = daysBetween(d.due_date);
+  const isOverdueNow = d.status === "overdue" || (d.status === "pending" && days < 0);
+  const showFile = !open && (d.status === "pending" || isOverdueNow);
+
+  const statusMeta = (() => {
+    if (d.status === "filed")          return { cls: "bg-emerald-100 text-emerald-700", label: "Filed" };
+    if (d.status === "not_applicable") return { cls: "bg-muted text-text-med",           label: "N/A" };
+    if (isOverdueNow)                  return { cls: "bg-red-100 text-red-700",         label: "Overdue" };
+    return { cls: "bg-amber-100 text-amber-800", label: "Pending" };
+  })();
+
+  const countdown = (() => {
+    if (d.status === "filed" || d.status === "not_applicable") return null;
+    if (days < 0) return { text: `${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"} overdue`, cls: "text-red-700 font-bold" };
+    if (days === 0) return { text: "TODAY", cls: "text-red-700 font-bold" };
+    if (days <= 7) return { text: `in ${days} day${days === 1 ? "" : "s"}`, cls: "text-red-600 font-semibold" };
+    if (days <= 30) return { text: `in ${days} days`, cls: "text-amber-600" };
+    return { text: `in ${days} days`, cls: "text-text-med" };
+  })();
+
+  const bodyCls = d.regulatory_body
+    ? (BODY_COLORS[d.regulatory_body] || "bg-muted text-text-med")
+    : "bg-muted text-text-med";
+
+  const submit = () => {
+    onFile(filedDate || new Date().toISOString().slice(0, 10), notes.trim() || null);
+    setOpen(false);
+    setNotes("");
+  };
+
+  return (
+    <article className="bg-card border border-border rounded-xl p-3 md:p-4">
+      <div className="flex items-start gap-3 flex-wrap md:flex-nowrap">
+        {/* Left block */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            {d.regulatory_body && (
+              <span className={`inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-pill ${bodyCls}`}>
+                {d.regulatory_body}
+              </span>
+            )}
+            {d.is_recurring && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-text-med bg-muted/60 px-1.5 py-0.5 rounded">
+                ↻ {d.recurrence_months === 12 ? "Annual" : `Every ${d.recurrence_months}mo`}
+              </span>
+            )}
+          </div>
+          <div className="font-semibold text-sm">{d.name}</div>
+          {d.description && (
+            <p className="text-text-med text-xs mt-0.5 leading-relaxed">{d.description}</p>
+          )}
+          <div className="text-[11px] text-text-light mt-1">Due: <span className="font-semibold text-text-med">{fmtDueDate(d.due_date)}</span></div>
+          {d.penalty_description && (
+            <p className="text-[11px] text-amber-700 mt-1">⚠ {d.penalty_description}</p>
+          )}
+          {d.status === "filed" && d.filed_at && (
+            <p className="text-[11px] text-emerald-700 mt-1">✓ Filed on {fmtDueDate(d.filed_at)}{d.notes ? ` — ${d.notes}` : ""}</p>
+          )}
+        </div>
+
+        {/* Right block: status + countdown + action */}
+        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+          <span className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-pill ${statusMeta.cls}`}>
+            {statusMeta.label}
+          </span>
+          {countdown && <span className={`text-[11px] ${countdown.cls}`}>{countdown.text}</span>}
+          {showFile && (
+            <button
+              onClick={() => setOpen(true)}
+              className="mt-1 inline-flex items-center gap-1 border border-forest/40 text-forest hover:bg-forest/5 px-2.5 py-1 rounded-lg text-[11px] font-semibold"
+            >
+              Mark as Filed
+            </button>
+          )}
+        </div>
+      </div>
+
+      {open && (
+        <div className="mt-3 border-t border-border pt-3 space-y-2">
+          <div className="grid md:grid-cols-2 gap-2">
+            <div>
+              <label className={labelCls}>Filed date</label>
+              <input
+                type="date"
+                value={filedDate}
+                onChange={e => setFiledDate(e.target.value)}
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Notes (optional)</label>
+              <input
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="e.g. Filed via CAC portal, ref #…"
+                className={inputCls}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setOpen(false)} className="text-xs text-text-med hover:text-foreground px-3 py-1.5">Cancel</button>
+            <button
+              onClick={submit}
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 bg-forest text-primary-foreground px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-forest-deep disabled:opacity-40"
+            >
+              <Save className="w-3.5 h-3.5" /> Save
+            </button>
+          </div>
+        </div>
+      )}
+    </article>
   );
 }
 
