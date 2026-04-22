@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useCart, fmt } from "@/lib/cart";
 import { supabase } from "@/integrations/supabase/client";
+import { useCustomerAuth } from "@/hooks/useCustomerAuth";
 import { toast } from "sonner";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import BMLoadingAnimation from "@/components/BMLoadingAnimation";
@@ -48,6 +49,7 @@ function cartItemHasIssue(item: any, issues: StockIssue[]): boolean {
 
 export default function CheckoutPage() {
   const { cart, subtotal, clearCart, totalItems } = useCart();
+  const { isLoggedIn, loading: authLoading } = useCustomerAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState<FormData>({ firstName: "", lastName: "", phone: "", email: "", address: "", city: "", state: "Lagos", notes: "", lga: "" });
   const [payment, setPayment] = useState<"card" | "transfer" | "ussd">("card");
@@ -151,31 +153,37 @@ export default function CheckoutPage() {
     if (cart.length === 0 && !processing) navigate("/cart");
   }, [cart, processing]);
 
-  // Returning customer recognition: pre-fill from existing customer data
-  const [customerLookedUp, setCustomerLookedUp] = useState(false);
+  // Returning-customer pre-fill: if the shopper is authenticated, pull
+  // their saved name / phone / address from customer_account_view (the
+  // view is RLS-gated to the caller's own row, so no params needed).
+  // No phone lookup — the old `get-order-confirmation` endpoint now
+  // returns 410 and is no longer called.
+  const [customerPrefilled, setCustomerPrefilled] = useState(false);
   useEffect(() => {
-    const phone = form.phone.replace(/\D/g, "");
-    if (phone.length >= 10 && !customerLookedUp) {
-      setCustomerLookedUp(true);
-      supabase.functions.invoke("get-order-confirmation", {
-        body: { lookup_customer_phone: form.phone },
-      }).then(({ data }) => {
-        if (data?.customer) {
-          const c = data.customer;
-          const [first, ...rest] = (c.full_name || "").split(" ");
-          setForm(prev => ({
-            ...prev,
-            firstName: prev.firstName || first || "",
-            lastName: prev.lastName || rest.join(" ") || "",
-            address: prev.address || c.delivery_address || "",
-            city: prev.city || c.delivery_area || "",
-            state: prev.state || c.delivery_state || prev.state,
-          }));
-          toast.success("Welcome back! We've pre-filled your details.");
-        }
-      }).catch(() => {});
-    }
-  }, [form.phone]);
+    if (authLoading || !isLoggedIn || customerPrefilled) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await (supabase as any)
+        .from("customer_account_view")
+        .select("full_name, phone, whatsapp_number, delivery_address, delivery_area, delivery_state")
+        .maybeSingle();
+      if (cancelled) return;
+      if (error || !data) return;
+      const [first, ...rest] = String(data.full_name || "").split(" ");
+      setForm(prev => ({
+        ...prev,
+        firstName: prev.firstName || first || "",
+        lastName: prev.lastName || rest.join(" ") || "",
+        phone: prev.phone || data.phone || "",
+        address: prev.address || data.delivery_address || "",
+        city: prev.city || data.delivery_area || "",
+        state: prev.state || data.delivery_state || prev.state,
+      }));
+      setCustomerPrefilled(true);
+      toast.success("Welcome back! We've pre-filled your details.");
+    })();
+    return () => { cancelled = true; };
+  }, [authLoading, isLoggedIn, customerPrefilled]);
 
   const serviceFeeEnabled = settings?.service_fee_enabled !== false;
   const serviceFee = serviceFeeEnabled ? (parseInt(settings?.service_fee) || 0) : 0;
