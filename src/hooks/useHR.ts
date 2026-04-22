@@ -1,5 +1,35 @@
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+
+/**
+ * Track the Supabase auth user id reactively. Returns `undefined` while the
+ * initial session check is in flight, then the user id (or null) and keeps
+ * updating on SIGNED_IN / SIGNED_OUT. Used to gate RLS-scoped queries so they
+ * don't fire before auth.uid() is available (e.g. while a magic-link hash is
+ * still being exchanged for a session).
+ */
+function useAuthUserId(): { userId: string | null; ready: boolean } {
+  const [state, setState] = useState<{ userId: string | null; ready: boolean }>({ userId: null, ready: false });
+
+  useEffect(() => {
+    let mounted = true;
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!mounted) return;
+      setState({ userId: data.session?.user?.id ?? null, ready: true });
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
+      setState({ userId: session?.user?.id ?? null, ready: true });
+    });
+
+    return () => { mounted = false; subscription.unsubscribe(); };
+  }, []);
+
+  return state;
+}
 
 // -----------------------------------------------------------------------------
 // Types
@@ -294,20 +324,42 @@ export function useUpsertEmployee() {
   });
 }
 
-/** Current logged-in employee (single row, scoped by RLS via auth_user_id). */
+/**
+ * Current logged-in employee (single row, scoped by RLS via auth_user_id).
+ *
+ * Waits for the Supabase auth session to be confirmed before firing the
+ * query. Without this gate, a magic-link arrival fires the query before the
+ * URL hash has been exchanged for a session, so auth.uid() is NULL and RLS
+ * returns no rows → user sees "Account not yet linked" incorrectly.
+ *
+ * Consumers use `{ data, isLoading }`. `isLoading` stays true until the
+ * session check completes AND the query resolves.
+ */
 export function useMyEmployee() {
-  return useQuery({
-    queryKey: ["my-hr-employee"],
+  const { userId, ready } = useAuthUserId();
+
+  const q = useQuery({
+    queryKey: ["my-hr-employee", userId ?? "anon"],
+    enabled: ready && !!userId,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("hr_employees")
         .select("*, hr_departments!hr_employees_department_id_fkey(name)")
+        .eq("auth_user_id", userId)
         .maybeSingle();
       if (error) throw error;
       return data as HREmployee | null;
     },
     staleTime: 30_000,
   });
+
+  // Treat "auth not yet ready" and "signed in but query hasn't resolved" as
+  // loading so the UI can show a spinner instead of the not-linked fallback.
+  const isLoading = !ready || (!!userId && (q.isLoading || q.isFetching) && q.data === undefined);
+  // Signed out → nothing to fetch, nothing to show.
+  const data = (ready && !userId) ? null : (q.data as HREmployee | null | undefined);
+
+  return { ...q, data, isLoading } as typeof q;
 }
 
 // -----------------------------------------------------------------------------
