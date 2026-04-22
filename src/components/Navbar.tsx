@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { ShoppingBag, Menu, X, User } from "lucide-react";
 import { useCart } from "@/lib/cart";
 import { useCustomerAuth } from "@/hooks/useCustomerAuth";
-import logoWhite from "@/assets/logos/BM-LOGO-WHITE.svg";
+import logoWhite from "@/assets/logos/logo-white.png";
 import logoGreen from "@/assets/logos/BM-LOGO-GREEN.svg";
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
