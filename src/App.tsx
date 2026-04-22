@@ -85,12 +85,14 @@ import AdminHRLeave from "@/pages/admin/hr/AdminHRLeave";
 import AdminHRDocuments from "@/pages/admin/hr/AdminHRDocuments";
 import AdminHRDepartments from "@/pages/admin/hr/AdminHRDepartments";
 import AdminHRDashboard from "@/pages/admin/hr/AdminHRDashboard";
+import AdminHRTasks from "@/pages/admin/hr/AdminHRTasks";
 import EmployeePortalLayout from "@/pages/employee-portal/EmployeePortalLayout";
 import EmployeePortalLogin from "@/pages/employee-portal/EmployeePortalLogin";
 import EmployeePortalDashboard from "@/pages/employee-portal/EmployeePortalDashboard";
 import EmployeePayslips from "@/pages/employee-portal/EmployeePayslips";
 import EmployeeLeave from "@/pages/employee-portal/EmployeeLeave";
 import EmployeeProfile from "@/pages/employee-portal/EmployeeProfile";
+import EmployeeTasks from "@/pages/employee-portal/EmployeeTasks";
 import PermissionGate from "@/components/admin/PermissionGate";
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -239,6 +241,7 @@ const App = () => (
                   <Route path="employees" element={<AdminHREmployees />} />
                   <Route path="payroll" element={<AdminHRPayroll />} />
                   <Route path="leave" element={<AdminHRLeave />} />
+                  <Route path="tasks" element={<AdminHRTasks />} />
                   <Route path="documents" element={<AdminHRDocuments />} />
                   <Route path="departments" element={<AdminHRDepartments />} />
                 </Route>
@@ -252,6 +255,7 @@ const App = () => (
                 <Route index element={<EmployeePortalDashboard />} />
                 <Route path="payslips" element={<EmployeePayslips />} />
                 <Route path="leave" element={<EmployeeLeave />} />
+                <Route path="tasks" element={<EmployeeTasks />} />
                 <Route path="profile" element={<EmployeeProfile />} />
               </Route>
 

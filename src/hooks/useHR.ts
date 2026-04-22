@@ -942,3 +942,240 @@ export function useProcessCarryover() {
     },
   });
 }
+
+// -----------------------------------------------------------------------------
+// Tasks
+// -----------------------------------------------------------------------------
+
+export type TaskStatus = "todo" | "in_progress" | "done" | "cancelled";
+export type TaskPriority = "low" | "medium" | "high" | "urgent";
+
+export interface HRTask {
+  id: string;
+  title: string;
+  description: string | null;
+  status: TaskStatus | string;
+  priority: TaskPriority | string;
+  due_date: string | null;
+  completed_at: string | null;
+  completion_notes: string | null;
+  created_at: string;
+  updated_at?: string;
+  assigned_to: string;
+  assigned_by_admin: string | null;
+  assigned_by_employee: string | null;
+  assignee?: { id: string; full_name: string; employee_id: string } | null;
+  assigner_emp?: { id?: string; full_name: string } | null;
+  assigner_admin?: { id?: string; display_name: string } | null;
+}
+
+export interface HRTaskComment {
+  id: string;
+  task_id: string;
+  content: string;
+  created_at: string;
+  author_admin_id: string | null;
+  author_employee_id: string | null;
+  author_emp?: { full_name: string } | null;
+  author_admin?: { display_name: string } | null;
+}
+
+const TASK_SELECT = `
+  id, title, description, status, priority, due_date,
+  completed_at, completion_notes, created_at, updated_at,
+  assigned_to, assigned_by_admin, assigned_by_employee,
+  assignee:hr_employees!assigned_to(id, full_name, employee_id),
+  assigner_emp:hr_employees!assigned_by_employee(id, full_name),
+  assigner_admin:admin_users!assigned_by_admin(id, display_name)
+`;
+
+/** All non-cancelled tasks, for admin board / list views. */
+export function useHRTasks() {
+  return useQuery({
+    queryKey: ["hr-tasks"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("hr_tasks")
+        .select(TASK_SELECT)
+        .neq("status", "cancelled")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data || []) as HRTask[];
+    },
+    staleTime: 30_000,
+  });
+}
+
+/** Tasks assigned TO the logged-in employee (portal "My Tasks"). */
+export function useMyTasks(employeeId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["my-hr-tasks", employeeId],
+    enabled: !!employeeId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("hr_tasks")
+        .select(TASK_SELECT)
+        .eq("assigned_to", employeeId)
+        .neq("status", "cancelled")
+        .order("due_date", { ascending: true, nullsFirst: false });
+      if (error) throw error;
+      return (data || []) as HRTask[];
+    },
+  });
+}
+
+/** Tasks the logged-in employee has assigned to their direct reports. */
+export function useTasksAssignedByMe(employeeId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["my-assigned-hr-tasks", employeeId],
+    enabled: !!employeeId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("hr_tasks")
+        .select(TASK_SELECT)
+        .eq("assigned_by_employee", employeeId)
+        .neq("status", "cancelled")
+        .order("due_date", { ascending: true, nullsFirst: false });
+      if (error) throw error;
+      return (data || []) as HRTask[];
+    },
+  });
+}
+
+export function useTaskComments(taskId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["hr-task-comments", taskId],
+    enabled: !!taskId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("hr_task_comments")
+        .select("*, author_emp:hr_employees!author_employee_id(full_name), author_admin:admin_users!author_admin_id(display_name)")
+        .eq("task_id", taskId)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return (data || []) as HRTaskComment[];
+    },
+  });
+}
+
+export function useCreateTask() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: Partial<HRTask>) => {
+      const body: any = { ...payload };
+      delete body.assignee;
+      delete body.assigner_emp;
+      delete body.assigner_admin;
+      if (!body.status) body.status = "todo";
+      if (!body.priority) body.priority = "medium";
+      const { data, error } = await (supabase as any).from("hr_tasks").insert(body).select("id").single();
+      if (error) throw error;
+      return data.id as string;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["hr-tasks"] });
+      qc.invalidateQueries({ queryKey: ["my-hr-tasks"] });
+      qc.invalidateQueries({ queryKey: ["my-assigned-hr-tasks"] });
+    },
+  });
+}
+
+export function useUpdateTask() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: Partial<HRTask> & { id: string }) => {
+      const body: any = { ...payload, updated_at: new Date().toISOString() };
+      delete body.assignee;
+      delete body.assigner_emp;
+      delete body.assigner_admin;
+      const { error } = await (supabase as any).from("hr_tasks").update(body).eq("id", payload.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["hr-tasks"] });
+      qc.invalidateQueries({ queryKey: ["my-hr-tasks"] });
+      qc.invalidateQueries({ queryKey: ["my-assigned-hr-tasks"] });
+    },
+  });
+}
+
+export function useAddTaskComment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { task_id: string; content: string; author_admin_id?: string | null; author_employee_id?: string | null }) => {
+      const { error } = await (supabase as any).from("hr_task_comments").insert({
+        task_id: payload.task_id,
+        content: payload.content,
+        author_admin_id: payload.author_admin_id ?? null,
+        author_employee_id: payload.author_employee_id ?? null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: (_d, vars) => qc.invalidateQueries({ queryKey: ["hr-task-comments", vars.task_id] }),
+  });
+}
+
+/** Employees whose line_manager_id = the given employee id. */
+export function useDirectReports(managerEmployeeId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["hr-direct-reports", managerEmployeeId],
+    enabled: !!managerEmployeeId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("hr_employees")
+        .select("id, full_name, employee_id, status, job_title")
+        .eq("line_manager_id", managerEmployeeId)
+        .eq("status", "active")
+        .order("full_name");
+      if (error) throw error;
+      return (data || []) as Array<{ id: string; full_name: string; employee_id: string; status: string; job_title: string }>;
+    },
+  });
+}
+
+// -----------------------------------------------------------------------------
+// Performance
+// -----------------------------------------------------------------------------
+
+export interface HREmployeePerformance {
+  employee_id: string;
+  full_name: string;
+  job_title: string;
+  total_tasks: number;
+  completed_tasks: number;
+  overdue_tasks: number;
+  on_time_tasks: number;
+  completion_rate_pct: number;
+  on_time_rate_pct: number;
+  performance_score: number; // 0–100
+  tasks_this_month: number;
+  completed_this_month: number;
+}
+
+export function useEmployeePerformance() {
+  return useQuery({
+    queryKey: ["hr-employee-performance"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("hr_employee_performance").select("*");
+      if (error) throw error;
+      return (data || []) as HREmployeePerformance[];
+    },
+    staleTime: 60_000,
+  });
+}
+
+export const TASK_PRIORITY_COLORS: Record<string, string> = {
+  urgent: "bg-red-100 text-red-700 border-red-300",
+  high:   "bg-orange-100 text-orange-700 border-orange-300",
+  medium: "bg-blue-100 text-blue-700 border-blue-300",
+  low:    "bg-gray-100 text-gray-600 border-gray-300",
+};
+export const TASK_STATUS_COLORS: Record<string, string> = {
+  todo:        "bg-gray-100 text-gray-700",
+  in_progress: "bg-blue-100 text-blue-700",
+  done:        "bg-emerald-100 text-emerald-700",
+  cancelled:   "bg-gray-100 text-gray-500",
+};
+export const TASK_STATUS_LABELS: Record<string, string> = {
+  todo: "To Do", in_progress: "In Progress", done: "Done", cancelled: "Cancelled",
+};

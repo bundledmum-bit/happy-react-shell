@@ -1,11 +1,12 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { Users as UsersIcon, Wallet, CalendarCheck, Files, Building2, LayoutDashboard } from "lucide-react";
+import { Users as UsersIcon, Wallet, CalendarCheck, Files, Building2, LayoutDashboard, ListChecks } from "lucide-react";
 
 const TABS = [
   { to: "/admin/hr",             label: "Dashboard",   icon: LayoutDashboard, end: true },
   { to: "/admin/hr/employees",   label: "Employees",   icon: UsersIcon },
   { to: "/admin/hr/payroll",     label: "Payroll",     icon: Wallet },
   { to: "/admin/hr/leave",       label: "Leave",       icon: CalendarCheck },
+  { to: "/admin/hr/tasks",       label: "Tasks",       icon: ListChecks },
   { to: "/admin/hr/documents",   label: "Documents",   icon: Files },
   { to: "/admin/hr/departments", label: "Departments", icon: Building2 },
 ];

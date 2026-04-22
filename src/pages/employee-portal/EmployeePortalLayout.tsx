@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Wallet, CalendarCheck, User as UserIcon, LogOut } from "lucide-react";
+import { LayoutDashboard, Wallet, CalendarCheck, User as UserIcon, LogOut, ListChecks } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useCustomerAuth } from "@/hooks/useCustomerAuth";
@@ -11,6 +11,7 @@ const NAV = [
   { to: "/employee-portal",          label: "Dashboard",   icon: LayoutDashboard, exact: true },
   { to: "/employee-portal/payslips", label: "My Payslips", icon: Wallet },
   { to: "/employee-portal/leave",    label: "Leave",       icon: CalendarCheck },
+  { to: "/employee-portal/tasks",    label: "My Tasks",    icon: ListChecks },
   { to: "/employee-portal/profile",  label: "Profile",     icon: UserIcon },
 ];
 
