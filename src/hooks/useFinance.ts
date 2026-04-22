@@ -150,6 +150,79 @@ export interface FinancePeriod {
 // Queries
 // -----------------------------------------------------------------------------
 
+/**
+ * finance_pl_summary columns (all money values already in NAIRA — do NOT divide by 100):
+ *   month_start (timestamptz) · year (int) · month (int)
+ *   total_orders · gross_revenue · total_delivery_charged · total_delivery_cost
+ *   total_paystack_fees · total_packaging_cost · total_gift_wrap_revenue
+ *   total_cogs · gross_profit · total_expenses · total_payroll · net_profit · net_margin_pct
+ *
+ * Consumers still reference the legacy `_ngn` field names, so we map the raw
+ * view rows onto the PLRow shape here. Missing fields (e.g. depreciation,
+ * tax_expenses, fixed_opex) default to 0 since the new view doesn't split
+ * them out.
+ */
+interface RawPL {
+  month_start: string;
+  year: number;
+  month: number;
+  total_orders: number | string;
+  gross_revenue: number | string;
+  total_delivery_charged: number | string;
+  total_delivery_cost: number | string;
+  total_paystack_fees: number | string;
+  total_packaging_cost: number | string;
+  total_gift_wrap_revenue: number | string;
+  total_cogs: number | string;
+  gross_profit: number | string;
+  total_expenses: number | string;
+  total_payroll: number | string;
+  net_profit: number | string;
+  net_margin_pct: number | string;
+}
+
+function mapPL(raw: RawPL): PLRow {
+  const n = (v: number | string | null | undefined) => Number(v) || 0;
+  const revenue        = n(raw.gross_revenue);
+  const deliveryCharged = n(raw.total_delivery_charged);
+  const giftWrap       = n(raw.total_gift_wrap_revenue);
+  const cogs           = n(raw.total_cogs);
+  const grossProfit    = n(raw.gross_profit);
+  const expenses       = n(raw.total_expenses);
+  const payroll        = n(raw.total_payroll);
+  const netProfit      = n(raw.net_profit);
+  const orderCount     = n(raw.total_orders);
+  const grossMarginPct = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
+  const ebitda         = grossProfit - expenses - payroll;
+  const ebitdaPct      = revenue > 0 ? (ebitda / revenue) * 100 : 0;
+
+  return {
+    year: raw.year,
+    month: raw.month,
+    period_label: `${raw.year}-${String(raw.month).padStart(2, "0")}`,
+    order_count: orderCount,
+    avg_order_value_ngn: orderCount > 0 ? revenue / orderCount : 0,
+    gross_revenue_ngn: revenue,
+    product_revenue_ngn: Math.max(0, revenue - deliveryCharged - giftWrap),
+    delivery_revenue_ngn: deliveryCharged,
+    service_fee_revenue_ngn: giftWrap,
+    cogs_ngn: cogs,
+    gross_profit_ngn: grossProfit,
+    gross_margin_pct: grossMarginPct,
+    fixed_opex_ngn: 0,
+    variable_opex_ngn: expenses,
+    total_opex_ngn: expenses,
+    payroll_cost_ngn: payroll,
+    ebitda_ngn: ebitda,
+    ebitda_margin_pct: ebitdaPct,
+    depreciation_ngn: 0,
+    tax_expenses_ngn: 0,
+    ebit_ngn: netProfit,
+    net_profit_ngn: netProfit,
+    net_margin_pct: n(raw.net_margin_pct),
+  };
+}
+
 export function useFinancePL(year?: number, month?: number) {
   return useQuery({
     queryKey: ["finance-pl", year ?? "all", month ?? "all"],
@@ -159,7 +232,7 @@ export function useFinancePL(year?: number, month?: number) {
       if (month) q = q.eq("month", month);
       const { data, error } = await q.order("year").order("month");
       if (error) throw error;
-      return (data || []) as PLRow[];
+      return ((data || []) as RawPL[]).map(mapPL);
     },
     refetchInterval: 30_000,
     staleTime: 15_000,
@@ -327,12 +400,11 @@ export function useAddExpense() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (e: Partial<Expense> & { amount: number; expense_date: string; description: string }) => {
-      const d = new Date(e.expense_date);
-      const payload = {
-        ...e,
-        period_month: d.getMonth() + 1,
-        period_year: d.getFullYear(),
-      };
+      // period_month / period_year are auto-populated by a DB trigger from
+      // expense_date, so we don't send them.
+      const payload: any = { ...e };
+      delete payload.period_month;
+      delete payload.period_year;
       const { error } = await (supabase as any).from("finance_expenses").insert(payload);
       if (error) throw error;
     },
@@ -344,12 +416,10 @@ export function useUpdateExpense() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (e: Partial<Expense> & { id: string }) => {
+      // period_month / period_year auto-populated by trigger from expense_date.
       const payload: any = { ...e, updated_at: new Date().toISOString() };
-      if (e.expense_date) {
-        const d = new Date(e.expense_date);
-        payload.period_month = d.getMonth() + 1;
-        payload.period_year = d.getFullYear();
-      }
+      delete payload.period_month;
+      delete payload.period_year;
       const { error } = await (supabase as any).from("finance_expenses").update(payload).eq("id", e.id);
       if (error) throw error;
     },
