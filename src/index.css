@@ -171,11 +171,14 @@
   display: none;
 }
 
-/* Payslip print-to-PDF: hide everything except the .payslip-print tree */
+/* Print-to-PDF: hide page chrome and show only the designated print tree.
+   Works for payslips (.payslip-print) and employment letters (.employment-letter). */
 @media print {
   body * { visibility: hidden; }
-  .payslip-print, .payslip-print * { visibility: visible; }
-  .payslip-print {
+  .payslip-print, .payslip-print *,
+  .employment-letter, .employment-letter * { visibility: visible; }
+  .payslip-print,
+  .employment-letter {
     position: absolute;
     left: 0;
     top: 0;

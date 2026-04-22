@@ -701,3 +701,244 @@ export const STATUS_COLORS: Record<string, string> = {
 };
 
 export const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+// -----------------------------------------------------------------------------
+// Job / salary history
+// -----------------------------------------------------------------------------
+
+export type JobHistoryChangeType =
+  | "hire" | "salary_review" | "title_change" | "promotion"
+  | "department_change" | "status_change" | "contract_change";
+
+export interface HRJobHistory {
+  id: string;
+  employee_id: string;
+  change_type: JobHistoryChangeType | string;
+  effective_date: string;
+  previous_job_title: string | null;
+  new_job_title: string | null;
+  previous_department_id: string | null;
+  new_department_id: string | null;
+  previous_employment_type: string | null;
+  new_employment_type: string | null;
+  previous_status: string | null;
+  new_status: string | null;
+  previous_basic: number | null;   // kobo
+  new_basic: number | null;        // kobo
+  previous_housing: number | null;
+  new_housing: number | null;
+  previous_transport: number | null;
+  new_transport: number | null;
+  previous_other: number | null;
+  new_other: number | null;
+  reason: string | null;
+  recorded_by: string | null;
+  created_at: string;
+  prev_department?: { name: string } | null;
+  new_department?: { name: string } | null;
+}
+
+export function useJobHistory(employeeId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["hr-job-history", employeeId],
+    enabled: !!employeeId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("hr_job_history")
+        .select("*, new_department:hr_departments!new_department_id(name), prev_department:hr_departments!previous_department_id(name)")
+        .eq("employee_id", employeeId)
+        .order("effective_date", { ascending: false });
+      if (error) throw error;
+      return (data || []) as HRJobHistory[];
+    },
+  });
+}
+
+export function useInsertJobHistory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: Partial<HRJobHistory>) => {
+      const body: any = { ...payload };
+      delete body.prev_department;
+      delete body.new_department;
+      const { error } = await (supabase as any).from("hr_job_history").insert(body);
+      if (error) throw error;
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["hr-job-history", vars.employee_id] });
+    },
+  });
+}
+
+// -----------------------------------------------------------------------------
+// Leave calendar — approved leaves within a month + public holidays
+// -----------------------------------------------------------------------------
+
+export function useApprovedLeavesInRange(startIso: string, endIso: string) {
+  return useQuery({
+    queryKey: ["hr-leave-calendar", startIso, endIso],
+    enabled: !!startIso && !!endIso,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("hr_leave_requests")
+        .select("*, hr_employees!hr_leave_requests_employee_id_fkey(full_name, employee_id, department_id), hr_leave_types(name)")
+        .eq("status", "approved")
+        .gte("end_date", startIso)
+        .lte("start_date", endIso);
+      if (error) throw error;
+      return (data || []) as HRLeaveRequest[];
+    },
+  });
+}
+
+export interface HRPublicHoliday { holiday_date: string; name: string }
+export function usePublicHolidays(startIso: string, endIso: string) {
+  return useQuery({
+    queryKey: ["hr-public-holidays", startIso, endIso],
+    enabled: !!startIso && !!endIso,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("hr_public_holidays")
+        .select("holiday_date, name")
+        .gte("holiday_date", startIso)
+        .lte("holiday_date", endIso);
+      if (error) throw error;
+      return (data || []) as HRPublicHoliday[];
+    },
+  });
+}
+
+// -----------------------------------------------------------------------------
+// Employment letter (DB RPC)
+// -----------------------------------------------------------------------------
+
+export interface EmploymentLetterData {
+  full_name: string;
+  employee_id: string;
+  job_title: string;
+  department: string | null;
+  employment_type: string;
+  start_date: string;
+  letter_date: string;
+  years_of_service: string; // e.g. "2 years 3 months"
+}
+
+export async function generateEmploymentLetterData(employeeId: string): Promise<EmploymentLetterData> {
+  const { data, error } = await (supabase as any).rpc("generate_employment_letter_data", {
+    p_employee_id: employeeId,
+  });
+  if (error) throw error;
+  return data as EmploymentLetterData;
+}
+
+// -----------------------------------------------------------------------------
+// HR analytics dashboard
+// -----------------------------------------------------------------------------
+
+export interface HRAnalytics {
+  active_headcount: number;
+  on_leave_count: number;
+  terminated_count: number;
+  pending_leave_requests: number;
+  current_month_net_payroll: number; // kobo
+  current_month_employer_cost: number;
+}
+
+export function useHRAnalytics() {
+  return useQuery({
+    queryKey: ["hr-analytics"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("hr_analytics").select("*").single();
+      if (error) throw error;
+      return data as HRAnalytics;
+    },
+    staleTime: 60_000,
+  });
+}
+
+export interface HRHeadcountByDept {
+  department_id: string | null;
+  department_name: string | null;
+  active_count: number;
+  on_leave_count: number;
+  monthly_gross: number; // kobo
+}
+
+export function useHeadcountByDept() {
+  return useQuery({
+    queryKey: ["hr-headcount-by-department"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("hr_headcount_by_department").select("*");
+      if (error) throw error;
+      return (data || []) as HRHeadcountByDept[];
+    },
+    staleTime: 60_000,
+  });
+}
+
+/** Last N months of paid payroll rows, minimal columns, for charts. */
+export function useRecentPaidPayroll(limit = 50) {
+  return useQuery({
+    queryKey: ["hr-recent-paid-payroll", limit],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("hr_payroll_runs")
+        .select("pay_month, pay_year, net_salary, total_employer_cost, status, employee_id")
+        .eq("status", "paid")
+        .order("pay_year", { ascending: false })
+        .order("pay_month", { ascending: false })
+        .limit(limit);
+      if (error) throw error;
+      return (data || []) as Array<{ pay_month: number; pay_year: number; net_salary: number; total_employer_cost: number; status: string; employee_id: string }>;
+    },
+    staleTime: 60_000,
+  });
+}
+
+// -----------------------------------------------------------------------------
+// Carry-over
+// -----------------------------------------------------------------------------
+
+export interface HRLeaveCarryover {
+  id: string;
+  employee_id: string;
+  leave_type_id: string;
+  from_year: number;
+  to_year: number;
+  carried_days: number;
+  expiry_date: string | null;
+  hr_employees?: { full_name: string } | null;
+  hr_leave_types?: { name: string } | null;
+}
+
+export function useLeaveCarryover(toYear: number) {
+  return useQuery({
+    queryKey: ["hr-leave-carryover", toYear],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("hr_leave_carryover")
+        .select("*, hr_employees(full_name), hr_leave_types(name)")
+        .eq("to_year", toYear);
+      if (error) throw error;
+      return (data || []) as HRLeaveCarryover[];
+    },
+  });
+}
+
+export function useProcessCarryover() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { fromYear: number; maxCarryover: number }) => {
+      const { data, error } = await (supabase as any).rpc("process_annual_leave_carryover", {
+        p_from_year: payload.fromYear,
+        p_max_carryover: payload.maxCarryover,
+      });
+      if (error) throw error;
+      return data as { employees_processed: number; to_year: number };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["hr-leave-carryover"] });
+      qc.invalidateQueries({ queryKey: ["hr-leave-balances"] });
+    },
+  });
+}

@@ -1,15 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Search, X, Save, UserPlus, Trash2, UserMinus, AlertTriangle, ShieldCheck } from "lucide-react";
+import { Plus, Search, X, Save, UserPlus, Trash2, UserMinus, AlertTriangle, ShieldCheck, History as HistoryIcon, FileText, Printer } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { usePermissions } from "@/hooks/useAdminPermissionsContext";
 import {
   useHREmployees, useHRDepartments, useUpsertEmployee,
   useHRDocuments, useMyLeaveBalances, useMyPayrollRuns,
-  type HREmployee, STATUS_COLORS, fmtN, fromKobo, toKobo, MONTHS,
+  useJobHistory, useInsertJobHistory, generateEmploymentLetterData,
+  type HREmployee, type JobHistoryChangeType, type EmploymentLetterData,
+  STATUS_COLORS, fmtN, fromKobo, toKobo, MONTHS,
 } from "@/hooks/useHR";
+import JobHistoryTimeline from "@/components/admin/hr/JobHistoryTimeline";
+import EmploymentLetter from "@/components/employee-portal/EmploymentLetter";
 
 const EMPLOYMENT_TYPES = ["full_time", "part_time", "contract", "intern", "consultant"];
 const STATUSES = ["active", "on_leave", "suspended", "terminated"];
@@ -355,7 +359,8 @@ function EmployeeDetailPanel({ employee: e, onClose, onEdit }: { employee: HREmp
   const { can, adminUser } = usePermissions();
   const canEditHR = can("hr", "edit");
   const isAdmin = adminUser?.role === "super_admin" || adminUser?.role === "admin";
-  const [tab, setTab] = useState<"profile" | "payslips" | "leave" | "documents">("profile");
+  const [tab, setTab] = useState<"profile" | "payslips" | "leave" | "documents" | "history">("profile");
+  const [letterOpen, setLetterOpen] = useState(false);
   const [statusEdit, setStatusEdit] = useState(e.status);
   const [terminationReason, setTerminationReason] = useState(e.termination_reason || "");
 
@@ -469,13 +474,14 @@ function EmployeeDetailPanel({ employee: e, onClose, onEdit }: { employee: HREmp
             <span className={`inline-flex items-center px-2 py-0.5 rounded-pill text-[10px] font-semibold capitalize ${STATUS_COLORS[e.status] || "bg-muted text-text-med"}`}>{e.status.replace("_", " ")}</span>
           </div>
           <div className="flex items-center gap-2">
+            <button onClick={() => setLetterOpen(true)} className="inline-flex items-center gap-1 text-xs text-forest font-semibold hover:underline"><FileText className="w-3.5 h-3.5" /> Employment Letter</button>
             <button onClick={onEdit} className="text-xs text-forest font-semibold hover:underline">Edit</button>
             <button onClick={onClose} aria-label="Close" className="w-8 h-8 rounded-full hover:bg-muted flex items-center justify-center"><X className="w-4 h-4" /></button>
           </div>
         </header>
 
         <nav className="flex gap-1 border-b border-border px-5 py-2">
-          {(["profile","payslips","leave","documents"] as const).map(k => (
+          {(["profile","payslips","leave","documents","history"] as const).map(k => (
             <button
               key={k}
               onClick={() => setTab(k)}
@@ -577,8 +583,11 @@ function EmployeeDetailPanel({ employee: e, onClose, onEdit }: { employee: HREmp
           {tab === "payslips" && <EmployeePayslipsTab employeeId={e.id} />}
           {tab === "leave" && <EmployeeLeaveHistoryTab employeeId={e.id} />}
           {tab === "documents" && <EmployeeDocumentsTab employeeId={e.id} employeeName={e.full_name} />}
+          {tab === "history" && <EmployeeHistoryTab employeeId={e.id} canEdit={canEditHR} adminId={adminUser?.id || null} />}
         </div>
       </aside>
+
+      {letterOpen && <EmploymentLetterModal employeeId={e.id} onClose={() => setLetterOpen(false)} />}
 
       {confirmDelete && (
         <div className="fixed inset-0 z-[60] bg-foreground/60 flex items-center justify-center p-4" onClick={closeDeleteModal}>
@@ -733,6 +742,130 @@ function EmployeeDocumentsTab({ employeeId, employeeName }: { employeeId: string
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// History tab (job + salary timeline)
+// ---------------------------------------------------------------------------
+
+const CHANGE_TYPES: Array<{ v: JobHistoryChangeType; label: string }> = [
+  { v: "promotion",         label: "Promotion" },
+  { v: "salary_review",     label: "Salary Review" },
+  { v: "title_change",      label: "Title Change" },
+  { v: "department_change", label: "Department Change" },
+  { v: "contract_change",   label: "Contract Change" },
+  { v: "status_change",     label: "Status Change" },
+  { v: "hire",              label: "Hire" },
+];
+
+function EmployeeHistoryTab({ employeeId, canEdit, adminId }: { employeeId: string; canEdit: boolean; adminId: string | null }) {
+  const { data = [], isLoading } = useJobHistory(employeeId);
+  const insert = useInsertJobHistory();
+  const [recording, setRecording] = useState(false);
+  const [form, setForm] = useState<{ change_type: JobHistoryChangeType; effective_date: string; reason: string }>({
+    change_type: "promotion",
+    effective_date: new Date().toISOString().slice(0, 10),
+    reason: "",
+  });
+
+  const save = async () => {
+    if (!form.change_type || !form.effective_date) { toast.error("Change type and date required."); return; }
+    try {
+      await insert.mutateAsync({
+        employee_id: employeeId,
+        change_type: form.change_type,
+        effective_date: form.effective_date,
+        reason: form.reason.trim() || null,
+        recorded_by: adminId,
+      } as any);
+      toast.success("History entry recorded");
+      setRecording(false);
+      setForm({ change_type: "promotion", effective_date: new Date().toISOString().slice(0, 10), reason: "" });
+    } catch (e: any) {
+      toast.error(e?.message || "Save failed");
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-[10px] uppercase tracking-widest font-bold text-text-med inline-flex items-center gap-1.5"><HistoryIcon className="w-3.5 h-3.5" /> Job &amp; salary history</h3>
+        {canEdit && !recording && (
+          <button onClick={() => setRecording(true)} className="inline-flex items-center gap-1 text-xs font-semibold text-forest hover:underline"><Plus className="w-3 h-3" /> Record Change</button>
+        )}
+      </div>
+
+      {recording && (
+        <div className="border border-border rounded-lg p-3 space-y-2 bg-muted/20">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className={labelCls}>Change type</label>
+              <select value={form.change_type} onChange={e => setForm(f => ({ ...f, change_type: e.target.value as JobHistoryChangeType }))} className={inputCls}>
+                {CHANGE_TYPES.map(t => <option key={t.v} value={t.v}>{t.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Effective date</label>
+              <input type="date" value={form.effective_date} onChange={e => setForm(f => ({ ...f, effective_date: e.target.value }))} className={inputCls} />
+            </div>
+          </div>
+          <div>
+            <label className={labelCls}>Reason / notes</label>
+            <textarea rows={2} value={form.reason} onChange={e => setForm(f => ({ ...f, reason: e.target.value }))} className={inputCls} />
+          </div>
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setRecording(false)} className="text-xs text-text-med hover:text-foreground px-2 py-1">Cancel</button>
+            <button onClick={save} disabled={insert.isPending} className="inline-flex items-center gap-1.5 bg-forest text-primary-foreground px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-forest-deep disabled:opacity-40">
+              <Save className="w-3 h-3" /> Save entry
+            </button>
+          </div>
+          <p className="text-[10px] text-text-light">Profile updates (salary, title, department) are recorded automatically — use this form to add manual entries with context (e.g. a promotion rationale).</p>
+        </div>
+      )}
+
+      {isLoading ? (
+        <p className="text-xs text-text-light">Loading history…</p>
+      ) : (
+        <JobHistoryTimeline entries={data} />
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Employment letter modal
+// ---------------------------------------------------------------------------
+
+function EmploymentLetterModal({ employeeId, onClose }: { employeeId: string; onClose: () => void }) {
+  const [data, setData] = useState<EmploymentLetterData | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    generateEmploymentLetterData(employeeId)
+      .then(d => { if (mounted) setData(d); })
+      .catch(e => { if (mounted) setErr(e?.message || "Could not generate letter"); });
+    return () => { mounted = false; };
+  }, [employeeId]);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-foreground/60 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-card border border-border rounded-xl w-full max-w-3xl max-h-[92svh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="sticky top-0 bg-card border-b border-border px-5 py-3 flex items-center justify-between z-10 print:hidden">
+          <h3 className="font-bold text-sm inline-flex items-center gap-1.5"><FileText className="w-4 h-4" /> Employment confirmation letter</h3>
+          <div className="flex items-center gap-2">
+            <button onClick={() => window.print()} disabled={!data} className="inline-flex items-center gap-1.5 bg-forest text-primary-foreground px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-forest-deep disabled:opacity-40"><Printer className="w-3.5 h-3.5" /> Print Letter</button>
+            <button onClick={onClose} aria-label="Close" className="w-8 h-8 rounded-full hover:bg-muted flex items-center justify-center"><X className="w-4 h-4" /></button>
+          </div>
+        </div>
+        <div className="p-2 sm:p-5">
+          {err && <p className="text-sm text-destructive">Could not generate letter: {err}</p>}
+          {!err && !data && <p className="text-sm text-text-light">Generating letter…</p>}
+          {data && <EmploymentLetter data={data} />}
+        </div>
+      </div>
     </div>
   );
 }

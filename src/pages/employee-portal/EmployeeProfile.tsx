@@ -1,9 +1,14 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
-import { Save, User as UserIcon } from "lucide-react";
+import { Save, User as UserIcon, FileText, Printer, History as HistoryIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useMyEmployee, fmtN, type HREmployee } from "@/hooks/useHR";
+import {
+  useMyEmployee, useJobHistory, generateEmploymentLetterData,
+  fmtN, type HREmployee, type EmploymentLetterData,
+} from "@/hooks/useHR";
+import EmploymentLetter from "@/components/employee-portal/EmploymentLetter";
+import JobHistoryTimeline from "@/components/admin/hr/JobHistoryTimeline";
 
 const inputCls = "w-full border border-input rounded-lg px-3 py-2 text-sm bg-background";
 const labelCls = "text-[10px] uppercase tracking-widest font-semibold text-text-med block mb-1";
@@ -126,7 +131,74 @@ export default function EmployeeProfile() {
           </div>
         )}
       </section>
+
+      <MyHistorySection employeeId={employee.id} />
+
+      <RequestLetterSection employeeId={employee.id} />
     </div>
+  );
+}
+
+function MyHistorySection({ employeeId }: { employeeId: string }) {
+  const { data = [], isLoading } = useJobHistory(employeeId);
+  return (
+    <section className="bg-card border border-border rounded-card p-4 space-y-3 text-sm">
+      <h2 className="text-[10px] uppercase tracking-widest font-bold text-text-med mb-1 flex items-center gap-1.5"><HistoryIcon className="w-3.5 h-3.5" /> My history</h2>
+      {isLoading ? (
+        <p className="text-xs text-text-light">Loading…</p>
+      ) : (
+        <JobHistoryTimeline entries={data} hideSensitive />
+      )}
+    </section>
+  );
+}
+
+function RequestLetterSection({ employeeId }: { employeeId: string }) {
+  const [open, setOpen] = useState(false);
+  const [data, setData] = useState<EmploymentLetterData | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let mounted = true;
+    setData(null); setErr(null);
+    generateEmploymentLetterData(employeeId)
+      .then(d => { if (mounted) setData(d); })
+      .catch(e => { if (mounted) setErr(e?.message || "Could not generate letter"); });
+    return () => { mounted = false; };
+  }, [open, employeeId]);
+
+  return (
+    <section className="bg-card border border-border rounded-card p-4 text-sm">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div>
+          <h2 className="text-[10px] uppercase tracking-widest font-bold text-text-med mb-1 flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" /> Employment letter</h2>
+          <p className="text-xs text-text-light">Generate a confirmation-of-employment letter for visa, loan, or rental use.</p>
+        </div>
+        <button onClick={() => setOpen(true)} className="inline-flex items-center gap-1.5 bg-forest text-primary-foreground px-3 py-2 rounded-lg text-xs font-semibold hover:bg-forest-deep">
+          <FileText className="w-3.5 h-3.5" /> Request Employment Letter
+        </button>
+      </div>
+
+      {open && (
+        <div className="fixed inset-0 z-50 bg-foreground/60 flex items-center justify-center p-4 print:bg-transparent print:p-0" onClick={() => setOpen(false)}>
+          <div className="bg-card border border-border rounded-xl w-full max-w-3xl max-h-[92svh] overflow-y-auto print:max-w-none print:border-0" onClick={e => e.stopPropagation()}>
+            <div className="sticky top-0 bg-card border-b border-border px-5 py-3 flex items-center justify-between z-10 print:hidden">
+              <h3 className="font-bold text-sm inline-flex items-center gap-1.5"><FileText className="w-4 h-4" /> Employment confirmation letter</h3>
+              <div className="flex items-center gap-2">
+                <button onClick={() => window.print()} disabled={!data} className="inline-flex items-center gap-1.5 bg-forest text-primary-foreground px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-forest-deep disabled:opacity-40"><Printer className="w-3.5 h-3.5" /> Print / Save as PDF</button>
+                <button onClick={() => setOpen(false)} className="text-xs text-text-med hover:text-foreground px-2 py-1">Close</button>
+              </div>
+            </div>
+            <div className="p-2 sm:p-5">
+              {err && <p className="text-sm text-destructive">Could not generate letter: {err}</p>}
+              {!err && !data && <p className="text-sm text-text-light">Generating letter…</p>}
+              {data && <EmploymentLetter data={data} />}
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
 

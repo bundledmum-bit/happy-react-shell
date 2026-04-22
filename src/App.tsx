@@ -84,6 +84,7 @@ import AdminHRPayroll from "@/pages/admin/hr/AdminHRPayroll";
 import AdminHRLeave from "@/pages/admin/hr/AdminHRLeave";
 import AdminHRDocuments from "@/pages/admin/hr/AdminHRDocuments";
 import AdminHRDepartments from "@/pages/admin/hr/AdminHRDepartments";
+import AdminHRDashboard from "@/pages/admin/hr/AdminHRDashboard";
 import EmployeePortalLayout from "@/pages/employee-portal/EmployeePortalLayout";
 import EmployeePortalLogin from "@/pages/employee-portal/EmployeePortalLogin";
 import EmployeePortalDashboard from "@/pages/employee-portal/EmployeePortalDashboard";
@@ -234,7 +235,7 @@ const App = () => (
 
                 {/* HR section (nested tabs share AdminHRLayout) */}
                 <Route path="hr" element={<PermissionGate module="hr" action="view"><AdminHRLayout /></PermissionGate>}>
-                  <Route index element={<AdminHREmployees />} />
+                  <Route index element={<AdminHRDashboard />} />
                   <Route path="employees" element={<AdminHREmployees />} />
                   <Route path="payroll" element={<AdminHRPayroll />} />
                   <Route path="leave" element={<AdminHRLeave />} />

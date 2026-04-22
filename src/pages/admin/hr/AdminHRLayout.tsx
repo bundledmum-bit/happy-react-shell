@@ -1,7 +1,8 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { Users as UsersIcon, Wallet, CalendarCheck, Files, Building2 } from "lucide-react";
+import { Users as UsersIcon, Wallet, CalendarCheck, Files, Building2, LayoutDashboard } from "lucide-react";
 
 const TABS = [
+  { to: "/admin/hr",             label: "Dashboard",   icon: LayoutDashboard, end: true },
   { to: "/admin/hr/employees",   label: "Employees",   icon: UsersIcon },
   { to: "/admin/hr/payroll",     label: "Payroll",     icon: Wallet },
   { to: "/admin/hr/leave",       label: "Leave",       icon: CalendarCheck },
@@ -26,6 +27,7 @@ export default function AdminHRLayout() {
           <NavLink
             key={t.to}
             to={t.to}
+            end={t.end}
             className={({ isActive }) =>
               `inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold border-b-2 -mb-px transition-colors ${
                 isActive ? "border-forest text-forest" : "border-transparent text-text-med hover:text-forest"
