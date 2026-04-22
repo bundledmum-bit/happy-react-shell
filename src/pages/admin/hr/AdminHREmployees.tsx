@@ -225,8 +225,18 @@ function EmployeeFormModal({
           <Section title="Personal">
             <div className="grid md:grid-cols-2 gap-3">
               <Field label="Full name *"><input className={inputCls} value={form.full_name || ""} onChange={e => set("full_name", e.target.value)} /></Field>
+              <Field
+                label={
+                  <span className="inline-flex items-center gap-1.5">
+                    Work email
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-pill bg-forest/10 text-forest text-[9px] font-bold tracking-wider uppercase">Primary</span>
+                  </span>
+                }
+                hint="Used for login and all HR communications"
+              >
+                <input type="email" className={inputCls} value={form.work_email || ""} onChange={e => set("work_email", e.target.value)} placeholder="yourname@bundledmum.com" />
+              </Field>
               <Field label="Personal email *"><input type="email" className={inputCls} value={form.personal_email || ""} onChange={e => set("personal_email", e.target.value)} disabled={isEdit} /></Field>
-              <Field label="Work email"><input type="email" className={inputCls} value={form.work_email || ""} onChange={e => set("work_email", e.target.value)} /></Field>
               <Field label="Phone"><input className={inputCls} value={form.phone || ""} onChange={e => set("phone", e.target.value)} /></Field>
               <Field label="WhatsApp number"><input className={inputCls} value={form.whatsapp_number || ""} onChange={e => set("whatsapp_number", e.target.value)} /></Field>
               <Field label="Date of birth"><input type="date" className={inputCls} value={form.date_of_birth || ""} onChange={e => set("date_of_birth", e.target.value)} /></Field>
@@ -326,11 +336,12 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function Field({ label, children, full }: { label: string; children: React.ReactNode; full?: boolean }) {
+function Field({ label, children, full, hint }: { label: React.ReactNode; children: React.ReactNode; full?: boolean; hint?: string }) {
   return (
     <div className={full ? "md:col-span-2" : ""}>
       <label className={labelCls}>{label}</label>
       {children}
+      {hint && <p className="text-[10px] text-text-light mt-1">{hint}</p>}
     </div>
   );
 }

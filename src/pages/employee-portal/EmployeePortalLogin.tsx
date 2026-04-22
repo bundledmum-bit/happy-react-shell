@@ -61,7 +61,7 @@ export default function EmployeePortalLogin() {
             <>
               <h1 className="pf text-xl font-bold text-center mb-1">Employee sign-in</h1>
               <p className="text-xs text-text-light text-center mb-5">Use the email address HR set up for you.</p>
-              <label className="text-[10px] uppercase tracking-widest font-semibold text-text-med block mb-1">Work / personal email</label>
+              <label className="text-[10px] uppercase tracking-widest font-semibold text-text-med block mb-1">Work email</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-light pointer-events-none" />
                 <input
@@ -70,10 +70,11 @@ export default function EmployeePortalLogin() {
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   onKeyDown={e => { if (e.key === "Enter" && !submitting) send(); }}
-                  placeholder="you@example.com"
+                  placeholder="yourname@bundledmum.com"
                   className="w-full rounded-lg border border-input pl-9 pr-3 py-3 text-sm bg-background outline-none focus:ring-2 focus:ring-ring min-h-[44px]"
                 />
               </div>
+              <p className="text-[11px] text-text-light mt-1.5">Enter your BundledMum work email to receive your login link.</p>
               <button
                 onClick={send}
                 disabled={submitting || !email.trim()}
