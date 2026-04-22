@@ -241,7 +241,7 @@ export function useHREmployees() {
           status,
           start_date,
           auth_user_id,
-          hr_departments (
+          hr_departments!hr_employees_department_id_fkey (
             id,
             name
           )
@@ -264,7 +264,7 @@ export function useHREmployee(id: string | null) {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("hr_employees")
-        .select("*, hr_departments(name)")
+        .select("*, hr_departments!hr_employees_department_id_fkey(name)")
         .eq("id", id)
         .maybeSingle();
       if (error) throw error;
@@ -301,7 +301,7 @@ export function useMyEmployee() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("hr_employees")
-        .select("*, hr_departments(name)")
+        .select("*, hr_departments!hr_employees_department_id_fkey(name)")
         .maybeSingle();
       if (error) throw error;
       return data as HREmployee | null;
@@ -446,7 +446,7 @@ export function usePayrollRuns(year?: number, month?: number) {
     queryFn: async () => {
       let q = (supabase as any)
         .from("hr_payroll_runs")
-        .select("*, hr_employees(full_name, employee_id, department_id, hr_departments(name))");
+        .select("*, hr_employees(full_name, employee_id, department_id, hr_departments!hr_employees_department_id_fkey(name))");
       if (year) q = q.eq("pay_year", year);
       if (month) q = q.eq("pay_month", month);
       const { data, error } = await q.order("created_at", { ascending: false });
