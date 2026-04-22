@@ -233,7 +233,7 @@ const App = () => (
                 <Route path="returns" element={<PermissionGate module="orders" action="refund"><AdminReturns /></PermissionGate>} />
 
                 {/* HR section (nested tabs share AdminHRLayout) */}
-                <Route path="hr" element={<PermissionGate module="admin" action="view_users"><AdminHRLayout /></PermissionGate>}>
+                <Route path="hr" element={<PermissionGate module="hr" action="view"><AdminHRLayout /></PermissionGate>}>
                   <Route index element={<AdminHREmployees />} />
                   <Route path="employees" element={<AdminHREmployees />} />
                   <Route path="payroll" element={<AdminHRPayroll />} />

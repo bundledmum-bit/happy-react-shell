@@ -229,9 +229,28 @@ export function useHREmployees() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("hr_employees")
-        .select("*, hr_departments(name)")
-        .order("full_name");
-      if (error) throw error;
+        .select(`
+          id,
+          employee_id,
+          full_name,
+          personal_email,
+          work_email,
+          phone,
+          job_title,
+          employment_type,
+          status,
+          start_date,
+          auth_user_id,
+          hr_departments (
+            id,
+            name
+          )
+        `)
+        .order("created_at", { ascending: true });
+      if (error) {
+        console.error("hr_employees query failed:", error);
+        throw error;
+      }
       return (data || []) as HREmployee[];
     },
     staleTime: 60_000,
