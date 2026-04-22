@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ShoppingBag, Menu, X } from "lucide-react";
+import { ShoppingBag, Menu, X, User } from "lucide-react";
 import { useCart } from "@/lib/cart";
+import { useCustomerAuth } from "@/hooks/useCustomerAuth";
 import logoWhite from "@/assets/logos/BM-LOGO-WHITE.svg";
 import logoGreen from "@/assets/logos/BM-LOGO-GREEN.svg";
 import { useEffect } from "react";
@@ -12,6 +13,7 @@ export default function Navbar({ topOffset = 0 }: { topOffset?: number }) {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const { totalItems, justAdded } = useCart();
+  const { isLoggedIn } = useCustomerAuth();
   const location = useLocation();
   const { data: settings } = useSiteSettings();
   const contactEmail = settings?.contact_email || "";
@@ -54,6 +56,13 @@ export default function Navbar({ topOffset = 0 }: { topOffset?: number }) {
                 {l.label}
               </Link>
             ))}
+            <Link
+              to={isLoggedIn ? "/account" : "/account/login"}
+              className={`inline-flex items-center gap-1.5 rounded-pill px-3.5 py-2 text-[13px] font-semibold transition-colors font-body ${dark ? "text-foreground hover:bg-midnight/[0.07]" : "text-primary-foreground hover:bg-primary-foreground/10"}`}
+            >
+              <User className="w-4 h-4" fill={isLoggedIn ? "currentColor" : "none"} />
+              {isLoggedIn ? "My Account" : "Sign In"}
+            </Link>
             <Link to="/cart" className="relative ml-1 p-1.5">
               <span className="text-xl">🛍️</span>
               {totalItems > 0 && (
