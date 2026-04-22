@@ -78,6 +78,18 @@ import AdminTestimonials from "@/pages/admin/AdminTestimonials";
 import AdminTrustSignals from "@/pages/admin/AdminTrustSignals";
 import AdminSpendThresholds from "@/pages/admin/AdminSpendThresholds";
 import AdminReturns from "@/pages/admin/AdminReturns";
+import AdminHRLayout from "@/pages/admin/hr/AdminHRLayout";
+import AdminHREmployees from "@/pages/admin/hr/AdminHREmployees";
+import AdminHRPayroll from "@/pages/admin/hr/AdminHRPayroll";
+import AdminHRLeave from "@/pages/admin/hr/AdminHRLeave";
+import AdminHRDocuments from "@/pages/admin/hr/AdminHRDocuments";
+import AdminHRDepartments from "@/pages/admin/hr/AdminHRDepartments";
+import EmployeePortalLayout from "@/pages/employee-portal/EmployeePortalLayout";
+import EmployeePortalLogin from "@/pages/employee-portal/EmployeePortalLogin";
+import EmployeePortalDashboard from "@/pages/employee-portal/EmployeePortalDashboard";
+import EmployeePayslips from "@/pages/employee-portal/EmployeePayslips";
+import EmployeeLeave from "@/pages/employee-portal/EmployeeLeave";
+import EmployeeProfile from "@/pages/employee-portal/EmployeeProfile";
 import PermissionGate from "@/components/admin/PermissionGate";
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -219,6 +231,27 @@ const App = () => (
                 <Route path="storefront/trust" element={<PermissionGate module="content" action="edit"><AdminTrustSignals /></PermissionGate>} />
                 <Route path="storefront/thresholds" element={<PermissionGate module="content" action="edit"><AdminSpendThresholds /></PermissionGate>} />
                 <Route path="returns" element={<PermissionGate module="orders" action="refund"><AdminReturns /></PermissionGate>} />
+
+                {/* HR section (nested tabs share AdminHRLayout) */}
+                <Route path="hr" element={<PermissionGate module="admin" action="view_users"><AdminHRLayout /></PermissionGate>}>
+                  <Route index element={<AdminHREmployees />} />
+                  <Route path="employees" element={<AdminHREmployees />} />
+                  <Route path="payroll" element={<AdminHRPayroll />} />
+                  <Route path="leave" element={<AdminHRLeave />} />
+                  <Route path="documents" element={<AdminHRDocuments />} />
+                  <Route path="departments" element={<AdminHRDepartments />} />
+                </Route>
+              </Route>
+
+              {/* Employee portal — separate from admin + storefront shells.
+                  Uses Supabase auth.users via useCustomerAuth; RLS on
+                  hr_employees scopes data to auth_user_id. */}
+              <Route path="/employee-portal/login" element={<EmployeePortalLogin />} />
+              <Route path="/employee-portal" element={<EmployeePortalLayout />}>
+                <Route index element={<EmployeePortalDashboard />} />
+                <Route path="payslips" element={<EmployeePayslips />} />
+                <Route path="leave" element={<EmployeeLeave />} />
+                <Route path="profile" element={<EmployeeProfile />} />
               </Route>
 
               {/* Standalone public page — no navbar/footer, not redirected */}
