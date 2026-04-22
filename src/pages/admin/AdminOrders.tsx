@@ -886,155 +886,63 @@ async function getLabelLogo(): Promise<string> {
 
 // Editable courier card shown above the order detail grid. Lets admin
 // override the auto-assigned courier + log the actual delivery cost.
+// Read-only courier info block shown above the order detail grid.
+// All assignment + cost edits moved out — this is just a summary.
 function CourierAssignmentEditor({ order: o }: { order: any }) {
-  const queryClient = useQueryClient();
-  const autoPartner: string | null = o.delivery_partner || null;
-  const initialPartner: string = o.actual_courier_partner || autoPartner || "";
-  // NOTE: orders.actual_delivery_cost and orders.partner_cost are stored
-  // in NAIRA, not kobo — the column is an INTEGER of naira. No ÷100.
-  const initialCostNaira: number = Number(o.actual_delivery_cost ?? o.partner_cost ?? 0);
-  const initialConfirmed: boolean = !!o.courier_cost_confirmed;
-
-  const [partner, setPartner] = useState<string>(initialPartner);
-  const [costNaira, setCostNaira] = useState<string>(String(initialCostNaira));
-  const [confirmed, setConfirmed] = useState<boolean>(initialConfirmed);
-  const [reason, setReason] = useState<string>(o.courier_changed_reason || "");
   const [noteOpen, setNoteOpen] = useState<boolean>(false);
 
-  const { data: couriers } = useQuery({
-    queryKey: ["order-courier-options"],
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("couriers")
-        .select("id,name,is_active")
-        .eq("is_active", true)
-        .order("display_order");
-      if (error) throw error;
-      return (data || []) as Array<{ id: string; name: string }>;
-    },
-    staleTime: 5 * 60_000,
-  });
+  const partner: string = o.delivery_partner || "Not yet assigned";
+  // orders.partner_cost is stored in NAIRA — no ÷100.
+  const estCost = Number(o.partner_cost) > 0
+    ? `₦${Number(o.partner_cost).toLocaleString("en-NG")}`
+    : null;
 
-  // Reset when the underlying order refetches (e.g. after save).
-  useEffect(() => {
-    setPartner(o.actual_courier_partner || autoPartner || "");
-    setCostNaira(String(Number(o.actual_delivery_cost ?? o.partner_cost ?? 0)));
-    setConfirmed(!!o.courier_cost_confirmed);
-    setReason(o.courier_changed_reason || "");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [o.id, o.actual_courier_partner, o.actual_delivery_cost, o.courier_cost_confirmed]);
+  // Parse "N booking(s)" out of the dispatch note when present so we
+  // don't have to roundtrip to the routing RPC for a display-only value.
+  const bookings = (() => {
+    if (!o.courier_note) return null;
+    const m = String(o.courier_note).match(/(\d+)\s*booking/i);
+    return m ? Number(m[1]) : null;
+  })();
 
-  const enteredCost = Math.round(Number(costNaira) || 0);
-  const partnerChanged = autoPartner && partner && partner !== autoPartner;
-  const dirty =
-    partner !== (o.actual_courier_partner || autoPartner || "") ||
-    enteredCost !== Number(o.actual_delivery_cost ?? o.partner_cost ?? 0) ||
-    confirmed !== initialConfirmed ||
-    (partnerChanged && reason !== (o.courier_changed_reason || ""));
-
-  const save = async () => {
-    const payload: any = {
-      actual_courier_partner: partner || null,
-      actual_delivery_cost: enteredCost || null,
-      courier_cost_confirmed: true,
-    };
-    if (partnerChanged) payload.courier_changed_reason = reason.trim() || null;
-    const { error } = await supabase.from("orders").update(payload).eq("id", o.id);
-    if (error) { toast.error(error.message || "Save failed"); return; }
-    setConfirmed(true);
-    queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
-    queryClient.invalidateQueries({ queryKey: ["admin-order-detail", o.id] });
-    toast.success("Courier assignment saved");
-  };
-
-  // Always render something — even when auto-partner is unset, the
-  // admin should still be able to type one in.
   return (
     <div className="rounded-lg border-2 border-forest/30 bg-forest-light p-3 mb-3 space-y-2">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-lg">🚚</span>
-          <span className="font-bold text-sm text-forest uppercase tracking-wide">Courier Assignment</span>
+      <div className="flex items-center gap-2">
+        <span className="text-lg">🚚</span>
+        <span className="font-bold text-sm text-forest uppercase tracking-wide">Courier Assignment</span>
+      </div>
+
+      <dl className="text-xs space-y-1">
+        <div className="flex items-baseline gap-2">
+          <dt className="text-text-light w-20 flex-shrink-0">Partner:</dt>
+          <dd className="font-semibold">{partner}</dd>
         </div>
-        {confirmed ? (
-          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">✓ Verified</span>
-        ) : (
-          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">⚠ Auto-assigned — verify actual courier and cost</span>
+        {estCost && (
+          <div className="flex items-baseline gap-2">
+            <dt className="text-text-light w-20 flex-shrink-0">Est. Cost:</dt>
+            <dd className="font-semibold tabular-nums">
+              {estCost} <span className="text-text-light font-normal">(what the system calculated)</span>
+            </dd>
+          </div>
         )}
-      </div>
-
-      <div className="grid md:grid-cols-2 gap-2">
-        <div>
-          <label className="text-[10px] font-semibold text-text-med uppercase tracking-wide block mb-1">Partner</label>
-          <select
-            value={partner}
-            onChange={e => setPartner(e.target.value)}
-            className="w-full border border-input rounded-lg px-2 py-1.5 text-sm bg-background"
-          >
-            <option value="">— Select —</option>
-            {(couriers || []).map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-            {/* Fall back to any pre-existing value not in the active list */}
-            {partner && !(couriers || []).some(c => c.name === partner) && (
-              <option value={partner}>{partner} (custom)</option>
-            )}
-          </select>
-          {autoPartner && (
-            <div className="text-[10px] text-text-light mt-1">Auto-assigned: {autoPartner}</div>
-          )}
-        </div>
-        <div>
-          <label className="text-[10px] font-semibold text-text-med uppercase tracking-wide block mb-1">Actual Cost (₦)</label>
-          <input
-            type="number"
-            min="0"
-            value={costNaira}
-            onChange={e => setCostNaira(e.target.value)}
-            className="w-full border border-input rounded-lg px-2 py-1.5 text-sm bg-background tabular-nums"
-          />
-          {Number(o.partner_cost) > 0 && (
-            <div className="text-[10px] text-text-light mt-1">Auto-quoted: ₦{Number(o.partner_cost).toLocaleString("en-NG")}</div>
-          )}
-        </div>
-      </div>
-
-      <label className="flex items-center gap-2 text-xs text-text-med">
-        <input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} />
-        Cost confirmed
-      </label>
-
-      {partnerChanged && (
-        <div>
-          <label className="text-[10px] font-semibold text-text-med uppercase tracking-wide block mb-1">Why changed?</label>
-          <input
-            value={reason}
-            onChange={e => setReason(e.target.value)}
-            placeholder="e.g. Customer requested Brain Express"
-            className="w-full border border-input rounded-lg px-2 py-1.5 text-xs bg-background"
-          />
-        </div>
-      )}
+        {bookings != null && (
+          <div className="flex items-baseline gap-2">
+            <dt className="text-text-light w-20 flex-shrink-0">Bookings:</dt>
+            <dd className="font-semibold tabular-nums">{bookings}</dd>
+          </div>
+        )}
+      </dl>
 
       {o.courier_note && (
-        <div>
-          <button onClick={() => setNoteOpen(v => !v)} className="text-[11px] font-semibold text-forest hover:underline">
-            {noteOpen ? "Hide" : "Show"} dispatch note
+        <div className="pt-1">
+          <button onClick={() => setNoteOpen(v => !v)} className="text-[11px] font-semibold text-forest hover:underline inline-flex items-center gap-1">
+            {noteOpen ? "Hide dispatch note ▲" : "Show dispatch note ▼"}
           </button>
           {noteOpen && (
             <p className="text-[11px] text-text-med leading-relaxed mt-1 bg-background/60 rounded p-2">
               {stripProfitSegments(o.courier_note)}
             </p>
           )}
-        </div>
-      )}
-
-      {dirty && (
-        <div className="flex justify-end">
-          <button
-            onClick={save}
-            className="inline-flex items-center gap-1.5 bg-forest text-primary-foreground px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-forest-deep"
-          >
-            <Send className="w-3 h-3" /> Save changes
-          </button>
         </div>
       )}
     </div>
