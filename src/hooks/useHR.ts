@@ -246,7 +246,7 @@ export function useHREmployees() {
             name
           )
         `)
-        .order("created_at", { ascending: true });
+        .order("full_name", { ascending: true });
       if (error) {
         console.error("hr_employees query failed:", error);
         throw error;
