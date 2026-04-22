@@ -28,7 +28,7 @@ export default function EmployeePortalLogin() {
     try {
       const { error } = await supabase.auth.signInWithOtp({
         email: addr,
-        options: { emailRedirectTo: `${window.location.origin}/employee-portal` },
+        options: { emailRedirectTo: "https://bundledmum.com/employee-portal" },
       });
       if (error) throw error;
       setStage("sent");

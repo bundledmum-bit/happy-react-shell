@@ -196,7 +196,7 @@ function EmployeeFormModal({
         try {
           const { error } = await (supabase.auth as any).signInWithOtp({
             email: form.personal_email,
-            options: { emailRedirectTo: `${window.location.origin}/employee-portal`, shouldCreateUser: true },
+            options: { emailRedirectTo: "https://bundledmum.com/employee-portal", shouldCreateUser: true },
           });
           if (error) throw error;
           toast.success("Invite sent to personal email.");
