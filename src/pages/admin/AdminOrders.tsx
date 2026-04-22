@@ -890,11 +890,13 @@ function CourierAssignmentEditor({ order: o }: { order: any }) {
   const queryClient = useQueryClient();
   const autoPartner: string | null = o.delivery_partner || null;
   const initialPartner: string = o.actual_courier_partner || autoPartner || "";
-  const initialCostKobo: number = Number(o.actual_delivery_cost ?? o.partner_cost ?? 0);
+  // NOTE: orders.actual_delivery_cost and orders.partner_cost are stored
+  // in NAIRA, not kobo — the column is an INTEGER of naira. No ÷100.
+  const initialCostNaira: number = Number(o.actual_delivery_cost ?? o.partner_cost ?? 0);
   const initialConfirmed: boolean = !!o.courier_cost_confirmed;
 
   const [partner, setPartner] = useState<string>(initialPartner);
-  const [costNaira, setCostNaira] = useState<string>(String(Math.round(initialCostKobo / 100)));
+  const [costNaira, setCostNaira] = useState<string>(String(initialCostNaira));
   const [confirmed, setConfirmed] = useState<boolean>(initialConfirmed);
   const [reason, setReason] = useState<string>(o.courier_changed_reason || "");
   const [noteOpen, setNoteOpen] = useState<boolean>(false);
@@ -916,24 +918,24 @@ function CourierAssignmentEditor({ order: o }: { order: any }) {
   // Reset when the underlying order refetches (e.g. after save).
   useEffect(() => {
     setPartner(o.actual_courier_partner || autoPartner || "");
-    setCostNaira(String(Math.round(Number(o.actual_delivery_cost ?? o.partner_cost ?? 0) / 100)));
+    setCostNaira(String(Number(o.actual_delivery_cost ?? o.partner_cost ?? 0)));
     setConfirmed(!!o.courier_cost_confirmed);
     setReason(o.courier_changed_reason || "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [o.id, o.actual_courier_partner, o.actual_delivery_cost, o.courier_cost_confirmed]);
 
-  const costKobo = Math.round((Number(costNaira) || 0) * 100);
+  const enteredCost = Math.round(Number(costNaira) || 0);
   const partnerChanged = autoPartner && partner && partner !== autoPartner;
   const dirty =
     partner !== (o.actual_courier_partner || autoPartner || "") ||
-    costKobo !== Number(o.actual_delivery_cost ?? o.partner_cost ?? 0) ||
+    enteredCost !== Number(o.actual_delivery_cost ?? o.partner_cost ?? 0) ||
     confirmed !== initialConfirmed ||
     (partnerChanged && reason !== (o.courier_changed_reason || ""));
 
   const save = async () => {
     const payload: any = {
       actual_courier_partner: partner || null,
-      actual_delivery_cost: costKobo || null,
+      actual_delivery_cost: enteredCost || null,
       courier_cost_confirmed: true,
     };
     if (partnerChanged) payload.courier_changed_reason = reason.trim() || null;
@@ -990,7 +992,7 @@ function CourierAssignmentEditor({ order: o }: { order: any }) {
             className="w-full border border-input rounded-lg px-2 py-1.5 text-sm bg-background tabular-nums"
           />
           {Number(o.partner_cost) > 0 && (
-            <div className="text-[10px] text-text-light mt-1">Auto-quoted: ₦{Math.round(Number(o.partner_cost) / 100).toLocaleString()}</div>
+            <div className="text-[10px] text-text-light mt-1">Auto-quoted: ₦{Number(o.partner_cost).toLocaleString("en-NG")}</div>
           )}
         </div>
       </div>
