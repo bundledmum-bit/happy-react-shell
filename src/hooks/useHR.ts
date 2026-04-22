@@ -1058,6 +1058,15 @@ export function useTaskComments(taskId: string | null | undefined) {
   });
 }
 
+/** Fire-and-forget notification helper. Never blocks or surfaces errors. */
+async function notifyTask(notification_type: "task_assigned" | "task_completed", task_id: string) {
+  try {
+    await (supabase.functions as any).invoke("send-hr-notification", {
+      body: { notification_type, task_id },
+    });
+  } catch { /* non-blocking */ }
+}
+
 export function useCreateTask() {
   const qc = useQueryClient();
   return useMutation({
@@ -1070,7 +1079,19 @@ export function useCreateTask() {
       if (!body.priority) body.priority = "medium";
       const { data, error } = await (supabase as any).from("hr_tasks").insert(body).select("id").single();
       if (error) throw error;
-      return data.id as string;
+      const newId = data.id as string;
+
+      // Notify assignee if this is an assignment from someone else:
+      //   - any admin-created task, OR
+      //   - a manager-created task where assigner != assignee
+      // Self-created tasks (employee assigning to themselves) are skipped.
+      const isAdminAssigned = !!body.assigned_by_admin;
+      const isManagerAssignedToOther =
+        !!body.assigned_by_employee && body.assigned_by_employee !== body.assigned_to;
+      if (isAdminAssigned || isManagerAssignedToOther) {
+        await notifyTask("task_assigned", newId);
+      }
+      return newId;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["hr-tasks"] });
@@ -1090,6 +1111,12 @@ export function useUpdateTask() {
       delete body.assigner_admin;
       const { error } = await (supabase as any).from("hr_tasks").update(body).eq("id", payload.id);
       if (error) throw error;
+
+      // Notify when the task is just marked done so HR / the assigner gets
+      // a heads-up. Only fire on status transitions into 'done'.
+      if (payload.status === "done") {
+        await notifyTask("task_completed", payload.id);
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["hr-tasks"] });
