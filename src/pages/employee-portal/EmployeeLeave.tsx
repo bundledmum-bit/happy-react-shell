@@ -1,10 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { CalendarCheck, Send } from "lucide-react";
 import {
   useMyEmployee, useMyLeaveRequests, useLeaveTypes, useMyLeaveBalances,
   useCreateLeaveRequest, useUpdateLeaveRequest,
-  businessDaysBetween, STATUS_COLORS, type HRLeaveType,
+  countWorkingDays, STATUS_COLORS, type HRLeaveType,
 } from "@/hooks/useHR";
 
 const inputCls = "w-full border border-input rounded-lg px-3 py-2 text-sm bg-background";
@@ -106,8 +106,22 @@ function ApplyTab({ employee }: { employee: { id: string; gender: string | null;
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [reason, setReason] = useState("");
+  const [days, setDays] = useState(0);
+  const [daysLoading, setDaysLoading] = useState(false);
 
-  const days = businessDaysBetween(start, end);
+  // Ask the DB for working days (excludes weekends AND Nigerian public holidays)
+  // whenever either date changes. Fallback to 0 if dates are incomplete.
+  useEffect(() => {
+    if (!start || !end || new Date(end) < new Date(start)) { setDays(0); return; }
+    let cancelled = false;
+    setDaysLoading(true);
+    countWorkingDays(start, end)
+      .then(n => { if (!cancelled) setDays(n); })
+      .catch(() => { if (!cancelled) setDays(0); })
+      .finally(() => { if (!cancelled) setDaysLoading(false); });
+    return () => { cancelled = true; };
+  }, [start, end]);
+
   const balance = balances?.find(b => b.leave_type_id === typeId);
   const remaining = balance ? Number(balance.entitled_days) - Number(balance.used_days) - Number(balance.pending_days) : null;
   const overBudget = remaining != null && days > remaining;
@@ -160,14 +174,21 @@ function ApplyTab({ employee }: { employee: { id: string; gender: string | null;
         </div>
       </div>
 
-      <div className="text-[11px] text-text-light flex items-center justify-between">
-        <span>Business days: <b className="text-foreground">{days}</b> (excludes weekends)</span>
+      <div className="text-[11px] text-text-light flex items-center justify-between flex-wrap gap-1">
+        <span>
+          Working days: <b className="text-foreground">{daysLoading ? "…" : days}</b> <span className="text-text-light">(weekends and public holidays excluded)</span>
+        </span>
         {balance && (
           <span>
             Remaining: <b className="text-foreground">{Number(remaining).toFixed(1)}</b> · Used {Number(balance.used_days).toFixed(1)} · Pending {Number(balance.pending_days).toFixed(1)}
           </span>
         )}
       </div>
+      {start && end && !daysLoading && days === 0 && new Date(end) >= new Date(start) && (
+        <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
+          ⚠ Your selected dates contain no working days.
+        </p>
+      )}
       {overBudget && (
         <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
           ⚠ You're requesting more days than you have remaining for this leave type.

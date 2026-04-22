@@ -548,10 +548,10 @@ export function useUpsertPayrollRun() {
 export function useMarkPayrollPaid() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: { id: string; paidBy: string | null; paymentMethod: string; paymentReference: string | null }) => {
+    mutationFn: async (payload: { id: string; paidBy: string | null; paymentMethod: string; paymentReference: string | null; paymentDate?: string }) => {
       const { error } = await (supabase as any).from("hr_payroll_runs").update({
         status: "paid",
-        payment_date: new Date().toISOString().slice(0, 10),
+        payment_date: payload.paymentDate || new Date().toISOString().slice(0, 10),
         payment_method: payload.paymentMethod,
         payment_reference: payload.paymentReference,
         paid_by: payload.paidBy,
@@ -582,6 +582,80 @@ export function useApprovePayrollRun() {
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["hr-payroll"] }),
   });
+}
+
+export function useRejectPayrollRun() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { id: string }) => {
+      const { error } = await (supabase as any).from("hr_payroll_runs").update({
+        status: "draft",
+        approved_at: null,
+        approved_by: null,
+        updated_at: new Date().toISOString(),
+      }).eq("id", payload.id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["hr-payroll"] }),
+  });
+}
+
+export function useDeletePayrollRun() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase as any).from("hr_payroll_runs").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["hr-payroll"] }),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// DB calculators (Nigerian payroll + working days)
+// ---------------------------------------------------------------------------
+
+export interface PayrollCalculation {
+  basic_salary: number;
+  housing_allowance: number;
+  transport_allowance: number;
+  other_allowances: number;
+  bonus: number;
+  gross_salary: number;
+  employee_pension: number;
+  nhf_deduction: number;
+  paye_tax: number;
+  total_deductions: number;
+  net_salary: number;
+  employer_pension: number;
+  nsitf: number;
+  itf: number;
+  total_employer_cost: number;
+  annual_gross: number;
+  cra: number;
+  annual_taxable_income: number;
+  annual_paye: number;
+  effective_tax_rate_pct: number;
+}
+
+/** Calls the DB-side Nigerian payroll calculator. All returned values are in NAIRA. */
+export async function calculateEmployeePayroll(employeeId: string, bonusKobo = 0): Promise<PayrollCalculation> {
+  const { data, error } = await (supabase as any).rpc("calculate_employee_payroll", {
+    p_employee_id: employeeId,
+    p_bonus: bonusKobo,
+  });
+  if (error) throw error;
+  return data as PayrollCalculation;
+}
+
+/** Counts working days (excludes weekends AND Nigerian public holidays) via DB function. */
+export async function countWorkingDays(startDate: string, endDate: string): Promise<number> {
+  const { data, error } = await (supabase as any).rpc("count_working_days", {
+    p_start_date: startDate,
+    p_end_date: endDate,
+  });
+  if (error) throw error;
+  return Number(data) || 0;
 }
 
 // -----------------------------------------------------------------------------

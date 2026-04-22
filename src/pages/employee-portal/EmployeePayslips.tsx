@@ -1,11 +1,27 @@
 import { useState } from "react";
-import { Printer, X, Wallet } from "lucide-react";
+import { toast } from "sonner";
+import { Printer, X, Wallet, Download } from "lucide-react";
 import { useMyEmployee, useMyPayrollRuns, fmtN, MONTHS, STATUS_COLORS, type HRPayrollRun } from "@/hooks/useHR";
+import PayslipPrint from "@/components/employee-portal/PayslipPrint";
 
 export default function EmployeePayslips() {
   const { data: employee } = useMyEmployee();
   const { data, isLoading } = useMyPayrollRuns(employee?.id || null);
   const [detail, setDetail] = useState<HRPayrollRun | null>(null);
+  const [printing, setPrinting] = useState<HRPayrollRun | null>(null);
+
+  const startPrint = (run: HRPayrollRun) => {
+    setPrinting(run);
+    toast.message("Opening print dialog — select 'Save as PDF' to download your payslip.");
+    // Wait one frame for the print tree to mount before calling print.
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        window.print();
+        // Clear the overlay after the print dialog closes.
+        setTimeout(() => setPrinting(null), 500);
+      }, 120);
+    });
+  };
 
   return (
     <div className="space-y-3">
@@ -31,8 +47,11 @@ export default function EmployeePayslips() {
                   <td className="px-3 py-2 text-right tabular-nums">{fmtN(r.gross_salary)}</td>
                   <td className="px-3 py-2 text-right tabular-nums font-semibold">{fmtN(r.net_salary)}</td>
                   <td className="px-3 py-2"><span className={`inline-flex px-2 py-0.5 rounded-pill text-[10px] font-semibold capitalize ${STATUS_COLORS[r.status] || "bg-muted text-text-med"}`}>{r.status}</span></td>
-                  <td className="px-3 py-2 text-right">
-                    <button onClick={() => setDetail(r)} className="text-forest text-xs font-semibold hover:underline">View</button>
+                  <td className="px-3 py-2 text-right whitespace-nowrap">
+                    <button onClick={() => setDetail(r)} className="text-forest text-xs font-semibold hover:underline mr-3">View</button>
+                    <button onClick={() => startPrint(r)} className="inline-flex items-center gap-1 text-xs font-semibold bg-forest text-primary-foreground px-2.5 py-1 rounded-md hover:bg-forest-deep">
+                      <Download className="w-3 h-3" /> Download PDF
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -41,79 +60,58 @@ export default function EmployeePayslips() {
         </div>
       </div>
 
-      {detail && <PayslipDetailSheet run={detail} employeeName={employee?.full_name || ""} onClose={() => setDetail(null)} />}
+      {detail && (
+        <PayslipDetailSheet
+          run={detail}
+          employeeName={employee?.full_name || ""}
+          employeeId={employee?.employee_id}
+          jobTitle={employee?.job_title}
+          onClose={() => setDetail(null)}
+          onDownload={() => { setDetail(null); startPrint(detail); }}
+        />
+      )}
+
+      {printing && (
+        <PayslipPrint
+          run={printing}
+          employeeName={employee?.full_name || ""}
+          employeeId={employee?.employee_id}
+          jobTitle={employee?.job_title}
+        />
+      )}
     </div>
   );
 }
 
-function PayslipDetailSheet({ run, employeeName, onClose }: { run: HRPayrollRun; employeeName: string; onClose: () => void }) {
+function PayslipDetailSheet({
+  run, employeeName, employeeId, jobTitle, onClose, onDownload,
+}: {
+  run: HRPayrollRun;
+  employeeName: string;
+  employeeId?: string | null;
+  jobTitle?: string | null;
+  onClose: () => void;
+  onDownload: () => void;
+}) {
   return (
     <div className="fixed inset-0 z-40 flex justify-end">
       <div className="flex-1 bg-foreground/40 print:hidden" onClick={onClose} />
-      <aside className="w-full max-w-[520px] h-full bg-background border-l border-border overflow-y-auto print:max-w-full print:border-0">
+      <aside className="w-full max-w-[620px] h-full bg-background border-l border-border overflow-y-auto print:max-w-full print:border-0">
         <header className="sticky top-0 z-10 bg-card border-b border-border px-5 py-3 flex items-center justify-between print:hidden">
           <div>
             <h2 className="font-bold text-sm">Payslip — {MONTHS[run.pay_month - 1]} {run.pay_year}</h2>
             <p className="text-[10px] text-text-light">{employeeName}</p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => window.print()} className="inline-flex items-center gap-1.5 text-xs font-semibold bg-forest text-primary-foreground px-3 py-1.5 rounded-lg hover:bg-forest-deep"><Printer className="w-3.5 h-3.5" /> Print</button>
+            <button onClick={onDownload} className="inline-flex items-center gap-1.5 text-xs font-semibold bg-forest text-primary-foreground px-3 py-1.5 rounded-lg hover:bg-forest-deep"><Download className="w-3.5 h-3.5" /> Download PDF</button>
+            <button onClick={() => window.print()} className="inline-flex items-center gap-1.5 text-xs font-semibold border border-input px-3 py-1.5 rounded-lg hover:bg-muted" aria-label="Print"><Printer className="w-3.5 h-3.5" /> Print</button>
             <button onClick={onClose} aria-label="Close" className="w-8 h-8 rounded-full hover:bg-muted flex items-center justify-center"><X className="w-4 h-4" /></button>
           </div>
         </header>
-        <section className="p-5 space-y-4 text-sm">
-          <header className="hidden print:block">
-            <h1 className="font-bold text-lg">BundledMum — Payslip</h1>
-            <p className="text-xs">{employeeName} · {MONTHS[run.pay_month - 1]} {run.pay_year}</p>
-          </header>
-          <PayslipGroup title="Income">
-            <Line label="Basic salary" v={run.basic_salary} />
-            <Line label="Housing allowance" v={run.housing_allowance} />
-            <Line label="Transport allowance" v={run.transport_allowance} />
-            <Line label="Other allowances" v={run.other_allowances} />
-            <Line label="Bonus" v={run.bonus} />
-            <Total label="Gross salary" v={run.gross_salary} />
-          </PayslipGroup>
-
-          <PayslipGroup title="Deductions">
-            <Line label="Employee pension" v={run.employee_pension} />
-            <Line label="NHF" v={run.nhf_deduction} />
-            <Line label="PAYE tax" v={run.paye_tax} />
-            <Line label="Other" v={run.other_deductions} />
-            <Total label="Total deductions" v={run.total_deductions} />
-          </PayslipGroup>
-
-          <PayslipGroup title="Net pay">
-            <Total label="Net pay" v={run.net_salary} highlight />
-          </PayslipGroup>
-
-          <PayslipGroup title="Employer contributions">
-            <Line label="Employer pension" v={run.employer_pension} />
-            <Line label="NSITF" v={run.nsitf} />
-            <Line label="ITF" v={run.itf} />
-            <Total label="Total employer cost" v={run.total_employer_cost} />
-          </PayslipGroup>
-
-          <p className="text-[10px] text-text-light">
-            Status: {run.status}{run.payment_date ? ` · Paid ${run.payment_date}` : ""}{run.payment_reference ? ` · Ref ${run.payment_reference}` : ""}
-          </p>
+        <section className="p-2 sm:p-5">
+          <PayslipPrint run={run} employeeName={employeeName} employeeId={employeeId} jobTitle={jobTitle} />
         </section>
       </aside>
     </div>
   );
-}
-
-function PayslipGroup({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section>
-      <h3 className="text-[10px] uppercase tracking-widest font-bold text-text-med mb-1">{title}</h3>
-      <dl className="text-xs space-y-0.5">{children}</dl>
-    </section>
-  );
-}
-function Line({ label, v }: { label: string; v: number }) {
-  return <div className="flex items-center justify-between py-0.5 border-b border-border/40 last:border-0"><dt className="text-text-med">{label}</dt><dd className="tabular-nums">{fmtN(v)}</dd></div>;
-}
-function Total({ label, v, highlight }: { label: string; v: number; highlight?: boolean }) {
-  return <div className={`flex items-center justify-between pt-1 font-bold ${highlight ? "text-forest text-base" : ""}`}><dt>{label}</dt><dd className="tabular-nums">{fmtN(v)}</dd></div>;
 }

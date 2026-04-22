@@ -1,6 +1,9 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { CalendarCheck, Wallet, User as UserIcon, MailWarning } from "lucide-react";
-import { useMyEmployee, useMyLeaveBalances, useMyPayrollRuns, fmtN, MONTHS, STATUS_COLORS } from "@/hooks/useHR";
+import { toast } from "sonner";
+import { CalendarCheck, Wallet, User as UserIcon, MailWarning, Download } from "lucide-react";
+import { useMyEmployee, useMyLeaveBalances, useMyPayrollRuns, fmtN, MONTHS, STATUS_COLORS, type HRPayrollRun } from "@/hooks/useHR";
+import PayslipPrint from "@/components/employee-portal/PayslipPrint";
 
 export default function EmployeePortalDashboard() {
   const { data: employee, isLoading } = useMyEmployee();
@@ -8,6 +11,18 @@ export default function EmployeePortalDashboard() {
   const { data: balances } = useMyLeaveBalances(employee?.id || null, year);
   const { data: payruns } = useMyPayrollRuns(employee?.id || null);
   const latest = (payruns || [])[0];
+  const [printing, setPrinting] = useState<HRPayrollRun | null>(null);
+
+  const downloadLatest = (run: HRPayrollRun) => {
+    setPrinting(run);
+    toast.message("Opening print dialog — select 'Save as PDF' to download your payslip.");
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        window.print();
+        setTimeout(() => setPrinting(null), 500);
+      }, 120);
+    });
+  };
 
   if (isLoading) {
     return <div className="text-center py-10 text-sm text-text-light">Loading your profile…</div>;
@@ -60,12 +75,26 @@ export default function EmployeePortalDashboard() {
               <div className="font-semibold text-sm">{MONTHS[latest.pay_month - 1]} {latest.pay_year}</div>
               <div className="text-[10px] text-text-light">Gross {fmtN(latest.gross_salary)} · Net {fmtN(latest.net_salary)}</div>
             </div>
-            <span className={`text-[10px] font-semibold capitalize px-2 py-0.5 rounded-pill ${STATUS_COLORS[latest.status] || "bg-muted text-text-med"}`}>{latest.status}</span>
+            <div className="flex items-center gap-2">
+              <span className={`text-[10px] font-semibold capitalize px-2 py-0.5 rounded-pill ${STATUS_COLORS[latest.status] || "bg-muted text-text-med"}`}>{latest.status}</span>
+              <button onClick={() => downloadLatest(latest)} className="inline-flex items-center gap-1 text-xs font-semibold bg-forest text-primary-foreground px-2.5 py-1 rounded-md hover:bg-forest-deep">
+                <Download className="w-3 h-3" /> View &amp; Download
+              </button>
+            </div>
           </div>
         ) : (
           <p className="text-xs text-text-light">No payslips yet.</p>
         )}
       </section>
+
+      {printing && (
+        <PayslipPrint
+          run={printing}
+          employeeName={employee.full_name}
+          employeeId={employee.employee_id}
+          jobTitle={employee.job_title}
+        />
+      )}
 
       <section className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         <QuickLink to="/employee-portal/leave" icon={<CalendarCheck className="w-4 h-4" />} label="Apply for Leave" />
