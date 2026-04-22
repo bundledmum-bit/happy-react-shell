@@ -33,6 +33,12 @@ import CookiesPage from "@/pages/CookiesPage";
 import ReturnsPage from "@/pages/ReturnsPage";
 import BlogPage from "@/pages/BlogPage";
 import TrackOrderPage from "@/pages/TrackOrderPage";
+import AccountPage from "@/pages/AccountPage";
+import AccountLoginPage from "@/pages/AccountLoginPage";
+import AccountOrdersPage from "@/pages/AccountOrdersPage";
+import AccountProfilePage from "@/pages/AccountProfilePage";
+import AccountReferralPage from "@/pages/AccountReferralPage";
+import RequireCustomerAuth from "@/components/account/RequireCustomerAuth";
 import PushGiftsPage from "@/pages/PushGiftsPage";
 import ProductPage from "@/pages/ProductPage";
 import DynamicPage from "@/pages/DynamicPage";
@@ -153,6 +159,11 @@ function StorefrontShell() {
           <Route path="/returns" element={<ReturnsPage />} />
           <Route path="/blog" element={<BlogPage />} />
           <Route path="/track-order" element={<TrackOrderPage />} />
+          <Route path="/account/login" element={<AccountLoginPage />} />
+          <Route path="/account" element={<RequireCustomerAuth><AccountPage /></RequireCustomerAuth>} />
+          <Route path="/account/orders" element={<RequireCustomerAuth><AccountOrdersPage /></RequireCustomerAuth>} />
+          <Route path="/account/profile" element={<RequireCustomerAuth><AccountProfilePage /></RequireCustomerAuth>} />
+          <Route path="/account/referral" element={<RequireCustomerAuth><AccountReferralPage /></RequireCustomerAuth>} />
           <Route path="/push-gifts" element={<PushGiftsPage />} />
           <Route path="/products/:slug" element={<ProductPage />} />
           <Route path="/p/:slug" element={<DynamicPage />} />
