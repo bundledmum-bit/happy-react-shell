@@ -2237,6 +2237,13 @@ export type Database = {
             foreignKeyName: "hr_departments_head_employee_id_fkey"
             columns: ["head_employee_id"]
             isOneToOne: false
+            referencedRelation: "hr_employee_performance"
+            referencedColumns: ["employee_id"]
+          },
+          {
+            foreignKeyName: "hr_departments_head_employee_id_fkey"
+            columns: ["head_employee_id"]
+            isOneToOne: false
             referencedRelation: "hr_employees"
             referencedColumns: ["id"]
           },
@@ -2274,6 +2281,13 @@ export type Database = {
           uploaded_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "hr_documents_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "hr_employee_performance"
+            referencedColumns: ["employee_id"]
+          },
           {
             foreignKeyName: "hr_documents_employee_id_fkey"
             columns: ["employee_id"]
@@ -2424,7 +2438,113 @@ export type Database = {
             foreignKeyName: "hr_employees_line_manager_id_fkey"
             columns: ["line_manager_id"]
             isOneToOne: false
+            referencedRelation: "hr_employee_performance"
+            referencedColumns: ["employee_id"]
+          },
+          {
+            foreignKeyName: "hr_employees_line_manager_id_fkey"
+            columns: ["line_manager_id"]
+            isOneToOne: false
             referencedRelation: "hr_employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hr_job_history: {
+        Row: {
+          change_type: string
+          created_at: string | null
+          effective_date: string
+          employee_id: string
+          id: string
+          new_basic_salary: number | null
+          new_department_id: string | null
+          new_employment_type: string | null
+          new_job_title: string | null
+          new_status: string | null
+          notes: string | null
+          previous_basic_salary: number | null
+          previous_department_id: string | null
+          previous_employment_type: string | null
+          previous_job_title: string | null
+          previous_status: string | null
+          reason: string | null
+          recorded_by: string | null
+        }
+        Insert: {
+          change_type: string
+          created_at?: string | null
+          effective_date?: string
+          employee_id: string
+          id?: string
+          new_basic_salary?: number | null
+          new_department_id?: string | null
+          new_employment_type?: string | null
+          new_job_title?: string | null
+          new_status?: string | null
+          notes?: string | null
+          previous_basic_salary?: number | null
+          previous_department_id?: string | null
+          previous_employment_type?: string | null
+          previous_job_title?: string | null
+          previous_status?: string | null
+          reason?: string | null
+          recorded_by?: string | null
+        }
+        Update: {
+          change_type?: string
+          created_at?: string | null
+          effective_date?: string
+          employee_id?: string
+          id?: string
+          new_basic_salary?: number | null
+          new_department_id?: string | null
+          new_employment_type?: string | null
+          new_job_title?: string | null
+          new_status?: string | null
+          notes?: string | null
+          previous_basic_salary?: number | null
+          previous_department_id?: string | null
+          previous_employment_type?: string | null
+          previous_job_title?: string | null
+          previous_status?: string | null
+          reason?: string | null
+          recorded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_job_history_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "hr_employee_performance"
+            referencedColumns: ["employee_id"]
+          },
+          {
+            foreignKeyName: "hr_job_history_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "hr_employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_job_history_new_department_id_fkey"
+            columns: ["new_department_id"]
+            isOneToOne: false
+            referencedRelation: "hr_departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_job_history_previous_department_id_fkey"
+            columns: ["previous_department_id"]
+            isOneToOne: false
+            referencedRelation: "hr_departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_job_history_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
             referencedColumns: ["id"]
           },
         ]
@@ -2468,6 +2588,13 @@ export type Database = {
             foreignKeyName: "hr_leave_balances_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
+            referencedRelation: "hr_employee_performance"
+            referencedColumns: ["employee_id"]
+          },
+          {
+            foreignKeyName: "hr_leave_balances_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
             referencedRelation: "hr_employees"
             referencedColumns: ["id"]
           },
@@ -2476,6 +2603,71 @@ export type Database = {
             columns: ["leave_type_id"]
             isOneToOne: false
             referencedRelation: "hr_leave_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hr_leave_carryover: {
+        Row: {
+          days_carried: number
+          employee_id: string
+          expiry_date: string | null
+          from_year: number
+          id: string
+          leave_type_id: string
+          processed_at: string | null
+          processed_by: string | null
+          to_year: number
+        }
+        Insert: {
+          days_carried?: number
+          employee_id: string
+          expiry_date?: string | null
+          from_year: number
+          id?: string
+          leave_type_id: string
+          processed_at?: string | null
+          processed_by?: string | null
+          to_year: number
+        }
+        Update: {
+          days_carried?: number
+          employee_id?: string
+          expiry_date?: string | null
+          from_year?: number
+          id?: string
+          leave_type_id?: string
+          processed_at?: string | null
+          processed_by?: string | null
+          to_year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_leave_carryover_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "hr_employee_performance"
+            referencedColumns: ["employee_id"]
+          },
+          {
+            foreignKeyName: "hr_leave_carryover_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "hr_employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_leave_carryover_leave_type_id_fkey"
+            columns: ["leave_type_id"]
+            isOneToOne: false
+            referencedRelation: "hr_leave_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_leave_carryover_processed_by_fkey"
+            columns: ["processed_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
             referencedColumns: ["id"]
           },
         ]
@@ -2552,6 +2744,13 @@ export type Database = {
             foreignKeyName: "hr_leave_requests_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
+            referencedRelation: "hr_employee_performance"
+            referencedColumns: ["employee_id"]
+          },
+          {
+            foreignKeyName: "hr_leave_requests_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
             referencedRelation: "hr_employees"
             referencedColumns: ["id"]
           },
@@ -2575,6 +2774,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "admin_users"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_leave_requests_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "hr_employee_performance"
+            referencedColumns: ["employee_id"]
           },
           {
             foreignKeyName: "hr_leave_requests_manager_id_fkey"
@@ -2743,6 +2949,13 @@ export type Database = {
             foreignKeyName: "hr_payroll_runs_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
+            referencedRelation: "hr_employee_performance"
+            referencedColumns: ["employee_id"]
+          },
+          {
+            foreignKeyName: "hr_payroll_runs_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
             referencedRelation: "hr_employees"
             referencedColumns: ["id"]
           },
@@ -2751,6 +2964,173 @@ export type Database = {
             columns: ["paid_by"]
             isOneToOne: false
             referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hr_public_holidays: {
+        Row: {
+          created_at: string | null
+          holiday_date: string
+          id: string
+          is_active: boolean | null
+          name: string
+          year: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          holiday_date: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          year?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          holiday_date?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          year?: number | null
+        }
+        Relationships: []
+      }
+      hr_task_comments: {
+        Row: {
+          author_admin_id: string | null
+          author_employee_id: string | null
+          content: string
+          created_at: string | null
+          id: string
+          task_id: string
+        }
+        Insert: {
+          author_admin_id?: string | null
+          author_employee_id?: string | null
+          content: string
+          created_at?: string | null
+          id?: string
+          task_id: string
+        }
+        Update: {
+          author_admin_id?: string | null
+          author_employee_id?: string | null
+          content?: string
+          created_at?: string | null
+          id?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_task_comments_author_admin_id_fkey"
+            columns: ["author_admin_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_task_comments_author_employee_id_fkey"
+            columns: ["author_employee_id"]
+            isOneToOne: false
+            referencedRelation: "hr_employee_performance"
+            referencedColumns: ["employee_id"]
+          },
+          {
+            foreignKeyName: "hr_task_comments_author_employee_id_fkey"
+            columns: ["author_employee_id"]
+            isOneToOne: false
+            referencedRelation: "hr_employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_task_comments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "hr_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hr_tasks: {
+        Row: {
+          assigned_by_admin: string | null
+          assigned_by_employee: string | null
+          assigned_to: string | null
+          completed_at: string | null
+          completion_notes: string | null
+          created_at: string | null
+          description: string | null
+          due_date: string | null
+          id: string
+          priority: string
+          status: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_by_admin?: string | null
+          assigned_by_employee?: string | null
+          assigned_to?: string | null
+          completed_at?: string | null
+          completion_notes?: string | null
+          created_at?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          priority?: string
+          status?: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_by_admin?: string | null
+          assigned_by_employee?: string | null
+          assigned_to?: string | null
+          completed_at?: string | null
+          completion_notes?: string | null
+          created_at?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          priority?: string
+          status?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_tasks_assigned_by_admin_fkey"
+            columns: ["assigned_by_admin"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_tasks_assigned_by_employee_fkey"
+            columns: ["assigned_by_employee"]
+            isOneToOne: false
+            referencedRelation: "hr_employee_performance"
+            referencedColumns: ["employee_id"]
+          },
+          {
+            foreignKeyName: "hr_tasks_assigned_by_employee_fkey"
+            columns: ["assigned_by_employee"]
+            isOneToOne: false
+            referencedRelation: "hr_employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_tasks_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "hr_employee_performance"
+            referencedColumns: ["employee_id"]
+          },
+          {
+            foreignKeyName: "hr_tasks_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "hr_employees"
             referencedColumns: ["id"]
           },
         ]
@@ -5429,7 +5809,8 @@ export type Database = {
         Row: {
           gross_profit: number | null
           gross_revenue: number | null
-          month: string | null
+          month: number | null
+          month_start: string | null
           net_margin_pct: number | null
           net_profit: number | null
           total_cogs: number | null
@@ -5441,6 +5822,70 @@ export type Database = {
           total_packaging_cost: number | null
           total_payroll: number | null
           total_paystack_fees: number | null
+          year: number | null
+        }
+        Relationships: []
+      }
+      hr_analytics: {
+        Row: {
+          active_headcount: number | null
+          contract_count: number | null
+          current_month_net_payroll_naira: number | null
+          current_month_total_cost_naira: number | null
+          full_time_count: number | null
+          intern_count: number | null
+          leave_requests_this_month: number | null
+          new_hires_this_month: number | null
+          on_leave_count: number | null
+          on_probation_count: number | null
+          part_time_count: number | null
+          pending_leave_requests: number | null
+          suspended_count: number | null
+          terminated_count: number | null
+          total_documents: number | null
+          total_employees: number | null
+        }
+        Relationships: []
+      }
+      hr_employee_performance: {
+        Row: {
+          avg_days_to_complete: number | null
+          cancelled_tasks: number | null
+          completed_tasks: number | null
+          completed_this_month: number | null
+          completion_rate_pct: number | null
+          department_id: string | null
+          employee_code: string | null
+          employee_id: string | null
+          full_name: string | null
+          job_title: string | null
+          late_completions: number | null
+          on_time_completions: number | null
+          on_time_rate_pct: number | null
+          overdue_tasks: number | null
+          pending_tasks: number | null
+          performance_score: number | null
+          tasks_this_month: number | null
+          total_tasks: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_employees_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "hr_departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hr_headcount_by_department: {
+        Row: {
+          active: number | null
+          department: string | null
+          monthly_gross_naira: number | null
+          on_leave: number | null
+          terminated: number | null
+          total: number | null
         }
         Relationships: []
       }
@@ -5573,6 +6018,14 @@ export type Database = {
         }
         Returns: Json
       }
+      calculate_employee_payroll: {
+        Args: { p_bonus?: number; p_employee_id: string }
+        Returns: Json
+      }
+      calculate_paye_annual: {
+        Args: { p_annual_taxable_naira: number }
+        Returns: number
+      }
       calculate_tax_position: {
         Args: { p_month?: number; p_year?: number }
         Returns: Json
@@ -5582,7 +6035,15 @@ export type Database = {
         Returns: boolean
       }
       check_stock_availability: { Args: { p_items: Json }; Returns: Json }
+      count_working_days: {
+        Args: { p_end_date: string; p_start_date: string }
+        Returns: number
+      }
       generate_compliance_notifications: { Args: never; Returns: undefined }
+      generate_employment_letter_data: {
+        Args: { p_employee_id: string }
+        Returns: Json
+      }
       generate_invoice_from_order: {
         Args: { p_generated_by?: string; p_order_id: string }
         Returns: Json
@@ -5679,6 +6140,17 @@ export type Database = {
             }
             Returns: Json
           }
+      get_daily_task_summary: {
+        Args: never
+        Returns: {
+          done_today: Json
+          manager_email: string
+          manager_id: string
+          manager_name: string
+          overdue: Json
+          still_pending: Json
+        }[]
+      }
       get_delivery_fee: {
         Args: { p_city: string; p_state: string; p_subtotal: number }
         Returns: {
@@ -5715,6 +6187,7 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
       is_admin_user: { Args: never; Returns: boolean }
       is_sensitive_realtime_topic: { Args: { topic: string }; Returns: boolean }
+      link_my_employee_account: { Args: never; Returns: Json }
       mark_quiz_lead_purchased: {
         Args: {
           p_order_amount?: number
@@ -5724,6 +6197,10 @@ export type Database = {
         Returns: boolean
       }
       orders_paid_only_restricted: { Args: never; Returns: boolean }
+      process_annual_leave_carryover: {
+        Args: { p_from_year?: number; p_max_carryover?: number }
+        Returns: Json
+      }
       run_push_gift_recommendation: {
         Args: { p_budget_tier: string; p_category: string; p_timing: string }
         Returns: Json
