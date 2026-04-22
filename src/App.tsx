@@ -71,6 +71,7 @@ import AdminHomepage from "@/pages/admin/AdminHomepage";
 import AdminTestimonials from "@/pages/admin/AdminTestimonials";
 import AdminTrustSignals from "@/pages/admin/AdminTrustSignals";
 import AdminSpendThresholds from "@/pages/admin/AdminSpendThresholds";
+import AdminReturns from "@/pages/admin/AdminReturns";
 import PermissionGate from "@/components/admin/PermissionGate";
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -206,6 +207,7 @@ const App = () => (
                 <Route path="storefront/testimonials" element={<PermissionGate module="content" action="edit"><AdminTestimonials /></PermissionGate>} />
                 <Route path="storefront/trust" element={<PermissionGate module="content" action="edit"><AdminTrustSignals /></PermissionGate>} />
                 <Route path="storefront/thresholds" element={<PermissionGate module="content" action="edit"><AdminSpendThresholds /></PermissionGate>} />
+                <Route path="returns" element={<PermissionGate module="orders" action="refund"><AdminReturns /></PermissionGate>} />
               </Route>
 
               {/* Standalone public page — no navbar/footer, not redirected */}

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Search, Download, ChevronDown, ChevronUp, Printer, MessageSquare, Clock, Send, ExternalLink, ArrowLeft, Truck, CheckCircle2, Package, X as XIcon } from "lucide-react";
+import { Search, Download, ChevronDown, ChevronUp, Printer, MessageSquare, Clock, Send, ExternalLink, ArrowLeft, Truck, CheckCircle2, Package, X as XIcon, RotateCcw } from "lucide-react";
 import BulkActionsBar from "@/components/admin/BulkActionsBar";
 import { openBrandedInvoice } from "@/components/admin/PrintInvoice";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -440,6 +440,7 @@ function OrderDetailPage({ order: o, adminUser, can, isSuperAdmin, onBack, onPri
   const [noteText, setNoteText] = useState("");
   const [showCancel, setShowCancel] = useState(false);
   const [showReturn, setShowReturn] = useState(false);
+  const [showInitiateReturn, setShowInitiateReturn] = useState(false);
   const [cancelReason, setCancelReason] = useState(CANCEL_REASONS[0]);
   const [issueRefund, setIssueRefund] = useState(false);
   const [returnReason, setReturnReason] = useState(RETURN_REASONS[0]);
@@ -783,6 +784,11 @@ function OrderDetailPage({ order: o, adminUser, can, isSuperAdmin, onBack, onPri
             Process Return
           </button>
         )}
+        {(can("orders", "refund") || can("finance", "process_refunds")) && ["delivered", "shipped"].includes(o.order_status) && (
+          <button onClick={() => setShowInitiateReturn(true)} className="flex items-center gap-1 text-xs font-semibold text-forest hover:underline">
+            <RotateCcw className="w-3 h-3" /> Initiate Return
+          </button>
+        )}
         {isSuperAdmin && (
           <button onClick={async () => { if (!confirm("Permanently delete this order?")) return; await supabase.from("orders").delete().eq("id", o.id); queryClient.invalidateQueries({ queryKey: ["admin-orders"] }); onBack(); toast.success("Order deleted"); }}
             className="flex items-center gap-1 text-xs font-semibold text-destructive hover:underline">
@@ -818,6 +824,20 @@ function OrderDetailPage({ order: o, adminUser, can, isSuperAdmin, onBack, onPri
             </div>
           </div>
         </div>
+      )}
+
+      {/* Initiate Return — opens the full return flow (admin approves,
+          restores stock, issues refund). Writes to order_returns with
+          status='requested' via the initiate_return RPC. */}
+      {showInitiateReturn && (
+        <InitiateReturnModal
+          order={o}
+          onClose={() => setShowInitiateReturn(false)}
+          onSubmitted={() => {
+            queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+            queryClient.invalidateQueries({ queryKey: ["admin_returns_view"] });
+          }}
+        />
       )}
 
       {/* Return Modal */}
@@ -1126,4 +1146,191 @@ async function openDeliveryLabels(orders: any[]): Promise<void> {
   win.document.write(html);
   win.document.close();
   try { win.document.title = title; } catch { /* cross-origin noop */ }
+}
+
+// ---------- Initiate Return modal ----------
+// Full multi-item modal that writes via the initiate_return RPC. Admin
+// picks type + reason, selects which items (with quantity + per-item
+// refund), and submits — the return lands on /admin/returns for review.
+
+const RETURN_TYPES: Array<{ key: string; label: string }> = [
+  { key: "return_refund", label: "Return + Refund" },
+  { key: "exchange",      label: "Exchange" },
+  { key: "store_credit",  label: "Store Credit" },
+  { key: "return_only",   label: "Return Only" },
+];
+
+const INITIATE_REASONS = ["wrong_item", "damaged", "changed_mind", "not_as_described", "quality_issue", "other"];
+
+function InitiateReturnModal({ order: o, onClose, onSubmitted }: {
+  order: any;
+  onClose: () => void;
+  onSubmitted: () => void;
+}) {
+  const orderItems: any[] = Array.isArray(o.order_items) ? o.order_items : (Array.isArray(o.items) ? o.items : []);
+  const [returnType, setReturnType] = useState("return_refund");
+  const [reason, setReason] = useState(INITIATE_REASONS[0]);
+  const [adminNotes, setAdminNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  // Per-item selection state — keyed by item.id. Each holds
+  // { selected, quantity, refund }.
+  const [items, setItems] = useState<Record<string, { selected: boolean; quantity: number; refund: number }>>(() => {
+    const m: Record<string, { selected: boolean; quantity: number; refund: number }> = {};
+    orderItems.forEach(it => {
+      m[it.id] = { selected: false, quantity: Number(it.quantity || 1), refund: Number(it.line_total || it.unit_price || 0) };
+    });
+    return m;
+  });
+  // Auto-sum across selected items, but the admin can override.
+  const autoRefund = Object.entries(items).reduce((s, [, v]) => s + (v.selected ? v.refund : 0), 0);
+  const [refundAmount, setRefundAmount] = useState<number>(autoRefund);
+  const [refundTouched, setRefundTouched] = useState(false);
+  // Keep refund total in sync with selection until admin edits it.
+  if (!refundTouched && refundAmount !== autoRefund) setRefundAmount(autoRefund);
+
+  const anySelected = Object.values(items).some(v => v.selected);
+
+  const submit = async () => {
+    if (!anySelected) { toast.error("Select at least one item to return."); return; }
+    if (!reason.trim()) { toast.error("Reason is required."); return; }
+    setSubmitting(true);
+    try {
+      const itemsPayload = orderItems
+        .filter(it => items[it.id]?.selected)
+        .map(it => ({
+          order_item_id: it.id,
+          product_name: it.product_name,
+          brand_name: it.brand_name,
+          quantity: items[it.id].quantity,
+          refund_amount: items[it.id].refund,
+        }));
+      const { error } = await (supabase.rpc as any)("initiate_return", {
+        p_order_id: o.id,
+        p_return_reason: reason,
+        p_return_type: returnType,
+        p_items_returned: itemsPayload,
+        p_refund_amount: refundAmount,
+        p_admin_notes: adminNotes.trim() || null,
+      });
+      if (error) throw error;
+      toast.success("Return initiated — review on /admin/returns");
+      onSubmitted();
+      onClose();
+    } catch (e: any) {
+      toast.error(e?.message || "Could not initiate return");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-foreground/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-card border border-border rounded-xl w-full max-w-lg max-h-[90svh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="sticky top-0 bg-card border-b border-border px-5 py-3 flex items-center justify-between z-10">
+          <h3 className="font-bold text-sm flex items-center gap-1.5"><RotateCcw className="w-4 h-4" /> Initiate Return — {o.order_number}</h3>
+          <button onClick={onClose} aria-label="Close" className="w-8 h-8 rounded-full hover:bg-muted flex items-center justify-center"><XIcon className="w-4 h-4" /></button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground block mb-1">Return type</label>
+              <select value={returnType} onChange={e => setReturnType(e.target.value)} className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background">
+                {RETURN_TYPES.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground block mb-1">Reason (required)</label>
+              <select value={reason} onChange={e => setReason(e.target.value)} className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background capitalize">
+                {INITIATE_REASONS.map(r => <option key={r} value={r}>{r.replace(/_/g, " ")}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground">Items returned</label>
+              <button onClick={() => {
+                const allSelected = orderItems.every(it => items[it.id]?.selected);
+                const next = { ...items };
+                orderItems.forEach(it => { next[it.id] = { ...next[it.id], selected: !allSelected }; });
+                setItems(next);
+                setRefundTouched(false);
+              }} className="text-[10px] text-forest font-semibold hover:underline">Toggle all</button>
+            </div>
+            <div className="space-y-1">
+              {orderItems.length === 0 && <p className="text-xs text-text-light">No items on this order.</p>}
+              {orderItems.map(it => {
+                const state = items[it.id] || { selected: false, quantity: Number(it.quantity || 1), refund: Number(it.line_total || 0) };
+                return (
+                  <label key={it.id} className={`flex items-center gap-2 text-xs p-2 rounded-lg border ${state.selected ? "border-forest bg-forest/5" : "border-border"}`}>
+                    <input
+                      type="checkbox"
+                      checked={state.selected}
+                      onChange={e => { setItems({ ...items, [it.id]: { ...state, selected: e.target.checked } }); setRefundTouched(false); }}
+                    />
+                    <span className="flex-1 truncate">{it.product_name} {it.brand_name ? `(${it.brand_name})` : ""}</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={Number(it.quantity || 1)}
+                      value={state.quantity}
+                      onChange={e => { setItems({ ...items, [it.id]: { ...state, quantity: Number(e.target.value) || 1 } }); setRefundTouched(false); }}
+                      className="w-14 border border-input rounded px-1.5 py-0.5 text-xs bg-background tabular-nums"
+                      aria-label="Quantity"
+                    />
+                    <div className="flex items-center gap-0.5">
+                      <span className="text-text-light">₦</span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={state.refund}
+                        onChange={e => { setItems({ ...items, [it.id]: { ...state, refund: Number(e.target.value) || 0 } }); setRefundTouched(false); }}
+                        className="w-20 border border-input rounded px-1.5 py-0.5 text-xs bg-background tabular-nums"
+                        aria-label="Refund amount"
+                      />
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground block mb-1">Total refund (editable)</label>
+            <div className="flex items-center gap-1">
+              <span className="text-text-light text-xs">₦</span>
+              <input
+                type="number"
+                min={0}
+                value={refundAmount}
+                onChange={e => { setRefundAmount(Number(e.target.value) || 0); setRefundTouched(true); }}
+                className="w-40 border border-input rounded-lg px-3 py-2 text-sm bg-background tabular-nums"
+              />
+              {refundTouched && <button onClick={() => { setRefundAmount(autoRefund); setRefundTouched(false); }} className="text-[11px] text-forest font-semibold hover:underline ml-2">Reset to auto-sum</button>}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground block mb-1">Admin notes</label>
+            <textarea
+              rows={2}
+              value={adminNotes}
+              onChange={e => setAdminNotes(e.target.value)}
+              placeholder="Optional internal notes"
+              className="w-full border border-input rounded-lg px-3 py-2 text-xs bg-background"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-1">
+            <button onClick={onClose} disabled={submitting} className="text-xs text-text-med hover:text-foreground px-3 py-2">Cancel</button>
+            <button onClick={submit} disabled={submitting || !anySelected}
+              className="inline-flex items-center gap-1.5 bg-forest text-primary-foreground px-3 py-2 rounded-lg text-xs font-semibold hover:bg-forest-deep disabled:opacity-40">
+              <RotateCcw className="w-3.5 h-3.5" /> Submit return
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }

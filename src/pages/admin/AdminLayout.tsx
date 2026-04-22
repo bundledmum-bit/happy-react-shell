@@ -11,7 +11,7 @@ import {
   Search, X, Menu, ChevronLeft, MessageCircleQuestion, Workflow, Mail, Rocket,
   type LucideIcon,
 } from "lucide-react";
-import { Tag, Boxes, MapPin, FileText as PageIcon, Layout, ShieldCheck } from "lucide-react";
+import { Tag, Boxes, MapPin, FileText as PageIcon, Layout, ShieldCheck, RotateCcw } from "lucide-react";
 import logoWhite from "@/assets/logos/BM-LOGO-WHITE.svg";
 import BMLoadingAnimation from "@/components/BMLoadingAnimation";
 
@@ -20,7 +20,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   LayoutDashboard, Package, Boxes, ShoppingBag, ClipboardList, Users, Tag,
   Gift, Truck, MapPin, MessageSquare, FileText, Image, MessageCircleQuestion,
   Workflow, BarChart3, Settings, Mail, Rocket,
-  Layout, ShieldCheck,
+  Layout, ShieldCheck, RotateCcw,
   PageIcon, // alias
 };
 

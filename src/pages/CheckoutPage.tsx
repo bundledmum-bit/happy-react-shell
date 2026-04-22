@@ -20,6 +20,32 @@ interface FormData {
 
 type SavedOrderResult = { id: string; orderNumber: string | null };
 
+/** Item in the `stock_issues` array returned by the place-order edge
+ *  function when one or more cart items are unavailable (HTTP 409). */
+interface StockIssue {
+  brand_id?: string;
+  brand_name?: string;
+  product_name?: string;
+  available?: number;
+  requested?: number;
+  message?: string;
+}
+
+/** True when a cart item matches one of the stock-issue entries — by
+ *  brand id (preferred) or brand_name / product_name substring (fallback). */
+function cartItemHasIssue(item: any, issues: StockIssue[]): boolean {
+  if (!issues.length) return false;
+  const brandId = item.selectedBrand?.id;
+  const brandLabel = (item.selectedBrand?.label || "").toLowerCase();
+  const productName = String(item.name || "").toLowerCase();
+  return issues.some(iss => {
+    if (iss.brand_id && brandId && iss.brand_id === brandId) return true;
+    const hay = (iss.brand_name || iss.product_name || "").toLowerCase();
+    if (!hay) return false;
+    return brandLabel.includes(hay) || hay.includes(brandLabel) || productName.includes(hay) || hay.includes(productName);
+  });
+}
+
 export default function CheckoutPage() {
   const { cart, subtotal, clearCart, totalItems } = useCart();
   const navigate = useNavigate();
@@ -27,6 +53,7 @@ export default function CheckoutPage() {
   const [payment, setPayment] = useState<"card" | "transfer" | "ussd">("card");
   const [giftWrap, setGiftWrap] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [stockIssues, setStockIssues] = useState<StockIssue[]>([]);
   const [errors, setErrors] = useState<Partial<FormData>>({});
   const [mobileOrderOpen, setMobileOrderOpen] = useState(false);
 
@@ -625,6 +652,29 @@ export default function CheckoutPage() {
 
       if (fnError || !result?.id) {
         console.error("place-order failed:", fnError, result);
+        // HTTP 409 — the edge function rejected the order because one
+        // or more items are out of stock. Surface each issue inline
+        // and highlight the affected cart items so the customer can
+        // fix their cart and retry. We DO NOT clear the cart here.
+        try {
+          const anyErr = fnError as any;
+          // supabase-js wraps non-2xx errors in FunctionsHttpError;
+          // the raw response is on error.context. Also accept the
+          // issues on the parsed `result` body when the status is
+          // surfaced via data rather than error.
+          const bodyFromCtx = anyErr?.context?.status === 409
+            ? await anyErr.context.clone().json().catch(() => null)
+            : null;
+          const payload = bodyFromCtx || result || null;
+          const issues: StockIssue[] = Array.isArray(payload?.stock_issues) ? payload.stock_issues : [];
+          if (issues.length > 0) {
+            setStockIssues(issues);
+            toast.error("Please update your cart before continuing.");
+            return null;
+          }
+        } catch (e) {
+          console.warn("[checkout] unable to parse stock-error body", e);
+        }
         toast.error(`Order failed: ${fnError?.message || result?.error || "Unknown error"}`);
         return null;
       }
@@ -707,6 +757,7 @@ export default function CheckoutPage() {
     }
 
     const cartSnapshot = [...cart];
+    setStockIssues([]);
     setProcessing(true);
 
     if (payment === "transfer") {
@@ -827,15 +878,19 @@ export default function CheckoutPage() {
           </button>
           {mobileOrderOpen && (
             <div className="bg-card rounded-b-card shadow-card p-4 -mt-1 animate-fade-in space-y-2">
-              {cart.map(item => (
-                <div key={item._key} className="flex items-center justify-between gap-2 text-xs">
-                  <div className="flex items-center gap-2">
-                    {(item.img && item.img.startsWith("http")) ? <img src={item.img} alt={item.name} className="w-6 h-6 rounded object-cover flex-shrink-0" /> : <span className="text-lg">{item.img || "📦"}</span>}
-                    <span className="truncate max-w-[180px]">{item.bundleName ? `[${item.bundleName}] ` : ""}{item.name} ×{item.qty}</span>
+              {cart.map(item => {
+                const flagged = cartItemHasIssue(item, stockIssues);
+                return (
+                  <div key={item._key} className={`flex items-center justify-between gap-2 text-xs ${flagged ? "border border-destructive/40 bg-destructive/5 rounded-md p-1.5" : ""}`}>
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      {(item.img && item.img.startsWith("http")) ? <img src={item.img} alt={item.name} className="w-6 h-6 rounded object-cover flex-shrink-0" /> : <span className="text-lg">{item.img || "📦"}</span>}
+                      <span className="truncate">{item.bundleName ? `[${item.bundleName}] ` : ""}{item.name} ×{item.qty}</span>
+                      {flagged && <span className="text-[9px] font-semibold text-destructive bg-destructive/10 px-1.5 py-0.5 rounded-pill flex-shrink-0">Out of stock</span>}
+                    </div>
+                    <span className="font-bold">{fmt(item.price * item.qty)}</span>
                   </div>
-                  <span className="font-bold">{fmt(item.price * item.qty)}</span>
-                </div>
-              ))}
+                );
+              })}
               <div className="border-t border-border pt-2 space-y-1 text-xs">
                 <div className="flex justify-between"><span className="text-text-med">Subtotal</span><span>{fmt(subtotal)}</span></div>
                 {deliveryReady ? (
@@ -1121,6 +1176,22 @@ export default function CheckoutPage() {
                 </div>
               )}
             </div>
+
+            {stockIssues.length > 0 && (
+              <div className="mb-3 rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-xs">
+                <p className="font-semibold text-destructive mb-2">Some items are no longer available:</p>
+                <ul className="space-y-1 text-destructive/90">
+                  {stockIssues.map((iss, i) => {
+                    const who = iss.brand_name || iss.product_name || "This item";
+                    if (iss.available != null && iss.requested != null) {
+                      return <li key={i}>• Only {iss.available} unit{iss.available === 1 ? "" : "s"} of {who} available (you have {iss.requested} in your cart).</li>;
+                    }
+                    return <li key={i}>• {iss.message || `${who} is out of stock.`}</li>;
+                  })}
+                </ul>
+                <Link to="/cart" className="inline-block mt-2 text-destructive font-semibold underline">Update your cart →</Link>
+              </div>
+            )}
 
             <button
               onClick={placeOrder}
