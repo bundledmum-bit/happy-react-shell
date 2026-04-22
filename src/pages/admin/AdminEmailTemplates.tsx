@@ -610,36 +610,42 @@ function SendTestModal({ template, defaultEmail, onClose }: {
     }
     setSending(true);
     try {
-      // Reorder reminders have their own edge function; everything else
-      // uses send-transactional-email with the most recent paid order as
-      // a stand-in so all placeholders resolve to real-looking values.
-      if (template.slug === "reorder_reminder") {
-        const { error } = await (supabase.functions as any).invoke("send-reorder-reminders", {
-          body: { test_email: addr },
-        });
-        if (error) throw error;
-      } else {
-        const { data: lastPaid, error: selErr } = await (supabase as any)
-          .from("orders")
-          .select("id")
-          .eq("payment_status", "paid")
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (selErr) throw selErr;
-        const { error } = await (supabase.functions as any).invoke("send-transactional-email", {
-          body: {
-            order_id: lastPaid?.id || null,
-            email_type: template.slug,
-            test_email: addr,
-          },
-        });
-        if (error) throw error;
+      // Both edge functions accept { test_email } and auto-find the
+      // most recent paid order for placeholder data. We never pass
+      // order_id from here — the function picks it.
+      const isReorder = template.slug === "reorder_reminder";
+      const fnName = isReorder ? "send-reorder-reminders" : "send-transactional-email";
+      const body: Record<string, any> = { test_email: addr };
+      if (!isReorder) body.email_type = template.slug;
+
+      const response = await (supabase.functions as any).invoke(fnName, { body });
+      // Always log the raw response — it's invaluable when debugging
+      // edge-function failures in production (RLS errors, missing
+      // Resend keys, unexpected payload shapes, etc.).
+      console.log(`[email test] ${fnName} response`, response);
+
+      // supabase-js returns { data, error } where `error` is a
+      // FunctionsHttpError / FunctionsFetchError on any non-2xx — we
+      // check that rather than relying on an HTTP status directly.
+      if (response?.error) {
+        const msg = response.error?.message
+          || (response.data && (response.data.error || response.data.message))
+          || "Unknown error";
+        toast.error(`Failed: ${msg}`);
+        return;
       }
+      // Some functions still return success with an error field in
+      // the data payload — surface that too.
+      if (response?.data?.error) {
+        toast.error(`Failed: ${response.data.error}`);
+        return;
+      }
+
       toast.success(`Test email sent to ${addr}`);
       onClose();
     } catch (e: any) {
-      toast.error(e?.message || "Couldn't send test email");
+      console.error("[email test] exception", e);
+      toast.error(`Failed: ${e?.message || "Could not send test email"}`);
     } finally {
       setSending(false);
     }
@@ -662,9 +668,10 @@ function SendTestModal({ template, defaultEmail, onClose }: {
           className="w-full rounded-lg border border-input px-3 py-2.5 text-sm bg-background min-h-[44px]"
         />
         <p className="text-[11px] text-text-light mt-2 leading-relaxed">
-          {template.slug === "reorder_reminder"
-            ? "Uses the send-reorder-reminders edge function in test mode."
-            : "Uses the send-transactional-email edge function, seeded with your most recent paid order so placeholders render realistically."}
+          The edge function seeds placeholders from the most recent paid order and sends a
+          [TEST]-prefixed copy to this address. {template.slug === "reorder_reminder"
+            ? "Runs via send-reorder-reminders."
+            : "Runs via send-transactional-email."}
         </p>
         <div className="flex justify-end gap-2 mt-4">
           <button onClick={onClose} disabled={sending} className="text-xs text-text-med hover:text-foreground px-3 py-2">Cancel</button>
