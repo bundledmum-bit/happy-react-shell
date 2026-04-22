@@ -70,13 +70,7 @@ function HeroSection() {
     <section className="md:h-screen md:min-h-[720px] md:max-h-[1000px] flex items-center relative overflow-hidden" style={{ background: "linear-gradient(135deg, #2D6A4F 0%, #1E5C44 55%, #163D2E 100%)" }}>
       {/* Desktop-only ambient YouTube background — sits behind the green tint overlay */}
       <div className="hidden md:block absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-        <iframe
-          title="Hero ambient background"
-          src="https://www.youtube.com/embed/Cy2yQuAKfus?autoplay=1&mute=1&loop=1&playlist=Cy2yQuAKfus&controls=0&showinfo=0&modestbranding=1&rel=0&disablekb=1&playsinline=1&iv_load_policy=3"
-          allow="autoplay; encrypted-media"
-          frameBorder={0}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[177.77vh] h-[56.25vw] min-w-full min-h-full"
-        />
+        <HeroVideoBackground videoId="Cy2yQuAKfus" />
         {/* Green tint overlay — keeps the brand color dominant, video stays faint but noticeable */}
         <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, rgba(45,106,79,0.82) 0%, rgba(30,92,68,0.85) 55%, rgba(22,61,46,0.88) 100%)" }} />
       </div>
