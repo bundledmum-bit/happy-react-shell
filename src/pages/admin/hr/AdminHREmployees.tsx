@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Search, X, Save, UserPlus, Trash2, UserMinus, AlertTriangle } from "lucide-react";
+import { Plus, Search, X, Save, UserPlus, Trash2, UserMinus, AlertTriangle, ShieldCheck } from "lucide-react";
+import { createClient } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { usePermissions } from "@/hooks/useAdminPermissionsContext";
 import {
@@ -340,8 +341,9 @@ function Field({ label, children, full }: { label: string; children: React.React
 
 function EmployeeDetailPanel({ employee: e, onClose, onEdit }: { employee: HREmployee; onClose: () => void; onEdit: () => void }) {
   const qc = useQueryClient();
-  const { can } = usePermissions();
+  const { can, adminUser } = usePermissions();
   const canEditHR = can("hr", "edit");
+  const isAdmin = adminUser?.role === "super_admin" || adminUser?.role === "admin";
   const [tab, setTab] = useState<"profile" | "payslips" | "leave" | "documents">("profile");
   const [statusEdit, setStatusEdit] = useState(e.status);
   const [terminationReason, setTerminationReason] = useState(e.termination_reason || "");
@@ -352,9 +354,13 @@ function EmployeeDetailPanel({ employee: e, onClose, onEdit }: { employee: HREmp
   const [termReason, setTermReason] = useState("");
   const [terming, setTerming] = useState(false);
 
-  // Delete confirmation
+  // Delete confirmation + admin verification (required when deleter isn't admin/super_admin)
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [verifyEmail, setVerifyEmail] = useState("");
+  const [verifyPassword, setVerifyPassword] = useState("");
+  const [verified, setVerified] = useState(false);
+  const [verifyingAdmin, setVerifyingAdmin] = useState(false);
 
   useEffect(() => { setStatusEdit(e.status); setTerminationReason(e.termination_reason || ""); }, [e.id, e.status, e.termination_reason]);
 
@@ -385,7 +391,37 @@ function EmployeeDetailPanel({ employee: e, onClose, onEdit }: { employee: HREmp
     }
   };
 
+  const verifyAdmin = async () => {
+    const email = verifyEmail.trim().toLowerCase();
+    if (!email || !verifyPassword) { toast.error("Enter the verifying admin's email and password."); return; }
+    setVerifyingAdmin(true);
+    try {
+      // Use a throwaway client so we don't clobber the current admin's session.
+      const url = (import.meta as any).env.VITE_SUPABASE_URL;
+      const key = (import.meta as any).env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const verifier = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+      const { data: auth, error: signErr } = await verifier.auth.signInWithPassword({ email, password: verifyPassword });
+      if (signErr || !auth?.user) { toast.error("Verification failed — wrong email or password."); return; }
+      const { data: row, error: roleErr } = await (verifier as any)
+        .from("admin_users")
+        .select("role, is_active")
+        .eq("user_id", auth.user.id)
+        .maybeSingle();
+      await verifier.auth.signOut();
+      if (roleErr) { toast.error(roleErr.message); return; }
+      if (!row || !row.is_active || (row.role !== "super_admin" && row.role !== "admin")) {
+        toast.error("That account isn't a super admin or admin.");
+        return;
+      }
+      setVerified(true);
+      toast.success("Verified — you can now delete.");
+    } finally {
+      setVerifyingAdmin(false);
+    }
+  };
+
   const deleteEmployee = async () => {
+    if (!isAdmin && !verified) { toast.error("Admin verification required."); return; }
     setDeleting(true);
     try {
       const { error } = await (supabase as any).from("hr_employees").delete().eq("id", e.id);
@@ -393,10 +429,17 @@ function EmployeeDetailPanel({ employee: e, onClose, onEdit }: { employee: HREmp
       await qc.invalidateQueries({ queryKey: ["hr-employees"] });
       toast.success("Employee deleted successfully");
       setConfirmDelete(false);
+      setVerified(false); setVerifyEmail(""); setVerifyPassword("");
       onClose();
     } finally {
       setDeleting(false);
     }
+  };
+
+  const closeDeleteModal = () => {
+    if (deleting) return;
+    setConfirmDelete(false);
+    setVerified(false); setVerifyEmail(""); setVerifyPassword("");
   };
 
   const initials = e.full_name.split(" ").slice(0, 2).map(s => s[0]).join("").toUpperCase();
@@ -527,7 +570,7 @@ function EmployeeDetailPanel({ employee: e, onClose, onEdit }: { employee: HREmp
       </aside>
 
       {confirmDelete && (
-        <div className="fixed inset-0 z-[60] bg-foreground/60 flex items-center justify-center p-4" onClick={() => !deleting && setConfirmDelete(false)}>
+        <div className="fixed inset-0 z-[60] bg-foreground/60 flex items-center justify-center p-4" onClick={closeDeleteModal}>
           <div className="bg-card border border-border rounded-xl w-full max-w-md p-5 space-y-3" onClick={ev => ev.stopPropagation()}>
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-destructive" />
@@ -536,9 +579,45 @@ function EmployeeDetailPanel({ employee: e, onClose, onEdit }: { employee: HREmp
             <p className="text-xs text-text-med leading-relaxed">
               This will permanently delete <b>{e.full_name}</b> and all their leave history and documents. Payslips already marked as paid are preserved in Finance. This cannot be undone.
             </p>
+
+            {!isAdmin && (
+              <div className="border border-border rounded-lg p-3 space-y-2 bg-muted/20">
+                <div className="flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-forest" />
+                  <span className="text-[11px] font-semibold">Admin verification required</span>
+                </div>
+                {verified ? (
+                  <p className="text-[11px] text-forest">✓ Verified by <b>{verifyEmail.trim().toLowerCase()}</b>. You can now delete.</p>
+                ) : (
+                  <>
+                    <p className="text-[11px] text-text-light leading-relaxed">
+                      A super admin or admin must verify this deletion. Ask them to enter their credentials below.
+                    </p>
+                    <div>
+                      <label className={labelCls}>Admin email</label>
+                      <input type="email" className={inputCls} value={verifyEmail} onChange={ev => setVerifyEmail(ev.target.value)} autoComplete="off" />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Admin password</label>
+                      <input type="password" className={inputCls} value={verifyPassword} onChange={ev => setVerifyPassword(ev.target.value)} autoComplete="off" />
+                    </div>
+                    <div className="flex justify-end">
+                      <button onClick={verifyAdmin} disabled={verifyingAdmin || !verifyEmail.trim() || !verifyPassword} className="inline-flex items-center gap-1.5 bg-forest text-primary-foreground px-3 py-2 rounded-lg text-xs font-semibold hover:bg-forest-deep disabled:opacity-40">
+                        <ShieldCheck className="w-3.5 h-3.5" /> {verifyingAdmin ? "Verifying…" : "Verify"}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
             <div className="flex justify-end gap-2 pt-2">
-              <button onClick={() => setConfirmDelete(false)} disabled={deleting} className="text-xs text-text-med hover:text-foreground px-3 py-2">Cancel</button>
-              <button onClick={deleteEmployee} disabled={deleting} className="inline-flex items-center gap-1.5 bg-destructive text-destructive-foreground px-3 py-2 rounded-lg text-xs font-semibold hover:opacity-90 disabled:opacity-40">
+              <button onClick={closeDeleteModal} disabled={deleting} className="text-xs text-text-med hover:text-foreground px-3 py-2">Cancel</button>
+              <button
+                onClick={deleteEmployee}
+                disabled={deleting || (!isAdmin && !verified)}
+                className="inline-flex items-center gap-1.5 bg-destructive text-destructive-foreground px-3 py-2 rounded-lg text-xs font-semibold hover:opacity-90 disabled:opacity-40"
+              >
                 <Trash2 className="w-3.5 h-3.5" /> Delete Permanently
               </button>
             </div>
