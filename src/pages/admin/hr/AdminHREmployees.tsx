@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Search, X, Save, UserPlus } from "lucide-react";
+import { Plus, Search, X, Save, UserPlus, Trash2, UserMinus, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { usePermissions } from "@/hooks/useAdminPermissionsContext";
 import {
   useHREmployees, useHRDepartments, useUpsertEmployee,
   useHRDocuments, useMyLeaveBalances, useMyPayrollRuns,
@@ -339,9 +340,21 @@ function Field({ label, children, full }: { label: string; children: React.React
 
 function EmployeeDetailPanel({ employee: e, onClose, onEdit }: { employee: HREmployee; onClose: () => void; onEdit: () => void }) {
   const qc = useQueryClient();
+  const { can } = usePermissions();
+  const canEditHR = can("hr", "edit");
   const [tab, setTab] = useState<"profile" | "payslips" | "leave" | "documents">("profile");
   const [statusEdit, setStatusEdit] = useState(e.status);
   const [terminationReason, setTerminationReason] = useState(e.termination_reason || "");
+
+  // Terminate inline form
+  const [termOpen, setTermOpen] = useState(false);
+  const [termDate, setTermDate] = useState(new Date().toISOString().slice(0, 10));
+  const [termReason, setTermReason] = useState("");
+  const [terming, setTerming] = useState(false);
+
+  // Delete confirmation
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => { setStatusEdit(e.status); setTerminationReason(e.termination_reason || ""); }, [e.id, e.status, e.termination_reason]);
 
@@ -352,6 +365,38 @@ function EmployeeDetailPanel({ employee: e, onClose, onEdit }: { employee: HREmp
     if (error) { toast.error(error.message); return; }
     qc.invalidateQueries({ queryKey: ["hr-employees"] });
     toast.success("Status updated");
+  };
+
+  const confirmTerminate = async () => {
+    setTerming(true);
+    try {
+      const { error } = await (supabase as any).from("hr_employees").update({
+        status: "terminated",
+        end_date: termDate,
+        termination_reason: termReason.trim() || null,
+        updated_at: new Date().toISOString(),
+      }).eq("id", e.id);
+      if (error) { toast.error(error.message); return; }
+      await qc.invalidateQueries({ queryKey: ["hr-employees"] });
+      toast.success("Employee marked as terminated.");
+      setTermOpen(false);
+    } finally {
+      setTerming(false);
+    }
+  };
+
+  const deleteEmployee = async () => {
+    setDeleting(true);
+    try {
+      const { error } = await (supabase as any).from("hr_employees").delete().eq("id", e.id);
+      if (error) { toast.error(`Could not delete employee — ${error.message}`); return; }
+      await qc.invalidateQueries({ queryKey: ["hr-employees"] });
+      toast.success("Employee deleted successfully");
+      setConfirmDelete(false);
+      onClose();
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const initials = e.full_name.split(" ").slice(0, 2).map(s => s[0]).join("").toUpperCase();
@@ -420,6 +465,58 @@ function EmployeeDetailPanel({ employee: e, onClose, onEdit }: { employee: HREmp
                   <button onClick={applyStatus} disabled={statusEdit === e.status && terminationReason === (e.termination_reason || "")} className="text-xs font-semibold bg-forest text-primary-foreground px-3 py-2 rounded-lg hover:bg-forest-deep disabled:opacity-40">Update status</button>
                 </div>
               </section>
+
+              {canEditHR && (
+                <section className="border-t border-destructive/30 pt-3 mt-4 space-y-3">
+                  <div className="flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5 text-destructive" />
+                    <h3 className="text-[10px] uppercase tracking-widest font-bold text-destructive">Danger zone</h3>
+                  </div>
+
+                  {/* Terminate */}
+                  {!termOpen ? (
+                    <button
+                      onClick={() => { setTermOpen(true); setTermDate(new Date().toISOString().slice(0, 10)); setTermReason(""); }}
+                      className="inline-flex items-center gap-1.5 border border-input rounded-lg px-3 py-2 text-xs font-semibold hover:bg-muted"
+                    >
+                      <UserMinus className="w-3.5 h-3.5" /> Mark as Terminated
+                    </button>
+                  ) : (
+                    <div className="border border-border rounded-lg p-3 space-y-2 bg-muted/20">
+                      <div className="grid md:grid-cols-2 gap-2">
+                        <div>
+                          <label className={labelCls}>Termination date</label>
+                          <input type="date" className={inputCls} value={termDate} onChange={ev => setTermDate(ev.target.value)} />
+                        </div>
+                      </div>
+                      <div>
+                        <label className={labelCls}>Termination reason (optional)</label>
+                        <textarea rows={2} className={inputCls} value={termReason} onChange={ev => setTermReason(ev.target.value)} />
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <button onClick={() => setTermOpen(false)} className="text-xs text-text-med hover:text-foreground px-2 py-1">Cancel</button>
+                        <button onClick={confirmTerminate} disabled={terming || !termDate} className="inline-flex items-center gap-1.5 bg-forest text-primary-foreground px-3 py-2 rounded-lg text-xs font-semibold hover:bg-forest-deep disabled:opacity-40">
+                          Confirm Termination
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Delete */}
+                  <div>
+                    <button
+                      onClick={() => setConfirmDelete(true)}
+                      className="inline-flex items-center gap-1.5 bg-destructive text-destructive-foreground px-3 py-2 rounded-lg text-xs font-semibold hover:opacity-90"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Delete Employee
+                    </button>
+                  </div>
+
+                  <p className="text-[11px] text-text-light leading-relaxed">
+                    Use <b>Terminate</b> to keep employment history. Use <b>Delete</b> only to remove incorrect entries.
+                  </p>
+                </section>
+              )}
             </>
           )}
 
@@ -428,6 +525,26 @@ function EmployeeDetailPanel({ employee: e, onClose, onEdit }: { employee: HREmp
           {tab === "documents" && <EmployeeDocumentsTab employeeId={e.id} employeeName={e.full_name} />}
         </div>
       </aside>
+
+      {confirmDelete && (
+        <div className="fixed inset-0 z-[60] bg-foreground/60 flex items-center justify-center p-4" onClick={() => !deleting && setConfirmDelete(false)}>
+          <div className="bg-card border border-border rounded-xl w-full max-w-md p-5 space-y-3" onClick={ev => ev.stopPropagation()}>
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              <h3 className="font-bold text-sm">Delete Employee</h3>
+            </div>
+            <p className="text-xs text-text-med leading-relaxed">
+              This will permanently delete <b>{e.full_name}</b> and all their leave history and documents. Payslips already marked as paid are preserved in Finance. This cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <button onClick={() => setConfirmDelete(false)} disabled={deleting} className="text-xs text-text-med hover:text-foreground px-3 py-2">Cancel</button>
+              <button onClick={deleteEmployee} disabled={deleting} className="inline-flex items-center gap-1.5 bg-destructive text-destructive-foreground px-3 py-2 rounded-lg text-xs font-semibold hover:opacity-90 disabled:opacity-40">
+                <Trash2 className="w-3.5 h-3.5" /> Delete Permanently
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
