@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate, useLocation } from "react-router-dom";
 import { useComingSoonFlags } from "@/hooks/useComingSoon";
+import { usePreviewToken } from "@/hooks/usePreviewToken";
 import { useAdmin } from "@/hooks/useAdmin";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -128,18 +129,21 @@ function PageTracker({ children }: { children: React.ReactNode }) {
 function ComingSoonGate({ children }: { children: React.ReactNode }) {
   const { data: flags } = useComingSoonFlags();
   const { isAdmin, loading: adminLoading } = useAdmin();
+  const { ready: previewReady, valid: previewValid } = usePreviewToken();
   const location = useLocation();
 
   // Don't redirect the coming-soon page itself
   if (location.pathname === "/coming-soon") return <>{children}</>;
 
-  // While auth is still resolving, render nothing to avoid a flash redirect
-  if (adminLoading) return null;
+  // While auth OR preview-token validation is still resolving, render nothing
+  // to avoid a flash redirect on people arriving via a preview link.
+  if (adminLoading || !previewReady) return null;
 
   const shouldRedirect =
     flags?.enabled === true &&
     flags?.redirectAll === true &&
-    !isAdmin;
+    !isAdmin &&
+    !previewValid;
 
   if (shouldRedirect) return <Navigate to="/coming-soon" replace />;
   return <>{children}</>;

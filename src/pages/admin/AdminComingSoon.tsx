@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Save, Rocket, ExternalLink, Copy, AlertTriangle } from "lucide-react";
+import { Save, Rocket, ExternalLink, Copy, AlertTriangle, Link2, Trash2, XCircle, Plus, X } from "lucide-react";
+import { usePermissions } from "@/hooks/useAdminPermissionsContext";
 
 const SETTING_KEYS = [
   "coming_soon_enabled",
@@ -191,6 +192,8 @@ export default function AdminComingSoon() {
         </div>
       </div>
 
+      {enabled && <PreviewTokensSection />}
+
       {/* Content form */}
       <div className="bg-card border border-border rounded-xl p-5 space-y-4">
         <h3 className="text-sm font-bold mb-1">Page content</h3>
@@ -301,6 +304,227 @@ export default function AdminComingSoon() {
             </table>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Preview token admin — issue, view, copy, revoke, delete
+// ---------------------------------------------------------------------------
+
+interface PreviewTokenRow {
+  id: string;
+  token: string;
+  label: string;
+  is_active: boolean;
+  access_count: number;
+  last_used_at: string | null;
+  expires_at: string | null;
+  created_at: string;
+}
+
+function PreviewTokensSection() {
+  const qc = useQueryClient();
+  const { adminUser } = usePermissions();
+  const [creating, setCreating] = useState(false);
+  const [reveal, setReveal] = useState<PreviewTokenRow | null>(null);
+
+  const { data: tokens = [], isLoading } = useQuery({
+    queryKey: ["preview-tokens"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("preview_tokens")
+        .select("id, token, label, is_active, access_count, last_used_at, expires_at, created_at")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data || []) as PreviewTokenRow[];
+    },
+  });
+
+  const linkFor = (t: PreviewTokenRow) => `https://bundledmum.com?preview=${t.token}`;
+
+  const copy = async (url: string) => {
+    await navigator.clipboard.writeText(url);
+    toast.success("Link copied!");
+  };
+
+  const revoke = async (t: PreviewTokenRow) => {
+    if (!confirm(`Revoke the preview link for "${t.label}"? They'll no longer bypass Coming Soon.`)) return;
+    const { error } = await (supabase as any).from("preview_tokens").update({ is_active: false }).eq("id", t.id);
+    if (error) { toast.error(error.message); return; }
+    qc.invalidateQueries({ queryKey: ["preview-tokens"] });
+    toast.success("Link revoked");
+  };
+
+  const del = async (t: PreviewTokenRow) => {
+    if (!confirm(`Delete this preview link? This cannot be undone.`)) return;
+    const { error } = await (supabase as any).from("preview_tokens").delete().eq("id", t.id);
+    if (error) { toast.error(error.message); return; }
+    qc.invalidateQueries({ queryKey: ["preview-tokens"] });
+    toast.success("Link deleted");
+  };
+
+  const create = useMutation({
+    mutationFn: async (payload: { label: string; expires_at: string | null }) => {
+      const { data, error } = await (supabase as any)
+        .from("preview_tokens")
+        .insert({
+          label: payload.label,
+          expires_at: payload.expires_at,
+          created_by: adminUser?.id || null,
+        })
+        .select("id, token, label, is_active, access_count, last_used_at, expires_at, created_at")
+        .single();
+      if (error) throw error;
+      return data as PreviewTokenRow;
+    },
+    onSuccess: (row) => {
+      qc.invalidateQueries({ queryKey: ["preview-tokens"] });
+      setCreating(false);
+      setReveal(row);
+    },
+  });
+
+  return (
+    <div className="bg-card border border-border rounded-xl p-5 space-y-3">
+      <div className="flex items-start justify-between gap-2 flex-wrap">
+        <div>
+          <h3 className="text-sm font-bold flex items-center gap-1.5"><Link2 className="w-4 h-4" /> Preview access links</h3>
+          <p className="text-text-light text-xs mt-0.5">Share a unique URL with a specific person so they can bypass Coming Soon. Links track use and can be revoked at any time.</p>
+        </div>
+        <button onClick={() => setCreating(true)} className="inline-flex items-center gap-1.5 bg-forest text-primary-foreground px-3 py-2 rounded-lg text-xs font-semibold hover:bg-forest-deep">
+          <Plus className="w-3.5 h-3.5" /> New preview link
+        </button>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead className="bg-muted/40">
+            <tr className="text-left">
+              <th className="px-3 py-2">Label</th>
+              <th className="px-3 py-2">Link</th>
+              <th className="px-3 py-2 text-right">Uses</th>
+              <th className="px-3 py-2">Last used</th>
+              <th className="px-3 py-2">Expires</th>
+              <th className="px-3 py-2">Status</th>
+              <th className="px-3 py-2 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading && <tr><td colSpan={7} className="px-3 py-8 text-center text-text-light">Loading…</td></tr>}
+            {!isLoading && tokens.length === 0 && <tr><td colSpan={7} className="px-3 py-8 text-center text-text-light">No preview links yet.</td></tr>}
+            {tokens.map(t => {
+              const url = linkFor(t);
+              return (
+                <tr key={t.id} className="border-t border-border">
+                  <td className="px-3 py-2 font-semibold">{t.label}</td>
+                  <td className="px-3 py-2">
+                    <div className="flex items-center gap-1 max-w-[280px]">
+                      <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded truncate flex-1">{url}</code>
+                      <button onClick={() => copy(url)} className="text-forest font-semibold hover:underline inline-flex items-center gap-0.5" title="Copy link"><Copy className="w-3 h-3" /></button>
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">{t.access_count}</td>
+                  <td className="px-3 py-2 text-text-light">{t.last_used_at ? new Date(t.last_used_at).toLocaleString("en-NG", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" }) : "Never"}</td>
+                  <td className="px-3 py-2 text-text-light">{t.expires_at ? new Date(t.expires_at).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" }) : "Never"}</td>
+                  <td className="px-3 py-2">
+                    {t.is_active ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-pill text-[10px] font-semibold bg-emerald-100 text-emerald-700">Active</span>
+                    ) : (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-pill text-[10px] font-semibold bg-red-100 text-red-700">Revoked</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-right whitespace-nowrap">
+                    {t.is_active && (
+                      <button onClick={() => revoke(t)} className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 hover:underline mr-2"><XCircle className="w-3 h-3" /> Revoke</button>
+                    )}
+                    <button onClick={() => del(t)} className="inline-flex items-center gap-1 text-[11px] font-semibold text-destructive hover:underline"><Trash2 className="w-3 h-3" /> Delete</button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {creating && (
+        <CreatePreviewTokenModal
+          busy={create.isPending}
+          onClose={() => setCreating(false)}
+          onCreate={(label, expires_at) => create.mutate({ label, expires_at })}
+        />
+      )}
+
+      {reveal && <RevealPreviewTokenModal row={reveal} onClose={() => setReveal(null)} />}
+    </div>
+  );
+}
+
+function CreatePreviewTokenModal({
+  busy, onClose, onCreate,
+}: { busy: boolean; onClose: () => void; onCreate: (label: string, expires_at: string | null) => void }) {
+  const [label, setLabel] = useState("");
+  const [expiry, setExpiry] = useState("");
+
+  const submit = () => {
+    if (!label.trim()) { toast.error("Label is required."); return; }
+    onCreate(label.trim(), expiry || null);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-foreground/50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-card border border-border rounded-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+          <h3 className="font-bold text-sm">New preview link</h3>
+          <button onClick={onClose} aria-label="Close" className="w-7 h-7 rounded-full hover:bg-muted flex items-center justify-center"><X className="w-3.5 h-3.5" /></button>
+        </div>
+        <div className="p-5 space-y-3">
+          <div>
+            <label className="text-[10px] uppercase tracking-widest font-semibold text-text-med block mb-1">Label *</label>
+            <input autoFocus value={label} onChange={e => setLabel(e.target.value)} placeholder="Ada — TikTok launch" className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background" />
+            <p className="text-[10px] text-text-light mt-1">Human-readable name so you can tell who's using which link.</p>
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-widest font-semibold text-text-med block mb-1">Expires on</label>
+            <input type="date" value={expiry} onChange={e => setExpiry(e.target.value)} className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background" />
+            <p className="text-[10px] text-text-light mt-1">Leave blank for a link that never expires.</p>
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <button onClick={onClose} disabled={busy} className="text-xs text-text-med hover:text-foreground px-3 py-2">Cancel</button>
+            <button onClick={submit} disabled={busy || !label.trim()} className="inline-flex items-center gap-1.5 bg-forest text-primary-foreground px-3 py-2 rounded-lg text-xs font-semibold hover:bg-forest-deep disabled:opacity-40">
+              <Link2 className="w-3.5 h-3.5" /> Create link
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RevealPreviewTokenModal({ row, onClose }: { row: PreviewTokenRow; onClose: () => void }) {
+  const url = `https://bundledmum.com?preview=${row.token}`;
+  const copy = async () => {
+    await navigator.clipboard.writeText(url);
+    toast.success("Link copied!");
+  };
+  return (
+    <div className="fixed inset-0 z-50 bg-foreground/60 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-card border border-border rounded-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+          <h3 className="font-bold text-sm inline-flex items-center gap-1.5"><Link2 className="w-4 h-4 text-forest" /> Your preview link is ready</h3>
+          <button onClick={onClose} aria-label="Close" className="w-7 h-7 rounded-full hover:bg-muted flex items-center justify-center"><X className="w-3.5 h-3.5" /></button>
+        </div>
+        <div className="p-5 space-y-3 text-sm">
+          <p className="text-xs text-text-med">Copy and share this link with <b className="text-foreground">{row.label}</b>. Anyone with this URL will bypass the Coming Soon page.</p>
+          <div className="bg-muted rounded-lg px-3 py-2 break-all text-xs font-mono">{url}</div>
+          <div className="flex justify-end gap-2">
+            <button onClick={onClose} className="text-xs text-text-med hover:text-foreground px-3 py-2">Close</button>
+            <button onClick={copy} className="inline-flex items-center gap-1.5 bg-forest text-primary-foreground px-3 py-2 rounded-lg text-xs font-semibold hover:bg-forest-deep">
+              <Copy className="w-3.5 h-3.5" /> Copy link
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
