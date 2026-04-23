@@ -43,16 +43,18 @@ export default function SubscriptionCheckout() {
     }
   }, [hydrated, draft, navigate]);
 
-  // Deliverable states for the dropdown.
+  // Deliverable states for the dropdown. The column is `name` (not
+  // `state_name`); order by display_order then name for a stable list.
   const { data: states = [] } = useQuery({
     queryKey: ["deliverable-states"],
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("deliverable_states")
-        .select("state_name")
-        .order("state_name");
+        .select("name, display_order, is_active")
+        .order("display_order", { ascending: true })
+        .order("name", { ascending: true });
       if (error) return [];
-      return (data || []) as Array<{ state_name: string }>;
+      return (data || []) as Array<{ name: string; display_order: number; is_active: boolean }>;
     },
     staleTime: 5 * 60_000,
   });
@@ -271,7 +273,11 @@ export default function SubscriptionCheckout() {
             <Field label="State *">
               <select className={inputCls} value={form.state} onChange={e => setForm(p => ({ ...p, state: e.target.value }))}>
                 <option value="">Select…</option>
-                {states.map(s => <option key={s.state_name} value={s.state_name}>{s.state_name}</option>)}
+                {states.map(s => (
+                  <option key={s.name} value={s.name}>
+                    {s.name}{s.is_active === false ? " (coming soon)" : ""}
+                  </option>
+                ))}
               </select>
             </Field>
           </div>
