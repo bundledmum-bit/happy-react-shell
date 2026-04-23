@@ -67,11 +67,13 @@ function AdminLayoutInner() {
     "/admin/quiz": "/admin/quiz-engine",
   };
 
-  // Build visible nav exclusively from DB results
+  // Build visible nav from DB results. Include both top-level items and
+  // their children (e.g. Orders → Returns & Refunds) — the sidebar renders
+  // a flat list ordered by display_order, so children slot in right after
+  // their parent group by virtue of their higher display_order value.
   const visibleNav = useMemo(() => {
     if (!dbNavItems) return [];
     return [...dbNavItems]
-      .filter(item => !item.parent_key)
       .sort((a, b) => (a.display_order || 0) - (b.display_order || 0))
       .map(item => {
         const resolvedPath = PATH_FIXES[item.path] || item.path;
@@ -81,6 +83,7 @@ function AdminLayoutInner() {
           icon: getIcon(item.icon),
           exact: resolvedPath === "/admin",
           navKey: item.nav_key,
+          parentKey: item.parent_key,
         };
       });
   }, [dbNavItems]);
