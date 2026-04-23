@@ -34,7 +34,7 @@ export default function ResultProductCard({ item, onAdd, onRemove, isInCart, car
   const selectedBrand = brands.find(b => b.id === selectedBrandId) || (brands.length > 0 ? brands[0] : null);
   const displayImage = selectedBrand?.imageUrl || item.brand?.image_url || item.image_url;
   const displayPrice = selectedBrand?.price ?? item.brand?.price ?? 0;
-  const brandOos = selectedBrand ? (selectedBrand.inStock === false || selectedBrand.stockQuantity === 0) : false;
+  const brandOos = selectedBrand ? !selectedBrand.inStock : false;
   const isLowStock = selectedBrand?.stockQuantity != null && selectedBrand.stockQuantity > 0 && selectedBrand.stockQuantity <= 5;
   const showSale = selectedBrand?.compareAtPrice && selectedBrand.compareAtPrice > (selectedBrand?.price || 0);
 
@@ -95,7 +95,7 @@ export default function ResultProductCard({ item, onAdd, onRemove, isInCart, car
             <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">Brand</div>
             <div className="flex flex-wrap gap-1">
               {displayBrands.map(b => {
-                const bOos = b.inStock === false || b.stockQuantity === 0;
+                const bOos = !b.inStock;
                 return (
                   <button key={b.id} onClick={() => setSelectedBrandId(b.id)}
                     className={`px-2 py-0.5 rounded-pill text-[10px] font-semibold border-[1.5px] transition-all font-body ${bOos ? "opacity-50" : ""} ${selectedBrandId === b.id ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-muted-foreground"}`}>

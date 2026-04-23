@@ -96,7 +96,7 @@ function DrawerInner({ product, defaultBudget, onClose }: { product: Product; de
     const idx = Math.round(el.scrollLeft / Math.max(1, el.clientWidth));
     if (idx !== activeSlide) setActiveSlide(idx);
   };
-  const isOutOfStock = selectedBrand?.inStock === false || selectedBrand?.stockQuantity === 0;
+  const isOutOfStock = !selectedBrand?.inStock;
   const isLowStock = selectedBrand?.stockQuantity != null && selectedBrand.stockQuantity > 0 && selectedBrand.stockQuantity <= 5;
   const showSalePrice = selectedBrand?.compareAtPrice && selectedBrand.compareAtPrice > selectedBrand.price;
   const savings = showSalePrice ? selectedBrand.compareAtPrice! - selectedBrand.price : 0;
@@ -251,7 +251,7 @@ function DrawerInner({ product, defaultBudget, onClose }: { product: Product; de
             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Choose Brand</p>
             <div className="flex flex-wrap gap-2">
               {product.brands.map(b => {
-                const brandOos = b.inStock === false || b.stockQuantity === 0;
+                const brandOos = !b.inStock;
                 return (
                   <button key={b.id} onClick={() => setSelectedBrand(b)}
                     className={`min-h-[44px] px-3 py-2 rounded-pill text-xs font-semibold border-[1.5px] transition-all font-body flex items-center gap-1.5 ${brandOos ? "opacity-50" : ""} ${selectedBrand.id === b.id ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-muted-foreground"}`}>

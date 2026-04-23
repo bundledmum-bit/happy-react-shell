@@ -53,8 +53,8 @@ function PushGiftCard({ product, onAdd, onViewDetail }: { product: Product; onAd
   const cartKey = `${product.id}-${selectedBrand.id}`;
   const cartItem = cart.find(c => c._key === cartKey || c.id === product.id);
   const isInCart = !!cartItem;
-  const brandOos = selectedBrand.inStock === false || selectedBrand.stockQuantity === 0;
-  const allBrandsOos = product.brands.every(b => b.inStock === false || b.stockQuantity === 0);
+  const brandOos = !selectedBrand.inStock;
+  const allBrandsOos = product.brands.every(b => !b.inStock);
   const isOutOfStock = allBrandsOos || brandOos;
   const displayImage = selectedBrand.imageUrl || product.imageUrl;
   const showSale = selectedBrand.compareAtPrice && selectedBrand.compareAtPrice > selectedBrand.price;
@@ -102,7 +102,7 @@ function PushGiftCard({ product, onAdd, onViewDetail }: { product: Product; onAd
             <div key={tier} className="flex flex-wrap gap-1">
               <span className="text-[10px] font-semibold text-text-light w-full">{TIER_LABELS[tier] || tier}</span>
               {brands.map(b => {
-                const bOos = b.inStock === false || b.stockQuantity === 0;
+                const bOos = !b.inStock;
                 return (
                   <button key={b.id} onClick={() => setSelectedBrand(b)}
                     className={`px-2 py-0.5 rounded-pill text-[10px] font-semibold border-[1.5px] transition-all font-body ${bOos ? "opacity-50" : ""} ${selectedBrand.id === b.id ? "border-coral bg-coral/10 text-coral" : "border-border bg-card text-text-med"}`}>

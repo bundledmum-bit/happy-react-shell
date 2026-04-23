@@ -24,8 +24,8 @@ function ProductCard({ product, defaultBudget = "standard", forceBrand, onAdd, o
   const cartItem = cart.find(c => c._key === cartKey || c.id === product.id);
   const isInCart = !!cartItem;
 
-  const brandOos = selectedBrand.inStock === false || selectedBrand.stockQuantity === 0;
-  const allBrandsOos = product.brands.every(b => b.inStock === false || b.stockQuantity === 0);
+  const brandOos = !selectedBrand.inStock;
+  const allBrandsOos = product.brands.every(b => !b.inStock);
   const isOutOfStock = allBrandsOos || brandOos;
   const isLowStock = selectedBrand.stockQuantity != null && selectedBrand.stockQuantity > 0 && selectedBrand.stockQuantity <= 5;
 
@@ -89,7 +89,7 @@ function ProductCard({ product, defaultBudget = "standard", forceBrand, onAdd, o
           <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">Brand</div>
           <div className="flex flex-wrap gap-1">
             {visibleBrands.map(b => {
-              const bOos = b.inStock === false || b.stockQuantity === 0;
+              const bOos = !b.inStock;
               return (
                 <button key={b.id} onClick={() => setSelectedBrand(b)}
                   className={`px-2 py-1 rounded-pill text-[10px] font-semibold border-[1.5px] transition-all font-body min-h-[40px] ${bOos ? "opacity-50" : ""} ${selectedBrand.id === b.id ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-muted-foreground"}`}>
@@ -227,7 +227,7 @@ export default function ShopPage() {
     if (brandF) raw = raw.filter(p => p.brands.some(b => b.label.toLowerCase() === brandF.toLowerCase()));
 
     // In-stock only — keep products that have at least one in-stock brand.
-    if (inStockOnlyF) raw = raw.filter(p => p.brands.some(b => b.inStock !== false && b.stockQuantity !== 0));
+    if (inStockOnlyF) raw = raw.filter(p => p.brands.some(b => b.inStock));
 
     // Price range — keep products where at least one brand price is in range.
     if (priceMinF != null || priceMaxF != null) {

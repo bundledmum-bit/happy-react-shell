@@ -288,7 +288,7 @@ export default function BundleDetailPage() {
                     <div className="flex flex-wrap gap-2">
                       {pickerProduct.brands.map((b: any) => {
                         const selected = pickerBrandId === b.id;
-                        const oos = b.inStock === false || b.stockQuantity === 0;
+                        const oos = !b.inStock;
                         return (
                           <button
                             key={b.id}
