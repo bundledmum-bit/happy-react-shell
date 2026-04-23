@@ -78,7 +78,7 @@ export default function AccountSubscriptions() {
   const empty = useMemo(() => !isLoading && subs.length === 0, [isLoading, subs]);
 
   return (
-    <div className="min-h-screen bg-[#FFF8F4]">
+    <div className="min-h-screen bg-[#FFF8F4] pt-20 md:pt-24">
       <div className="max-w-[720px] mx-auto px-4 py-6 space-y-4">
         <header className="flex items-center justify-between gap-2 flex-wrap">
           <div>

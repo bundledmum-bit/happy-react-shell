@@ -201,7 +201,7 @@ export default function SubscriptionPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FFF8F4] pb-[120px]">
+    <div className="min-h-screen bg-[#FFF8F4] pb-[120px] pt-20 md:pt-24">
       {/* Hero */}
       <header className="relative px-4 md:px-8 py-8 md:py-12 text-primary-foreground" style={{ background: "linear-gradient(135deg, #2D6A4F 0%, #1E5C44 100%)" }}>
         <div className="max-w-[880px] mx-auto text-center space-y-3">

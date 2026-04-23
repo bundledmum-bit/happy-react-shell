@@ -252,8 +252,8 @@ export default function NewSubscription() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FFF8F4] pb-24">
-      <header className="bg-card border-b border-border sticky top-0 z-20">
+    <div className="min-h-screen bg-[#FFF8F4] pb-24 pt-20 md:pt-24">
+      <header className="bg-card border-b border-border">
         <div className="max-w-[720px] mx-auto px-4 py-3 flex items-center gap-3">
           <Link to="/subscriptions" className="w-9 h-9 rounded-full hover:bg-muted inline-flex items-center justify-center" aria-label="Back">
             <ArrowLeft className="w-4 h-4" />
