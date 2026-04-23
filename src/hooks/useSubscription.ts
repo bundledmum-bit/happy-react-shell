@@ -99,7 +99,7 @@ export interface SubscriptionDraftItem {
   product_id: string;
   brand_id: string;
   quantity: number;
-  frequency: "weekly" | "monthly";
+  frequency: Frequency;
   unit_price: number;       // NAIRA
   product_name: string;
   brand_name: string;
@@ -107,9 +107,19 @@ export interface SubscriptionDraftItem {
   size_variant?: string | null;
 }
 
-export const DRAFT_KEY = "bm_subscription_draft";
+export interface SubscriptionDraft {
+  items: SubscriptionDraftItem[];
+  frequency: Frequency;
+  delivery_day: string;
+  subtotal_per_delivery: number;
+  discount_pct: number;
+  total_per_delivery: number;
+}
 
-export function readDraft(): { items: SubscriptionDraftItem[] } | null {
+export const DRAFT_KEY = "bm_subscription_draft";
+export const RESULT_KEY = "bm_subscription_result";
+
+export function readDraft(): SubscriptionDraft | null {
   try {
     const raw = sessionStorage.getItem(DRAFT_KEY);
     if (!raw) return null;
@@ -117,7 +127,7 @@ export function readDraft(): { items: SubscriptionDraftItem[] } | null {
   } catch { return null; }
 }
 
-export function writeDraft(payload: { items: SubscriptionDraftItem[] }) {
+export function writeDraft(payload: SubscriptionDraft) {
   sessionStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
 }
 
@@ -125,7 +135,37 @@ export function clearDraft() {
   sessionStorage.removeItem(DRAFT_KEY);
 }
 
-export const fmtN = (naira: number): string => `₦${Math.round(naira || 0).toLocaleString()}`;
+export const fmtN = (naira: number): string => `₦${Math.round(naira || 0).toLocaleString("en-NG")}`;
+
+/** Min/max deliveries per cycle by frequency. */
+export const DELIVERY_COUNT_LIMITS: Record<Frequency, { min: number; max: number }> = {
+  weekly:   { min: 4, max: 13 },
+  biweekly: { min: 4, max: 7 },
+  monthly:  { min: 4, max: 6 },
+};
+
+/** Next occurrence of the given weekday (monday..sunday) strictly AFTER today. */
+export function nextDeliveryDate(weekday: string, from: Date = new Date()): Date {
+  const map: Record<string, number> = {
+    sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6,
+  };
+  const target = map[weekday.toLowerCase()];
+  if (target == null) {
+    const d = new Date(from); d.setDate(d.getDate() + 1); return d;
+  }
+  const d = new Date(from);
+  d.setHours(0, 0, 0, 0);
+  const diff = (target - d.getDay() + 7) % 7 || 7; // never same-day — always next occurrence
+  d.setDate(d.getDate() + diff);
+  return d;
+}
+
+/** Date of the Nth delivery (1-indexed) counting from `firstDeliveryDate`. */
+export function projectCycleEnd(firstDeliveryDate: Date, frequency: Frequency, count: number): Date {
+  const d = new Date(firstDeliveryDate);
+  d.setDate(d.getDate() + FREQUENCY_DAYS[frequency] * Math.max(0, count - 1));
+  return d;
+}
 
 /** "nappies-wipes" → "Nappies & Wipes". */
 export function prettySubcategory(s: string | null | undefined): string {

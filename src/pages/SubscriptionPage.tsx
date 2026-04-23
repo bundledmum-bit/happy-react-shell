@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
-  Check, Package, Coins, Repeat, Minus, Plus, Lock, Loader2, X,
-  CalendarDays, ShieldCheck, Mail,
+  Check, Package, Coins, Repeat, Minus, Plus, ArrowRight,
+  CalendarDays, ShieldCheck,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  useSubscriptionSettings, prettySubcategory,
-  WEEKDAYS, WEEKDAY_LABEL, FREQUENCY_LABEL,
+  useSubscriptionSettings, prettySubcategory, writeDraft,
+  WEEKDAYS, FREQUENCY_LABEL,
   type Frequency,
 } from "@/hooks/useSubscription";
 import bmLogoCoral from "@/assets/logos/BM-LOGO-CORAL.svg";
@@ -46,17 +46,6 @@ interface Selection {
   quantity: number;
   frequency: Frequency;
 }
-interface SuccessPayload {
-  subscription_id: string;
-  customer_email: string;
-  next_charge_date: string;
-  delivery_day: string;
-  card_last4: string | null;
-  card_brand: string | null;
-  items: Array<{ product_name: string; brand_name: string; quantity: number; unit_price: number }>;
-  total_per_cycle: number;
-}
-
 const fmtN = (naira: number) => `₦${Math.round(naira || 0).toLocaleString("en-NG")}`;
 
 // -------------------------------------------------------------------------
@@ -66,6 +55,7 @@ const fmtN = (naira: number) => `₦${Math.round(naira || 0).toLocaleString("en-
 export default function SubscriptionPage() {
   const { data: settings } = useSubscriptionSettings();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const autoProductId = searchParams.get("product");
   const cardRefs = useRef<Record<string, HTMLElement | null>>({});
 
@@ -108,12 +98,7 @@ export default function SubscriptionPage() {
 
   const [deliveryDay, setDeliveryDay] = useState<string>("monday");
   const [selected, setSelected] = useState<Record<string, Selection>>({});
-
-  // Flows: collecting | paying | success
-  const [emailModalOpen, setEmailModalOpen] = useState(false);
-  const [success, setSuccess] = useState<SuccessPayload | null>(null);
-  const [dismissAcctPrompt, setDismissAcctPrompt] = useState(false);
-  const [processing, setProcessing] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   // Auto-tick ?product=ID once products arrive.
   useEffect(() => {
@@ -188,88 +173,45 @@ export default function SubscriptionPage() {
     return { count, subtotal, discount, total };
   }, [selected, settings]);
 
-  const canPay = summary.count > 0 && !!deliveryDay && !processing;
+  const canContinue = summary.count > 0 && !!deliveryDay;
 
-  const triggerPay = () => {
-    if (summary.count === 0) { toast.error("Tick at least one product."); return; }
-    if (!deliveryDay) { toast.error("Choose a delivery day."); return; }
-    setEmailModalOpen(true);
-  };
-
-  const runPaystack = async (email: string) => {
-    setEmailModalOpen(false);
-    setProcessing(true);
-    try {
-      const PaystackPop = (await import("@paystack/inline-js")).default;
-      const popup = new PaystackPop();
-      const paystackKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || "pk_test_ee6db593cdee9f92b4114a9b15f4a2a72e71ee20";
-      const reference = `sub_${Date.now()}`;
-      const amountKobo = Math.max(0, summary.total) * 100;
-
-      popup.newTransaction({
-        key: paystackKey,
-        email,
-        amount: amountKobo,
-        currency: "NGN",
-        ref: reference,
-        channels: ["card"],
-        metadata: { type: "subscription" } as any,
-        onSuccess: async (tx: { reference: string; status: string }) => {
-          try {
-            const items = Object.entries(selected).map(([product_id, sel]) => {
-              const product = products.find(p => p.id === product_id);
-              return {
-                product_id,
-                brand_id: sel.brand_id,
-                product_name: product?.name || "",
-                brand_name: sel.brand_name,
-                quantity: sel.quantity,
-                unit_price: sel.unit_price,
-                frequency: sel.frequency,
-              };
-            });
-
-            const { data, error } = await supabase.functions.invoke("create-subscription", {
-              body: {
-                reference: tx.reference,
-                items,
-                frequency: globalFrequency,
-                delivery_day: deliveryDay,
-                delivery_address: "",
-                delivery_city: "Lagos",
-                delivery_state: "Lagos",
-              },
-            });
-
-            if (error || !(data as any)?.success) {
-              toast.error("Payment received but subscription setup failed. Please contact support with reference: " + tx.reference);
-              setProcessing(false);
-              return;
-            }
-
-            const result = data as any;
-            setSuccess({
-              subscription_id: result.subscription_id,
-              customer_email: result.customer_email || email,
-              next_charge_date: result.next_charge_date,
-              delivery_day: result.delivery_day || deliveryDay,
-              card_brand: result.card_brand ?? null,
-              card_last4: result.card_last4 ?? null,
-              items: items.map(i => ({ product_name: i.product_name, brand_name: i.brand_name, quantity: i.quantity, unit_price: i.unit_price })),
-              total_per_cycle: summary.total,
-            });
-            setProcessing(false);
-          } catch (e: any) {
-            toast.error(e?.message || "Subscription setup failed.");
-            setProcessing(false);
-          }
-        },
-        onCancel: () => { setProcessing(false); },
-      } as any);
-    } catch (e: any) {
-      setProcessing(false);
-      toast.error(e?.message || "Couldn't open payment. Please try again.");
+  const goToCheckout = () => {
+    if (summary.count === 0) {
+      setValidationError("Tick at least one product to continue.");
+      toast.error("Tick at least one product to continue.");
+      return;
     }
+    if (!deliveryDay) {
+      setValidationError("Choose a delivery day before continuing.");
+      toast.error("Choose a delivery day.");
+      return;
+    }
+    setValidationError(null);
+
+    const items = Object.entries(selected).map(([product_id, sel]) => {
+      const product = products.find(p => p.id === product_id);
+      return {
+        product_id,
+        brand_id: sel.brand_id,
+        product_name: product?.name || "",
+        brand_name: sel.brand_name,
+        quantity: sel.quantity,
+        unit_price: sel.unit_price,
+        frequency: sel.frequency,
+        image_url: sel.image_url,
+      };
+    });
+
+    writeDraft({
+      items,
+      frequency: globalFrequency,
+      delivery_day: deliveryDay,
+      subtotal_per_delivery: summary.subtotal,
+      discount_pct: settings?.discount_pct ?? 0,
+      total_per_delivery: summary.total,
+    });
+
+    navigate("/subscriptions/checkout");
   };
 
   if (!settings) {
@@ -284,10 +226,6 @@ export default function SubscriptionPage() {
         </div>
       </div>
     );
-  }
-
-  if (success) {
-    return <SuccessScreen data={success} settings={settings} dismissAcctPrompt={dismissAcctPrompt} onDismiss={() => setDismissAcctPrompt(true)} />;
   }
 
   return (
@@ -364,13 +302,10 @@ export default function SubscriptionPage() {
         ))}
       </main>
 
-      {/* Price-lock notice — sits just above the sticky bar once at least one item is ticked */}
-      {summary.count > 0 && (
-        <div className="max-w-[880px] mx-auto px-4 md:px-8 pb-2">
-          <div className="bg-forest/5 border border-forest/20 rounded-card p-3 text-xs text-text-med leading-relaxed">
-            <b className="text-forest">Price locked for this cycle — renewal charges current prices.</b>{" "}
-            Your price of <b className="text-foreground">{fmtN(summary.total)}</b> per delivery is locked for this cycle of {settings.min_deliveries} deliveries. When your cycle renews, we charge current product prices at that time.
-          </div>
+      {/* Inline validation banner */}
+      {validationError && summary.count > 0 && (
+        <div className="max-w-[880px] mx-auto px-4 md:px-8">
+          <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-card px-3 py-2 text-xs">{validationError}</div>
         </div>
       )}
 
@@ -383,24 +318,16 @@ export default function SubscriptionPage() {
               <div className="text-emerald-700 font-semibold">Delivery: FREE</div>
             </div>
             <button
-              onClick={triggerPay}
-              disabled={!canPay}
+              onClick={goToCheckout}
+              disabled={!canContinue}
               className="inline-flex items-center gap-1.5 rounded-pill px-5 py-3 text-sm font-semibold text-primary-foreground min-h-[44px] disabled:opacity-40"
               style={{ backgroundColor: "#2D6A4F" }}
             >
-              {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
-              {processing ? "Processing…" : "Pay with Card →"}
+              Continue <ArrowRight className="w-4 h-4" />
             </button>
           </div>
           <div className="h-[env(safe-area-inset-bottom)]" />
         </div>
-      )}
-
-      {emailModalOpen && (
-        <EmailModal
-          onClose={() => setEmailModalOpen(false)}
-          onConfirm={runPaystack}
-        />
       )}
     </div>
   );
@@ -520,126 +447,5 @@ function ProductCard({
         </div>
       </fieldset>
     </article>
-  );
-}
-
-// -------------------------------------------------------------------------
-// Email modal (collects Paystack email only — NOT an account signup)
-// -------------------------------------------------------------------------
-
-function EmailModal({ onClose, onConfirm }: { onClose: () => void; onConfirm: (email: string) => void }) {
-  const [email, setEmail] = useState("");
-  const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-  return (
-    <div className="fixed inset-0 z-50 bg-foreground/60 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-card border border-border rounded-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
-        <div className="px-5 py-3 border-b border-border flex items-center justify-between">
-          <h3 className="font-bold text-sm inline-flex items-center gap-2"><Mail className="w-4 h-4 text-forest" /> Your email address</h3>
-          <button onClick={onClose} aria-label="Close" className="w-7 h-7 rounded-full hover:bg-muted flex items-center justify-center"><X className="w-3.5 h-3.5" /></button>
-        </div>
-        <div className="p-5 space-y-3">
-          <p className="text-xs text-text-med">We'll send your subscription confirmation here.</p>
-          <input
-            autoFocus
-            type="email"
-            inputMode="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            onKeyDown={e => { if (e.key === "Enter" && valid) onConfirm(email.trim().toLowerCase()); }}
-            placeholder="you@example.com"
-            className="w-full rounded-lg border border-input px-3 py-2 text-sm bg-background"
-          />
-          <button
-            onClick={() => onConfirm(email.trim().toLowerCase())}
-            disabled={!valid}
-            className="w-full rounded-pill py-3 text-sm font-semibold text-primary-foreground min-h-[48px] inline-flex items-center justify-center gap-2 disabled:opacity-40"
-            style={{ backgroundColor: "#2D6A4F" }}
-          >
-            <Lock className="w-4 h-4" /> Continue to secure payment
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// -------------------------------------------------------------------------
-// Success screen
-// -------------------------------------------------------------------------
-
-function SuccessScreen({
-  data, settings, dismissAcctPrompt, onDismiss,
-}: {
-  data: SuccessPayload;
-  settings: NonNullable<ReturnType<typeof useSubscriptionSettings>["data"]>;
-  dismissAcctPrompt: boolean;
-  onDismiss: () => void;
-}) {
-  const firstDeliveryLabel = data.next_charge_date
-    ? new Date(data.next_charge_date).toLocaleDateString("en-NG", { day: "numeric", month: "long", year: "numeric" })
-    : "—";
-  return (
-    <div className="min-h-screen bg-[#FFF8F4] pt-20 md:pt-24 pb-16">
-      <div className="max-w-[640px] mx-auto px-4 py-6 space-y-4">
-        <section className="bg-card border border-border rounded-card p-6 text-center space-y-3">
-          <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-700 mx-auto flex items-center justify-center text-3xl">✅</div>
-          <h1 className="pf text-2xl font-bold">You're subscribed!</h1>
-          <p className="text-xs text-text-med">Confirmation sent to <b>{data.customer_email}</b>.</p>
-        </section>
-
-        <section className="bg-card border border-border rounded-card p-4 space-y-2 text-sm">
-          <dl className="space-y-1">
-            <div className="flex items-center justify-between"><dt className="text-text-light">Delivery day</dt><dd className="font-semibold">{WEEKDAY_LABEL[data.delivery_day] || data.delivery_day}</dd></div>
-            <div className="flex items-center justify-between"><dt className="text-text-light">First delivery</dt><dd className="font-semibold">{firstDeliveryLabel}</dd></div>
-            {data.card_brand && data.card_last4 && (
-              <div className="flex items-center justify-between"><dt className="text-text-light">Card</dt><dd className="font-semibold">{data.card_brand} ending {data.card_last4}</dd></div>
-            )}
-          </dl>
-          <div className="border-t border-border pt-2">
-            <h3 className="text-[10px] uppercase tracking-widest font-bold text-text-med mb-1">Items confirmed</h3>
-            <ul className="text-xs space-y-0.5">
-              {data.items.map((it, i) => (
-                <li key={i} className="flex items-center justify-between">
-                  <span>{it.product_name}{it.brand_name ? ` · ${it.brand_name}` : ""} × {it.quantity}</span>
-                  <span className="tabular-nums">{fmtN(it.unit_price * it.quantity)}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="border-t border-border pt-2 flex items-center justify-between">
-            <span className="text-xs uppercase tracking-widest font-semibold text-text-med">Total per delivery</span>
-            <span className="font-bold tabular-nums text-forest">{fmtN(data.total_per_cycle)} · <span className="text-emerald-700">FREE delivery</span></span>
-          </div>
-          <p className="text-[11px] text-text-light">Minimum {settings.min_deliveries} deliveries — cancel any time after that from your account.</p>
-        </section>
-
-        <section className="bg-card border border-border rounded-card p-4 text-xs text-text-med space-y-1">
-          <h3 className="text-[10px] uppercase tracking-widest font-bold text-text-med">Next steps</h3>
-          <p><b className="text-forest">This cycle:</b> {fmtN(data.total_per_cycle)} per delivery <span className="text-text-light">(locked)</span></p>
-          <p><b className="text-foreground">Future cycles:</b> charged at current prices at renewal. We'll email you in advance if prices change.</p>
-        </section>
-
-        {!dismissAcctPrompt && (
-          <section className="bg-emerald-50 border-2 border-emerald-600 rounded-card p-4 space-y-2">
-            <h3 className="font-bold text-sm text-emerald-800">Create a free account to manage your subscription</h3>
-            <ul className="text-xs text-emerald-900/80 space-y-0.5 pl-4 list-disc">
-              <li>Change your delivery day</li>
-              <li>Skip a delivery</li>
-              <li>Swap products before each cycle</li>
-              <li>View your delivery history</li>
-            </ul>
-            <div className="flex items-center gap-2 pt-1">
-              <Link
-                to="/account/login?redirect=/account/subscriptions"
-                className="inline-flex items-center gap-1.5 rounded-pill bg-forest text-primary-foreground px-4 py-2 text-xs font-semibold hover:bg-forest-deep"
-              >
-                Create account →
-              </Link>
-              <button onClick={onDismiss} className="text-xs text-text-med hover:text-foreground px-2 py-1">Maybe later</button>
-            </div>
-          </section>
-        )}
-      </div>
-    </div>
   );
 }

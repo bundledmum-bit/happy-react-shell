@@ -20,6 +20,8 @@ import { usePageTracking } from "@/hooks/usePageTracking";
 
 import HomePage from "@/pages/HomePage";
 import SubscriptionPage from "@/pages/SubscriptionPage";
+import SubscriptionCheckout from "@/pages/SubscriptionCheckout";
+import SubscriptionThankYou from "@/pages/SubscriptionThankYou";
 import NewSubscription from "@/pages/account/NewSubscription";
 import AccountSubscriptions from "@/pages/account/AccountSubscriptions";
 import BundlesPage from "@/pages/BundlesPage";
@@ -171,6 +173,8 @@ function StorefrontShell() {
           <Route path="/bundles/:bundleId" element={<BundleDetailPage />} />
           <Route path="/shop" element={<ShopPage />} />
           <Route path="/subscriptions" element={<SubscriptionPage />} />
+          <Route path="/subscriptions/checkout" element={<SubscriptionCheckout />} />
+          <Route path="/subscriptions/thank-you" element={<SubscriptionThankYou />} />
           <Route path="/quiz" element={<QuizPage />} />
           <Route path="/cart" element={<CartPage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
