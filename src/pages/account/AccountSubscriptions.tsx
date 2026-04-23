@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Repeat, Plus, Calendar, CheckCircle2, CreditCard, XCircle, CalendarDays, Save, X } from "lucide-react";
+import { Repeat, Plus, Calendar, CheckCircle2, CreditCard, XCircle, CalendarDays, Save, X, Minus, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCustomerAuth } from "@/hooks/useCustomerAuth";
 import {
@@ -179,18 +179,24 @@ function SubscriptionCard({ row }: { row: SubscriptionRow }) {
   const qc = useQueryClient();
   const [cancelOpen, setCancelOpen] = useState(false);
   const [dayOpen, setDayOpen] = useState(false);
+  const [brandEditFor, setBrandEditFor] = useState<SubscriptionItemRow | null>(null);
+  const [addProductsOpen, setAddProductsOpen] = useState(false);
 
   const status = STATUS_STYLE[row.status] || { label: row.status, cls: "bg-muted text-text-med" };
   const freqLabel = FREQUENCY_LABEL[(row.frequency as Frequency)] || row.frequency;
   const total = totalPerCycle(row);
+  const editableNextCycle = row.status !== "cancelled";
 
-  const toggleItem = async (itemId: string, current: boolean) => {
+  // Quantity change — applies from the next cycle (DB update only; no
+  // effect on deliveries already scheduled in the current paid cycle).
+  const changeQty = async (itemId: string, nextQty: number) => {
+    if (nextQty < 1) return;
     const { error } = await (supabase as any)
       .from("subscription_items")
-      .update({ is_active: !current })
+      .update({ quantity: nextQty })
       .eq("id", itemId);
     if (error) { toast.error(error.message); return; }
-    toast.success(current ? "Item paused" : "Item resumed");
+    toast.success("Quantity updated — takes effect from your next cycle.");
     qc.invalidateQueries({ queryKey: ["my-subscriptions"] });
   };
 
@@ -222,27 +228,59 @@ function SubscriptionCard({ row }: { row: SubscriptionRow }) {
       </dl>
 
       {row.subscription_items?.length > 0 && (
-        <section>
-          <h3 className="text-[10px] uppercase tracking-widest font-bold text-text-med mb-1">Items in your box</h3>
+        <section className="space-y-2">
+          <h3 className="text-[10px] uppercase tracking-widest font-bold text-text-med">Items in your box</h3>
           <ul className="divide-y divide-border/40">
-            {row.subscription_items.map(it => (
-              <li key={it.id} className="flex items-center justify-between py-1.5 gap-2 text-xs">
-                <div className="min-w-0">
-                  <div className={`font-semibold ${it.is_active ? "" : "line-through text-text-light"}`}>{it.products?.name || "Product"}</div>
-                  <div className="text-[10px] text-text-light">{it.brands?.brand_name || "—"} · qty {it.quantity} · {fmtN(it.unit_price)}</div>
+            {row.subscription_items.filter(it => it.is_active !== false).map(it => (
+              <li key={it.id} className="py-2 space-y-1.5 text-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-semibold">{it.brands?.brand_name || ""} {it.products?.name || "Product"}</div>
+                    <div className="text-[10px] text-text-light">Qty: {it.quantity} · {fmtN(it.unit_price)} per delivery</div>
+                  </div>
+                  {editableNextCycle && (
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button
+                        onClick={() => setBrandEditFor(it)}
+                        className="inline-flex items-center gap-1 border border-input rounded-lg px-2 py-1 text-[11px] font-semibold hover:bg-muted"
+                      >
+                        <Pencil className="w-3 h-3" /> Change brand
+                      </button>
+                      <div className="inline-flex items-center gap-0.5 rounded-lg border border-input px-0.5 py-0.5 bg-background">
+                        <button
+                          onClick={() => changeQty(it.id, Math.max(1, it.quantity - 1))}
+                          disabled={it.quantity <= 1}
+                          aria-label="Decrease quantity"
+                          className="w-6 h-6 inline-flex items-center justify-center text-text-med disabled:opacity-40"
+                        >
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <span className="min-w-[1.25rem] text-center text-xs font-semibold tabular-nums">{it.quantity}</span>
+                        <button
+                          onClick={() => changeQty(it.id, it.quantity + 1)}
+                          aria-label="Increase quantity"
+                          className="w-6 h-6 inline-flex items-center justify-center text-text-med"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
-                  <input
-                    type="checkbox"
-                    className="peer sr-only"
-                    checked={it.is_active}
-                    onChange={() => toggleItem(it.id, it.is_active)}
-                  />
-                  <div className="peer h-5 w-9 rounded-full bg-muted after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow after:transition-all peer-checked:bg-forest peer-checked:after:translate-x-4" />
-                </label>
               </li>
             ))}
           </ul>
+          <p className="text-[11px] text-text-light bg-muted/40 border border-border/60 rounded-lg px-3 py-2">
+            Your current cycle items are locked. Changes take effect from your next cycle on {formatDate(row.next_charge_date)}.
+          </p>
+          {editableNextCycle && (
+            <button
+              onClick={() => setAddProductsOpen(true)}
+              className="w-full inline-flex items-center justify-center gap-1.5 rounded-pill border border-forest text-forest px-3 py-2 text-xs font-semibold hover:bg-forest/5"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add Products to Next Cycle
+            </button>
+          )}
         </section>
       )}
 
@@ -270,6 +308,8 @@ function SubscriptionCard({ row }: { row: SubscriptionRow }) {
 
       {dayOpen && <ChangeDeliveryDayModal row={row} onClose={() => setDayOpen(false)} />}
       {cancelOpen && <CancelModal row={row} onClose={() => setCancelOpen(false)} />}
+      {brandEditFor && <ChangeBrandModal item={brandEditFor} onClose={() => setBrandEditFor(null)} />}
+      {addProductsOpen && <AddProductsModal row={row} onClose={() => setAddProductsOpen(false)} />}
     </article>
   );
 }
@@ -388,6 +428,259 @@ function CancelModal({ row, onClose }: { row: SubscriptionRow; onClose: () => vo
               {belowMin ? `Confirm — cancel after delivery ${minCycles}` : "Confirm cancellation"}
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// -------------------------------------------------------------------------
+// Change brand modal — swap the brand for an item (next cycle)
+// -------------------------------------------------------------------------
+
+interface BrandRow { id: string; brand_name: string; price: number; in_stock: boolean | null }
+
+function ChangeBrandModal({ item, onClose }: { item: SubscriptionItemRow & { product_id?: string }; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [selectedId, setSelectedId] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+
+  // Pull all in-stock brands for the item's product.
+  const { data: brands = [], isLoading } = useQuery({
+    queryKey: ["subscription-item-brands", item.id],
+    queryFn: async () => {
+      const { data: lookup } = await (supabase as any)
+        .from("subscription_items")
+        .select("product_id")
+        .eq("id", item.id)
+        .maybeSingle();
+      const productId = lookup?.product_id;
+      if (!productId) return [];
+      const { data, error } = await (supabase as any)
+        .from("brands")
+        .select("id, brand_name, price, in_stock")
+        .eq("product_id", productId)
+        .order("display_order", { ascending: true });
+      if (error) return [];
+      return (data || []).filter((b: BrandRow) => b.in_stock !== false) as BrandRow[];
+    },
+    staleTime: 60_000,
+  });
+
+  const save = async () => {
+    const b = brands.find(x => x.id === selectedId);
+    if (!b) { toast.error("Pick a brand."); return; }
+    setSaving(true);
+    const { error } = await (supabase as any)
+      .from("subscription_items")
+      .update({ brand_id: b.id, unit_price: b.price })
+      .eq("id", item.id);
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Brand updated — takes effect from your next cycle.");
+    qc.invalidateQueries({ queryKey: ["my-subscriptions"] });
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-foreground/60 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-card border border-border rounded-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+          <h3 className="font-bold text-sm">Change brand</h3>
+          <button onClick={onClose} aria-label="Close" className="w-7 h-7 rounded-full hover:bg-muted flex items-center justify-center"><X className="w-3.5 h-3.5" /></button>
+        </div>
+        <div className="p-5 space-y-3">
+          <p className="text-xs text-text-med">Choose a new brand for <b>{item.products?.name}</b>.</p>
+          {isLoading ? (
+            <p className="text-xs text-text-light">Loading brands…</p>
+          ) : brands.length === 0 ? (
+            <p className="text-xs text-text-light">No alternative brands in stock.</p>
+          ) : (
+            <ul className="divide-y divide-border/60 border border-border rounded-lg overflow-hidden">
+              {brands.map(b => (
+                <li key={b.id}>
+                  <label className={`flex items-center justify-between gap-3 p-3 cursor-pointer hover:bg-muted/40 ${selectedId === b.id ? "bg-forest/5" : ""}`}>
+                    <div>
+                      <div className="text-sm font-semibold">{b.brand_name}</div>
+                      <div className="text-[11px] text-text-light">{fmtN(b.price)} per delivery</div>
+                    </div>
+                    <input
+                      type="radio"
+                      name="brand"
+                      checked={selectedId === b.id}
+                      onChange={() => setSelectedId(b.id)}
+                      className="accent-forest"
+                    />
+                  </label>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="text-[11px] text-text-light">Applies from your next cycle. Current-cycle deliveries aren't affected.</p>
+          <div className="flex justify-end gap-2 pt-1">
+            <button onClick={onClose} className="text-xs text-text-med hover:text-foreground px-3 py-2">Cancel</button>
+            <button onClick={save} disabled={saving || !selectedId} className="inline-flex items-center gap-1.5 bg-forest text-primary-foreground px-3 py-2 rounded-lg text-xs font-semibold hover:bg-forest-deep disabled:opacity-40">
+              <Save className="w-3.5 h-3.5" /> Save
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// -------------------------------------------------------------------------
+// Add products modal — add new items to a subscription (next cycle)
+// -------------------------------------------------------------------------
+
+interface SubscribableProduct {
+  id: string;
+  name: string;
+  category: string | null;
+  subcategory: string | null;
+  brands: BrandRow[];
+}
+
+function AddProductsModal({ row, onClose }: { row: SubscriptionRow; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [selections, setSelections] = useState<Record<string, { brand_id: string; qty: number }>>({});
+  const [saving, setSaving] = useState(false);
+
+  const existingProductIds = useMemo(() => {
+    const s = new Set<string>();
+    for (const it of row.subscription_items || []) {
+      // SubscriptionItemRow doesn't include product_id directly — use the embedded products(name) row's key-shape.
+      const pid = (it as any).product_id;
+      if (pid) s.add(pid);
+    }
+    return s;
+  }, [row.subscription_items]);
+
+  const { data: products = [], isLoading } = useQuery({
+    queryKey: ["add-products-options"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("products")
+        .select("id, name, category, subcategory, brands(id, brand_name, price, in_stock)")
+        .eq("is_subscribable", true)
+        .eq("is_active", true)
+        .order("category")
+        .order("name");
+      if (error) return [];
+      return (data || []) as SubscribableProduct[];
+    },
+    staleTime: 60_000,
+  });
+
+  // Exclude products already in the subscription.
+  const options = useMemo(() => products.filter(p => !existingProductIds.has(p.id)), [products, existingProductIds]);
+
+  const pickBrand = (product: SubscribableProduct, brandId: string) => {
+    setSelections(prev => ({
+      ...prev,
+      [product.id]: { brand_id: brandId, qty: prev[product.id]?.qty ?? 1 },
+    }));
+  };
+  const pickQty = (productId: string, qty: number) => {
+    setSelections(prev => ({
+      ...prev,
+      [productId]: { brand_id: prev[productId]?.brand_id || "", qty: Math.max(1, qty) },
+    }));
+  };
+
+  const addOne = async (product: SubscribableProduct) => {
+    const sel = selections[product.id];
+    const brandId = sel?.brand_id || product.brands.find(b => b.in_stock !== false)?.id;
+    if (!brandId) { toast.error("No in-stock brands for this product."); return; }
+    const brand = product.brands.find(b => b.id === brandId);
+    if (!brand) return;
+    const qty = sel?.qty ?? 1;
+
+    setSaving(true);
+    const { error } = await (supabase as any).from("subscription_items").insert({
+      subscription_id: row.id,
+      product_id: product.id,
+      brand_id: brand.id,
+      quantity: qty,
+      unit_price: brand.price,
+      frequency: row.frequency,
+      is_active: true,
+    });
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Product added — included from your next cycle.");
+    qc.invalidateQueries({ queryKey: ["my-subscriptions"] });
+    setSelections(prev => { const next = { ...prev }; delete next[product.id]; return next; });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-foreground/60 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-card border border-border rounded-xl w-full max-w-2xl max-h-[92svh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-3 border-b border-border flex items-center justify-between flex-shrink-0">
+          <h3 className="font-bold text-sm">Add products to next cycle</h3>
+          <button onClick={onClose} aria-label="Close" className="w-7 h-7 rounded-full hover:bg-muted flex items-center justify-center"><X className="w-3.5 h-3.5" /></button>
+        </div>
+        <div className="p-5 space-y-3 overflow-y-auto">
+          <p className="text-xs text-text-med">
+            New items take effect from your next cycle on <b>{formatDate(row.next_charge_date)}</b>. Items already in your subscription aren't shown.
+          </p>
+          {isLoading ? (
+            <p className="text-xs text-text-light">Loading products…</p>
+          ) : options.length === 0 ? (
+            <p className="text-xs text-text-light">You've already added every subscribable product.</p>
+          ) : (
+            <ul className="space-y-2">
+              {options.map(p => {
+                const inStock = p.brands.filter(b => b.in_stock !== false);
+                if (inStock.length === 0) return null;
+                const sel = selections[p.id];
+                const pickedBrandId = sel?.brand_id || inStock[0].id;
+                const qty = sel?.qty ?? 1;
+                return (
+                  <li key={p.id} className="border border-border rounded-lg p-3 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="font-semibold text-sm truncate">{p.name}</div>
+                        <div className="text-[10px] text-text-light">{p.subcategory || p.category || ""}</div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-[1fr_auto] items-end gap-2">
+                      <div>
+                        <label className="text-[10px] uppercase tracking-widest font-semibold text-text-med block mb-0.5">Brand</label>
+                        <select
+                          value={pickedBrandId}
+                          onChange={e => pickBrand(p, e.target.value)}
+                          className="w-full rounded-lg border border-input px-2 py-1.5 text-xs bg-background"
+                        >
+                          {inStock.map(b => (
+                            <option key={b.id} value={b.id}>{b.brand_name} — {fmtN(b.price)}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] uppercase tracking-widest font-semibold text-text-med block mb-0.5">Qty</label>
+                        <div className="inline-flex items-center gap-0.5 rounded-lg border border-input px-0.5 py-0.5 bg-background">
+                          <button onClick={() => pickQty(p.id, qty - 1)} disabled={qty <= 1} className="w-7 h-7 inline-flex items-center justify-center text-text-med disabled:opacity-40"><Minus className="w-3 h-3" /></button>
+                          <span className="min-w-[1.5rem] text-center text-sm font-semibold tabular-nums">{qty}</span>
+                          <button onClick={() => pickQty(p.id, qty + 1)} className="w-7 h-7 inline-flex items-center justify-center text-text-med"><Plus className="w-3 h-3" /></button>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => addOne(p)}
+                      disabled={saving}
+                      className="w-full rounded-pill bg-forest text-primary-foreground py-2 text-xs font-semibold hover:bg-forest-deep disabled:opacity-40"
+                    >
+                      Add to subscription
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+        <div className="px-5 py-3 border-t border-border flex justify-end flex-shrink-0">
+          <button onClick={onClose} className="text-xs font-semibold text-forest hover:underline px-3 py-2">Done</button>
         </div>
       </div>
     </div>
