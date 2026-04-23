@@ -19,6 +19,8 @@ import { subscribeToAllChanges } from "@/lib/realtime";
 import { usePageTracking } from "@/hooks/usePageTracking";
 
 import HomePage from "@/pages/HomePage";
+import SubscriptionPage from "@/pages/SubscriptionPage";
+import NewSubscription from "@/pages/account/NewSubscription";
 import BundlesPage from "@/pages/BundlesPage";
 import BundleDetailPage from "@/pages/BundleDetailPage";
 import ShopPage from "@/pages/ShopPage";
@@ -167,6 +169,7 @@ function StorefrontShell() {
           <Route path="/bundles" element={<BundlesPage />} />
           <Route path="/bundles/:bundleId" element={<BundleDetailPage />} />
           <Route path="/shop" element={<ShopPage />} />
+          <Route path="/subscriptions" element={<SubscriptionPage />} />
           <Route path="/quiz" element={<QuizPage />} />
           <Route path="/cart" element={<CartPage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
@@ -180,6 +183,7 @@ function StorefrontShell() {
           <Route path="/blog" element={<BlogPage />} />
           <Route path="/track-order" element={<TrackOrderPage />} />
           <Route path="/account/login" element={<AccountLoginPage />} />
+          <Route path="/account/subscriptions/new" element={<RequireCustomerAuth><NewSubscription /></RequireCustomerAuth>} />
           <Route path="/account" element={<RequireCustomerAuth><AccountPage /></RequireCustomerAuth>} />
           <Route path="/account/orders" element={<RequireCustomerAuth><AccountOrdersPage /></RequireCustomerAuth>} />
           <Route path="/account/profile" element={<RequireCustomerAuth><AccountProfilePage /></RequireCustomerAuth>} />

@@ -6,7 +6,7 @@ import { Save, Plus, Trash2, Lock } from "lucide-react";
 import AdminQuizExitPopupTab from "@/components/admin/AdminQuizExitPopupTab";
 import { usePermissions } from "@/hooks/useAdminPermissionsContext";
 
-const ALL_TABS = ["General", "Homepage", "Social", "Legacy Bar", "Quiz Exit Popup", "Fees", "Payment", "SEO"];
+const ALL_TABS = ["General", "Homepage", "Social", "Legacy Bar", "Quiz Exit Popup", "Fees", "Payment", "SEO", "Subscriptions"];
 const RESTRICTED_TABS: Record<string, { module: string; action: string }> = {
   "Quiz Exit Popup": { module: "content", action: "manage_quiz_exit_popup" },
 };
@@ -154,6 +154,8 @@ export default function AdminSettings() {
             </p>
           </div>
         )
+      ) : activeTab === "Subscriptions" ? (
+        <AdminSubscriptionsTab />
       ) : isLoading ? (
         <div className="text-center py-10 text-text-med">Loading...</div>
       ) : (
@@ -211,6 +213,262 @@ export default function AdminSettings() {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Subscription settings tab
+// ---------------------------------------------------------------------------
+
+interface SubscriptionSettingRow {
+  id: string;
+  setting_key: string;
+  setting_value: string;
+  value_type: "boolean" | "number" | "text" | string;
+  label: string | null;
+  description: string | null;
+  display_order: number | null;
+}
+
+const SETTING_ORDER = [
+  "subscription_enabled",
+  "weekly_enabled",
+  "monthly_enabled",
+  "discount_pct",
+  "free_delivery_enabled",
+  "min_order_value_naira",
+  "edit_window_days",
+  "subscription_badge_label",
+  "subscription_page_heading",
+  "subscription_page_subtext",
+];
+
+function AdminSubscriptionsTab() {
+  const qc = useQueryClient();
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["subscription-settings-admin"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("subscription_settings").select("*").order("setting_key");
+      if (error) throw error;
+      return (data || []) as SubscriptionSettingRow[];
+    },
+  });
+
+  const bySetting = Object.fromEntries(rows.map(r => [r.setting_key, r]));
+  const master = bySetting.subscription_enabled;
+  const masterOn = master?.setting_value === "true";
+
+  const save = useMutation({
+    mutationFn: async (payload: { key: string; value: string }) => {
+      const { error } = await (supabase as any)
+        .from("subscription_settings")
+        .update({ setting_value: payload.value, updated_at: new Date().toISOString() })
+        .eq("setting_key", payload.key);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["subscription-settings-admin"] });
+      qc.invalidateQueries({ queryKey: ["subscription-settings"] });
+    },
+    onError: (e: any) => toast.error(e?.message || "Save failed"),
+  });
+
+  if (isLoading) return <div className="text-center py-10 text-text-med">Loading…</div>;
+  if (rows.length === 0) return <div className="text-center py-10 text-text-med">No subscription settings rows found.</div>;
+
+  const orderedKeys = SETTING_ORDER.filter(k => bySetting[k]);
+  const remainingKeys = rows.map(r => r.setting_key).filter(k => !SETTING_ORDER.includes(k));
+  const allKeys = [...orderedKeys, ...remainingKeys];
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-card border border-border rounded-xl p-5 space-y-5">
+        <header>
+          <h2 className="font-bold text-sm">Subscription settings</h2>
+          <p className="text-xs text-text-light mt-0.5">Toggle subscriptions on, set the discount, and configure delivery frequencies.</p>
+        </header>
+
+        {allKeys.map((key, i) => {
+          const row = bySetting[key];
+          if (!row) return null;
+          const isMaster = key === "subscription_enabled";
+          const dimmed = !isMaster && !masterOn;
+          return (
+            <div key={row.id} className={`${i > 0 ? "pt-4 border-t border-border" : ""} ${dimmed ? "opacity-50" : ""}`}>
+              <SettingRow row={row} onSave={(v) => save.mutate({ key: row.setting_key, value: v })} disabled={dimmed} />
+            </div>
+          );
+        })}
+      </div>
+
+      <SubscribableProductsPanel />
+    </div>
+  );
+}
+
+function SettingRow({ row, onSave, disabled }: { row: SubscriptionSettingRow; onSave: (v: string) => void; disabled?: boolean }) {
+  const [local, setLocal] = useState(row.setting_value);
+
+  useEffect(() => { setLocal(row.setting_value); }, [row.setting_value]);
+
+  const label = row.label || row.setting_key.replace(/_/g, " ");
+  const description = row.description;
+
+  const commit = (v: string) => {
+    setLocal(v);
+    onSave(v);
+  };
+
+  if (row.value_type === "boolean") {
+    const on = local === "true";
+    return (
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="text-sm font-semibold capitalize">{label}</div>
+          {description && <p className="text-[11px] text-text-light mt-0.5">{description}</p>}
+        </div>
+        <label className={`relative inline-flex items-center ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}>
+          <input type="checkbox" className="peer sr-only" checked={on} disabled={disabled}
+            onChange={e => commit(e.target.checked ? "true" : "false")} />
+          <div className="peer h-6 w-11 rounded-full bg-muted after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-all peer-checked:bg-forest peer-checked:after:translate-x-5" />
+        </label>
+      </div>
+    );
+  }
+
+  if (row.value_type === "number") {
+    const suffix = /_pct$/.test(row.setting_key) ? "%" : /_days$/.test(row.setting_key) ? "days" : null;
+    const prefix = /_naira$/.test(row.setting_key) ? "₦" : null;
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <label className="text-sm font-semibold capitalize">{label}</label>
+        </div>
+        {description && <p className="text-[11px] text-text-light mb-1.5">{description}</p>}
+        <div className="inline-flex items-center gap-1 rounded-lg border border-input bg-background px-3 py-2 max-w-xs">
+          {prefix && <span className="text-text-light text-sm">{prefix}</span>}
+          <input
+            type="number"
+            disabled={disabled}
+            value={local}
+            onChange={e => setLocal(e.target.value)}
+            onBlur={() => { if (local !== row.setting_value) commit(local); }}
+            className="w-full bg-transparent text-sm outline-none"
+          />
+          {suffix && <span className="text-text-light text-sm">{suffix}</span>}
+        </div>
+      </div>
+    );
+  }
+
+  // text / textarea
+  const long = row.setting_key.endsWith("_subtext");
+  return (
+    <div>
+      <label className="text-sm font-semibold capitalize">{label}</label>
+      {description && <p className="text-[11px] text-text-light mt-0.5 mb-1.5">{description}</p>}
+      {long ? (
+        <textarea
+          rows={2} disabled={disabled}
+          value={local} onChange={e => setLocal(e.target.value)}
+          onBlur={() => { if (local !== row.setting_value) commit(local); }}
+          className="w-full rounded-lg border border-input px-3 py-2 text-sm bg-background"
+        />
+      ) : (
+        <input
+          type="text" disabled={disabled}
+          value={local} onChange={e => setLocal(e.target.value)}
+          onBlur={() => { if (local !== row.setting_value) commit(local); }}
+          className="w-full rounded-lg border border-input px-3 py-2 text-sm bg-background"
+        />
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Subscribable products panel
+// ---------------------------------------------------------------------------
+
+interface SubscribableProductRow {
+  id: string;
+  name: string;
+  category: string | null;
+  subcategory: string | null;
+  is_subscribable: boolean;
+  is_consumable: boolean;
+}
+
+function SubscribableProductsPanel() {
+  const qc = useQueryClient();
+  const { data: products = [], isLoading } = useQuery({
+    queryKey: ["admin-subscribable-products"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("products")
+        .select("id, name, category, subcategory, is_subscribable, is_consumable")
+        .eq("is_consumable", true)
+        .eq("is_active", true)
+        .order("category")
+        .order("name");
+      if (error) throw error;
+      return (data || []) as SubscribableProductRow[];
+    },
+  });
+
+  const setSubscribable = async (id: string, value: boolean) => {
+    const { error } = await (supabase as any).from("products").update({ is_subscribable: value }).eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    qc.invalidateQueries({ queryKey: ["admin-subscribable-products"] });
+    qc.invalidateQueries({ queryKey: ["subscribable-products"] });
+    toast.success(`Product ${value ? "added to" : "removed from"} subscriptions`);
+  };
+
+  const grouped = (() => {
+    const m = new Map<string, SubscribableProductRow[]>();
+    for (const p of products) {
+      const c = (p.category || "other").toLowerCase();
+      if (!m.has(c)) m.set(c, []);
+      m.get(c)!.push(p);
+    }
+    return m;
+  })();
+
+  if (isLoading) return null;
+
+  return (
+    <div className="bg-card border border-border rounded-xl p-5 space-y-3">
+      <header>
+        <h2 className="font-bold text-sm">Products available for subscription</h2>
+        <p className="text-xs text-text-light mt-0.5">Only consumable products can be subscribed to. Toggle which ones appear on the subscription page.</p>
+      </header>
+
+      {products.length === 0 && <p className="text-xs text-text-light">No consumable products yet.</p>}
+
+      {Array.from(grouped.entries()).map(([cat, items]) => (
+        <section key={cat}>
+          <h3 className="text-[10px] uppercase tracking-widest font-bold text-text-med mb-2">
+            {cat === "mum" ? "For Mum" : cat === "baby" ? "For Baby" : cat}
+          </h3>
+          <div className="divide-y divide-border/60">
+            {items.map(p => (
+              <div key={p.id} className="flex items-center justify-between py-2 gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold truncate">{p.name}</div>
+                  <div className="text-[10px] text-text-light">{p.subcategory || "—"}</div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                  <input type="checkbox" className="peer sr-only" checked={p.is_subscribable}
+                    onChange={e => setSubscribable(p.id, e.target.checked)} />
+                  <div className="peer h-5 w-9 rounded-full bg-muted after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow after:transition-all peer-checked:bg-forest peer-checked:after:translate-x-4" />
+                </label>
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
     </div>
   );
 }

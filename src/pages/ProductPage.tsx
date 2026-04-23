@@ -9,8 +9,9 @@ import { toast } from "sonner";
 import { trackEvent } from "@/lib/analytics";
 import ProductImage from "@/components/ProductImage";
 import QtyControl from "@/components/QtyControl";
-import { Star, ShoppingBag, ChevronLeft, ZoomIn, X, Share2, Truck, Shield, Package } from "lucide-react";
+import { Star, ShoppingBag, ChevronLeft, ZoomIn, X, Share2, Truck, Shield, Package, Repeat } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useSubscriptionSettings } from "@/hooks/useSubscription";
 
 function useProduct(slug: string) {
   return useQuery({
@@ -326,6 +327,8 @@ function ProductPageContent({ product, raw, settings }: { product: Product; raw:
               </button>
             </div>
 
+            <SubscribeAndSaveBadge productId={raw?.id} isSubscribable={raw?.is_subscribable === true} />
+
             {/* Trust badges */}
             <div className="grid grid-cols-3 gap-3 mb-6">
               <div className="flex flex-col items-center gap-1 text-center">
@@ -492,6 +495,31 @@ function ProductPageSkeleton() {
           <Skeleton className="h-12 w-full" />
         </div>
       </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Subscribe & Save badge — shown on subscribable products when the feature
+// is enabled in admin settings. Links to /subscriptions with the product
+// id pre-seeded so the landing page auto-ticks and scrolls to it.
+// ---------------------------------------------------------------------------
+function SubscribeAndSaveBadge({ productId, isSubscribable }: { productId?: string; isSubscribable: boolean }) {
+  const { data: settings } = useSubscriptionSettings();
+  if (!isSubscribable || !settings?.subscription_enabled) return null;
+  return (
+    <div className="bg-forest/5 border border-forest/20 rounded-card px-4 py-3 mb-6 flex items-center gap-3">
+      <Repeat className="w-5 h-5 text-forest flex-shrink-0" />
+      <div className="min-w-0 flex-1">
+        <div className="font-bold text-sm">{settings.subscription_badge_label}</div>
+        <div className="text-xs text-text-med">Save {settings.discount_pct}% + Free delivery</div>
+      </div>
+      <Link
+        to={`/subscriptions?product=${productId || ""}`}
+        className="rounded-pill border border-forest text-forest px-3 py-2 text-xs font-semibold hover:bg-forest/10 whitespace-nowrap"
+      >
+        Subscribe →
+      </Link>
     </div>
   );
 }
