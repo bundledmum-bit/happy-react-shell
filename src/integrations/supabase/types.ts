@@ -4307,6 +4307,7 @@ export type Database = {
           is_convenience: boolean | null
           is_featured: boolean | null
           is_push_gift_eligible: boolean | null
+          is_subscribable: boolean
           long_description: string | null
           material: string | null
           meta_description: string | null
@@ -4363,6 +4364,7 @@ export type Database = {
           is_convenience?: boolean | null
           is_featured?: boolean | null
           is_push_gift_eligible?: boolean | null
+          is_subscribable?: boolean
           long_description?: string | null
           material?: string | null
           meta_description?: string | null
@@ -4419,6 +4421,7 @@ export type Database = {
           is_convenience?: boolean | null
           is_featured?: boolean | null
           is_push_gift_eligible?: boolean | null
+          is_subscribable?: boolean
           long_description?: string | null
           material?: string | null
           meta_description?: string | null
@@ -5514,8 +5517,11 @@ export type Database = {
         Row: {
           added_at: string | null
           brand_id: string
+          frequency: string
           id: string
           is_active: boolean
+          next_charge_date: string | null
+          notes: string | null
           product_id: string
           quantity: number
           subscription_id: string
@@ -5525,8 +5531,11 @@ export type Database = {
         Insert: {
           added_at?: string | null
           brand_id: string
+          frequency?: string
           id?: string
           is_active?: boolean
+          next_charge_date?: string | null
+          notes?: string | null
           product_id: string
           quantity?: number
           subscription_id: string
@@ -5536,8 +5545,11 @@ export type Database = {
         Update: {
           added_at?: string | null
           brand_id?: string
+          frequency?: string
           id?: string
           is_active?: boolean
+          next_charge_date?: string | null
+          notes?: string | null
           product_id?: string
           quantity?: number
           subscription_id?: string
@@ -5649,15 +5661,63 @@ export type Database = {
           },
         ]
       }
+      subscription_settings: {
+        Row: {
+          description: string | null
+          id: string
+          label: string
+          setting_key: string
+          setting_value: string
+          updated_at: string | null
+          updated_by: string | null
+          value_type: string
+        }
+        Insert: {
+          description?: string | null
+          id?: string
+          label: string
+          setting_key: string
+          setting_value: string
+          updated_at?: string | null
+          updated_by?: string | null
+          value_type?: string
+        }
+        Update: {
+          description?: string | null
+          id?: string
+          label?: string
+          setting_key?: string
+          setting_value?: string
+          updated_at?: string | null
+          updated_by?: string | null
+          value_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscriptions: {
         Row: {
+          cancellation_effective_after_cycle: number | null
           cancellation_reason: string | null
+          cancellation_requested_at: string | null
           cancelled_at: string | null
           created_at: string | null
           customer_email: string
           customer_id: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          cycle_size: number
+          deliveries_remaining: number
           delivery_address: string
           delivery_city: string
+          delivery_day: string | null
           delivery_state: string
           discount_pct: number
           edit_deadline: string | null
@@ -5666,27 +5726,41 @@ export type Database = {
           frequency_days: number
           id: string
           last_fulfilled_at: string | null
+          max_deliveries: number
+          min_cycles: number
           next_charge_date: string
           next_shipment_date: string | null
           notes: string | null
           paused_until: string | null
+          paystack_authorization_code: string | null
+          paystack_card_brand: string | null
+          paystack_card_last4: string | null
           paystack_customer_code: string | null
           paystack_email_token: string | null
           paystack_plan_code: string | null
           paystack_subscription_code: string | null
+          price_locked_date: string
           start_date: string
           status: string
           total_cycles: number
+          total_deliveries_paid: number
           updated_at: string | null
         }
         Insert: {
+          cancellation_effective_after_cycle?: number | null
           cancellation_reason?: string | null
+          cancellation_requested_at?: string | null
           cancelled_at?: string | null
           created_at?: string | null
           customer_email: string
           customer_id?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          cycle_size?: number
+          deliveries_remaining?: number
           delivery_address: string
           delivery_city: string
+          delivery_day?: string | null
           delivery_state?: string
           discount_pct?: number
           edit_deadline?: string | null
@@ -5695,27 +5769,41 @@ export type Database = {
           frequency_days?: number
           id?: string
           last_fulfilled_at?: string | null
+          max_deliveries?: number
+          min_cycles?: number
           next_charge_date: string
           next_shipment_date?: string | null
           notes?: string | null
           paused_until?: string | null
+          paystack_authorization_code?: string | null
+          paystack_card_brand?: string | null
+          paystack_card_last4?: string | null
           paystack_customer_code?: string | null
           paystack_email_token?: string | null
           paystack_plan_code?: string | null
           paystack_subscription_code?: string | null
+          price_locked_date?: string
           start_date?: string
           status?: string
           total_cycles?: number
+          total_deliveries_paid?: number
           updated_at?: string | null
         }
         Update: {
+          cancellation_effective_after_cycle?: number | null
           cancellation_reason?: string | null
+          cancellation_requested_at?: string | null
           cancelled_at?: string | null
           created_at?: string | null
           customer_email?: string
           customer_id?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          cycle_size?: number
+          deliveries_remaining?: number
           delivery_address?: string
           delivery_city?: string
+          delivery_day?: string | null
           delivery_state?: string
           discount_pct?: number
           edit_deadline?: string | null
@@ -5724,17 +5812,24 @@ export type Database = {
           frequency_days?: number
           id?: string
           last_fulfilled_at?: string | null
+          max_deliveries?: number
+          min_cycles?: number
           next_charge_date?: string
           next_shipment_date?: string | null
           notes?: string | null
           paused_until?: string | null
+          paystack_authorization_code?: string | null
+          paystack_card_brand?: string | null
+          paystack_card_last4?: string | null
           paystack_customer_code?: string | null
           paystack_email_token?: string | null
           paystack_plan_code?: string | null
           paystack_subscription_code?: string | null
+          price_locked_date?: string
           start_date?: string
           status?: string
           total_cycles?: number
+          total_deliveries_paid?: number
           updated_at?: string | null
         }
         Relationships: [
@@ -6555,6 +6650,7 @@ export type Database = {
           zone: string
         }[]
       }
+      get_subscription_settings: { Args: never; Returns: Json }
       has_admin_permission: {
         Args: { p_action: string; p_section: string }
         Returns: boolean
@@ -6590,6 +6686,10 @@ export type Database = {
           p_session_id: string
         }
         Returns: boolean
+      }
+      next_delivery_date: {
+        Args: { p_delivery_day: string; p_from_date?: string }
+        Returns: string
       }
       orders_paid_only_restricted: { Args: never; Returns: boolean }
       process_annual_leave_carryover: {
