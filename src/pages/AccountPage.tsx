@@ -2,7 +2,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Package, User, Gift, Truck, LogOut, ChevronRight } from "lucide-react";
+import { Package, User, Gift, Truck, LogOut, ChevronRight, Repeat } from "lucide-react";
 import { useCustomerAuth } from "@/hooks/useCustomerAuth";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -62,10 +62,11 @@ export default function AccountPage() {
   };
 
   const cards = [
-    { to: "/account/orders",   icon: Package, emoji: "📦", label: "My Orders",    hint: customer?.total_orders ? `${customer.total_orders} order${customer.total_orders === 1 ? "" : "s"}` : "View your order history" },
-    { to: "/account/profile",  icon: User,    emoji: "👤", label: "My Profile",   hint: "Name, phone, addresses" },
-    { to: "/account/referral", icon: Gift,    emoji: "🎁", label: "Refer & Earn", hint: "Share your code, earn credit" },
-    { to: "/track-order",      icon: Truck,   emoji: "🚚", label: "Track Order",  hint: "Check any order's status" },
+    { to: "/account/orders",        icon: Package, emoji: "📦", label: "My Orders",       hint: customer?.total_orders ? `${customer.total_orders} order${customer.total_orders === 1 ? "" : "s"}` : "View your order history" },
+    { to: "/account/subscriptions", icon: Repeat,  emoji: "🔄", label: "My Subscriptions", hint: "Recurring deliveries" },
+    { to: "/account/profile",       icon: User,    emoji: "👤", label: "My Profile",      hint: "Name, phone, addresses" },
+    { to: "/account/referral",      icon: Gift,    emoji: "🎁", label: "Refer & Earn",    hint: "Share your code, earn credit" },
+    { to: "/track-order",           icon: Truck,   emoji: "🚚", label: "Track Order",     hint: "Check any order's status" },
   ];
 
   return (

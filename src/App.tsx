@@ -21,6 +21,7 @@ import { usePageTracking } from "@/hooks/usePageTracking";
 import HomePage from "@/pages/HomePage";
 import SubscriptionPage from "@/pages/SubscriptionPage";
 import NewSubscription from "@/pages/account/NewSubscription";
+import AccountSubscriptions from "@/pages/account/AccountSubscriptions";
 import BundlesPage from "@/pages/BundlesPage";
 import BundleDetailPage from "@/pages/BundleDetailPage";
 import ShopPage from "@/pages/ShopPage";
@@ -183,6 +184,7 @@ function StorefrontShell() {
           <Route path="/blog" element={<BlogPage />} />
           <Route path="/track-order" element={<TrackOrderPage />} />
           <Route path="/account/login" element={<AccountLoginPage />} />
+          <Route path="/account/subscriptions" element={<RequireCustomerAuth><AccountSubscriptions /></RequireCustomerAuth>} />
           <Route path="/account/subscriptions/new" element={<RequireCustomerAuth><NewSubscription /></RequireCustomerAuth>} />
           <Route path="/account" element={<RequireCustomerAuth><AccountPage /></RequireCustomerAuth>} />
           <Route path="/account/orders" element={<RequireCustomerAuth><AccountOrdersPage /></RequireCustomerAuth>} />

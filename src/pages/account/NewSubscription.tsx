@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { toast } from "sonner";
-import { ArrowLeft, Minus, Plus, Trash2, Repeat, ShoppingBag } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ArrowLeft, Minus, Plus, Trash2, Repeat, ShoppingBag, MessageCircle } from "lucide-react";
 import {
   useSubscriptionSettings, readDraft, clearDraft, fmtN,
   type SubscriptionDraftItem,
 } from "@/hooks/useSubscription";
+import { useSiteSettings } from "@/hooks/useSupabaseData";
 
 export default function NewSubscription() {
   const { data: settings } = useSubscriptionSettings();
+  const { data: siteSettings } = useSiteSettings();
   const [items, setItems] = useState<SubscriptionDraftItem[]>([]);
-  const navigate = useNavigate();
 
   // Load draft from sessionStorage once on mount and clear it so a
   // browser refresh doesn't re-seed the form.
@@ -33,12 +33,26 @@ export default function NewSubscription() {
     setItems(prev => prev.filter((_, i) => i !== index));
   };
 
-  const placeSubscription = async () => {
-    // Full subscription creation requires a dedicated edge function
-    // (Paystack authorization + schedule setup). Surface a helpful toast
-    // for now — this button wires into that function once it ships.
-    toast.message("Subscription checkout is almost ready — we'll drop you an email as soon as it's live.");
-  };
+  // While Paystack auto-billing for subscriptions is still being wired up,
+  // route the customer to WhatsApp with a pre-filled message so the team
+  // can complete the setup manually within 24h. Mirrors the pattern used
+  // elsewhere on the site for pre-launch flows.
+  const whatsapp = (siteSettings as any)?.whatsapp_number || "";
+  const waUrl = useMemo(() => {
+    if (!whatsapp) return "";
+    const lines = items.map(it => {
+      const freq = it.frequency === "weekly" ? "weekly" : "monthly";
+      return `• ${it.product_name} (${it.brand_name})${it.size_variant ? ` – ${it.size_variant}` : ""} × ${it.quantity} — ${freq}`;
+    });
+    const body = [
+      "Hi BundledMum! I'd like to set up a subscription for:",
+      "",
+      ...lines,
+      "",
+      `Total per cycle: ₦${Math.round(summary.net).toLocaleString()} (free delivery)`,
+    ].join("\n");
+    return `https://wa.me/${whatsapp}?text=${encodeURIComponent(body)}`;
+  }, [whatsapp, items, summary.net]);
 
   if (!settings) {
     return <div className="min-h-screen flex items-center justify-center text-sm text-text-light">Loading…</div>;
@@ -125,24 +139,34 @@ export default function NewSubscription() {
               <Repeat className="w-3.5 h-3.5 text-forest inline mr-1" /> You can pause, edit, or cancel anytime up to {settings.edit_window_days} day{settings.edit_window_days === 1 ? "" : "s"} before your next delivery.
             </div>
 
-            <div className="space-y-2">
-              <button onClick={() => navigate("/account/profile")} className="w-full text-left bg-card border border-border rounded-card p-3 text-xs hover:border-forest/40">
-                <div className="font-semibold">Delivery address</div>
-                <div className="text-text-light">Manage in profile →</div>
-              </button>
-              <button onClick={() => toast.message("Paystack integration arriving with the subscription launch.")} className="w-full text-left bg-card border border-border rounded-card p-3 text-xs hover:border-forest/40">
-                <div className="font-semibold">Payment method</div>
-                <div className="text-text-light">Paystack card — will prompt at checkout</div>
-              </button>
-            </div>
+            <Link to="/account/profile" className="block text-left bg-card border border-border rounded-card p-3 text-xs hover:border-forest/40">
+              <div className="font-semibold">Delivery address</div>
+              <div className="text-text-light">Manage in profile →</div>
+            </Link>
 
-            <button
-              onClick={placeSubscription}
-              className="w-full rounded-pill py-3 text-sm font-semibold text-primary-foreground min-h-[48px]"
-              style={{ backgroundColor: "#2D6A4F" }}
-            >
-              Start subscription · {fmtN(summary.net)}/order
-            </button>
+            {waUrl ? (
+              <a
+                href={waUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="w-full rounded-pill py-3 text-sm font-semibold text-primary-foreground min-h-[48px] flex items-center justify-center gap-2"
+                style={{ backgroundColor: "#25D366" }}
+              >
+                <MessageCircle className="w-4 h-4" /> Complete via WhatsApp
+              </a>
+            ) : (
+              <button
+                disabled
+                className="w-full rounded-pill py-3 text-sm font-semibold text-primary-foreground min-h-[48px] flex items-center justify-center gap-2 opacity-60"
+                style={{ backgroundColor: "#25D366" }}
+              >
+                <MessageCircle className="w-4 h-4" /> Complete via WhatsApp
+              </button>
+            )}
+
+            <p className="text-[11px] text-text-light text-center leading-relaxed px-2">
+              We're setting up automated payments. For now, complete your subscription via WhatsApp and we'll get you sorted within 24 hours.
+            </p>
           </>
         )}
       </main>
