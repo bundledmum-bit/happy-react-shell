@@ -380,16 +380,15 @@ function ProductCard({
       className={`bg-card border rounded-card p-3 transition-colors ${isSelected ? "border-l-4 border-l-forest border-border" : "border-border opacity-85"}`}
     >
       <div className="flex items-start gap-3">
-        <button
-          onClick={onToggle}
-          aria-label={isSelected ? "Remove from subscription" : "Add to subscription"}
-          className={`flex-shrink-0 w-6 h-6 rounded-md border-2 flex items-center justify-center mt-0.5 ${isSelected ? "bg-forest border-forest text-primary-foreground" : "bg-background border-input"}`}
-        >
-          {isSelected && <Check className="w-3.5 h-3.5" />}
-        </button>
-
         <div className="min-w-0 flex-1">
-          <h4 className="font-bold text-sm leading-tight">{product.name}</h4>
+          <div className="flex items-center gap-1.5">
+            <h4 className="font-bold text-sm leading-tight">{product.name}</h4>
+            {isSelected && (
+              <span className="inline-flex items-center gap-0.5 bg-forest/10 text-forest text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-pill">
+                <Check className="w-2.5 h-2.5" /> In box
+              </span>
+            )}
+          </div>
           {reorderText && <p className="text-[11px] text-text-light mt-0.5">{reorderText}</p>}
         </div>
 
@@ -446,6 +445,24 @@ function ProductCard({
           </div>
         </div>
       </fieldset>
+
+      {/* Explicit per-product action button — toggles selection, sits outside the fieldset so it's always clickable. */}
+      <button
+        onClick={onToggle}
+        aria-label={isSelected ? "Remove from subscription" : "Add to subscription"}
+        className={`w-full mt-3 rounded-pill py-2.5 text-xs font-semibold min-h-[40px] inline-flex items-center justify-center gap-1.5 transition-colors ${
+          isSelected
+            ? "bg-background border border-destructive/50 text-destructive hover:bg-destructive/10"
+            : "text-primary-foreground hover:opacity-90"
+        }`}
+        style={isSelected ? undefined : { backgroundColor: "#F4845F" }}
+      >
+        {isSelected ? (
+          <>Remove from subscription</>
+        ) : (
+          <><Plus className="w-3.5 h-3.5" /> Add to subscription</>
+        )}
+      </button>
     </article>
   );
 }
