@@ -6,23 +6,38 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCustomerAuth } from "@/hooks/useCustomerAuth";
 import { fmtN } from "@/hooks/useSubscription";
 
+interface SubscriptionItemRow {
+  id: string;
+  quantity: number;
+  unit_price: number;       // NAIRA
+  frequency: string;
+  is_active: boolean;
+  products?: { name: string; category: string | null } | null;
+  brands?: { brand_name: string; image_url: string | null } | null;
+}
 interface SubscriptionRow {
   id: string;
   status: string;
   frequency: string;
   next_charge_date: string | null;
-  total_per_cycle_naira: number | null;
+  discount_pct: number | null;
+  free_delivery: boolean | null;
   created_at: string;
-  card_brand?: string | null;
-  card_last4?: string | null;
+  total_cycles: number | null;
+  paystack_card_brand: string | null;
+  paystack_card_last4: string | null;
+  subscription_items: SubscriptionItemRow[];
 }
-interface SubscriptionItemRow {
-  subscription_id: string;
-  quantity: number;
-  unit_price: number;
-  frequency: string;
-  products?: { name: string } | null;
-  brands?: { brand_name: string } | null;
+
+/** Compute per-cycle total from active items + discount_pct. Values are
+ *  already in naira; no kobo division anywhere. */
+function totalPerCycle(row: SubscriptionRow): number {
+  const items = row.subscription_items || [];
+  const subtotal = items
+    .filter(i => i.is_active !== false)
+    .reduce((sum, i) => sum + Number(i.unit_price) * Number(i.quantity), 0);
+  const pct = Number(row.discount_pct) || 0;
+  return Math.round(subtotal * (1 - pct / 100));
 }
 
 export default function AccountSubscriptions() {
@@ -37,7 +52,16 @@ export default function AccountSubscriptions() {
       try {
         const { data, error } = await (supabase as any)
           .from("subscriptions")
-          .select("id, status, frequency, next_charge_date, total_per_cycle_naira, created_at, card_brand, card_last4")
+          .select(`
+            id, status, frequency, next_charge_date, discount_pct,
+            free_delivery, created_at, total_cycles,
+            paystack_card_brand, paystack_card_last4,
+            subscription_items(
+              id, quantity, unit_price, frequency, is_active,
+              products(name, category),
+              brands(brand_name, image_url)
+            )
+          `)
           .eq("customer_email", user?.email)
           .order("created_at", { ascending: false });
         if (error) return [];
@@ -46,23 +70,10 @@ export default function AccountSubscriptions() {
     },
   });
 
-  // Pull item lines for the most recent subscription so the success
-  // banner can display "Items in your box".
+  // The success banner uses the most recent subscription — items and
+  // card info are already embedded on the row, so no second query.
   const latest = subs[0];
-  const { data: latestItems = [] } = useQuery({
-    queryKey: ["subscription-items", latest?.id],
-    enabled: !!latest?.id && showSuccess,
-    queryFn: async () => {
-      try {
-        const { data, error } = await (supabase as any)
-          .from("subscription_items")
-          .select("subscription_id, quantity, unit_price, frequency, products(name), brands(brand_name)")
-          .eq("subscription_id", latest!.id);
-        if (error) return [];
-        return (data || []) as SubscriptionItemRow[];
-      } catch { return []; }
-    },
-  });
+  const latestItems: SubscriptionItemRow[] = latest?.subscription_items || [];
 
   const empty = useMemo(() => !isLoading && subs.length === 0, [isLoading, subs]);
 
@@ -91,8 +102,8 @@ export default function AccountSubscriptions() {
             <dl className="text-xs space-y-1">
               <div className="flex items-center justify-between"><dt className="text-emerald-900/70">Frequency</dt><dd className="capitalize font-semibold">{latest.frequency}</dd></div>
               <div className="flex items-center justify-between"><dt className="text-emerald-900/70">First delivery</dt><dd className="font-semibold">{latest.next_charge_date ? new Date(latest.next_charge_date).toLocaleDateString("en-NG", { day: "numeric", month: "long", year: "numeric" }) : "—"}</dd></div>
-              {latest.card_brand && latest.card_last4 && (
-                <div className="flex items-center justify-between"><dt className="text-emerald-900/70">Card</dt><dd className="font-semibold inline-flex items-center gap-1"><CreditCard className="w-3 h-3" /> {latest.card_brand} ending in {latest.card_last4}</dd></div>
+              {latest.paystack_card_brand && latest.paystack_card_last4 && (
+                <div className="flex items-center justify-between"><dt className="text-emerald-900/70">Card</dt><dd className="font-semibold inline-flex items-center gap-1"><CreditCard className="w-3 h-3" /> {latest.paystack_card_brand} ending in {latest.paystack_card_last4}</dd></div>
               )}
             </dl>
             {latestItems.length > 0 && (
@@ -108,11 +119,9 @@ export default function AccountSubscriptions() {
                 </ul>
               </div>
             )}
-            {latest.total_per_cycle_naira != null && (
-              <p className="text-xs font-semibold">
-                Total per cycle: <span className="tabular-nums">{fmtN(latest.total_per_cycle_naira)}</span> <span className="text-emerald-900/70 font-normal">(delivery always free)</span>
-              </p>
-            )}
+            <p className="text-xs font-semibold">
+              Total per cycle: <span className="tabular-nums">₦{totalPerCycle(latest).toLocaleString("en-NG")}</span> <span className="text-emerald-900/70 font-normal">(delivery always free)</span>
+            </p>
             <Link
               to="/account/subscriptions"
               className="inline-flex items-center gap-1.5 rounded-pill bg-forest text-primary-foreground px-4 py-2 text-xs font-semibold hover:bg-forest-deep"
@@ -168,8 +177,9 @@ function SubscriptionCard({ row }: { row: SubscriptionRow }) {
 
       <dl className="text-xs space-y-0.5">
         <div className="flex items-center justify-between"><dt className="text-text-light">Next charge</dt><dd className="inline-flex items-center gap-1"><Calendar className="w-3 h-3" /> {row.next_charge_date || "—"}</dd></div>
-        {row.total_per_cycle_naira != null && (
-          <div className="flex items-center justify-between"><dt className="text-text-light">Total per cycle</dt><dd className="font-semibold tabular-nums">{fmtN(row.total_per_cycle_naira)}</dd></div>
+        <div className="flex items-center justify-between"><dt className="text-text-light">Total per cycle</dt><dd className="font-semibold tabular-nums">₦{totalPerCycle(row).toLocaleString("en-NG")}</dd></div>
+        {row.paystack_card_brand && row.paystack_card_last4 && (
+          <div className="flex items-center justify-between"><dt className="text-text-light">Card</dt><dd className="inline-flex items-center gap-1"><CreditCard className="w-3 h-3" /> {row.paystack_card_brand} ending in {row.paystack_card_last4}</dd></div>
         )}
       </dl>
     </article>
