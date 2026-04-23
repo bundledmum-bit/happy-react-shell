@@ -250,6 +250,9 @@ function SubscriptionCard({ row }: { row: SubscriptionRow }) {
         <span className="text-xs uppercase tracking-widest font-semibold text-text-med">Total per delivery</span>
         <span className="text-sm font-bold tabular-nums text-forest">{fmtN(total)} <span className="text-emerald-700 font-semibold">· FREE delivery</span></span>
       </div>
+      <p className="text-[11px] text-text-light">
+        <b>Price this cycle:</b> {fmtN(total)} per delivery <span className="text-text-light">(locks at renewal to current prices)</span>
+      </p>
 
       {/* Actions */}
       <div className="flex items-center gap-2 flex-wrap pt-1">

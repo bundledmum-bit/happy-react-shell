@@ -364,6 +364,16 @@ export default function SubscriptionPage() {
         ))}
       </main>
 
+      {/* Price-lock notice — sits just above the sticky bar once at least one item is ticked */}
+      {summary.count > 0 && (
+        <div className="max-w-[880px] mx-auto px-4 md:px-8 pb-2">
+          <div className="bg-forest/5 border border-forest/20 rounded-card p-3 text-xs text-text-med leading-relaxed">
+            <b className="text-forest">Price locked for this cycle — renewal charges current prices.</b>{" "}
+            Your price of <b className="text-foreground">{fmtN(summary.total)}</b> per delivery is locked for this cycle of {settings.min_deliveries} deliveries. When your cycle renews, we charge current product prices at that time.
+          </div>
+        </div>
+      )}
+
       {/* Sticky summary bar */}
       {summary.count > 0 && (
         <div className="fixed bottom-0 left-0 right-0 z-40 bg-card border-t border-border shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
@@ -601,6 +611,12 @@ function SuccessScreen({
             <span className="font-bold tabular-nums text-forest">{fmtN(data.total_per_cycle)} · <span className="text-emerald-700">FREE delivery</span></span>
           </div>
           <p className="text-[11px] text-text-light">Minimum {settings.min_deliveries} deliveries — cancel any time after that from your account.</p>
+        </section>
+
+        <section className="bg-card border border-border rounded-card p-4 text-xs text-text-med space-y-1">
+          <h3 className="text-[10px] uppercase tracking-widest font-bold text-text-med">Next steps</h3>
+          <p><b className="text-forest">This cycle:</b> {fmtN(data.total_per_cycle)} per delivery <span className="text-text-light">(locked)</span></p>
+          <p><b className="text-foreground">Future cycles:</b> charged at current prices at renewal. We'll email you in advance if prices change.</p>
         </section>
 
         {!dismissAcctPrompt && (
