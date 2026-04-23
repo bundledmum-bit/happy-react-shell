@@ -4021,6 +4021,53 @@ export type Database = {
         }
         Relationships: []
       }
+      preview_tokens: {
+        Row: {
+          access_count: number
+          created_at: string | null
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          label: string
+          last_used_at: string | null
+          token: string
+          updated_at: string | null
+        }
+        Insert: {
+          access_count?: number
+          created_at?: string | null
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          label: string
+          last_used_at?: string | null
+          token?: string
+          updated_at?: string | null
+        }
+        Update: {
+          access_count?: number
+          created_at?: string | null
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string
+          last_used_at?: string | null
+          token?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preview_tokens_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_categories: {
         Row: {
           created_at: string | null
@@ -5463,6 +5510,250 @@ export type Database = {
           },
         ]
       }
+      subscription_items: {
+        Row: {
+          added_at: string | null
+          brand_id: string
+          id: string
+          is_active: boolean
+          product_id: string
+          quantity: number
+          subscription_id: string
+          unit_price: number
+          updated_at: string | null
+        }
+        Insert: {
+          added_at?: string | null
+          brand_id: string
+          id?: string
+          is_active?: boolean
+          product_id: string
+          quantity?: number
+          subscription_id: string
+          unit_price: number
+          updated_at?: string | null
+        }
+        Update: {
+          added_at?: string | null
+          brand_id?: string
+          id?: string
+          is_active?: boolean
+          product_id?: string
+          quantity?: number
+          subscription_id?: string
+          unit_price?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_items_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_items_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_items_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscription_orders: {
+        Row: {
+          charge_amount: number | null
+          created_at: string | null
+          cycle_number: number
+          failure_reason: string | null
+          id: string
+          order_id: string | null
+          paystack_reference: string | null
+          scheduled_date: string
+          skip_reason: string | null
+          status: string
+          subscription_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          charge_amount?: number | null
+          created_at?: string | null
+          cycle_number: number
+          failure_reason?: string | null
+          id?: string
+          order_id?: string | null
+          paystack_reference?: string | null
+          scheduled_date: string
+          skip_reason?: string | null
+          status?: string
+          subscription_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          charge_amount?: number | null
+          created_at?: string | null
+          cycle_number?: number
+          failure_reason?: string | null
+          id?: string
+          order_id?: string | null
+          paystack_reference?: string | null
+          scheduled_date?: string
+          skip_reason?: string | null
+          status?: string
+          subscription_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_orders_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "order_lines_report"
+            referencedColumns: ["order_uuid"]
+          },
+          {
+            foreignKeyName: "subscription_orders_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_orders_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders_report"
+            referencedColumns: ["order_uuid"]
+          },
+          {
+            foreignKeyName: "subscription_orders_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscriptions: {
+        Row: {
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          created_at: string | null
+          customer_email: string
+          customer_id: string | null
+          delivery_address: string
+          delivery_city: string
+          delivery_state: string
+          discount_pct: number
+          edit_deadline: string | null
+          free_delivery: boolean
+          frequency: string
+          frequency_days: number
+          id: string
+          last_fulfilled_at: string | null
+          next_charge_date: string
+          next_shipment_date: string | null
+          notes: string | null
+          paused_until: string | null
+          paystack_customer_code: string | null
+          paystack_email_token: string | null
+          paystack_plan_code: string | null
+          paystack_subscription_code: string | null
+          start_date: string
+          status: string
+          total_cycles: number
+          updated_at: string | null
+        }
+        Insert: {
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          created_at?: string | null
+          customer_email: string
+          customer_id?: string | null
+          delivery_address: string
+          delivery_city: string
+          delivery_state?: string
+          discount_pct?: number
+          edit_deadline?: string | null
+          free_delivery?: boolean
+          frequency: string
+          frequency_days?: number
+          id?: string
+          last_fulfilled_at?: string | null
+          next_charge_date: string
+          next_shipment_date?: string | null
+          notes?: string | null
+          paused_until?: string | null
+          paystack_customer_code?: string | null
+          paystack_email_token?: string | null
+          paystack_plan_code?: string | null
+          paystack_subscription_code?: string | null
+          start_date?: string
+          status?: string
+          total_cycles?: number
+          updated_at?: string | null
+        }
+        Update: {
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          created_at?: string | null
+          customer_email?: string
+          customer_id?: string | null
+          delivery_address?: string
+          delivery_city?: string
+          delivery_state?: string
+          discount_pct?: number
+          edit_deadline?: string | null
+          free_delivery?: boolean
+          frequency?: string
+          frequency_days?: number
+          id?: string
+          last_fulfilled_at?: string | null
+          next_charge_date?: string
+          next_shipment_date?: string | null
+          notes?: string | null
+          paused_until?: string | null
+          paystack_customer_code?: string | null
+          paystack_email_token?: string | null
+          paystack_plan_code?: string | null
+          paystack_subscription_code?: string | null
+          start_date?: string
+          status?: string
+          total_cycles?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_account_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tax_settings: {
         Row: {
           applicable_categories: string[] | null
@@ -5889,6 +6180,106 @@ export type Database = {
         }
         Relationships: []
       }
+      marketing_customer_acquisition: {
+        Row: {
+          avg_lifetime_value_naira: number | null
+          channel: string | null
+          customers: number | null
+          customers_who_ordered: number | null
+          order_conversion_pct: number | null
+          repeat_customers: number | null
+        }
+        Relationships: []
+      }
+      marketing_daily_funnel: {
+        Row: {
+          all_orders: number | null
+          cart_sessions: number | null
+          checkouts: number | null
+          day: string | null
+          paid_orders: number | null
+          quiz_completions: number | null
+          quiz_starts: number | null
+          sessions: number | null
+        }
+        Relationships: []
+      }
+      marketing_device_breakdown: {
+        Row: {
+          device_type: string | null
+          events: number | null
+          pct: number | null
+          sessions: number | null
+        }
+        Relationships: []
+      }
+      marketing_funnel_with_quiz: {
+        Row: {
+          all_orders: number | null
+          checkout_to_order_pct: number | null
+          checkouts: number | null
+          order_to_paid_pct: number | null
+          overall_conversion_pct: number | null
+          paid_orders: number | null
+          quiz_sessions: number | null
+          quiz_to_checkout_pct: number | null
+          revenue_naira: number | null
+        }
+        Relationships: []
+      }
+      marketing_funnel_without_quiz: {
+        Row: {
+          add_to_carts: number | null
+          all_orders: number | null
+          cart_to_checkout_pct: number | null
+          checkout_to_order_pct: number | null
+          checkouts: number | null
+          order_to_paid_pct: number | null
+          overall_conversion_pct: number | null
+          paid_orders: number | null
+          revenue_naira: number | null
+          sessions: number | null
+          sessions_to_cart_pct: number | null
+        }
+        Relationships: []
+      }
+      marketing_referral_performance: {
+        Row: {
+          code: string | null
+          credits_applied: number | null
+          credits_issued: number | null
+          credits_pending: number | null
+          discount_amount: number | null
+          is_active: boolean | null
+          referrer_credit: number | null
+          referrer_email: string | null
+          times_used: number | null
+          total_credit_earned: number | null
+        }
+        Relationships: []
+      }
+      marketing_traffic_sources: {
+        Row: {
+          medium: string | null
+          sessions: number | null
+          source: string | null
+          unique_sessions: number | null
+        }
+        Relationships: []
+      }
+      marketing_utm_performance: {
+        Row: {
+          checkouts: number | null
+          orders: number | null
+          quiz_completions: number | null
+          quiz_starts: number | null
+          sessions: number | null
+          utm_campaign: string | null
+          utm_medium: string | null
+          utm_source: string | null
+        }
+        Relationships: []
+      }
       order_lines_report: {
         Row: {
           Attributed_Channel: string | null
@@ -6025,6 +6416,10 @@ export type Database = {
       calculate_paye_annual: {
         Args: { p_annual_taxable_naira: number }
         Returns: number
+      }
+      calculate_subscription_total: {
+        Args: { p_subscription_id: string }
+        Returns: Json
       }
       calculate_tax_position: {
         Args: { p_month?: number; p_year?: number }
@@ -6289,6 +6684,7 @@ export type Database = {
         Args: { coupon_code: string; order_amount: number }
         Returns: Json
       }
+      validate_preview_token: { Args: { p_token: string }; Returns: Json }
       validate_referral_code:
         | {
             Args: { p_code: string }
