@@ -11,7 +11,7 @@ import {
   Search, X, Menu, ChevronLeft, MessageCircleQuestion, Workflow, Mail, Rocket,
   type LucideIcon,
 } from "lucide-react";
-import { Tag, Boxes, MapPin, FileText as PageIcon, Layout, ShieldCheck, RotateCcw } from "lucide-react";
+import { Tag, Boxes, MapPin, FileText as PageIcon, Layout, ShieldCheck, RotateCcw, Megaphone } from "lucide-react";
 import logoWhite from "@/assets/logos/BM-LOGO-WHITE.svg";
 import BMLoadingAnimation from "@/components/BMLoadingAnimation";
 
@@ -20,7 +20,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   LayoutDashboard, Package, Boxes, ShoppingBag, ClipboardList, Users, Tag,
   Gift, Truck, MapPin, MessageSquare, FileText, Image, MessageCircleQuestion,
   Workflow, BarChart3, Settings, Mail, Rocket,
-  Layout, ShieldCheck, RotateCcw,
+  Layout, ShieldCheck, RotateCcw, Megaphone,
   PageIcon, // alias
 };
 
@@ -67,12 +67,12 @@ function AdminLayoutInner() {
     "/admin/quiz": "/admin/quiz-engine",
   };
 
-  // Build visible nav from DB results — top-level (parent) items only.
-  // The Returns & Refunds entry lives in the DB as a child of Orders
-  // (parent_key='orders'); lift it into the flat sidebar and splice it in
-  // directly after the Orders entry so it reads as "Orders → Returns" in
-  // the sidebar rather than sorting by its raw display_order (23), which
-  // would place it way below the Orders group.
+  // Build visible nav from DB results — top-level (parent) items only, with
+  // a small allow-list of children that get lifted into the flat sidebar so
+  // they surface alongside their parent group (e.g. Orders → Returns,
+  // Analytics → Marketing). Each lifted child is spliced in directly below
+  // its parent's entry rather than sorting by its raw display_order.
+  const LIFTED_CHILDREN = ["returns", "analytics_marketing"];
   const visibleNav = useMemo(() => {
     if (!dbNavItems) return [];
     const toEntry = (item: NavItemFromDB) => {
@@ -91,11 +91,12 @@ function AdminLayoutInner() {
       .sort((a, b) => (a.display_order || 0) - (b.display_order || 0))
       .map(toEntry);
 
-    const returnsItem = dbNavItems.find(i => i.nav_key === "returns");
-    if (returnsItem) {
-      const ordersIdx = topLevel.findIndex(e => e.navKey === "orders");
-      const insertAt = ordersIdx >= 0 ? ordersIdx + 1 : topLevel.length;
-      topLevel.splice(insertAt, 0, toEntry(returnsItem));
+    for (const navKey of LIFTED_CHILDREN) {
+      const child = dbNavItems.find(i => i.nav_key === navKey);
+      if (!child || !child.parent_key) continue;
+      const parentIdx = topLevel.findIndex(e => e.navKey === child.parent_key);
+      const insertAt = parentIdx >= 0 ? parentIdx + 1 : topLevel.length;
+      topLevel.splice(insertAt, 0, toEntry(child));
     }
 
     return topLevel;

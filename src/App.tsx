@@ -59,7 +59,7 @@ import AdminBlog from "@/pages/admin/AdminBlog";
 import AdminSettings from "@/pages/admin/AdminSettings";
 import AdminReferrals from "@/pages/admin/AdminReferrals";
 import AdminAnalytics from "@/pages/admin/AdminAnalytics";
-import AdminMarketingAnalytics from "@/pages/admin/AdminMarketingAnalytics";
+import AdminMarketingAnalytics from "@/pages/admin/analytics/AdminMarketingAnalytics";
 import AdminUsers from "@/pages/admin/AdminUsers";
 import AdminMedia from "@/pages/admin/AdminMedia";
 import AdminCoupons from "@/pages/admin/AdminCoupons";
@@ -218,8 +218,8 @@ const App = () => (
                 <Route path="blog" element={<PermissionGate module="content" action="view"><AdminBlog /></PermissionGate>} />
                 <Route path="settings" element={<PermissionGate module="content" action="edit_settings"><AdminSettings /></PermissionGate>} />
                 <Route path="referrals" element={<PermissionGate module="customers" action="view"><AdminReferrals /></PermissionGate>} />
-                <Route path="analytics" element={<PermissionGate module="analytics" action="view"><AdminMarketingAnalytics /></PermissionGate>} />
-                <Route path="analytics/legacy" element={<PermissionGate module="analytics" action="view"><AdminAnalytics /></PermissionGate>} />
+                <Route path="analytics" element={<PermissionGate module="analytics" action="view"><AdminAnalytics /></PermissionGate>} />
+                <Route path="analytics/marketing" element={<PermissionGate module="analytics" action="view"><AdminMarketingAnalytics /></PermissionGate>} />
                 <Route path="users" element={<PermissionGate module="admin" action="view_users"><AdminUsers /></PermissionGate>} />
                 <Route path="media" element={<PermissionGate module="content" action="view"><AdminMedia /></PermissionGate>} />
                 <Route path="coupons" element={<PermissionGate module="coupons" action="view"><AdminCoupons /></PermissionGate>} />
