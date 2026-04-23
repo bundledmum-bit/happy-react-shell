@@ -6,13 +6,42 @@ export interface SubscriptionSettings {
   discount_pct: number;
   free_delivery_enabled: boolean;
   weekly_enabled: boolean;
+  biweekly_enabled: boolean;
   monthly_enabled: boolean;
   subscription_page_heading: string;
   subscription_page_subtext: string;
   subscription_badge_label: string;
   min_order_value_naira: number;
   edit_window_days: number;
+  min_deliveries: number;
+  delivery_day_changeable: boolean;
 }
+
+export type Frequency = "weekly" | "biweekly" | "monthly";
+
+export const FREQUENCY_DAYS: Record<Frequency, number> = {
+  weekly: 7, biweekly: 14, monthly: 30,
+};
+
+export const FREQUENCY_LABEL: Record<Frequency, string> = {
+  weekly: "Weekly",
+  biweekly: "Every 2 weeks",
+  monthly: "Monthly",
+};
+
+export const WEEKDAYS: Array<{ v: string; short: string; long: string }> = [
+  { v: "monday",    short: "Mon", long: "Monday" },
+  { v: "tuesday",   short: "Tue", long: "Tuesday" },
+  { v: "wednesday", short: "Wed", long: "Wednesday" },
+  { v: "thursday",  short: "Thu", long: "Thursday" },
+  { v: "friday",    short: "Fri", long: "Friday" },
+  { v: "saturday",  short: "Sat", long: "Saturday" },
+  { v: "sunday",    short: "Sun", long: "Sunday" },
+];
+
+export const WEEKDAY_LABEL: Record<string, string> = Object.fromEntries(
+  WEEKDAYS.map(d => [d.v, d.long])
+);
 
 /**
  * Subscription settings come from the `subscription_settings` table as
@@ -42,12 +71,15 @@ function parseSettings(raw: any): SubscriptionSettings {
     discount_pct:         num("discount_pct", 0),
     free_delivery_enabled: b("free_delivery_enabled", true),
     weekly_enabled:        b("weekly_enabled", true),
+    biweekly_enabled:      b("biweekly_enabled", true),
     monthly_enabled:       b("monthly_enabled", true),
     subscription_page_heading: str("subscription_page_heading", "Never run out of the essentials."),
     subscription_page_subtext: str("subscription_page_subtext", "Subscribe to the products you use every week and we'll deliver them on a schedule that works for you."),
     subscription_badge_label: str("subscription_badge_label", "Subscribe & Save"),
     min_order_value_naira:  num("min_order_value_naira", 0),
     edit_window_days:       num("edit_window_days", 2),
+    min_deliveries:         num("min_deliveries", 3),
+    delivery_day_changeable: b("delivery_day_changeable", true),
   };
 }
 

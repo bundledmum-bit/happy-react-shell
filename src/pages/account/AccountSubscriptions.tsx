@@ -1,10 +1,18 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { Repeat, Plus, Calendar, CheckCircle2, CreditCard } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { Repeat, Plus, Calendar, CheckCircle2, CreditCard, XCircle, CalendarDays, Save, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCustomerAuth } from "@/hooks/useCustomerAuth";
-import { fmtN } from "@/hooks/useSubscription";
+import {
+  useSubscriptionSettings, WEEKDAYS, WEEKDAY_LABEL, FREQUENCY_LABEL,
+  type Frequency,
+} from "@/hooks/useSubscription";
+
+// -------------------------------------------------------------------------
+// Types
+// -------------------------------------------------------------------------
 
 interface SubscriptionItemRow {
   id: string;
@@ -13,24 +21,30 @@ interface SubscriptionItemRow {
   frequency: string;
   is_active: boolean;
   products?: { name: string; category: string | null } | null;
-  brands?: { brand_name: string; image_url: string | null } | null;
+  brands?: { brand_name: string; image_url: string | null; price: number | null } | null;
 }
 interface SubscriptionRow {
   id: string;
   status: string;
-  frequency: string;
+  frequency: Frequency | string;
+  frequency_days: number | null;
+  delivery_day: string | null;
   next_charge_date: string | null;
+  edit_deadline: string | null;
+  total_cycles: number | null;
+  min_cycles: number | null;
   discount_pct: number | null;
   free_delivery: boolean | null;
   created_at: string;
-  total_cycles: number | null;
   paystack_card_brand: string | null;
   paystack_card_last4: string | null;
+  cancellation_requested_at: string | null;
+  cancellation_effective_after_cycle: number | null;
   subscription_items: SubscriptionItemRow[];
 }
 
-/** Compute per-cycle total from active items + discount_pct. Values are
- *  already in naira; no kobo division anywhere. */
+const fmtN = (naira: number) => `₦${Math.round(naira || 0).toLocaleString("en-NG")}`;
+
 function totalPerCycle(row: SubscriptionRow): number {
   const items = row.subscription_items || [];
   const subtotal = items
@@ -39,6 +53,33 @@ function totalPerCycle(row: SubscriptionRow): number {
   const pct = Number(row.discount_pct) || 0;
   return Math.round(subtotal * (1 - pct / 100));
 }
+
+function formatDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleDateString("en-NG", { day: "numeric", month: "long", year: "numeric" });
+  } catch { return iso; }
+}
+
+/** Project a future charge date given a starting date and the number of cycles to advance. */
+function projectChargeDate(nextCharge: string | null, frequencyDays: number | null, cyclesToAdvance: number): string | null {
+  if (!nextCharge || !frequencyDays || cyclesToAdvance < 0) return null;
+  const d = new Date(nextCharge);
+  d.setDate(d.getDate() + frequencyDays * cyclesToAdvance);
+  return d.toISOString().slice(0, 10);
+}
+
+const STATUS_STYLE: Record<string, { label: string; cls: string }> = {
+  active:         { label: "Active",         cls: "bg-emerald-100 text-emerald-700" },
+  paused:         { label: "Paused",         cls: "bg-amber-100 text-amber-700" },
+  cancelled:      { label: "Cancelled",      cls: "bg-gray-100 text-gray-600" },
+  payment_failed: { label: "Payment Failed", cls: "bg-red-100 text-red-700" },
+  pending:        { label: "Pending",        cls: "bg-gray-100 text-gray-600" },
+};
+
+// -------------------------------------------------------------------------
+// Page
+// -------------------------------------------------------------------------
 
 export default function AccountSubscriptions() {
   const { user } = useCustomerAuth();
@@ -49,32 +90,28 @@ export default function AccountSubscriptions() {
     queryKey: ["my-subscriptions", user?.email],
     enabled: !!user?.email,
     queryFn: async () => {
-      try {
-        const { data, error } = await (supabase as any)
-          .from("subscriptions")
-          .select(`
-            id, status, frequency, next_charge_date, discount_pct,
-            free_delivery, created_at, total_cycles,
-            paystack_card_brand, paystack_card_last4,
-            subscription_items(
-              id, quantity, unit_price, frequency, is_active,
-              products(name, category),
-              brands(brand_name, image_url)
-            )
-          `)
-          .eq("customer_email", user?.email)
-          .order("created_at", { ascending: false });
-        if (error) return [];
-        return (data || []) as SubscriptionRow[];
-      } catch { return []; }
+      const { data, error } = await (supabase as any)
+        .from("subscriptions")
+        .select(`
+          id, status, frequency, frequency_days, delivery_day,
+          next_charge_date, edit_deadline, total_cycles, min_cycles,
+          discount_pct, free_delivery, created_at,
+          paystack_card_brand, paystack_card_last4,
+          cancellation_requested_at, cancellation_effective_after_cycle,
+          subscription_items(
+            id, quantity, unit_price, frequency, is_active,
+            products(name, category),
+            brands(brand_name, image_url, price)
+          )
+        `)
+        .eq("customer_email", user?.email)
+        .order("created_at", { ascending: false });
+      if (error) { toast.error(error.message); return []; }
+      return (data || []) as SubscriptionRow[];
     },
   });
 
-  // The success banner uses the most recent subscription — items and
-  // card info are already embedded on the row, so no second query.
   const latest = subs[0];
-  const latestItems: SubscriptionItemRow[] = latest?.subscription_items || [];
-
   const empty = useMemo(() => !isLoading && subs.length === 0, [isLoading, subs]);
 
   return (
@@ -94,40 +131,12 @@ export default function AccountSubscriptions() {
         </header>
 
         {showSuccess && latest && (
-          <section className="bg-emerald-50 border-2 border-emerald-600 rounded-card p-4 space-y-3">
+          <section className="bg-emerald-50 border-2 border-emerald-600 rounded-card p-4 space-y-1 text-sm">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5 text-emerald-700" />
               <h2 className="pf text-lg font-bold text-emerald-800">Your subscription is active!</h2>
             </div>
-            <dl className="text-xs space-y-1">
-              <div className="flex items-center justify-between"><dt className="text-emerald-900/70">Frequency</dt><dd className="capitalize font-semibold">{latest.frequency}</dd></div>
-              <div className="flex items-center justify-between"><dt className="text-emerald-900/70">First delivery</dt><dd className="font-semibold">{latest.next_charge_date ? new Date(latest.next_charge_date).toLocaleDateString("en-NG", { day: "numeric", month: "long", year: "numeric" }) : "—"}</dd></div>
-              {latest.paystack_card_brand && latest.paystack_card_last4 && (
-                <div className="flex items-center justify-between"><dt className="text-emerald-900/70">Card</dt><dd className="font-semibold inline-flex items-center gap-1"><CreditCard className="w-3 h-3" /> {latest.paystack_card_brand} ending in {latest.paystack_card_last4}</dd></div>
-              )}
-            </dl>
-            {latestItems.length > 0 && (
-              <div>
-                <div className="text-[10px] uppercase tracking-widest font-bold text-emerald-900/70 mb-1">Items in your box</div>
-                <ul className="text-xs space-y-0.5">
-                  {latestItems.map((it, i) => (
-                    <li key={i} className="flex items-center justify-between">
-                      <span>{it.products?.name || "Product"}{it.brands?.brand_name ? ` · ${it.brands.brand_name}` : ""} × {it.quantity}</span>
-                      <span className="tabular-nums">{fmtN(it.unit_price * it.quantity)}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            <p className="text-xs font-semibold">
-              Total per cycle: <span className="tabular-nums">₦{totalPerCycle(latest).toLocaleString("en-NG")}</span> <span className="text-emerald-900/70 font-normal">(delivery always free)</span>
-            </p>
-            <Link
-              to="/account/subscriptions"
-              className="inline-flex items-center gap-1.5 rounded-pill bg-forest text-primary-foreground px-4 py-2 text-xs font-semibold hover:bg-forest-deep"
-            >
-              Manage my subscription →
-            </Link>
+            <p className="text-xs text-emerald-900/80">We'll deliver every {WEEKDAY_LABEL[latest.delivery_day || ""] || latest.delivery_day} starting {formatDate(latest.next_charge_date)}.</p>
           </section>
         )}
 
@@ -161,27 +170,223 @@ export default function AccountSubscriptions() {
   );
 }
 
+// -------------------------------------------------------------------------
+// Subscription card
+// -------------------------------------------------------------------------
+
 function SubscriptionCard({ row }: { row: SubscriptionRow }) {
-  const statusColor = row.status === "active" ? "bg-emerald-100 text-emerald-700"
-    : row.status === "paused" ? "bg-amber-100 text-amber-700"
-    : "bg-gray-100 text-gray-600";
+  const { data: settings } = useSubscriptionSettings();
+  const qc = useQueryClient();
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [dayOpen, setDayOpen] = useState(false);
+
+  const status = STATUS_STYLE[row.status] || { label: row.status, cls: "bg-muted text-text-med" };
+  const freqLabel = FREQUENCY_LABEL[(row.frequency as Frequency)] || row.frequency;
+  const total = totalPerCycle(row);
+
+  const toggleItem = async (itemId: string, current: boolean) => {
+    const { error } = await (supabase as any)
+      .from("subscription_items")
+      .update({ is_active: !current })
+      .eq("id", itemId);
+    if (error) { toast.error(error.message); return; }
+    toast.success(current ? "Item paused" : "Item resumed");
+    qc.invalidateQueries({ queryKey: ["my-subscriptions"] });
+  };
+
   return (
-    <article className="bg-card border border-border rounded-card p-4 space-y-2">
+    <article className="bg-card border border-border rounded-card p-4 space-y-3">
       <header className="flex items-start justify-between gap-2">
         <div>
-          <div className="font-bold text-sm capitalize">{row.frequency} subscription</div>
-          <div className="text-[11px] text-text-light">Started {new Date(row.created_at).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" })}</div>
+          <div className="font-bold text-sm">Subscription</div>
+          <div className="text-[11px] text-text-light">Started {formatDate(row.created_at)}</div>
         </div>
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-pill text-[10px] font-semibold capitalize ${statusColor}`}>{row.status}</span>
+        <span className={`inline-flex items-center px-2 py-0.5 rounded-pill text-[10px] font-semibold capitalize ${status.cls}`}>{status.label}</span>
       </header>
 
-      <dl className="text-xs space-y-0.5">
-        <div className="flex items-center justify-between"><dt className="text-text-light">Next charge</dt><dd className="inline-flex items-center gap-1"><Calendar className="w-3 h-3" /> {row.next_charge_date || "—"}</dd></div>
-        <div className="flex items-center justify-between"><dt className="text-text-light">Total per cycle</dt><dd className="font-semibold tabular-nums">₦{totalPerCycle(row).toLocaleString("en-NG")}</dd></div>
+      {row.cancellation_requested_at && (
+        <div className="text-[11px] bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 py-2">
+          Cancellation requested — your subscription will stop after delivery #{row.cancellation_effective_after_cycle}.
+        </div>
+      )}
+
+      <dl className="text-xs space-y-1">
+        <div className="flex items-center justify-between"><dt className="text-text-light">Delivery day</dt><dd className="font-semibold">{WEEKDAY_LABEL[row.delivery_day || ""] || row.delivery_day || "—"} · every {freqLabel.toLowerCase()}</dd></div>
+        <div className="flex items-center justify-between"><dt className="text-text-light">Next delivery</dt><dd className="inline-flex items-center gap-1"><Calendar className="w-3 h-3" /> {formatDate(row.next_charge_date)}</dd></div>
         {row.paystack_card_brand && row.paystack_card_last4 && (
-          <div className="flex items-center justify-between"><dt className="text-text-light">Card</dt><dd className="inline-flex items-center gap-1"><CreditCard className="w-3 h-3" /> {row.paystack_card_brand} ending in {row.paystack_card_last4}</dd></div>
+          <div className="flex items-center justify-between"><dt className="text-text-light">Card</dt><dd className="inline-flex items-center gap-1"><CreditCard className="w-3 h-3" /> {row.paystack_card_brand} ending {row.paystack_card_last4}</dd></div>
+        )}
+        {row.total_cycles != null && row.min_cycles != null && (
+          <div className="flex items-center justify-between"><dt className="text-text-light">Deliveries completed</dt><dd className="tabular-nums">{row.total_cycles} / {row.min_cycles} minimum</dd></div>
         )}
       </dl>
+
+      {row.subscription_items?.length > 0 && (
+        <section>
+          <h3 className="text-[10px] uppercase tracking-widest font-bold text-text-med mb-1">Items in your box</h3>
+          <ul className="divide-y divide-border/40">
+            {row.subscription_items.map(it => (
+              <li key={it.id} className="flex items-center justify-between py-1.5 gap-2 text-xs">
+                <div className="min-w-0">
+                  <div className={`font-semibold ${it.is_active ? "" : "line-through text-text-light"}`}>{it.products?.name || "Product"}</div>
+                  <div className="text-[10px] text-text-light">{it.brands?.brand_name || "—"} · qty {it.quantity} · {fmtN(it.unit_price)}</div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                  <input
+                    type="checkbox"
+                    className="peer sr-only"
+                    checked={it.is_active}
+                    onChange={() => toggleItem(it.id, it.is_active)}
+                  />
+                  <div className="peer h-5 w-9 rounded-full bg-muted after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow after:transition-all peer-checked:bg-forest peer-checked:after:translate-x-4" />
+                </label>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <div className="pt-2 border-t border-border flex items-center justify-between">
+        <span className="text-xs uppercase tracking-widest font-semibold text-text-med">Total per delivery</span>
+        <span className="text-sm font-bold tabular-nums text-forest">{fmtN(total)} <span className="text-emerald-700 font-semibold">· FREE delivery</span></span>
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-2 flex-wrap pt-1">
+        {settings?.delivery_day_changeable && row.status !== "cancelled" && !row.cancellation_requested_at && (
+          <button onClick={() => setDayOpen(true)} className="inline-flex items-center gap-1.5 border border-input rounded-lg px-3 py-1.5 text-xs font-semibold hover:bg-muted">
+            <CalendarDays className="w-3.5 h-3.5" /> Change delivery day
+          </button>
+        )}
+        {row.status !== "cancelled" && !row.cancellation_requested_at && (
+          <button onClick={() => setCancelOpen(true)} className="inline-flex items-center gap-1.5 text-destructive border border-destructive/40 rounded-lg px-3 py-1.5 text-xs font-semibold hover:bg-destructive/10 ml-auto">
+            <XCircle className="w-3.5 h-3.5" /> Cancel subscription
+          </button>
+        )}
+      </div>
+
+      {dayOpen && <ChangeDeliveryDayModal row={row} onClose={() => setDayOpen(false)} />}
+      {cancelOpen && <CancelModal row={row} onClose={() => setCancelOpen(false)} />}
     </article>
+  );
+}
+
+// -------------------------------------------------------------------------
+// Change delivery day modal
+// -------------------------------------------------------------------------
+
+function ChangeDeliveryDayModal({ row, onClose }: { row: SubscriptionRow; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [day, setDay] = useState<string>(row.delivery_day || "monday");
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    const { error } = await (supabase as any)
+      .from("subscriptions")
+      .update({ delivery_day: day })
+      .eq("id", row.id);
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Delivery day updated");
+    qc.invalidateQueries({ queryKey: ["my-subscriptions"] });
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-foreground/60 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-card border border-border rounded-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+          <h3 className="font-bold text-sm">Change delivery day</h3>
+          <button onClick={onClose} aria-label="Close" className="w-7 h-7 rounded-full hover:bg-muted flex items-center justify-center"><X className="w-3.5 h-3.5" /></button>
+        </div>
+        <div className="p-5 space-y-3">
+          <div className="flex flex-wrap gap-1.5">
+            {WEEKDAYS.map(d => (
+              <button
+                key={d.v}
+                onClick={() => setDay(d.v)}
+                className={`px-3 py-2 rounded-pill text-xs font-semibold border min-w-[52px] ${
+                  day === d.v
+                    ? "bg-forest text-primary-foreground border-forest"
+                    : "bg-background text-text-med border-input hover:border-forest/60"
+                }`}
+              >
+                {d.short}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-text-light">Change applies to your next delivery onwards.</p>
+          <div className="flex justify-end gap-2">
+            <button onClick={onClose} className="text-xs text-text-med hover:text-foreground px-3 py-2">Cancel</button>
+            <button onClick={save} disabled={saving || day === row.delivery_day} className="inline-flex items-center gap-1.5 bg-forest text-primary-foreground px-3 py-2 rounded-lg text-xs font-semibold hover:bg-forest-deep disabled:opacity-40">
+              <Save className="w-3.5 h-3.5" /> Save
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// -------------------------------------------------------------------------
+// Cancel modal
+// -------------------------------------------------------------------------
+
+function CancelModal({ row, onClose }: { row: SubscriptionRow; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [saving, setSaving] = useState(false);
+
+  const totalCycles = Number(row.total_cycles) || 0;
+  const minCycles = Number(row.min_cycles) || 0;
+  const belowMin = totalCycles < minCycles;
+  const remainingOnMin = Math.max(0, minCycles - totalCycles);
+  const effectiveAfter = belowMin ? minCycles : Math.max(minCycles, totalCycles);
+  // Project when that delivery will happen.
+  const extraCycles = Math.max(0, effectiveAfter - totalCycles - 1);
+  const projectedDate = projectChargeDate(row.next_charge_date, row.frequency_days, extraCycles);
+
+  const confirm = async () => {
+    setSaving(true);
+    const { error } = await (supabase as any)
+      .from("subscriptions")
+      .update({
+        cancellation_requested_at: new Date().toISOString(),
+        cancellation_effective_after_cycle: effectiveAfter,
+      })
+      .eq("id", row.id);
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Cancellation scheduled");
+    qc.invalidateQueries({ queryKey: ["my-subscriptions"] });
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-foreground/60 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-card border border-border rounded-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+          <h3 className="font-bold text-sm inline-flex items-center gap-1.5"><XCircle className="w-4 h-4 text-destructive" /> Cancel subscription</h3>
+          <button onClick={onClose} aria-label="Close" className="w-7 h-7 rounded-full hover:bg-muted flex items-center justify-center"><X className="w-3.5 h-3.5" /></button>
+        </div>
+        <div className="p-5 space-y-3 text-sm">
+          {belowMin ? (
+            <p className="text-text-med">
+              You have <b>{remainingOnMin}</b> delivery{remainingOnMin === 1 ? "" : "s"} remaining on your minimum commitment. Your subscription will be cancelled after delivery #{minCycles}{projectedDate ? ` on ${formatDate(projectedDate)}` : ""}.
+            </p>
+          ) : (
+            <p className="text-text-med">
+              Are you sure you want to cancel? Your subscription will stop after your current cycle.
+            </p>
+          )}
+          <div className="flex justify-end gap-2 pt-1">
+            <button onClick={onClose} className="text-xs text-text-med hover:text-foreground px-3 py-2">Keep my subscription</button>
+            <button onClick={confirm} disabled={saving} className="inline-flex items-center gap-1.5 bg-destructive text-destructive-foreground px-3 py-2 rounded-lg text-xs font-semibold hover:opacity-90 disabled:opacity-40">
+              {belowMin ? `Confirm — cancel after delivery ${minCycles}` : "Confirm cancellation"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
