@@ -12,15 +12,16 @@ import { supabase } from "@/integrations/supabase/client";
 // ---------------------------------------------------------------------------
 
 interface FunnelWithQuiz {
-  sessions: number; quiz_starts: number; quiz_completions: number;
+  quiz_sessions: number;
   checkouts: number; all_orders: number; paid_orders: number;
-  sessions_to_quiz_pct: number; quiz_start_to_complete_pct: number;
-  completions_to_checkout_pct: number; checkout_to_order_pct: number;
+  revenue_naira: number;
+  quiz_to_checkout_pct: number; checkout_to_order_pct: number;
   order_to_paid_pct: number; overall_conversion_pct: number;
 }
 interface FunnelWithoutQuiz {
   sessions: number; add_to_carts: number; checkouts: number;
   all_orders: number; paid_orders: number;
+  revenue_naira: number;
   sessions_to_cart_pct: number; cart_to_checkout_pct: number;
   checkout_to_order_pct: number; order_to_paid_pct: number;
   overall_conversion_pct: number;
@@ -163,7 +164,8 @@ export default function AdminMarketingAnalytics() {
         </div>
       </header>
 
-      {/* Section 1 — Funnel */}
+      {/* Section 1 — Comparison banner + Funnel */}
+      <ComparisonBanner />
       <section className="bg-card border border-border rounded-xl p-5 space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <h2 className="font-bold text-sm">Conversion funnel</h2>
@@ -212,11 +214,12 @@ export default function AdminMarketingAnalytics() {
 // Section 1 — Funnels
 // ---------------------------------------------------------------------------
 
-function FunnelStage({ label, value }: { label: string; value: number }) {
+function FunnelStage({ label, value, subtitle }: { label: string; value: number; subtitle?: string }) {
   return (
-    <div className="flex-1 min-w-[110px] bg-muted/40 border border-border rounded-xl px-3 py-3 text-center">
+    <div className="flex-1 min-w-[120px] bg-muted/40 border border-border rounded-xl px-3 py-3 text-center">
       <div className="text-[10px] uppercase tracking-widest font-semibold text-text-med">{label}</div>
       <div className="text-2xl font-black tabular-nums mt-1">{Math.round(n(value)).toLocaleString()}</div>
+      {subtitle && <div className="text-[10px] text-text-light mt-0.5 leading-tight">{subtitle}</div>}
     </div>
   );
 }
@@ -230,6 +233,41 @@ function FunnelArrow({ pct }: { pct: number }) {
   );
 }
 
+function ComparisonBanner() {
+  const { data: q } = useFunnelWithQuiz();
+  const { data: d } = useFunnelWithoutQuiz();
+  if (!q && !d) return null;
+
+  const qPct = n(q?.overall_conversion_pct);
+  const dPct = n(d?.overall_conversion_pct);
+  const multiplier = dPct > 0 && qPct > dPct ? Math.round((qPct / dPct) * 10) / 10 : null;
+
+  const Col = ({ title, pct, rev, accent }: { title: string; pct: number; rev: number; accent: string }) => (
+    <div className="flex-1 min-w-[180px] px-4 py-3">
+      <div className={`text-[10px] uppercase tracking-widest font-bold ${accent}`}>{title}</div>
+      <div className="text-3xl font-black tabular-nums mt-1">{pct.toFixed(2)}%</div>
+      <div className="text-[10px] text-text-light">conversion rate</div>
+      <div className="text-sm font-semibold tabular-nums mt-1">{fmtNaira(rev)}</div>
+      <div className="text-[10px] text-text-light">revenue</div>
+    </div>
+  );
+
+  return (
+    <section className="bg-card border border-border rounded-xl p-2 flex items-stretch gap-2 flex-wrap">
+      <Col title="Quiz Path"   pct={qPct} rev={n(q?.revenue_naira)} accent="text-forest" />
+      <div className="w-px bg-border self-stretch" />
+      <Col title="Direct Path" pct={dPct} rev={n(d?.revenue_naira)} accent="text-text-med" />
+      {multiplier !== null && multiplier > 1 && (
+        <div className="self-center px-4">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-pill text-[11px] font-bold bg-emerald-100 text-emerald-700">
+            Quiz converts {multiplier}× better than direct
+          </span>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function QuizFunnelView() {
   const { data: f, isLoading } = useFunnelWithQuiz();
   if (isLoading) return <p className="text-xs text-text-light">Loading funnel…</p>;
@@ -237,20 +275,19 @@ function QuizFunnelView() {
   return (
     <>
       <div className="flex items-stretch gap-1 overflow-x-auto">
-        <FunnelStage label="Sessions" value={f.sessions} />
-        <FunnelArrow pct={f.sessions_to_quiz_pct} />
-        <FunnelStage label="Quiz starts" value={f.quiz_starts} />
-        <FunnelArrow pct={f.quiz_start_to_complete_pct} />
-        <FunnelStage label="Completions" value={f.quiz_completions} />
-        <FunnelArrow pct={f.completions_to_checkout_pct} />
-        <FunnelStage label="Checkouts" value={f.checkouts} />
+        <FunnelStage label="Quiz Sessions" value={f.quiz_sessions} subtitle="People who took the quiz" />
+        <FunnelArrow pct={f.quiz_to_checkout_pct} />
+        <FunnelStage label="Reached Checkout" value={f.checkouts} />
         <FunnelArrow pct={f.checkout_to_order_pct} />
-        <FunnelStage label="All orders" value={f.all_orders} />
+        <FunnelStage label="Orders Placed" value={f.all_orders} />
         <FunnelArrow pct={f.order_to_paid_pct} />
-        <FunnelStage label="Paid orders" value={f.paid_orders} />
+        <FunnelStage label="Paid Orders" value={f.paid_orders} subtitle={fmtNaira(f.revenue_naira)} />
       </div>
       <p className="text-xs text-text-med text-center mt-2">
-        Overall conversion · sessions → paid orders: <b className={pctCls(n(f.overall_conversion_pct))}>{n(f.overall_conversion_pct).toFixed(2)}%</b>
+        Overall: <b className={pctCls(n(f.overall_conversion_pct))}>{n(f.overall_conversion_pct).toFixed(2)}%</b> of quiz takers converted to a paid order
+      </p>
+      <p className="text-[11px] text-text-light text-center">
+        Checkout events may be undercounted for quiz users who completed orders via WhatsApp rather than the web checkout.
       </p>
     </>
   );
@@ -263,18 +300,18 @@ function DirectFunnelView() {
   return (
     <>
       <div className="flex items-stretch gap-1 overflow-x-auto">
-        <FunnelStage label="Sessions" value={f.sessions} />
+        <FunnelStage label="Browsing Sessions" value={f.sessions} subtitle="Non-quiz visitors" />
         <FunnelArrow pct={f.sessions_to_cart_pct} />
-        <FunnelStage label="Add to carts" value={f.add_to_carts} />
+        <FunnelStage label="Added to Cart" value={f.add_to_carts} />
         <FunnelArrow pct={f.cart_to_checkout_pct} />
-        <FunnelStage label="Checkouts" value={f.checkouts} />
+        <FunnelStage label="Reached Checkout" value={f.checkouts} />
         <FunnelArrow pct={f.checkout_to_order_pct} />
-        <FunnelStage label="All orders" value={f.all_orders} />
+        <FunnelStage label="Orders Placed" value={f.all_orders} />
         <FunnelArrow pct={f.order_to_paid_pct} />
-        <FunnelStage label="Paid orders" value={f.paid_orders} />
+        <FunnelStage label="Paid Orders" value={f.paid_orders} subtitle={fmtNaira(f.revenue_naira)} />
       </div>
       <p className="text-xs text-text-med text-center mt-2">
-        Overall conversion · sessions → paid orders: <b className={pctCls(n(f.overall_conversion_pct))}>{n(f.overall_conversion_pct).toFixed(2)}%</b>
+        Overall: <b className={pctCls(n(f.overall_conversion_pct))}>{n(f.overall_conversion_pct).toFixed(2)}%</b> of direct visitors converted to a paid order
       </p>
     </>
   );
