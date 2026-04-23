@@ -101,14 +101,16 @@ export default function SubscriptionCheckout() {
 
   // Dates — first delivery = next occurrence of draft.delivery_day after today,
   // first cycle end = first delivery + frequency_days × (count − 1).
+  const safeDeliveryDay = draft?.delivery_day || "monday";
+
   const firstDelivery = useMemo(() => {
     if (!draft) return null;
-    return nextDeliveryDate(draft.delivery_day);
-  }, [draft]);
+    return nextDeliveryDate(safeDeliveryDay);
+  }, [draft, safeDeliveryDay]);
   const cycleEnd = useMemo(() => {
     if (!firstDelivery || !draft) return null;
-    return projectCycleEnd(firstDelivery, draft.frequency as Frequency, count);
-  }, [firstDelivery, draft, count]);
+    return projectCycleEnd(firstDelivery, safeFrequency, count);
+  }, [firstDelivery, draft, safeFrequency, count]);
 
   const fmtLongDate = (d: Date | null) => d
     ? d.toLocaleDateString("en-NG", { day: "numeric", month: "long", year: "numeric" })
@@ -153,8 +155,8 @@ export default function SubscriptionCheckout() {
               body: {
                 reference: tx.reference,
                 items: draft.items,
-                frequency: draft.frequency,
-                delivery_day: draft.delivery_day,
+                frequency: safeFrequency,
+                delivery_day: safeDeliveryDay,
                 number_of_deliveries: count,
                 customer_name: form.full_name.trim(),
                 customer_phone: form.phone.trim(),
@@ -202,7 +204,7 @@ export default function SubscriptionCheckout() {
           <Link to="/subscriptions" className="w-9 h-9 rounded-full hover:bg-muted inline-flex items-center justify-center" aria-label="Back"><ArrowLeft className="w-4 h-4" /></Link>
           <div>
             <h1 className="pf text-xl font-bold">Confirm &amp; pay</h1>
-            <p className="text-[11px] text-text-light">{FREQUENCY_LABEL[draft.frequency as Frequency]} · {WEEKDAY_LABEL[draft.delivery_day] || draft.delivery_day}</p>
+            <p className="text-[11px] text-text-light">{FREQUENCY_LABEL[safeFrequency]} · {WEEKDAY_LABEL[safeDeliveryDay] || safeDeliveryDay}</p>
           </div>
         </header>
 
@@ -246,7 +248,7 @@ export default function SubscriptionCheckout() {
             <div className="text-3xl font-black tabular-nums w-16 text-center">{count}</div>
             <button onClick={() => setCount(c => Math.min(limits.max, c + 1))} disabled={count >= limits.max} className="w-10 h-10 rounded-full border border-input inline-flex items-center justify-center disabled:opacity-40"><Plus className="w-4 h-4" /></button>
           </div>
-          <p className="text-[10px] text-text-light text-center">Min {limits.min} · Max {limits.max} for {FREQUENCY_LABEL[draft.frequency as Frequency].toLowerCase()} delivery</p>
+          <p className="text-[10px] text-text-light text-center">Min {limits.min} · Max {limits.max} for {FREQUENCY_LABEL[safeFrequency].toLowerCase()} delivery</p>
 
           <dl className="text-xs space-y-1 pt-2 border-t border-border/60">
             <Row label="First payment today" v={<b className="text-forest">{fmtN(firstPayment)}</b>} />
