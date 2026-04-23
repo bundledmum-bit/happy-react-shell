@@ -67,25 +67,38 @@ function AdminLayoutInner() {
     "/admin/quiz": "/admin/quiz-engine",
   };
 
-  // Build visible nav from DB results. Include both top-level items and
-  // their children (e.g. Orders → Returns & Refunds) — the sidebar renders
-  // a flat list ordered by display_order, so children slot in right after
-  // their parent group by virtue of their higher display_order value.
+  // Build visible nav from DB results — top-level (parent) items only.
+  // The Returns & Refunds entry lives in the DB as a child of Orders
+  // (parent_key='orders'); lift it into the flat sidebar and splice it in
+  // directly after the Orders entry so it reads as "Orders → Returns" in
+  // the sidebar rather than sorting by its raw display_order (23), which
+  // would place it way below the Orders group.
   const visibleNav = useMemo(() => {
     if (!dbNavItems) return [];
-    return [...dbNavItems]
+    const toEntry = (item: NavItemFromDB) => {
+      const resolvedPath = PATH_FIXES[item.path] || item.path;
+      return {
+        to: resolvedPath,
+        label: item.label,
+        icon: getIcon(item.icon),
+        exact: resolvedPath === "/admin",
+        navKey: item.nav_key,
+      };
+    };
+
+    const topLevel = [...dbNavItems]
+      .filter(i => !i.parent_key)
       .sort((a, b) => (a.display_order || 0) - (b.display_order || 0))
-      .map(item => {
-        const resolvedPath = PATH_FIXES[item.path] || item.path;
-        return {
-          to: resolvedPath,
-          label: item.label,
-          icon: getIcon(item.icon),
-          exact: resolvedPath === "/admin",
-          navKey: item.nav_key,
-          parentKey: item.parent_key,
-        };
-      });
+      .map(toEntry);
+
+    const returnsItem = dbNavItems.find(i => i.nav_key === "returns");
+    if (returnsItem) {
+      const ordersIdx = topLevel.findIndex(e => e.navKey === "orders");
+      const insertAt = ordersIdx >= 0 ? ordersIdx + 1 : topLevel.length;
+      topLevel.splice(insertAt, 0, toEntry(returnsItem));
+    }
+
+    return topLevel;
   }, [dbNavItems]);
 
   useEffect(() => {
