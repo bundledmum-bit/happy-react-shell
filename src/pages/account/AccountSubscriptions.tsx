@@ -1,7 +1,7 @@
 import { useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Repeat, Plus, Calendar } from "lucide-react";
+import { Repeat, Plus, Calendar, CheckCircle2, CreditCard } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCustomerAuth } from "@/hooks/useCustomerAuth";
 import { fmtN } from "@/hooks/useSubscription";
@@ -13,25 +13,53 @@ interface SubscriptionRow {
   next_charge_date: string | null;
   total_per_cycle_naira: number | null;
   created_at: string;
+  card_brand?: string | null;
+  card_last4?: string | null;
+}
+interface SubscriptionItemRow {
+  subscription_id: string;
+  quantity: number;
+  unit_price: number;
+  frequency: string;
+  products?: { name: string } | null;
+  brands?: { brand_name: string } | null;
 }
 
 export default function AccountSubscriptions() {
   const { user } = useCustomerAuth();
+  const [params] = useSearchParams();
+  const showSuccess = params.get("new") === "true";
 
   const { data: subs = [], isLoading } = useQuery({
-    queryKey: ["my-subscriptions", user?.id],
-    enabled: !!user?.id,
+    queryKey: ["my-subscriptions", user?.email],
+    enabled: !!user?.email,
     queryFn: async () => {
-      // Best-effort fetch against a `subscriptions` table; if the table
-      // doesn't exist yet the query just returns empty (caught below).
       try {
         const { data, error } = await (supabase as any)
           .from("subscriptions")
-          .select("id, status, frequency, next_charge_date, total_per_cycle_naira, created_at")
-          .eq("customer_id", user?.id)
+          .select("id, status, frequency, next_charge_date, total_per_cycle_naira, created_at, card_brand, card_last4")
+          .eq("customer_email", user?.email)
           .order("created_at", { ascending: false });
         if (error) return [];
         return (data || []) as SubscriptionRow[];
+      } catch { return []; }
+    },
+  });
+
+  // Pull item lines for the most recent subscription so the success
+  // banner can display "Items in your box".
+  const latest = subs[0];
+  const { data: latestItems = [] } = useQuery({
+    queryKey: ["subscription-items", latest?.id],
+    enabled: !!latest?.id && showSuccess,
+    queryFn: async () => {
+      try {
+        const { data, error } = await (supabase as any)
+          .from("subscription_items")
+          .select("subscription_id, quantity, unit_price, frequency, products(name), brands(brand_name)")
+          .eq("subscription_id", latest!.id);
+        if (error) return [];
+        return (data || []) as SubscriptionItemRow[];
       } catch { return []; }
     },
   });
@@ -53,6 +81,46 @@ export default function AccountSubscriptions() {
             <Plus className="w-3.5 h-3.5" /> New subscription
           </Link>
         </header>
+
+        {showSuccess && latest && (
+          <section className="bg-emerald-50 border-2 border-emerald-600 rounded-card p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-emerald-700" />
+              <h2 className="pf text-lg font-bold text-emerald-800">Your subscription is active!</h2>
+            </div>
+            <dl className="text-xs space-y-1">
+              <div className="flex items-center justify-between"><dt className="text-emerald-900/70">Frequency</dt><dd className="capitalize font-semibold">{latest.frequency}</dd></div>
+              <div className="flex items-center justify-between"><dt className="text-emerald-900/70">First delivery</dt><dd className="font-semibold">{latest.next_charge_date ? new Date(latest.next_charge_date).toLocaleDateString("en-NG", { day: "numeric", month: "long", year: "numeric" }) : "—"}</dd></div>
+              {latest.card_brand && latest.card_last4 && (
+                <div className="flex items-center justify-between"><dt className="text-emerald-900/70">Card</dt><dd className="font-semibold inline-flex items-center gap-1"><CreditCard className="w-3 h-3" /> {latest.card_brand} ending in {latest.card_last4}</dd></div>
+              )}
+            </dl>
+            {latestItems.length > 0 && (
+              <div>
+                <div className="text-[10px] uppercase tracking-widest font-bold text-emerald-900/70 mb-1">Items in your box</div>
+                <ul className="text-xs space-y-0.5">
+                  {latestItems.map((it, i) => (
+                    <li key={i} className="flex items-center justify-between">
+                      <span>{it.products?.name || "Product"}{it.brands?.brand_name ? ` · ${it.brands.brand_name}` : ""} × {it.quantity}</span>
+                      <span className="tabular-nums">{fmtN(it.unit_price * it.quantity)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {latest.total_per_cycle_naira != null && (
+              <p className="text-xs font-semibold">
+                Total per cycle: <span className="tabular-nums">{fmtN(latest.total_per_cycle_naira)}</span> <span className="text-emerald-900/70 font-normal">(delivery always free)</span>
+              </p>
+            )}
+            <Link
+              to="/account/subscriptions"
+              className="inline-flex items-center gap-1.5 rounded-pill bg-forest text-primary-foreground px-4 py-2 text-xs font-semibold hover:bg-forest-deep"
+            >
+              Manage my subscription →
+            </Link>
+          </section>
+        )}
 
         {isLoading && (
           <p className="text-sm text-text-light text-center py-8">Loading your subscriptions…</p>
