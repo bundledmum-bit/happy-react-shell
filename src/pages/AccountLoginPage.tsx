@@ -50,7 +50,13 @@ export default function AccountLoginPage() {
     setSubmitting(true);
     setErrorMessage("");
     try {
-      const redirect = `${window.location.origin}/account${returnTo && returnTo !== "/account" ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}`;
+      // Magic-link emailRedirectTo MUST be the production URL — never
+      // window.location.origin, since the Lovable preview environment
+      // resolves that to a preview subdomain that breaks in production.
+      const BASE = "https://bundledmum.com";
+      const redirect = returnTo && returnTo !== "/account"
+        ? `${BASE}/account?returnTo=${encodeURIComponent(returnTo)}`
+        : `${BASE}/account`;
       const { error } = await supabase.auth.signInWithOtp({
         email: addr,
         options: { emailRedirectTo: redirect },
