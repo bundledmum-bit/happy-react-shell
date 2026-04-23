@@ -202,9 +202,13 @@ export default function SubscriptionPage() {
       };
     });
 
+    const checkoutFrequency: Frequency = enabledFreqs.includes(globalFrequency)
+      ? globalFrequency
+      : enabledFreqs[0] ?? "monthly";
+
     writeDraft({
       items,
-      frequency: globalFrequency,
+      frequency: checkoutFrequency,
       delivery_day: deliveryDay,
       subtotal_per_delivery: summary.subtotal,
       discount_pct: settings?.discount_pct ?? 0,
