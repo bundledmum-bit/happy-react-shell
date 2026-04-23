@@ -145,11 +145,11 @@ export const DELIVERY_COUNT_LIMITS: Record<Frequency, { min: number; max: number
 };
 
 /** Next occurrence of the given weekday (monday..sunday) strictly AFTER today. */
-export function nextDeliveryDate(weekday: string, from: Date = new Date()): Date {
+export function nextDeliveryDate(weekday: string | null | undefined, from: Date = new Date()): Date {
   const map: Record<string, number> = {
     sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6,
   };
-  const target = map[weekday.toLowerCase()];
+  const target = weekday ? map[String(weekday).toLowerCase()] : undefined;
   if (target == null) {
     const d = new Date(from); d.setDate(d.getDate() + 1); return d;
   }
