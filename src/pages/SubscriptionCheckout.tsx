@@ -61,12 +61,15 @@ export default function SubscriptionCheckout() {
 
   // Delivery count state, clamped by frequency.
   const [count, setCount] = useState(4);
-  const limits = draft ? DELIVERY_COUNT_LIMITS[draft.frequency as Frequency] : { min: 4, max: 13 };
+  const safeFrequency: Frequency = draft?.frequency && draft.frequency in DELIVERY_COUNT_LIMITS
+    ? (draft.frequency as Frequency)
+    : "monthly";
+  const limits = DELIVERY_COUNT_LIMITS[safeFrequency];
   useEffect(() => {
     if (!draft) return;
-    const lim = DELIVERY_COUNT_LIMITS[draft.frequency as Frequency];
+    const lim = DELIVERY_COUNT_LIMITS[safeFrequency];
     setCount(c => Math.min(lim.max, Math.max(lim.min, c || lim.min)));
-  }, [draft?.frequency]);
+  }, [draft, safeFrequency]);
 
   const [form, setForm] = useState<ContactForm>({
     full_name: "", email: "", phone: "",
