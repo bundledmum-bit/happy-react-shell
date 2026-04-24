@@ -63,6 +63,25 @@ export default function AdminDashboard() {
     },
   });
 
+  // Today's subscription deliveries — only rendered when > 0.
+  const { data: subDeliveriesToday = [] } = useQuery({
+    queryKey: ["dashboard-subscription-deliveries-today"],
+    queryFn: async () => {
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
+      const { data, error } = await (supabase as any)
+        .from("orders")
+        .select("id, customer_name, customer_email, total, delivery_city")
+        .eq("is_subscription_order", true)
+        .gte("created_at", start)
+        .lt("created_at", end);
+      if (error) return [];
+      return (data || []) as Array<{ id: string; customer_name: string | null; customer_email: string | null; total: number | null; delivery_city: string | null }>;
+    },
+    staleTime: 60_000,
+  });
+
   const { data: lowStock } = useQuery({
     queryKey: ["dashboard-low-stock"],
     queryFn: async () => {
@@ -133,6 +152,19 @@ export default function AdminDashboard() {
 
   return (
     <div>
+      {subDeliveriesToday.length > 0 && (
+        <Link
+          to="/admin/orders?filter=subscriptions"
+          className="block mb-4 bg-teal-50 border border-teal-200 rounded-xl px-4 py-3 hover:bg-teal-100/80 transition-colors"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-sm text-teal-900 font-semibold">
+              📦 {subDeliveriesToday.length} subscription deliver{subDeliveriesToday.length === 1 ? "y" : "ies"} today
+            </div>
+            <span className="text-xs font-semibold text-teal-700">View orders →</span>
+          </div>
+        </Link>
+      )}
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <h1 className="pf text-2xl font-bold text-foreground">Dashboard</h1>
         <div className="flex gap-2">

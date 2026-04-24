@@ -85,6 +85,7 @@ import AdminTestimonials from "@/pages/admin/AdminTestimonials";
 import AdminTrustSignals from "@/pages/admin/AdminTrustSignals";
 import AdminSpendThresholds from "@/pages/admin/AdminSpendThresholds";
 import AdminReturns from "@/pages/admin/AdminReturns";
+import AdminSubscriptions from "@/pages/admin/AdminSubscriptions";
 import AdminHRLayout from "@/pages/admin/hr/AdminHRLayout";
 import AdminHREmployees from "@/pages/admin/hr/AdminHREmployees";
 import AdminHRPayroll from "@/pages/admin/hr/AdminHRPayroll";
@@ -250,6 +251,7 @@ const App = () => (
                 <Route path="storefront/trust" element={<PermissionGate module="content" action="edit"><AdminTrustSignals /></PermissionGate>} />
                 <Route path="storefront/thresholds" element={<PermissionGate module="content" action="edit"><AdminSpendThresholds /></PermissionGate>} />
                 <Route path="returns" element={<PermissionGate module="orders" action="refund"><AdminReturns /></PermissionGate>} />
+                <Route path="subscriptions" element={<PermissionGate module="orders" action="view"><AdminSubscriptions /></PermissionGate>} />
 
                 {/* HR section (nested tabs share AdminHRLayout) */}
                 <Route path="hr" element={<PermissionGate module="hr" action="view"><AdminHRLayout /></PermissionGate>}>

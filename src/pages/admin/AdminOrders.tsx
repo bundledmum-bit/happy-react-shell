@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -44,7 +45,9 @@ export default function AdminOrders() {
   const queryClient = useQueryClient();
   const { can, adminUser, isSuperAdmin } = usePermissions();
   const [search, setSearch] = useState("");
+  const [urlParams] = useSearchParams();
   const [statusFilter, setStatusFilter] = useState("all");
+  const [subsOnly, setSubsOnly] = useState(urlParams.get("filter") === "subscriptions");
   const [paymentFilter, setPaymentFilter] = useState("all");
   const [methodFilter, setMethodFilter] = useState("all");
   const [courierFilter, setCourierFilter] = useState("all");
@@ -92,6 +95,7 @@ export default function AdminOrders() {
 
   const filtered = useMemo(() => {
     return (orders || []).filter((o: any) => {
+      if (subsOnly && !o.is_subscription_order) return false;
       if (methodFilter !== "all" && o.payment_method !== methodFilter) return false;
       if (o.created_at < dateFrom) return false;
       if (courierFilter !== "all") {
@@ -103,7 +107,7 @@ export default function AdminOrders() {
       }
       return true;
     });
-  }, [orders, methodFilter, dateFrom, courierFilter]);
+  }, [orders, methodFilter, dateFrom, courierFilter, subsOnly]);
 
   const stats = useMemo(() => {
     const f = filtered;
@@ -298,6 +302,17 @@ export default function AdminOrders() {
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search order, name, phone..."
             className="w-full pl-9 pr-3 py-2 border border-input rounded-lg text-sm bg-background outline-none focus:ring-2 focus:ring-ring" />
         </div>
+        <button
+          onClick={() => setSubsOnly(v => !v)}
+          className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border ${
+            subsOnly
+              ? "bg-teal-100 text-teal-700 border-teal-300"
+              : "bg-background text-text-med border-input hover:bg-muted"
+          }`}
+          aria-pressed={subsOnly}
+        >
+          🔄 Subscriptions{subsOnly ? " ✓" : ""}
+        </button>
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="border border-input rounded-lg px-3 py-2 text-xs bg-background">
           <option value="all">All statuses</option>
           {ORDER_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
@@ -399,9 +414,12 @@ export default function AdminOrders() {
                   <td className="p-2 text-center"><span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${STATUS_COLORS[o.payment_status] || ""}`}>{o.payment_status}</span></td>
                   <td className="p-2 text-center">
                     <span className={`px-2 py-0.5 rounded text-[10px] font-semibold capitalize ${STATUS_COLORS[o.order_status] || ""}`}>{o.order_status}</span>
+                    {o.is_subscription_order && (
+                      <span className="ml-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-teal-100 text-teal-700">Subscription</span>
+                    )}
                     {o.is_quiz_order ? (
                       <span className="ml-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-green-100 text-green-700">Quiz</span>
-                    ) : (
+                    ) : !o.is_subscription_order && (
                       <span className="ml-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-gray-100 text-gray-500">Direct</span>
                     )}
                   </td>
@@ -569,12 +587,16 @@ function OrderDetailPage({ order: o, adminUser, can, isSuperAdmin, onBack, onPri
         <div>
           <h1 className="pf text-2xl font-bold">{o.order_number || "Order"}</h1>
           <p className="text-muted-foreground text-xs">{new Date(o.created_at).toLocaleString()}</p>
-          <p className="text-xs mt-0.5">
-            Source: {o.is_quiz_order ? (
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-700">Quiz Order</span>
-            ) : (
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-500">Direct Order</span>
+          <p className="text-xs mt-0.5 inline-flex items-center gap-1 flex-wrap">
+            <span>Source:</span>
+            {o.is_subscription_order && (
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-teal-100 text-teal-700">Subscription</span>
             )}
+            {o.is_quiz_order ? (
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-700">Quiz Order</span>
+            ) : !o.is_subscription_order ? (
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-500">Direct Order</span>
+            ) : null}
           </p>
         </div>
         <div className="flex gap-2">
@@ -582,6 +604,9 @@ function OrderDetailPage({ order: o, adminUser, can, isSuperAdmin, onBack, onPri
           <span className={`px-3 py-1 rounded text-xs font-semibold ${STATUS_COLORS[o.payment_status] || ""}`}>{o.payment_status}</span>
         </div>
       </div>
+
+      {/* Subscription info — only for orders produced by process-subscriptions */}
+      {o.is_subscription_order && <SubscriptionInfoSection order={o} />}
 
       {/* Courier Assignment — auto-populated when the order is placed */}
       <CourierAssignmentEditor order={o} />
@@ -772,6 +797,11 @@ function OrderDetailPage({ order: o, adminUser, can, isSuperAdmin, onBack, onPri
         {(can("orders", "print_invoice") || can("fulfilment", "print_invoice")) && (
           <button onClick={onPrint} className="flex items-center gap-1 text-xs font-semibold text-forest hover:underline">
             <Printer className="w-3 h-3" /> Print Invoice
+          </button>
+        )}
+        {o.is_subscription_order && (can("orders", "print_invoice") || can("fulfilment", "print_invoice")) && (
+          <button onClick={() => printSubscriptionInvoice(o)} className="flex items-center gap-1 text-xs font-semibold text-teal-700 hover:underline">
+            <Printer className="w-3 h-3" /> Print Subscription Invoice
           </button>
         )}
         {can("orders", "cancel") && o.order_status !== "cancelled" && (
@@ -1243,4 +1273,180 @@ function InitiateReturnModal({ order: o, onClose, onSubmitted }: {
       </div>
     </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Subscription add-ons — shows a small info section inside the order detail
+// drawer and renders a branded subscription invoice for print/PDF export.
+// ---------------------------------------------------------------------------
+
+function extractFromNotes(notes: string | null | undefined, label: string): string | null {
+  if (!notes) return null;
+  const re = new RegExp(`${label}\\s*:\\s*([^\\n·]+)`, "i");
+  const m = notes.match(re);
+  return m ? m[1].trim() : null;
+}
+function extractDeliveryNumberAO(notes: string | null | undefined): string | null {
+  if (!notes) return null;
+  const m = notes.match(/Delivery\s+(\d+)\s+of\s+(\d+)/i);
+  return m ? `Delivery ${m[1]} of ${m[2]}` : null;
+}
+
+function SubscriptionInfoSection({ order }: { order: any }) {
+  const deliveryNumber = extractDeliveryNumberAO(order.notes);
+  const frequency = extractFromNotes(order.notes, "Frequency");
+  const deliveryDay = extractFromNotes(order.notes, "Delivery day") || extractFromNotes(order.notes, "Delivery Day");
+  const customerEmail = order.customer_email;
+  return (
+    <section className="bg-teal-50 border border-teal-200 rounded-xl p-4 mb-4">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h3 className="text-[10px] uppercase tracking-widest font-bold text-teal-800 flex items-center gap-1.5">
+            🔄 Subscription Delivery
+          </h3>
+          <dl className="mt-1 text-xs space-y-0.5">
+            {deliveryNumber && <div><dt className="inline text-teal-900/70">Delivery: </dt><dd className="inline font-semibold">{deliveryNumber}</dd></div>}
+            {frequency && <div><dt className="inline text-teal-900/70">Frequency: </dt><dd className="inline font-semibold">{frequency}</dd></div>}
+            {deliveryDay && <div><dt className="inline text-teal-900/70">Delivery day: </dt><dd className="inline font-semibold capitalize">{deliveryDay}</dd></div>}
+          </dl>
+        </div>
+        {customerEmail && (
+          <a
+            href={`/admin/subscriptions?email=${encodeURIComponent(customerEmail)}`}
+            className="inline-flex items-center gap-1 text-xs font-semibold text-teal-700 hover:underline"
+          >
+            View subscription →
+          </a>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/** Open a standalone window with the SubscriptionInvoice mounted and trigger print. */
+async function printSubscriptionInvoice(order: any) {
+  try {
+    const html = await buildSubscriptionInvoiceHtml(order);
+    const w = window.open("", "bm-sub-invoice", "width=900,height=1200");
+    if (!w) { toast.error("Pop-up blocked. Allow pop-ups to print the invoice."); return; }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+    // Give the doc a beat to lay out, then print.
+    w.onload = () => { w.focus(); w.print(); };
+  } catch (e: any) {
+    toast.error(e?.message || "Could not open the invoice.");
+  }
+}
+
+async function buildSubscriptionInvoiceHtml(order: any): Promise<string> {
+  // Try to look up the linked subscription for cycle_size / price_locked_date / next_charge_date.
+  let sub: any = null;
+  if (order.subscription_order_id) {
+    const { data } = await (supabase as any)
+      .from("subscription_orders")
+      .select("subscription_id, subscriptions(frequency, delivery_day, cycle_size, price_locked_date, next_charge_date)")
+      .eq("id", order.subscription_order_id)
+      .maybeSingle();
+    sub = data?.subscriptions ?? null;
+  }
+
+  const invoiceNumber = order.order_number || `SUB-${String(order.id).slice(0, 8).toUpperCase()}`;
+  const delivery = extractDeliveryNumberAO(order.notes);
+  const freq = sub?.frequency || extractFromNotes(order.notes, "Frequency") || "—";
+  const day = sub?.delivery_day || extractFromNotes(order.notes, "Delivery day") || extractFromNotes(order.notes, "Delivery Day") || "—";
+  const items: any[] = order.items || order.order_items || [];
+  const subtotal = Number(order.subtotal) || items.reduce((s, it) => s + Number(it.unit_price || 0) * Number(it.quantity || 0), 0);
+  const total = Number(order.total) || subtotal;
+  const discount = Math.max(0, subtotal - total);
+  const nairaFmt = (n: number) => `₦${Math.round(Number(n) || 0).toLocaleString("en-NG")}`;
+  const createdLong = order.created_at ? new Date(order.created_at).toLocaleDateString("en-NG", { day: "numeric", month: "long", year: "numeric" }) : "—";
+  const lockedDate = sub?.price_locked_date ? new Date(sub.price_locked_date).toLocaleDateString("en-NG", { day: "numeric", month: "long", year: "numeric" }) : null;
+  const nextDate = sub?.next_charge_date ? new Date(sub.next_charge_date).toLocaleDateString("en-NG", { day: "numeric", month: "long", year: "numeric" }) : null;
+  const esc = (s: any) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" } as any)[c]);
+
+  const rows = items.map((it, i) => `
+    <tr>
+      <td style="padding:6px 8px;border-top:1px solid #eee;color:#888">${i + 1}</td>
+      <td style="padding:6px 8px;border-top:1px solid #eee">${esc(it.product_name || "—")}</td>
+      <td style="padding:6px 8px;border-top:1px solid #eee;color:#555">${esc(it.brand_name || "—")}</td>
+      <td style="padding:6px 8px;border-top:1px solid #eee;text-align:right">${it.quantity || 0}</td>
+      <td style="padding:6px 8px;border-top:1px solid #eee;text-align:right">${nairaFmt(it.unit_price)}</td>
+      <td style="padding:6px 8px;border-top:1px solid #eee;text-align:right">${nairaFmt(Number(it.unit_price || 0) * Number(it.quantity || 0))}</td>
+    </tr>
+  `).join("");
+
+  return `<!doctype html>
+<html><head><meta charset="utf-8" /><title>Invoice ${esc(invoiceNumber)}</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", Arial, sans-serif; color: #111; margin: 0; padding: 24px; background: #fff; }
+  .wrap { max-width: 780px; margin: 0 auto; font-size: 13px; line-height: 1.45; }
+  .brand { color: #F4845F; font-weight: 900; font-size: 24px; }
+  .label { color:#666; font-size:10px; letter-spacing:0.18em; text-transform:uppercase; font-weight:700; }
+  .hdr { display:flex; justify-content:space-between; align-items:flex-start; padding-bottom:12px; border-bottom:2px solid #2D6A4F; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:10px; font-weight:700; background:#2D6A4F; color:#fff; }
+  .box { border:2px solid #2D6A4F; border-radius:8px; padding:10px 12px; background: rgba(45,106,79,0.04); min-width:260px; }
+  table { width:100%; border-collapse:collapse; font-size:12px; }
+  th { background:#f2f2f2; text-align:left; padding:6px 8px; font-size:11px; }
+  .total-row { font-weight:900; color:#2D6A4F; }
+  .pay { margin-top:14px; padding:10px 14px; border-radius:8px; background:rgba(45,106,79,0.06); font-size:12px; }
+  @media print { @page { size: A4; margin: 14mm } body { padding:0 } }
+</style></head><body>
+<div class="wrap">
+  <div class="hdr">
+    <div><div class="brand">BundledMum</div><div style="font-size:11px;color:#666">hr@bundledmum.com · Lagos, Nigeria</div></div>
+    <div style="text-align:right">
+      <div class="label" style="color:#2D6A4F">Subscription Delivery Invoice</div>
+      <div style="font-size:16px;font-weight:700;margin-top:4px">Invoice #${esc(invoiceNumber)}</div>
+      <div style="font-size:11px;color:#666">${esc(createdLong)}</div>
+      ${delivery ? `<div style="margin-top:4px"><span class="pill">${esc(delivery)}</span></div>` : ""}
+    </div>
+  </div>
+
+  <div style="display:flex;gap:14px;margin:14px 0">
+    <div style="flex:1">
+      <div class="label">Bill to</div>
+      <div style="font-weight:700">${esc(order.customer_name || "—")}</div>
+      ${order.customer_email ? `<div style="color:#555">${esc(order.customer_email)}</div>` : ""}
+      ${order.customer_phone ? `<div style="color:#555">${esc(order.customer_phone)}</div>` : ""}
+      <div style="color:#555;white-space:pre-line;margin-top:6px">${esc([order.delivery_address, order.delivery_city, order.delivery_state].filter(Boolean).join("\n"))}</div>
+    </div>
+    <div class="box">
+      <div class="label" style="color:#2D6A4F">Subscription details</div>
+      <div style="font-size:12px"><span style="color:#666">Frequency:</span> <b>${esc(freq)}</b></div>
+      <div style="font-size:12px"><span style="color:#666">Delivery Day:</span> <b>${esc(day).replace(/^./, c => c.toUpperCase())}</b></div>
+      <div style="font-size:12px"><span style="color:#666">Courier:</span> <b>${esc(order.delivery_partner || "To be assigned")}</b></div>
+      ${order.estimated_weight_kg != null ? `<div style="font-size:12px"><span style="color:#666">Est. Weight:</span> <b>${Number(order.estimated_weight_kg).toFixed(1)}kg</b></div>` : ""}
+    </div>
+  </div>
+
+  <table>
+    <thead><tr><th style="width:24px">#</th><th>Product</th><th>Brand</th><th style="text-align:right;width:50px">Qty</th><th style="text-align:right;width:90px">Unit Price</th><th style="text-align:right;width:90px">Line Total</th></tr></thead>
+    <tbody>${rows || `<tr><td colSpan="6" style="padding:12px;text-align:center;color:#888">No items.</td></tr>`}</tbody>
+  </table>
+
+  <div style="margin-top:10px;display:flex;justify-content:flex-end">
+    <table style="width:280px">
+      <tbody>
+        <tr><td style="padding:2px 0;color:#666">Subtotal</td><td style="text-align:right;padding:2px 0">${nairaFmt(subtotal)}</td></tr>
+        ${discount > 0 ? `<tr><td style="padding:2px 0;color:#666">Subscription discount</td><td style="text-align:right;padding:2px 0">−${nairaFmt(discount)}</td></tr>` : ""}
+        <tr><td style="padding:2px 0;color:#666">Delivery</td><td style="text-align:right;padding:2px 0;color:#2D6A4F;font-weight:700">FREE</td></tr>
+        <tr class="total-row"><td style="padding:6px 0;border-top:2px solid #2D6A4F">TOTAL</td><td style="text-align:right;padding:6px 0;border-top:2px solid #2D6A4F">${nairaFmt(total)}</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pay">
+    <div><span class="label">Status</span> &nbsp; <span class="pill">${esc((order.payment_status || "paid").toUpperCase())}</span></div>
+    ${sub?.cycle_size != null ? `<div style="margin-top:4px;color:#555">Payment covers ${sub.cycle_size} deliveries in this cycle.</div>` : ""}
+    ${lockedDate ? `<div style="color:#555">Prices locked at rate on ${esc(lockedDate)}.</div>` : ""}
+    ${nextDate ? `<div style="color:#555">Next delivery: ${esc(nextDate)}.</div>` : ""}
+  </div>
+
+  <div style="margin-top:22px;padding-top:8px;border-top:1px solid #eee;text-align:center;color:#777;font-size:10px">
+    <div><b style="color:#F4845F">BundledMum</b> …making being a mum easier</div>
+    <div>Thank you for subscribing. Manage your subscription at bundledmum.com/account/subscriptions</div>
+  </div>
+</div>
+</body></html>`;
 }
