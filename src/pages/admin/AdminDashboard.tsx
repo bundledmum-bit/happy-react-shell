@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
-import { Package, ClipboardList, TrendingUp, AlertTriangle, Activity, Plus, FileText, Settings, DollarSign, XCircle, RotateCcw, Clock, ShieldX } from "lucide-react";
+import { Package, ClipboardList, TrendingUp, AlertTriangle, Activity, Plus, FileText, Settings, DollarSign, XCircle, RotateCcw, ShieldX, RefreshCw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { usePermissions } from "@/hooks/useAdminPermissionsContext";
@@ -61,6 +61,20 @@ export default function AdminDashboard() {
       if (error) throw error;
       return data;
     },
+  });
+
+  // Active subscribers — replaces the old 'Pending' stat card.
+  const { data: activeSubscribers = 0 } = useQuery({
+    queryKey: ["dashboard-active-subscribers"],
+    queryFn: async () => {
+      const { count, error } = await (supabase as any)
+        .from("subscriptions")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "active");
+      if (error) return 0;
+      return count || 0;
+    },
+    staleTime: 60_000,
   });
 
   // Today's subscription deliveries — only rendered when > 0.
@@ -144,7 +158,7 @@ export default function AdminDashboard() {
     { label: "GMV", value: fmt(stats.gmv), change: stats.gmvChange, icon: DollarSign, color: "text-coral" },
     { label: "Paid Orders", value: stats.paidOrders, change: stats.paidOrdersChange, icon: ClipboardList, color: "text-forest" },
     { label: "Revenue", value: fmt(stats.revenue), change: stats.revenueChange, icon: TrendingUp, color: "text-coral" },
-    { label: "Pending", value: stats.pending, change: stats.pendingChange, icon: Clock, color: "text-yellow-600" },
+    { label: "Active Subscribers", value: activeSubscribers, change: null, icon: RefreshCw, color: "text-forest", to: "/admin/subscriptions" },
     { label: "Cancelled", value: stats.cancelled, change: stats.cancelledChange, icon: XCircle, color: "text-destructive" },
     { label: "Returned", value: stats.returned, change: stats.returnedChange, icon: RotateCcw, color: "text-orange-600" },
   ] : [];
@@ -184,20 +198,30 @@ export default function AdminDashboard() {
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          {cards.map(c => (
-            <div key={c.label} className="bg-card border border-border rounded-xl p-5">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-muted-foreground text-xs font-semibold">{c.label}</span>
-                <c.icon className={`w-4 h-4 ${c.color}`} />
-              </div>
-              <div className="text-2xl font-bold pf">{c.value}</div>
-              {c.change !== null && (
-                <div className={`text-[10px] mt-0.5 font-semibold ${c.change >= 0 ? "text-green-600" : "text-destructive"}`}>
-                  {c.change >= 0 ? "↑" : "↓"} {Math.abs(c.change).toFixed(1)}% vs prev period
+          {cards.map(c => {
+            const body = (
+              <>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-muted-foreground text-xs font-semibold">{c.label}</span>
+                  <c.icon className={`w-4 h-4 ${c.color}`} />
                 </div>
-              )}
-            </div>
-          ))}
+                <div className="text-2xl font-bold pf">{c.value}</div>
+                {c.change !== null && (
+                  <div className={`text-[10px] mt-0.5 font-semibold ${c.change >= 0 ? "text-green-600" : "text-destructive"}`}>
+                    {c.change >= 0 ? "↑" : "↓"} {Math.abs(c.change).toFixed(1)}% vs prev period
+                  </div>
+                )}
+              </>
+            );
+            const base = "bg-card border border-border rounded-xl p-5";
+            return (c as any).to ? (
+              <Link key={c.label} to={(c as any).to} className={`${base} hover:border-forest/40 transition-colors`}>
+                {body}
+              </Link>
+            ) : (
+              <div key={c.label} className={base}>{body}</div>
+            );
+          })}
         </div>
       )}
 
