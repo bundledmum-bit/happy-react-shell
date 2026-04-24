@@ -233,7 +233,7 @@ export default function SubscriptionPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FFF8F4] pb-[140px] pt-20 md:pt-24">
+    <div className="min-h-screen bg-[#FFF8F4] pb-[calc(8rem+env(safe-area-inset-bottom))] md:pb-[140px] pt-20 md:pt-24">
       {/* Hero */}
       <header className="relative px-4 md:px-8 py-8 md:py-12 text-primary-foreground" style={{ background: "linear-gradient(135deg, #2D6A4F 0%, #1E5C44 100%)" }}>
         <div className="max-w-[880px] mx-auto text-center space-y-3">
@@ -313,9 +313,10 @@ export default function SubscriptionPage() {
         </div>
       )}
 
-      {/* Sticky summary bar */}
+      {/* Sticky summary bar — sits above the mobile bottom nav on phones
+          (Home/Quiz/Shop/Cart/Account) and flush to the bottom on desktop. */}
       {summary.count > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 bg-card border-t border-border shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
+        <div className="fixed left-0 right-0 z-[95] bg-card border-t border-border shadow-[0_-4px_12px_rgba(0,0,0,0.06)] bottom-[calc(3.5rem+env(safe-area-inset-bottom))] md:bottom-0">
           <div className="max-w-[880px] mx-auto px-4 py-3 flex items-center justify-between gap-3">
             <div className="text-xs">
               <div className="font-semibold"><span className="tabular-nums">{summary.count}</span> item{summary.count === 1 ? "" : "s"} · {fmtN(summary.total)} / delivery</div>
@@ -330,7 +331,6 @@ export default function SubscriptionPage() {
               Continue <ArrowRight className="w-4 h-4" />
             </button>
           </div>
-          <div className="h-[env(safe-area-inset-bottom)]" />
         </div>
       )}
     </div>

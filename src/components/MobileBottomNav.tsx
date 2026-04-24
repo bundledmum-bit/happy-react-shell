@@ -36,8 +36,7 @@ export default function MobileBottomNav() {
   if (
     pathname === "/checkout" ||
     pathname === "/order-confirmed" ||
-    pathname.startsWith("/quiz") ||
-    pathname.startsWith("/subscriptions")
+    pathname.startsWith("/quiz")
   ) return null;
 
   return (
