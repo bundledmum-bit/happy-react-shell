@@ -232,7 +232,6 @@ interface SubscriptionSettingRow {
   value_type: "boolean" | "number" | "text" | string;
   label: string | null;
   description: string | null;
-  display_order: number | null;
 }
 
 const FREQUENCY_KEYS = ["weekly_enabled", "biweekly_enabled", "monthly_enabled"] as const;
@@ -264,8 +263,18 @@ const GROUP_LAYOUT: Array<{
     keys: ["discount_pct", "free_delivery_enabled", "min_order_value_naira"],
   },
   {
+    title: "Renewal & Retries",
+    description: "Control how failed subscription renewals are retried before pausing.",
+    keys: ["renewal_max_retries", "renewal_retry_days"],
+  },
+  {
     title: "Customer Controls",
-    keys: ["delivery_day_changeable", "edit_window_days"],
+    keys: ["max_active_subscriptions_per_email", "delivery_day_changeable", "edit_window_days"],
+  },
+  {
+    title: "Upsell & Loyalty",
+    description: "Cross-sell and loyalty touchpoints on subscription emails.",
+    keys: ["upsell_recommendations_enabled", "upsell_max_recommendations", "anniversary_email_every_n_cycles"],
   },
   {
     title: "Subscription Page Content",
@@ -293,17 +302,28 @@ const KEY_META: Record<string, { label?: string; description?: string; prefix?: 
   subscription_badge_label:   { label: "Product Page Badge Text",     description: "Text shown on the Subscribe button on individual product pages", maxLength: 40 },
   subscription_page_heading:  { label: "Subscription Page Main Heading", description: "The large headline on the /subscriptions product selection page", maxLength: 80 },
   subscription_page_subtext:  { label: "Subscription Page Subheading", description: "The subtitle shown below the heading", maxLength: 200, rows: 3 },
+  renewal_max_retries:        { label: "Max renewal retries",          description: "How many times we retry a failed renewal charge before pausing the subscription", suffix: "attempts", min: 0, max: 10 },
+  renewal_retry_days:         { label: "Days between retries",         description: "Delay in days between consecutive renewal retry attempts", suffix: "days", min: 0, max: 30 },
+  max_active_subscriptions_per_email: { label: "Max active subscriptions per customer", description: "How many live subscriptions a single customer email can have at once", min: 1, max: 50 },
+  upsell_recommendations_enabled: { label: "Show Upsell Recommendations", description: "Include product recommendations in subscription emails" },
+  upsell_max_recommendations: { label: "Max recommendations per email", description: "Cap the number of suggested products shown in upsell emails", suffix: "products", min: 0, max: 12 },
+  anniversary_email_every_n_cycles: { label: "Anniversary email cadence", description: "Send an anniversary email every N completed cycles (0 turns this off)", suffix: "deliveries (0 = off)", min: 0, max: 24 },
 };
 
 function AdminSubscriptionsTab() {
   const qc = useQueryClient();
-  const { data: rows = [], isLoading } = useQuery({
+  const { data: rows = [], isLoading, error: loadError } = useQuery({
     queryKey: ["subscription-settings-admin"],
     queryFn: async () => {
+      // NB: the table has no `display_order` column — selecting it errors the
+      // whole query and causes the tab to render 'No rows found'. Select the
+      // real columns only, and surface any error to the caller.
       const { data, error } = await (supabase as any)
         .from("subscription_settings")
-        .select("id, setting_key, setting_value, value_type, label, description, display_order")
-        .order("setting_key");
+        .select("id, setting_key, setting_value, value_type, label, description")
+        .order("setting_key", { ascending: true });
+      // eslint-disable-next-line no-console
+      console.log("subscription_settings result:", data, error);
       if (error) throw error;
       return (data || []) as SubscriptionSettingRow[];
     },
@@ -342,8 +362,29 @@ function AdminSubscriptionsTab() {
     return true;
   };
 
-  if (isLoading) return <div className="text-center py-10 text-text-med">Loading…</div>;
-  if (rows.length === 0) return <div className="text-center py-10 text-text-med">No subscription settings rows found.</div>;
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center gap-2 py-12 text-sm text-text-med">
+        <span className="w-4 h-4 rounded-full border-2 border-forest/30 border-t-forest animate-spin" />
+        Loading subscription settings…
+      </div>
+    );
+  }
+  if (loadError) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 text-sm">
+        <div className="font-semibold mb-1">Couldn't load subscription settings.</div>
+        <div className="text-xs break-words">{(loadError as any)?.message || String(loadError)}</div>
+      </div>
+    );
+  }
+  if (rows.length === 0) {
+    return (
+      <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-lg p-4 text-sm">
+        No subscription settings rows found. The <code className="bg-white/60 px-1 py-0.5 rounded">subscription_settings</code> table returned zero rows for this session — check that the admin has read access and that the table has been seeded.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
