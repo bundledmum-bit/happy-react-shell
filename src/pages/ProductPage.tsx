@@ -12,6 +12,7 @@ import QtyControl from "@/components/QtyControl";
 import { Star, ShoppingBag, ChevronLeft, ZoomIn, X, Share2, Truck, Shield, Package, Repeat } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSubscriptionSettings } from "@/hooks/useSubscription";
+import { track as pixelTrack, moneyPayload as pixelMoney } from "@/lib/metaPixel";
 
 function useProduct(slug: string) {
   return useQuery({
@@ -68,6 +69,12 @@ export default function ProductPage() {
   useEffect(() => {
     if (product) {
       trackEvent("product_page_viewed", { product_id: product.id, product_name: product.name });
+      const defaultBrand = product.brands?.[0];
+      pixelTrack("ViewContent", pixelMoney(Number(defaultBrand?.price ?? 0), {
+        content_ids: [product.id],
+        content_name: product.name,
+        content_type: "product",
+      }));
     }
   }, [product?.id]);
 

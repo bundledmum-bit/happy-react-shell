@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { useFaqItems, useSiteSettings } from "@/hooks/useSupabaseData";
+import { track as pixelTrack } from "@/lib/metaPixel";
 
 export default function ContactPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -46,7 +47,7 @@ export default function ContactPage() {
                 <div className="w-[52px] h-[52px] rounded-full flex items-center justify-center text-2xl mx-auto mb-3" style={{ background: ct.bg }}>{ct.icon}</div>
                 <h3 className="font-bold text-[15px] mb-1">{ct.t}</h3>
                 <p className="text-text-med text-[13px] mb-3.5">{ct.sub}</p>
-                <a href={ct.href} target="_blank" rel="noopener noreferrer" className="inline-block rounded-pill px-5 py-2.5 text-[13px] font-semibold text-primary-foreground font-body" style={{ background: ct.c }}>{ct.cta}</a>
+                <a href={ct.href} onClick={() => pixelTrack("Contact", { content_name: ct.t })} target="_blank" rel="noopener noreferrer" className="inline-block rounded-pill px-5 py-2.5 text-[13px] font-semibold text-primary-foreground font-body" style={{ background: ct.c }}>{ct.cta}</a>
               </div>
             ))}
           </div>

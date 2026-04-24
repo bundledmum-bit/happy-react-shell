@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSiteSettings } from "@/hooks/useSupabaseData";
 import ReferralSection from "@/components/ReferralSection";
 import ShareModal from "@/components/ShareModal";
+import { trackOnce as pixelTrackOnce, moneyPayload as pixelMoney } from "@/lib/metaPixel";
 
 export default function OrderConfirmedPage() {
   const [searchParams] = useSearchParams();
@@ -51,6 +52,13 @@ export default function OrderConfirmedPage() {
   useEffect(() => {
     if (order) {
       try { localStorage.setItem("bm-has-ordered", "1"); } catch { /* ignore */ }
+      // Meta Pixel Purchase — once per order number (via sessionStorage).
+      const items = (order.order_items as any[]) || [];
+      pixelTrackOnce(`purchase_${order.order_number || order.id}`, "Purchase", pixelMoney(Number(order.total) || 0, {
+        content_ids: items.map(i => i.product_id).filter(Boolean),
+        num_items: items.reduce((s, i) => s + (Number(i.quantity) || 0), 0),
+        contents: items.map(i => ({ id: i.product_id, quantity: Number(i.quantity) || 0 })),
+      }));
     }
   }, [order]);
 

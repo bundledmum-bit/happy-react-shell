@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, Check } from "lucide-react";
 import BMLoadingAnimation from "@/components/BMLoadingAnimation";
+import { track as pixelTrack } from "@/lib/metaPixel";
 
 const NG_PHONE = /^(?:\+234|0)(70|71|80|81|90|91|80|81|70|90)\d{8}$/;
 
@@ -93,6 +94,7 @@ export default function ComingSoonPage() {
       if (error) throw error;
       setDone(true);
       setPhone("");
+      pixelTrack("Lead", { lead_source: "coming_soon_waitlist", content_name: "Site-wide coming-soon waitlist" });
     } catch (err: any) {
       toast.error(err?.message || "Something went wrong. Please try again.");
     } finally {

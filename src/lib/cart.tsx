@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { trackEvent } from "@/lib/analytics";
+import { track as pixelTrack, moneyPayload as pixelMoney } from "@/lib/metaPixel";
 
 export interface CartItem {
   id: string | number;
@@ -61,6 +62,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       return [...prev, { ...product, _key: key, qty: 1 }];
     });
     trackEvent("cart_updated", { action: "add", product_id: product.id, product_name: product.name });
+    // Meta Pixel AddToCart — one event per click (qty increment adds one item).
+    pixelTrack("AddToCart", pixelMoney(Number(product.selectedBrand?.price ?? product.price ?? 0), {
+      content_ids: [product.id],
+      content_name: product.name,
+      content_type: "product",
+      contents: [{ id: product.id, quantity: 1 }],
+    }));
     setJustAdded(true);
     setTimeout(() => setJustAdded(false), 400);
   }, []);

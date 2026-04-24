@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Mail, Loader2, ArrowLeft } from "lucide-react";
 import bmLogoGreen from "@/assets/logos/BM-LOGO-GREEN.svg";
 import { useCustomerAuth } from "@/hooks/useCustomerAuth";
+import { track as pixelTrack, trackOnce as pixelTrackOnce } from "@/lib/metaPixel";
 
 /**
  * Passwordless email magic-link login.
@@ -29,6 +30,9 @@ export default function AccountLoginPage() {
   // If already logged in, bounce straight back to returnTo.
   useEffect(() => {
     if (isLoggedIn) {
+      // Meta Pixel CompleteRegistration — one fire per browser even if the
+      // user opens /account/login multiple times.
+      pixelTrackOnce("account_register", "CompleteRegistration", { status: "success" });
       navigate(returnTo, { replace: true });
     }
   }, [isLoggedIn, navigate, returnTo]);
@@ -62,6 +66,7 @@ export default function AccountLoginPage() {
         options: { emailRedirectTo: redirect },
       });
       if (error) throw error;
+      pixelTrack("Lead", { lead_source: "account_login_magic_link", content_name: "Account sign-in magic link requested" });
       setStage("sent");
       setCooldown(30);
       toast.success("Login link sent — check your inbox.");

@@ -6,6 +6,7 @@ import ProductDetailDrawer from "@/components/ProductDetailDrawer";
 import { useAllProducts, useSiteSettings } from "@/hooks/useSupabaseData";
 import { useProductCategories } from "@/hooks/useProductCategories";
 import type { Product, Brand } from "@/lib/supabaseAdapters";
+import { track as pixelTrack } from "@/lib/metaPixel";
 import ProductImage from "@/components/ProductImage";
 import SpendMoreBanner from "@/components/SpendMoreBanner";
 import QtyControl from "@/components/QtyControl";
@@ -162,6 +163,14 @@ export default function ShopPage() {
   const priceMaxF = searchParams.get("priceMax") ? Number(searchParams.get("priceMax")) : null;
   const inStockOnlyF = searchParams.get("inStock") === "1";
   const [search, setSearch] = useState(searchParams.get("q") || "");
+
+  // Meta Pixel Search — debounced so each keystroke doesn't spam fbq.
+  useEffect(() => {
+    const q = search.trim();
+    if (!q) return;
+    const t = setTimeout(() => { pixelTrack("Search", { search_string: q }); }, 800);
+    return () => clearTimeout(t);
+  }, [search]);
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);

@@ -10,6 +10,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useSubscriptionSettings } from "@/hooks/useSubscription";
 import { useSiteSettings, useTestimonials } from "@/hooks/useSupabaseData";
+import { track as pixelTrack } from "@/lib/metaPixel";
 import bmLogoCoral from "@/assets/logos/BM-LOGO-CORAL.svg";
 
 const GREEN = "#2D6A4F";
@@ -479,6 +480,7 @@ function ComingSoonInline() {
         .insert({ whatsapp_number: normalized });
       if (error) throw error;
       setSent(true);
+      pixelTrack("Lead", { lead_source: "subscribe_waitlist", content_name: "Subscriptions coming-soon waitlist" });
       toast.success("You're on the list — we'll WhatsApp you the moment subscriptions open.");
     } catch (e: any) {
       toast.error(e?.message || "Couldn't add you to the list.");

@@ -8,6 +8,7 @@ import type { Brand, Product } from "@/lib/supabaseAdapters";
 import { useAllProducts, useSiteSettings } from "@/hooks/useSupabaseData";
 import { useQuizQuestions } from "@/hooks/useQuizConfig";
 import { supabase } from "@/integrations/supabase/client";
+import { track as pixelTrack } from "@/lib/metaPixel";
 import OptionalTextStep from "@/components/quiz/OptionalTextStep";
 import ResultProductCard from "@/components/quiz/ResultProductCard";
 import ProductDetailDrawer from "@/components/ProductDetailDrawer";
@@ -858,10 +859,16 @@ export default function HomeQuiz({
     // Captured into local state only. No DB write — the spec just forwards
     // the value alongside the other answers into the results screen.
     setWhatsapp(val || null);
+    if (val) pixelTrack("Lead", { lead_source: "quiz_whatsapp", content_name: "Quiz WhatsApp capture" });
     setScreen("results");
   };
 
   const handleSubmitFromQuiz = () => {
+    pixelTrack("CustomizeProduct", {
+      budget,
+      categories: Array.from(categories),
+      gender: gender || "unknown",
+    });
     if (onSubmit && gender) {
       // Host-controlled: let the host page handle transition (e.g. Home
       // routing to /quiz before showing WhatsApp).

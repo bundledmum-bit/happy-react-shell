@@ -8,6 +8,7 @@ import type { BundleItem } from "@/lib/supabaseAdapters";
 import ProductImage from "@/components/ProductImage";
 import BundleItemSwapPopup from "@/components/BundleItemSwapPopup";
 import ShareModal from "@/components/ShareModal";
+import { track as pixelTrack, moneyPayload as pixelMoney } from "@/lib/metaPixel";
 
 export default function BundleDetailPage() {
   const { bundleId } = useParams();
@@ -45,7 +46,14 @@ export default function BundleDetailPage() {
   }, [bundle]);
 
   useEffect(() => {
-    if (bundle) document.title = `${bundle.name} | BundledMum`;
+    if (bundle) {
+      document.title = `${bundle.name} | BundledMum`;
+      pixelTrack("ViewContent", pixelMoney(Number((bundle as any).price ?? (bundle as any).total_price ?? 0), {
+        content_ids: [bundle.id],
+        content_name: bundle.name,
+        content_type: "product_group",
+      }));
+    }
   }, [bundle]);
 
   if (isLoading) {

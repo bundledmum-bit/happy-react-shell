@@ -6,6 +6,7 @@ import {
   fmtN, WEEKDAY_LABEL, RESULT_KEY,
   type SubscriptionDraftItem,
 } from "@/hooks/useSubscription";
+import { trackOnce as pixelTrackOnce, moneyPayload as pixelMoney } from "@/lib/metaPixel";
 
 interface ResultPayload {
   success: boolean;
@@ -42,8 +43,28 @@ export default function SubscriptionThankYou() {
     try {
       const raw = sessionStorage.getItem(RESULT_KEY);
       if (raw) {
-        setData(JSON.parse(raw));
+        const parsed = JSON.parse(raw);
+        setData(parsed);
         sessionStorage.removeItem(RESULT_KEY);
+
+        // Meta Pixel Subscribe + StartTrial — once per subscription_id.
+        const subId: string | undefined = parsed?.subscription_id;
+        const totalPaid = Number(parsed?.total_paid) || 0;
+        const perCycle = Number(parsed?.total_per_delivery) || 0;
+        const cycleSize = Number(parsed?.cycle_size) || 0;
+        const predictedLtv = totalPaid > 0 ? totalPaid : perCycle * cycleSize;
+        if (subId) {
+          pixelTrackOnce(`subscribe_${subId}`, "Subscribe", pixelMoney(totalPaid, {
+            predicted_ltv: Math.round(predictedLtv),
+            subscription_id: subId,
+            content_type: "subscription",
+            num_items: cycleSize,
+          }));
+          pixelTrackOnce(`trial_${subId}`, "StartTrial", pixelMoney(totalPaid, {
+            predicted_ltv: Math.round(predictedLtv),
+            subscription_id: subId,
+          }));
+        }
       }
     } catch {}
     setHydrated(true);

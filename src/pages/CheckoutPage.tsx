@@ -11,6 +11,7 @@ import { useDeliverableStates } from "@/hooks/useDeliverableStates";
 import { useSiteSettings, useAllProducts } from "@/hooks/useSupabaseData";
 import { useSpendThresholds, getSpendPrompt } from "@/hooks/useSpendThresholds";
 import { trackEvent, getSessionId, getAttribution, markSessionConverted } from "@/lib/analytics";
+import { track as pixelTrack, moneyPayload as pixelMoney } from "@/lib/metaPixel";
 import { syncOrderToSheets } from "@/lib/googleSheets";
 
 interface FormData {
@@ -93,6 +94,23 @@ export default function CheckoutPage() {
 
   // Once deliverable states load, set the form's state to the first
   // active state if the current form.state isn't in the list.
+  // Meta Pixel InitiateCheckout — fires once on mount when the cart
+  // has contents. Guarded via sessionStorage so refreshes don't double-
+  // count.
+  useEffect(() => {
+    if (totalItems === 0) return;
+    try {
+      const k = "bm_meta_initiate_checkout_fired";
+      if (sessionStorage.getItem(k)) return;
+      sessionStorage.setItem(k, "1");
+    } catch { /* ignore */ }
+    pixelTrack("InitiateCheckout", pixelMoney(subtotal, {
+      num_items: totalItems,
+      content_ids: cart.map((c: any) => c.id),
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalItems > 0]);
+
   useEffect(() => {
     if (!deliverableStates || deliverableStates.length === 0) return;
     const stillValid = deliverableStates.some(s => s.name === form.state);
@@ -790,6 +808,7 @@ export default function CheckoutPage() {
       const PaystackPop = (await import("@paystack/inline-js")).default;
       const popup = new PaystackPop();
       const paystackKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || "pk_test_ee6db593cdee9f92b4114a9b15f4a2a72e71ee20";
+      pixelTrack("AddPaymentInfo", pixelMoney(grand));
       popup.newTransaction({
         key: paystackKey,
         email: form.email, amount: grand * 100, currency: "NGN",

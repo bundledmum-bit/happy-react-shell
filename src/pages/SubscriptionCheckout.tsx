@@ -11,6 +11,7 @@ import {
   WEEKDAY_LABEL, nextDeliveryDate, projectCycleEnd,
   RESULT_KEY, type Frequency, type SubscriptionDraft,
 } from "@/hooks/useSubscription";
+import { track as pixelTrack, moneyPayload as pixelMoney } from "@/lib/metaPixel";
 
 const inputCls = "w-full border border-input rounded-lg px-3 py-2 text-sm bg-background";
 const labelCls = "text-[10px] uppercase tracking-widest font-semibold text-text-med block mb-1";
@@ -42,6 +43,25 @@ export default function SubscriptionCheckout() {
       navigate("/subscriptions", { replace: true });
     }
   }, [hydrated, draft, navigate]);
+
+  // Meta Pixel InitiateCheckout + Schedule once the draft loads.
+  useEffect(() => {
+    if (!hydrated || !draft || draft.items.length === 0) return;
+    try {
+      const k = "bm_meta_sub_initiate_fired";
+      if (sessionStorage.getItem(k)) return;
+      sessionStorage.setItem(k, "1");
+    } catch { /* ignore */ }
+    pixelTrack("InitiateCheckout", pixelMoney(draft.total_per_delivery, {
+      num_items: draft.items.reduce((s, i) => s + i.quantity, 0),
+      content_ids: draft.items.map(i => i.product_id),
+      content_type: "subscription",
+    }));
+    pixelTrack("Schedule", {
+      delivery_day: draft.delivery_day,
+      frequency: draft.frequency,
+    });
+  }, [hydrated, draft?.items.length]);
 
   // Deliverable states for the dropdown. The column is `name` (not
   // `state_name`); order by display_order then name for a stable list.
@@ -137,6 +157,8 @@ export default function SubscriptionCheckout() {
       const paystackKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || "pk_test_ee6db593cdee9f92b4114a9b15f4a2a72e71ee20";
       const reference = `sub_${Date.now()}`;
       const amountKobo = Math.max(0, firstPayment) * 100;
+
+      pixelTrack("AddPaymentInfo", pixelMoney(firstPayment, { content_type: "subscription" }));
 
       popup.newTransaction({
         key: paystackKey,
