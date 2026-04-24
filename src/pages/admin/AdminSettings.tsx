@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -217,8 +217,12 @@ export default function AdminSettings() {
   );
 }
 
+
 // ---------------------------------------------------------------------------
-// Subscription settings tab
+// Subscription settings tab — grouped layout, save-on-change, validation.
+// The subscription_settings table ships with label / description / value_type
+// per row. All values are strings in the DB; we cast on read and serialise
+// back with String(v) on write.
 // ---------------------------------------------------------------------------
 
 interface SubscriptionSettingRow {
@@ -231,21 +235,65 @@ interface SubscriptionSettingRow {
   display_order: number | null;
 }
 
-const SETTING_ORDER = [
-  "subscription_enabled",
-  "weekly_enabled",
-  "biweekly_enabled",
-  "monthly_enabled",
-  "discount_pct",
-  "free_delivery_enabled",
-  "min_order_value_naira",
-  "min_deliveries",
-  "edit_window_days",
-  "delivery_day_changeable",
-  "subscription_badge_label",
-  "subscription_page_heading",
-  "subscription_page_subtext",
+const FREQUENCY_KEYS = ["weekly_enabled", "biweekly_enabled", "monthly_enabled"] as const;
+
+const GROUP_LAYOUT: Array<{
+  title: string;
+  description?: string;
+  keys: string[];
+  note?: string;
+}> = [
+  {
+    title: "Subscription Programme",
+    keys: ["subscription_enabled"],
+  },
+  {
+    title: "Available Frequencies",
+    description: "Control which delivery frequencies customers can choose",
+    keys: ["weekly_enabled", "biweekly_enabled", "monthly_enabled"],
+    note: "At least one frequency must be enabled.",
+  },
+  {
+    title: "Delivery Cycle Limits",
+    description: "Set minimum and maximum deliveries per cycle",
+    keys: ["min_deliveries", "max_deliveries_weekly", "max_deliveries_biweekly", "max_deliveries_monthly"],
+  },
+  {
+    title: "Pricing & Discounts",
+    description: "Control subscription pricing. Changes apply to new subscriptions and cycle renewals.",
+    keys: ["discount_pct", "free_delivery_enabled", "min_order_value_naira"],
+  },
+  {
+    title: "Customer Controls",
+    keys: ["delivery_day_changeable", "edit_window_days"],
+  },
+  {
+    title: "Subscription Page Content",
+    description: "Control what text appears on the subscription landing page",
+    keys: ["subscription_badge_label", "subscription_page_heading", "subscription_page_subtext"],
+  },
 ];
+
+/** Per-key overrides for labels / descriptions / number affixes that either
+ *  don't exist in the DB or need more specific copy than the stored value. */
+const KEY_META: Record<string, { label?: string; description?: string; prefix?: string; suffix?: string; min?: number; max?: number; maxLength?: number; rows?: number; note?: string }> = {
+  subscription_enabled:       { label: "Subscriptions Enabled", description: "Master toggle — turns subscriptions on or off site-wide" },
+  weekly_enabled:             { label: "Weekly (every 7 days)" },
+  biweekly_enabled:           { label: "Every 2 Weeks (every 14 days)" },
+  monthly_enabled:            { label: "Monthly (every 30 days)" },
+  min_deliveries:             { label: "Minimum deliveries per cycle", description: "Minimum number of deliveries per paid cycle (default: 4)", suffix: "deliveries", min: 1, max: 52 },
+  max_deliveries_weekly:      { label: "Max deliveries — Weekly",     description: "Max weekly deliveries per cycle (~3 months = 13)", suffix: "deliveries", min: 4, max: 52 },
+  max_deliveries_biweekly:    { label: "Max deliveries — Every 2 Weeks", description: "Max biweekly deliveries per cycle (~3 months = 7)", suffix: "deliveries", min: 4, max: 26 },
+  max_deliveries_monthly:     { label: "Max deliveries — Monthly",    description: "Max monthly deliveries per cycle (6 months = 6)", suffix: "deliveries", min: 4, max: 12 },
+  discount_pct:               { label: "Subscription Discount",       description: "Percentage discount applied to all subscription orders", suffix: "%", min: 0, max: 50 },
+  free_delivery_enabled:      { label: "Free Delivery on Subscriptions", description: "Waive all delivery fees for subscription orders" },
+  min_order_value_naira:      { label: "Minimum Box Value (₦)",       description: "Minimum total value for a subscription order to be processed", prefix: "₦", min: 0 },
+  delivery_day_changeable:    { label: "Allow Customers to Change Delivery Day", description: "Let subscribers change their delivery day from their account" },
+  edit_window_days:           { label: "Edit Window Before Each Delivery", description: "How many days before each delivery customers can still edit their box", suffix: "days", min: 0, max: 7, note: "Set to 0 to disallow all edits" },
+  subscription_badge_label:   { label: "Product Page Badge Text",     description: "Text shown on the Subscribe button on individual product pages", maxLength: 40 },
+  subscription_page_heading:  { label: "Subscription Page Main Heading", description: "The large headline on the /subscriptions product selection page", maxLength: 80 },
+  subscription_page_subtext:  { label: "Subscription Page Subheading", description: "The subtitle shown below the heading", maxLength: 200, rows: 3 },
+};
 
 function AdminSubscriptionsTab() {
   const qc = useQueryClient();
@@ -253,15 +301,16 @@ function AdminSubscriptionsTab() {
     queryKey: ["subscription-settings-admin"],
     queryFn: async () => {
       const { data, error } = await (supabase as any)
-        .from("subscription_settings").select("*").order("setting_key");
+        .from("subscription_settings")
+        .select("id, setting_key, setting_value, value_type, label, description, display_order")
+        .order("setting_key");
       if (error) throw error;
       return (data || []) as SubscriptionSettingRow[];
     },
   });
 
-  const bySetting = Object.fromEntries(rows.map(r => [r.setting_key, r]));
-  const master = bySetting.subscription_enabled;
-  const masterOn = master?.setting_value === "true";
+  const bySetting: Record<string, SubscriptionSettingRow> = Object.fromEntries(rows.map(r => [r.setting_key, r]));
+  const masterOn = bySetting.subscription_enabled?.setting_value === "true";
 
   const save = useMutation({
     mutationFn: async (payload: { key: string; value: string }) => {
@@ -274,125 +323,225 @@ function AdminSubscriptionsTab() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["subscription-settings-admin"] });
       qc.invalidateQueries({ queryKey: ["subscription-settings"] });
+      toast.success("Saved ✓", { duration: 2000 });
     },
     onError: (e: any) => toast.error(e?.message || "Save failed"),
   });
 
+  const saveSetting = (key: string, value: string | number | boolean) =>
+    save.mutate({ key, value: String(value) });
+
+  /** Guard: refuse to turn off the last frequency. */
+  const guardFrequencyToggle = (key: string, nextValue: boolean): boolean => {
+    if (nextValue) return true;
+    const stillOn = FREQUENCY_KEYS.filter(k => k !== key && bySetting[k]?.setting_value === "true").length;
+    if (stillOn === 0) {
+      toast.error("At least one frequency must remain enabled.");
+      return false;
+    }
+    return true;
+  };
+
   if (isLoading) return <div className="text-center py-10 text-text-med">Loading…</div>;
   if (rows.length === 0) return <div className="text-center py-10 text-text-med">No subscription settings rows found.</div>;
 
-  const orderedKeys = SETTING_ORDER.filter(k => bySetting[k]);
-  const remainingKeys = rows.map(r => r.setting_key).filter(k => !SETTING_ORDER.includes(k));
-  const allKeys = [...orderedKeys, ...remainingKeys];
-
   return (
     <div className="space-y-4">
-      <div className="bg-card border border-border rounded-xl p-5 space-y-5">
-        <header>
-          <h2 className="font-bold text-sm">Subscription settings</h2>
-          <p className="text-xs text-text-light mt-0.5">Toggle subscriptions on, set the discount, and configure delivery frequencies.</p>
-        </header>
+      {GROUP_LAYOUT.map(group => {
+        const isMasterGroup = group.keys.includes("subscription_enabled");
+        const dimmed = !isMasterGroup && !masterOn;
 
-        {allKeys.map((key, i) => {
-          const row = bySetting[key];
-          if (!row) return null;
-          const isMaster = key === "subscription_enabled";
-          const dimmed = !isMaster && !masterOn;
-          return (
-            <div key={row.id} className={`${i > 0 ? "pt-4 border-t border-border" : ""} ${dimmed ? "opacity-50" : ""}`}>
-              <SettingRow row={row} onSave={(v) => save.mutate({ key: row.setting_key, value: v })} disabled={dimmed} />
+        // When subscription_enabled is OFF, collapse every non-master group
+        // into a single grey placeholder so the page stays scannable.
+        if (dimmed) return null;
+
+        return (
+          <section key={group.title} className="bg-card border border-border rounded-xl p-5 space-y-4">
+            <header>
+              <h2 className="font-bold text-sm">{group.title}</h2>
+              {group.description && <p className="text-xs text-text-light mt-0.5">{group.description}</p>}
+            </header>
+
+            <div className="space-y-4">
+              {group.keys.map(key => {
+                const row = bySetting[key];
+                if (!row) return null;
+                return (
+                  <SettingRow
+                    key={row.id}
+                    row={row}
+                    onSave={(v) => saveSetting(key, v)}
+                    onFrequencyGuard={FREQUENCY_KEYS.includes(key as any) ? (next) => guardFrequencyToggle(key, next) : undefined}
+                  />
+                );
+              })}
             </div>
-          );
-        })}
-      </div>
 
-      <SubscribableProductsPanel />
-    </div>
-  );
-}
+            {group.note && <p className="text-[11px] text-text-light">{group.note}</p>}
+          </section>
+        );
+      })}
 
-function SettingRow({ row, onSave, disabled }: { row: SubscriptionSettingRow; onSave: (v: string) => void; disabled?: boolean }) {
-  const [local, setLocal] = useState(row.setting_value);
-
-  useEffect(() => { setLocal(row.setting_value); }, [row.setting_value]);
-
-  const label = row.label || row.setting_key.replace(/_/g, " ");
-  const description = row.description;
-
-  const commit = (v: string) => {
-    setLocal(v);
-    onSave(v);
-  };
-
-  if (row.value_type === "boolean") {
-    const on = local === "true";
-    return (
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="text-sm font-semibold capitalize">{label}</div>
-          {description && <p className="text-[11px] text-text-light mt-0.5">{description}</p>}
-        </div>
-        <label className={`relative inline-flex items-center ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}>
-          <input type="checkbox" className="peer sr-only" checked={on} disabled={disabled}
-            onChange={e => commit(e.target.checked ? "true" : "false")} />
-          <div className="peer h-6 w-11 rounded-full bg-muted after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-all peer-checked:bg-forest peer-checked:after:translate-x-5" />
-        </label>
-      </div>
-    );
-  }
-
-  if (row.value_type === "number") {
-    const suffix = /_pct$/.test(row.setting_key) ? "%" : /_days$/.test(row.setting_key) ? "days" : null;
-    const prefix = /_naira$/.test(row.setting_key) ? "₦" : null;
-    return (
-      <div>
-        <div className="flex items-center justify-between mb-1">
-          <label className="text-sm font-semibold capitalize">{label}</label>
-        </div>
-        {description && <p className="text-[11px] text-text-light mb-1.5">{description}</p>}
-        <div className="inline-flex items-center gap-1 rounded-lg border border-input bg-background px-3 py-2 max-w-xs">
-          {prefix && <span className="text-text-light text-sm">{prefix}</span>}
-          <input
-            type="number"
-            disabled={disabled}
-            value={local}
-            onChange={e => setLocal(e.target.value)}
-            onBlur={() => { if (local !== row.setting_value) commit(local); }}
-            className="w-full bg-transparent text-sm outline-none"
-          />
-          {suffix && <span className="text-text-light text-sm">{suffix}</span>}
-        </div>
-      </div>
-    );
-  }
-
-  // text / textarea
-  const long = row.setting_key.endsWith("_subtext");
-  return (
-    <div>
-      <label className="text-sm font-semibold capitalize">{label}</label>
-      {description && <p className="text-[11px] text-text-light mt-0.5 mb-1.5">{description}</p>}
-      {long ? (
-        <textarea
-          rows={2} disabled={disabled}
-          value={local} onChange={e => setLocal(e.target.value)}
-          onBlur={() => { if (local !== row.setting_value) commit(local); }}
-          className="w-full rounded-lg border border-input px-3 py-2 text-sm bg-background"
-        />
-      ) : (
-        <input
-          type="text" disabled={disabled}
-          value={local} onChange={e => setLocal(e.target.value)}
-          onBlur={() => { if (local !== row.setting_value) commit(local); }}
-          className="w-full rounded-lg border border-input px-3 py-2 text-sm bg-background"
-        />
+      {!masterOn && (
+        <section className="bg-muted/40 border border-border rounded-xl p-6 text-center text-sm text-text-light">
+          Subscriptions are currently disabled. Turn on the <b className="text-foreground">Subscriptions Enabled</b> toggle above to configure the rest.
+        </section>
       )}
+
+      <SubscribableProductsPanel disabled={!masterOn} />
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Subscribable products panel
+// Individual setting row — renders based on value_type
+// ---------------------------------------------------------------------------
+
+function SettingRow({
+  row, onSave, onFrequencyGuard,
+}: {
+  row: SubscriptionSettingRow;
+  onSave: (v: string | number | boolean) => void;
+  onFrequencyGuard?: (next: boolean) => boolean;
+}) {
+  const [local, setLocal] = useState(row.setting_value);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => { setLocal(row.setting_value); }, [row.setting_value]);
+
+  const meta = KEY_META[row.setting_key] || {};
+  const label = meta.label || row.label || row.setting_key.replace(/_/g, " ");
+  const description = meta.description ?? row.description;
+
+  const commit = (value: string | number | boolean) => {
+    try { onSave(value); setErr(null); }
+    catch (e: any) { setErr(e?.message || "Save failed"); }
+  };
+
+  // --- Boolean toggle ---
+  if (row.value_type === "boolean") {
+    const on = local === "true";
+    const toggle = (nextOn: boolean) => {
+      if (onFrequencyGuard && !onFrequencyGuard(nextOn)) return;
+      setLocal(nextOn ? "true" : "false");
+      commit(nextOn);
+    };
+    return (
+      <div>
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="text-sm font-semibold">{label}</div>
+            {description && <p className="text-[11px] text-text-light mt-0.5">{description}</p>}
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+            <input type="checkbox" className="peer sr-only" checked={on}
+              onChange={e => toggle(e.target.checked)} />
+            <div className="peer h-6 w-11 rounded-full bg-muted after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-all peer-checked:bg-forest peer-checked:after:translate-x-5" />
+          </label>
+        </div>
+        {row.setting_key === "free_delivery_enabled" && !on && (
+          <p className="mt-2 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            Turning off free delivery affects all active subscribers from their next cycle. Existing paid cycles are not affected.
+          </p>
+        )}
+        {err && <p className="text-[11px] text-destructive mt-1">{err}</p>}
+      </div>
+    );
+  }
+
+  // --- Number input ---
+  if (row.value_type === "number") {
+    const prefix = meta.prefix ?? (/_naira$/.test(row.setting_key) ? "₦" : null);
+    const suffix = meta.suffix ?? (/_pct$/.test(row.setting_key) ? "%" : /_days$/.test(row.setting_key) ? "days" : null);
+    const min = meta.min;
+    const max = meta.max;
+    const showDiscountPreview = row.setting_key === "discount_pct";
+    const pct = parseFloat(local);
+    const preview = showDiscountPreview && isFinite(pct)
+      ? Math.max(0, Math.round(10000 * (1 - pct / 100)))
+      : null;
+
+    const commitNumber = () => {
+      const n = parseFloat(local);
+      if (!isFinite(n)) { setErr("Enter a number."); return; }
+      if (min != null && n < min) { setErr(`Minimum is ${min}.`); return; }
+      if (max != null && n > max) { setErr(`Maximum is ${max}.`); return; }
+      if (String(n) !== row.setting_value) commit(n);
+      else setErr(null);
+    };
+
+    return (
+      <div>
+        <div className="text-sm font-semibold">{label}</div>
+        {description && <p className="text-[11px] text-text-light mt-0.5 mb-1.5">{description}</p>}
+        <div className="inline-flex items-center gap-1 rounded-lg border border-input bg-background px-3 py-2 max-w-xs">
+          {prefix && <span className="text-text-light text-sm">{prefix}</span>}
+          <input
+            type="number"
+            min={min} max={max}
+            value={local}
+            onChange={e => setLocal(e.target.value)}
+            onBlur={commitNumber}
+            className="w-full bg-transparent text-sm outline-none text-right tabular-nums"
+          />
+          {suffix && <span className="text-text-light text-sm">{suffix}</span>}
+        </div>
+        {meta.note && <p className="text-[10px] text-text-light mt-1">{meta.note}</p>}
+        {preview != null && (
+          <p className="text-[11px] text-text-med mt-1.5">A ₦10,000 order costs subscribers <b className="text-foreground">₦{preview.toLocaleString("en-NG")}</b>.</p>
+        )}
+        {err && <p className="text-[11px] text-destructive mt-1">{err}</p>}
+      </div>
+    );
+  }
+
+  // --- Text / textarea ---
+  const isBadge = row.setting_key === "subscription_badge_label";
+  const long = row.setting_key === "subscription_page_subtext";
+  const maxLength = meta.maxLength;
+
+  const commitText = () => {
+    if (local !== row.setting_value) commit(local);
+  };
+
+  return (
+    <div>
+      <div className="text-sm font-semibold">{label}</div>
+      {description && <p className="text-[11px] text-text-light mt-0.5 mb-1.5">{description}</p>}
+      {long ? (
+        <textarea
+          rows={meta.rows ?? 3}
+          maxLength={maxLength}
+          value={local}
+          onChange={e => setLocal(e.target.value)}
+          onBlur={commitText}
+          className="w-full rounded-lg border border-input px-3 py-2 text-sm bg-background"
+        />
+      ) : (
+        <input
+          type="text"
+          maxLength={maxLength}
+          value={local}
+          onChange={e => setLocal(e.target.value)}
+          onBlur={commitText}
+          className="w-full rounded-lg border border-input px-3 py-2 text-sm bg-background"
+        />
+      )}
+      {maxLength && <p className="text-[10px] text-text-light mt-1 text-right">{local.length} / {maxLength}</p>}
+      {isBadge && (
+        <div className="mt-2">
+          <span className="inline-flex items-center gap-1.5 bg-forest/10 text-forest border border-forest/30 rounded-pill px-3 py-1 text-xs font-semibold">
+            🔄 {local || "Subscribe & Save"}
+          </span>
+        </div>
+      )}
+      {err && <p className="text-[11px] text-destructive mt-1">{err}</p>}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Subscribable products panel — per-category toggle + select all / none
 // ---------------------------------------------------------------------------
 
 interface SubscribableProductRow {
@@ -402,16 +551,17 @@ interface SubscribableProductRow {
   subcategory: string | null;
   is_subscribable: boolean;
   is_consumable: boolean;
+  is_active?: boolean;
 }
 
-function SubscribableProductsPanel() {
+function SubscribableProductsPanel({ disabled }: { disabled?: boolean }) {
   const qc = useQueryClient();
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["admin-subscribable-products"],
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("products")
-        .select("id, name, category, subcategory, is_subscribable, is_consumable")
+        .select("id, name, category, subcategory, is_subscribable, is_consumable, is_active")
         .eq("is_consumable", true)
         .eq("is_active", true)
         .order("category")
@@ -426,10 +576,19 @@ function SubscribableProductsPanel() {
     if (error) { toast.error(error.message); return; }
     qc.invalidateQueries({ queryKey: ["admin-subscribable-products"] });
     qc.invalidateQueries({ queryKey: ["subscribable-products"] });
-    toast.success(`Product ${value ? "added to" : "removed from"} subscriptions`);
+    toast.success("Saved ✓", { duration: 2000 });
   };
 
-  const grouped = (() => {
+  const bulkSet = async (ids: string[], value: boolean) => {
+    if (ids.length === 0) return;
+    const { error } = await (supabase as any).from("products").update({ is_subscribable: value }).in("id", ids);
+    if (error) { toast.error(error.message); return; }
+    qc.invalidateQueries({ queryKey: ["admin-subscribable-products"] });
+    qc.invalidateQueries({ queryKey: ["subscribable-products"] });
+    toast.success(`${ids.length} product${ids.length === 1 ? "" : "s"} updated`, { duration: 2000 });
+  };
+
+  const grouped = useMemo(() => {
     const m = new Map<string, SubscribableProductRow[]>();
     for (const p of products) {
       const c = (p.category || "other").toLowerCase();
@@ -437,41 +596,66 @@ function SubscribableProductsPanel() {
       m.get(c)!.push(p);
     }
     return m;
-  })();
+  }, [products]);
 
   if (isLoading) return null;
 
   return (
-    <div className="bg-card border border-border rounded-xl p-5 space-y-3">
+    <div className={`bg-card border border-border rounded-xl p-5 space-y-3 ${disabled ? "opacity-60 pointer-events-none" : ""}`}>
       <header>
-        <h2 className="font-bold text-sm">Products available for subscription</h2>
-        <p className="text-xs text-text-light mt-0.5">Only consumable products can be subscribed to. Toggle which ones appear on the subscription page.</p>
+        <h2 className="font-bold text-sm">Products Available for Subscription</h2>
+        <p className="text-xs text-text-light mt-0.5">Only consumable products can be subscribed to. Toggle individual products on or off below.</p>
       </header>
 
       {products.length === 0 && <p className="text-xs text-text-light">No consumable products yet.</p>}
 
-      {Array.from(grouped.entries()).map(([cat, items]) => (
-        <section key={cat}>
-          <h3 className="text-[10px] uppercase tracking-widest font-bold text-text-med mb-2">
-            {cat === "mum" ? "For Mum" : cat === "baby" ? "For Baby" : cat}
-          </h3>
-          <div className="divide-y divide-border/60">
-            {items.map(p => (
-              <div key={p.id} className="flex items-center justify-between py-2 gap-3">
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold truncate">{p.name}</div>
-                  <div className="text-[10px] text-text-light">{p.subcategory || "—"}</div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
-                  <input type="checkbox" className="peer sr-only" checked={p.is_subscribable}
-                    onChange={e => setSubscribable(p.id, e.target.checked)} />
-                  <div className="peer h-5 w-9 rounded-full bg-muted after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow after:transition-all peer-checked:bg-forest peer-checked:after:translate-x-4" />
-                </label>
+      {Array.from(grouped.entries()).map(([cat, items]) => {
+        const enabledCount = items.filter(p => p.is_subscribable).length;
+        const allOn = enabledCount === items.length;
+        const allOff = enabledCount === 0;
+        const title = cat === "mum" ? "For Mum" : cat === "baby" ? "For Baby" : cat.charAt(0).toUpperCase() + cat.slice(1);
+        return (
+          <section key={cat} className="border-t border-border pt-3 first:border-t-0 first:pt-0">
+            <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+              <h3 className="text-[11px] uppercase tracking-widest font-bold text-text-med">
+                {title} <span className="text-text-light ml-1">{enabledCount} of {items.length} subscribable</span>
+              </h3>
+              <div className="flex items-center gap-2 text-[11px] font-semibold">
+                <button
+                  onClick={() => bulkSet(items.filter(p => !p.is_subscribable).map(p => p.id), true)}
+                  disabled={allOn}
+                  className="text-forest hover:underline disabled:text-text-light disabled:no-underline"
+                >
+                  Select all
+                </button>
+                <span className="text-text-light">·</span>
+                <button
+                  onClick={() => bulkSet(items.filter(p => p.is_subscribable).map(p => p.id), false)}
+                  disabled={allOff}
+                  className="text-destructive hover:underline disabled:text-text-light disabled:no-underline"
+                >
+                  Deselect all
+                </button>
               </div>
-            ))}
-          </div>
-        </section>
-      ))}
+            </div>
+            <div className="divide-y divide-border/60">
+              {items.map(p => (
+                <div key={p.id} className="flex items-center justify-between py-2 gap-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold truncate">{p.name}</div>
+                    <div className="text-[10px] text-text-light">{p.subcategory || "—"}</div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                    <input type="checkbox" className="peer sr-only" checked={p.is_subscribable}
+                      onChange={e => setSubscribable(p.id, e.target.checked)} />
+                    <div className="peer h-5 w-9 rounded-full bg-muted after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow after:transition-all peer-checked:bg-forest peer-checked:after:translate-x-4" />
+                  </label>
+                </div>
+              ))}
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 }
