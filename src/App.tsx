@@ -19,6 +19,7 @@ import { subscribeToAllChanges } from "@/lib/realtime";
 import { usePageTracking } from "@/hooks/usePageTracking";
 
 import HomePage from "@/pages/HomePage";
+import SubscribeLanding from "@/pages/SubscribeLanding";
 import SubscriptionPage from "@/pages/SubscriptionPage";
 import SubscriptionCheckout from "@/pages/SubscriptionCheckout";
 import SubscriptionThankYou from "@/pages/SubscriptionThankYou";
@@ -173,6 +174,7 @@ function StorefrontShell() {
           <Route path="/bundles" element={<BundlesPage />} />
           <Route path="/bundles/:bundleId" element={<BundleDetailPage />} />
           <Route path="/shop" element={<ShopPage />} />
+          <Route path="/subscribe" element={<SubscribeLanding />} />
           <Route path="/subscriptions" element={<SubscriptionPage />} />
           <Route path="/subscriptions/checkout" element={<SubscriptionCheckout />} />
           <Route path="/subscriptions/thank-you" element={<SubscriptionThankYou />} />

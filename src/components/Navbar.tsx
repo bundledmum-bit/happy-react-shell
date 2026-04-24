@@ -36,6 +36,7 @@ export default function Navbar({ topOffset = 0 }: { topOffset?: number }) {
     { to: "/shop", label: "All Shop" },
     { to: "/shop?tab=baby", label: "Baby Shop" },
     { to: "/shop?tab=mum", label: "Mum Shop" },
+    { to: "/subscribe", label: "Subscribe 🔄" },
     { to: "/push-gifts", label: "Push Gifts 💝" },
     { to: "/about", label: "Our Story" },
     { to: "/contact", label: "Contact" },
