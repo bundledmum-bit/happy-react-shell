@@ -162,6 +162,21 @@ function StorefrontShell() {
   const { height: legacyBarHeight, dismissed, setDismissed } = useAnnouncementHeight();
   const engineBarHeight = useAnnouncementEngineBarHeight();
   const totalBarHeight = legacyBarHeight + engineBarHeight;
+
+  // The announcement bars resolve their height after the initial render,
+  // and the spacer below transitions from 0 → totalBarHeight over 300ms.
+  // Browser scroll-anchoring drifts the viewport downward as the spacer
+  // grows, so re-pin the page to the top whenever totalBarHeight changes.
+  // Only re-snap if the customer hasn't already scrolled away from the
+  // top — we never want to yank a reading customer back up.
+  useEffect(() => {
+    if (totalBarHeight === 0) return;
+    const t = setTimeout(() => {
+      if (window.scrollY < 120) window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    }, 350);
+    return () => clearTimeout(t);
+  }, [totalBarHeight]);
+
   return (
     <>
       <SkipNav />

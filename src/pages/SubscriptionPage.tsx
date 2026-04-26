@@ -100,7 +100,10 @@ export default function SubscriptionPage() {
   const [selected, setSelected] = useState<Record<string, Selection>>({});
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  // Auto-tick ?product=ID once products arrive.
+  // Auto-tick ?product=ID once products arrive. The page intentionally
+  // does NOT scroll to the matched product — opening centered mid-list
+  // looks like the page loaded at the bottom. The product still appears
+  // ticked when the customer scrolls to it normally.
   useEffect(() => {
     if (!autoProductId || products.length === 0) return;
     const target = products.find(p => p.id === autoProductId);
@@ -118,10 +121,6 @@ export default function SubscriptionPage() {
         quantity: 1,
         frequency: globalFrequency,
       },
-    });
-    requestAnimationFrame(() => {
-      const el = cardRefs.current[target.id];
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoProductId, products.length]);

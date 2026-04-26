@@ -2,4 +2,13 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 
+// Take control of scroll restoration. With the default ('auto'), the browser
+// restores the previous scroll position on back/forward — the customer sees
+// a flash of mid-page content before our ScrollToTop component snaps them
+// back to the top. Setting 'manual' keeps that responsibility entirely in
+// the app so every navigation lands cleanly at the top.
+if (typeof window !== "undefined" && "scrollRestoration" in window.history) {
+  window.history.scrollRestoration = "manual";
+}
+
 createRoot(document.getElementById("root")!).render(<App />);
