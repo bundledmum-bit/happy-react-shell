@@ -14,9 +14,12 @@ import ShopFilterDrawer from "@/components/ShopFilterDrawer";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { Filter, ArrowUpDown, Check } from "lucide-react";
 
-function ProductCard({ product, defaultBudget = "standard", forceBrand, onAdd, onViewDetail, deliveryText }: { product: Product; defaultBudget?: string; forceBrand?: string; onAdd: (item: any) => void; onViewDetail: () => void; deliveryText?: string }) {
+function ProductCard({ product, defaultBudget = "standard", forceBrand, selectedBrandId, matchBadge, onAdd, onViewDetail, deliveryText }: { product: Product; defaultBudget?: string; forceBrand?: string; selectedBrandId?: string; matchBadge?: string; onAdd: (item: any) => void; onViewDetail: () => void; deliveryText?: string }) {
   const defaultBrand = getBrandForBudget(product, defaultBudget);
-  const [selectedBrand, setSelectedBrand] = useState<Brand>(defaultBrand);
+  const seedBrand = selectedBrandId
+    ? (product.brands.find(b => b.id === selectedBrandId) || defaultBrand)
+    : defaultBrand;
+  const [selectedBrand, setSelectedBrand] = useState<Brand>(seedBrand);
   const [selectedSize, setSelectedSize] = useState(product.sizes?.[Math.floor((product.sizes?.length || 0) / 2)] || "");
   const [selectedColor, setSelectedColor] = useState("");
   const { cart, setCart, updateQty } = useCart();
@@ -34,12 +37,16 @@ function ProductCard({ product, defaultBudget = "standard", forceBrand, onAdd, o
   const showSale = selectedBrand.compareAtPrice && selectedBrand.compareAtPrice > selectedBrand.price;
 
   useEffect(() => {
+    if (selectedBrandId) {
+      const match = product.brands.find(b => b.id === selectedBrandId);
+      if (match) { setSelectedBrand(match); return; }
+    }
     if (forceBrand) {
       const match = product.brands.find(b => b.label.toLowerCase() === forceBrand.toLowerCase());
       if (match) { setSelectedBrand(match); return; }
     }
     setSelectedBrand(defaultBrand);
-  }, [defaultBudget, forceBrand]);
+  }, [defaultBudget, forceBrand, selectedBrandId]);
 
   const handleAdd = () => {
     if (isOutOfStock) return;
@@ -71,6 +78,9 @@ function ProductCard({ product, defaultBudget = "standard", forceBrand, onAdd, o
         onClick={() => { trackView(); onViewDetail(); }}>
         {product.badge && (
           <div className="absolute top-2.5 left-2.5 bg-coral text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill uppercase tracking-wide z-10">{product.badge}</div>
+        )}
+        {matchBadge && (
+          <div className="absolute bottom-2.5 left-2.5 bg-emerald-100 text-emerald-700 text-[9px] font-bold px-2 py-0.5 rounded-pill uppercase tracking-wide z-10 border border-emerald-300">{matchBadge}</div>
         )}
         {showSale && (
           <div className="absolute top-2.5 right-2.5 bg-destructive text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill z-10">
@@ -224,21 +234,23 @@ export default function ShopPage() {
     return counts;
   }, [allProducts, filteredCategories, tab]);
 
-  // Apply all filters + dedup by name
-  const filtered = useMemo(() => {
+  // Apply all filters + dedup by name. Search hits are emitted as
+  // { product, brandId?, isBrandMatch }: a name match emits one hit
+  // with no brandId; a brand-name match emits one hit per matching
+  // brand with that brand pre-selected. When the same product surfaces
+  // both ways, the brand-match version wins.
+  type Hit = { product: Product; brandId?: string; isBrandMatch: boolean };
+  const filtered = useMemo<Hit[]>(() => {
     let raw = (allProducts || []);
     if (tab === "baby") raw = raw.filter(p => p.category === "baby");
     else if (tab === "mum") raw = raw.filter(p => p.category === "mum");
     else if (tab === "push-gift") raw = raw.filter(p => p.category === "push-gift");
 
-    if (search) raw = raw.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
     if (categoryF) raw = raw.filter(p => p.subcategory === categoryF);
     if (brandF) raw = raw.filter(p => p.brands.some(b => b.label.toLowerCase() === brandF.toLowerCase()));
 
-    // In-stock only — keep products that have at least one in-stock brand.
     if (inStockOnlyF) raw = raw.filter(p => p.brands.some(b => b.inStock));
 
-    // Price range — keep products where at least one brand price is in range.
     if (priceMinF != null || priceMaxF != null) {
       raw = raw.filter(p => p.brands.some(b => {
         const pr = Number(b.price) || 0;
@@ -248,24 +260,54 @@ export default function ShopPage() {
       }));
     }
 
-    // Dedup by product name
-    const seen = new Set<string>();
-    raw = raw.filter(p => {
-      const key = p.name.toLowerCase().trim();
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+    // Build hits.
+    let hits: Hit[];
+    if (search) {
+      const q = search.toLowerCase().trim();
+      const byProduct = new Map<string, Hit>();   // product_id → name-match hit
+      const byProductBrand = new Map<string, Hit>(); // product_id|brand_id → brand-match hit
+      for (const p of raw) {
+        const nameMatches = p.name.toLowerCase().includes(q);
+        const matchedBrands = p.brands.filter(b =>
+          b.inStock !== false && (b.label || "").toLowerCase().includes(q),
+        );
+        if (matchedBrands.length > 0) {
+          // Brand-match hits — one per matching brand. Takes priority.
+          for (const b of matchedBrands) {
+            byProductBrand.set(`${p.id}|${b.id}`, { product: p, brandId: b.id, isBrandMatch: true });
+          }
+        } else if (nameMatches) {
+          // Plain product-name match.
+          byProduct.set(p.id, { product: p, isBrandMatch: false });
+        }
+      }
+      hits = [...byProductBrand.values(), ...byProduct.values()];
+    } else {
+      // No search — emit one hit per product, dedup by name.
+      const seen = new Set<string>();
+      hits = [];
+      for (const p of raw) {
+        const key = p.name.toLowerCase().trim();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        hits.push({ product: p, isBrandMatch: false });
+      }
+    }
 
-    let sorted = [...raw];
-    // Accept both the legacy URL keys (price-low / price-high) and the
-    // canonical DB keys (price_asc / price_desc / name_asc / newest).
-    if (sortBy === "price-low" || sortBy === "price_asc") sorted.sort((a, b) => Math.min(...a.brands.map(br => br.price)) - Math.min(...b.brands.map(br => br.price)));
-    if (sortBy === "price-high" || sortBy === "price_desc") sorted.sort((a, b) => Math.min(...b.brands.map(br => br.price)) - Math.min(...a.brands.map(br => br.price)));
-    if (sortBy === "rating") sorted.sort((a, b) => b.rating - a.rating);
-    if (sortBy === "name_asc") sorted.sort((a, b) => a.name.localeCompare(b.name));
-    if (sortBy === "newest") sorted.sort((a: any, b: any) => (b.created_at || "").localeCompare(a.created_at || ""));
-    return sorted;
+    // Sort.
+    const priceOf = (h: Hit) => {
+      if (h.brandId) {
+        const b = h.product.brands.find(x => x.id === h.brandId);
+        if (b) return Number(b.price) || 0;
+      }
+      return Math.min(...h.product.brands.map(br => Number(br.price) || 0));
+    };
+    if (sortBy === "price-low"  || sortBy === "price_asc")  hits.sort((a, b) => priceOf(a) - priceOf(b));
+    if (sortBy === "price-high" || sortBy === "price_desc") hits.sort((a, b) => priceOf(b) - priceOf(a));
+    if (sortBy === "rating")    hits.sort((a, b) => b.product.rating - a.product.rating);
+    if (sortBy === "name_asc")  hits.sort((a, b) => a.product.name.localeCompare(b.product.name));
+    if (sortBy === "newest")    hits.sort((a: any, b: any) => ((b.product as any).created_at || "").localeCompare((a.product as any).created_at || ""));
+    return hits;
   }, [allProducts, tab, search, categoryF, brandF, sortBy, inStockOnlyF, priceMinF, priceMaxF]);
 
   const visibleProducts = filtered.slice(0, visibleCount);
@@ -553,15 +595,17 @@ export default function ShopPage() {
         ) : (
           <>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5 mt-4">
-              {visibleProducts.map(p => (
+              {visibleProducts.map(hit => (
                 <ProductCard
-                  key={p.id}
-                  product={p}
+                  key={`${hit.product.id}${hit.brandId ? `-${hit.brandId}` : ""}`}
+                  product={hit.product}
                   defaultBudget={!budgetF || budgetF === "all" ? "standard" : budgetF}
                   forceBrand={brandF || undefined}
+                  selectedBrandId={hit.brandId}
+                  matchBadge={hit.isBrandMatch ? "Brand match" : undefined}
                   deliveryText={deliveryText}
                   onAdd={item => { addToCart(item); toast.success(`✓ ${item.name} added to cart`, { action: { label: "View Cart →", onClick: () => window.location.href = "/cart" } }); }}
-                  onViewDetail={() => setDetailProduct(p)}
+                  onViewDetail={() => setDetailProduct(hit.product)}
                 />
               ))}
             </div>
