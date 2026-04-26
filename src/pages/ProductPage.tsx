@@ -513,7 +513,9 @@ function ProductPageSkeleton() {
 // ---------------------------------------------------------------------------
 function SubscribeAndSaveBadge({ productId, isSubscribable }: { productId?: string; isSubscribable: boolean }) {
   const { data: settings } = useSubscriptionSettings();
-  if (!isSubscribable || !settings?.subscription_enabled) return null;
+  // Default-hidden: only render once we've confirmed the programme is on.
+  // While the settings query is loading, the badge stays out.
+  if (!isSubscribable || settings?.subscription_enabled !== true) return null;
   return (
     <div className="bg-forest/5 border border-forest/20 rounded-card px-4 py-3 mb-6 flex items-center gap-3">
       <Repeat className="w-5 h-5 text-forest flex-shrink-0" />

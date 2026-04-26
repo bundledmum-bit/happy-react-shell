@@ -8,6 +8,7 @@ import logoGreen from "@/assets/logos/BM-LOGO-GREEN.svg";
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { useSiteSettings } from "@/hooks/useSupabaseData";
+import { useSubscriptionSettings } from "@/hooks/useSubscription";
 
 export default function Navbar({ topOffset = 0 }: { topOffset?: number }) {
   const [scrolled, setScrolled] = useState(false);
@@ -16,7 +17,12 @@ export default function Navbar({ topOffset = 0 }: { topOffset?: number }) {
   const { isLoggedIn } = useCustomerAuth();
   const location = useLocation();
   const { data: settings } = useSiteSettings();
+  const { data: subSettings } = useSubscriptionSettings();
   const contactEmail = settings?.contact_email || "";
+  // Default-hidden: only show the Subscribe link when we've confirmed
+  // the programme is enabled. While the settings query loads, the link
+  // stays out so it can't flash on then disappear.
+  const showSubscribe = subSettings?.subscription_enabled === true;
 
   const isHome = location.pathname === "/";
 
@@ -36,7 +42,7 @@ export default function Navbar({ topOffset = 0 }: { topOffset?: number }) {
     { to: "/shop", label: "All Shop" },
     { to: "/shop?tab=baby", label: "Baby Shop" },
     { to: "/shop?tab=mum", label: "Mum Shop" },
-    { to: "/subscribe", label: "Subscribe 🔄" },
+    ...(showSubscribe ? [{ to: "/subscribe", label: "Subscribe 🔄" }] : []),
     { to: "/push-gifts", label: "Push Gifts 💝" },
   ];
 
