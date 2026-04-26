@@ -136,7 +136,7 @@ function PageTracker({ children }: { children: React.ReactNode }) {
  * design — they're mounted as siblings of <StorefrontShell />.
  */
 function ComingSoonGate({ children }: { children: React.ReactNode }) {
-  const { data: flags } = useComingSoonFlags();
+  const { data: flags, isLoading: flagsLoading } = useComingSoonFlags();
   const { isAdmin, loading: adminLoading } = useAdmin();
   const { ready: previewReady, valid: previewValid } = usePreviewToken();
   const location = useLocation();
@@ -144,9 +144,12 @@ function ComingSoonGate({ children }: { children: React.ReactNode }) {
   // Don't redirect the coming-soon page itself
   if (location.pathname === "/coming-soon") return <>{children}</>;
 
-  // While auth OR preview-token validation is still resolving, render nothing
-  // to avoid a flash redirect on people arriving via a preview link.
-  if (adminLoading || !previewReady) return null;
+  // Wait for ALL inputs (the flags themselves, the admin auth state, and
+  // the preview-token validation) before deciding what to render. Without
+  // this, the storefront paints for a frame and then yanks the customer
+  // to /coming-soon — they see a flash of the live site before the
+  // redirect fires.
+  if (flagsLoading || adminLoading || !previewReady) return null;
 
   const shouldRedirect =
     flags?.enabled === true &&
