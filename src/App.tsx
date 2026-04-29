@@ -21,6 +21,7 @@ import { usePageTracking } from "@/hooks/usePageTracking";
 
 import HomePage from "@/pages/HomePage";
 import SubscribeLanding from "@/pages/SubscribeLanding";
+import PaymentReceivedPage from "@/pages/PaymentReceivedPage";
 import SubscriptionPage from "@/pages/SubscriptionPage";
 import SubscriptionCheckout from "@/pages/SubscriptionCheckout";
 import SubscriptionThankYou from "@/pages/SubscriptionThankYou";
@@ -201,6 +202,7 @@ function StorefrontShell() {
           <Route path="/cart" element={<CartPage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
           <Route path="/order-confirmed" element={<OrderConfirmedPage />} />
+          <Route path="/payment-received" element={<PaymentReceivedPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
