@@ -82,7 +82,6 @@ export default function PaymentReceivedPage() {
               We've received <b className="text-white">₦{Math.round(amount).toLocaleString("en-NG")}</b>.
             </p>
           )}
-          {!amount && <p className="text-sm md:text-base text-white/85">Your payment has been confirmed by Paystack.</p>}
         </div>
       </header>
 
