@@ -113,6 +113,15 @@ const queryClient = new QueryClient({
       refetchOnWindowFocus: true,
     },
   },
+  mutationCache: new MutationCache({
+    onError: (error: any) => {
+      // Surface silent mutation failures (RLS denials, validation errors, etc.)
+      // Per-mutation onError handlers still run in addition to this.
+      console.error("[mutation error]", error);
+      const msg = error?.message || error?.error_description || "Something went wrong";
+      sonnerToast.error(msg);
+    },
+  }),
 });
 
 function RealtimeProvider({ children }: { children: React.ReactNode }) {
