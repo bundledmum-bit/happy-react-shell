@@ -1606,6 +1606,7 @@ export type Database = {
           created_at: string | null
           delay_hours: number | null
           description: string | null
+          email_provider: string
           html_body: string
           id: string
           is_active: boolean | null
@@ -1624,6 +1625,7 @@ export type Database = {
           created_at?: string | null
           delay_hours?: number | null
           description?: string | null
+          email_provider?: string
           html_body: string
           id?: string
           is_active?: boolean | null
@@ -1642,6 +1644,7 @@ export type Database = {
           created_at?: string | null
           delay_hours?: number | null
           description?: string | null
+          email_provider?: string
           html_body?: string
           id?: string
           is_active?: boolean | null
@@ -3760,6 +3763,7 @@ export type Database = {
           id: string
           is_bundle_order: boolean | null
           is_quiz_order: boolean | null
+          is_subscription_order: boolean
           landing_page: string | null
           order_number: string | null
           order_status: string | null
@@ -3783,6 +3787,7 @@ export type Database = {
           spend_discount_amount: number | null
           spend_discount_id: string | null
           spend_discount_percent: number | null
+          subscription_order_id: string | null
           subtotal: number
           total: number
           tracking_number: string | null
@@ -3829,6 +3834,7 @@ export type Database = {
           id?: string
           is_bundle_order?: boolean | null
           is_quiz_order?: boolean | null
+          is_subscription_order?: boolean
           landing_page?: string | null
           order_number?: string | null
           order_status?: string | null
@@ -3852,6 +3858,7 @@ export type Database = {
           spend_discount_amount?: number | null
           spend_discount_id?: string | null
           spend_discount_percent?: number | null
+          subscription_order_id?: string | null
           subtotal: number
           total: number
           tracking_number?: string | null
@@ -3898,6 +3905,7 @@ export type Database = {
           id?: string
           is_bundle_order?: boolean | null
           is_quiz_order?: boolean | null
+          is_subscription_order?: boolean
           landing_page?: string | null
           order_number?: string | null
           order_status?: string | null
@@ -3921,6 +3929,7 @@ export type Database = {
           spend_discount_amount?: number | null
           spend_discount_id?: string | null
           spend_discount_percent?: number | null
+          subscription_order_id?: string | null
           subtotal?: number
           total?: number
           tracking_number?: string | null
@@ -3945,6 +3954,13 @@ export type Database = {
             columns: ["coupon_id"]
             isOneToOne: false
             referencedRelation: "coupons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_subscription_order_id_fkey"
+            columns: ["subscription_order_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_orders"
             referencedColumns: ["id"]
           },
         ]
@@ -5708,6 +5724,8 @@ export type Database = {
           cancellation_reason: string | null
           cancellation_requested_at: string | null
           cancelled_at: string | null
+          consent_confirmed_at: string | null
+          consent_ip: string | null
           created_at: string | null
           customer_email: string
           customer_id: string | null
@@ -5717,7 +5735,7 @@ export type Database = {
           deliveries_remaining: number
           delivery_address: string
           delivery_city: string
-          delivery_day: string | null
+          delivery_day: string
           delivery_state: string
           discount_pct: number
           edit_deadline: string | null
@@ -5726,9 +5744,11 @@ export type Database = {
           frequency_days: number
           id: string
           last_fulfilled_at: string | null
+          last_renewal_error: string | null
           max_deliveries: number
           min_cycles: number
           next_charge_date: string
+          next_retry_date: string | null
           next_shipment_date: string | null
           notes: string | null
           paused_until: string | null
@@ -5738,8 +5758,10 @@ export type Database = {
           paystack_customer_code: string | null
           paystack_email_token: string | null
           paystack_plan_code: string | null
+          paystack_reference: string | null
           paystack_subscription_code: string | null
           price_locked_date: string
+          renewal_retry_count: number
           start_date: string
           status: string
           total_cycles: number
@@ -5751,6 +5773,8 @@ export type Database = {
           cancellation_reason?: string | null
           cancellation_requested_at?: string | null
           cancelled_at?: string | null
+          consent_confirmed_at?: string | null
+          consent_ip?: string | null
           created_at?: string | null
           customer_email: string
           customer_id?: string | null
@@ -5760,7 +5784,7 @@ export type Database = {
           deliveries_remaining?: number
           delivery_address: string
           delivery_city: string
-          delivery_day?: string | null
+          delivery_day: string
           delivery_state?: string
           discount_pct?: number
           edit_deadline?: string | null
@@ -5769,9 +5793,11 @@ export type Database = {
           frequency_days?: number
           id?: string
           last_fulfilled_at?: string | null
+          last_renewal_error?: string | null
           max_deliveries?: number
           min_cycles?: number
           next_charge_date: string
+          next_retry_date?: string | null
           next_shipment_date?: string | null
           notes?: string | null
           paused_until?: string | null
@@ -5781,8 +5807,10 @@ export type Database = {
           paystack_customer_code?: string | null
           paystack_email_token?: string | null
           paystack_plan_code?: string | null
+          paystack_reference?: string | null
           paystack_subscription_code?: string | null
           price_locked_date?: string
+          renewal_retry_count?: number
           start_date?: string
           status?: string
           total_cycles?: number
@@ -5794,6 +5822,8 @@ export type Database = {
           cancellation_reason?: string | null
           cancellation_requested_at?: string | null
           cancelled_at?: string | null
+          consent_confirmed_at?: string | null
+          consent_ip?: string | null
           created_at?: string | null
           customer_email?: string
           customer_id?: string | null
@@ -5803,7 +5833,7 @@ export type Database = {
           deliveries_remaining?: number
           delivery_address?: string
           delivery_city?: string
-          delivery_day?: string | null
+          delivery_day?: string
           delivery_state?: string
           discount_pct?: number
           edit_deadline?: string | null
@@ -5812,9 +5842,11 @@ export type Database = {
           frequency_days?: number
           id?: string
           last_fulfilled_at?: string | null
+          last_renewal_error?: string | null
           max_deliveries?: number
           min_cycles?: number
           next_charge_date?: string
+          next_retry_date?: string | null
           next_shipment_date?: string | null
           notes?: string | null
           paused_until?: string | null
@@ -5824,8 +5856,10 @@ export type Database = {
           paystack_customer_code?: string | null
           paystack_email_token?: string | null
           paystack_plan_code?: string | null
+          paystack_reference?: string | null
           paystack_subscription_code?: string | null
           price_locked_date?: string
+          renewal_retry_count?: number
           start_date?: string
           status?: string
           total_cycles?: number
