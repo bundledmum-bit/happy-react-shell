@@ -1,5 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
+const onErr = (label: string) => (err: any) => {
+  console.error(`[finance] ${label} failed:`, err);
+  toast.error(`${label} failed: ${err?.message || "Unknown error"}`);
+};
+const onOk = (label: string) => () => toast.success(label);
 
 // -----------------------------------------------------------------------------
 // Types
