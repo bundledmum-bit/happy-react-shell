@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient, MutationCache } from "@tanstack/react-query";
+import { toast as sonnerToast } from "sonner";
 import { BrowserRouter, Route, Routes, Navigate, useLocation } from "react-router-dom";
 import { useComingSoonFlags } from "@/hooks/useComingSoon";
 import { usePreviewToken } from "@/hooks/usePreviewToken";
@@ -112,6 +113,15 @@ const queryClient = new QueryClient({
       refetchOnWindowFocus: true,
     },
   },
+  mutationCache: new MutationCache({
+    onError: (error: any) => {
+      // Surface silent mutation failures (RLS denials, validation errors, etc.)
+      // Per-mutation onError handlers still run in addition to this.
+      console.error("[mutation error]", error);
+      const msg = error?.message || error?.error_description || "Something went wrong";
+      sonnerToast.error(msg);
+    },
+  }),
 });
 
 function RealtimeProvider({ children }: { children: React.ReactNode }) {
