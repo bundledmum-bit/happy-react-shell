@@ -407,15 +407,14 @@ export function useAddExpense() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (e: Partial<Expense> & { amount: number; expense_date: string; description: string }) => {
-      // period_month / period_year are auto-populated by a DB trigger from
-      // expense_date, so we don't send them.
       const payload: any = { ...e };
       delete payload.period_month;
       delete payload.period_year;
       const { error } = await (supabase as any).from("finance_expenses").insert(payload);
       if (error) throw error;
     },
-    onSuccess: () => invalidateFinance(qc),
+    onSuccess: () => { invalidateFinance(qc); onOk("Expense saved")(); },
+    onError: onErr("Save expense"),
   });
 }
 
@@ -423,14 +422,14 @@ export function useUpdateExpense() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (e: Partial<Expense> & { id: string }) => {
-      // period_month / period_year auto-populated by trigger from expense_date.
       const payload: any = { ...e, updated_at: new Date().toISOString() };
       delete payload.period_month;
       delete payload.period_year;
       const { error } = await (supabase as any).from("finance_expenses").update(payload).eq("id", e.id);
       if (error) throw error;
     },
-    onSuccess: () => invalidateFinance(qc),
+    onSuccess: () => { invalidateFinance(qc); onOk("Expense updated")(); },
+    onError: onErr("Update expense"),
   });
 }
 
@@ -441,7 +440,8 @@ export function useDeleteExpense() {
       const { error } = await (supabase as any).from("finance_expenses").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => invalidateFinance(qc),
+    onSuccess: () => { invalidateFinance(qc); onOk("Expense deleted")(); },
+    onError: onErr("Delete expense"),
   });
 }
 
@@ -459,7 +459,8 @@ export function useAddCogs() {
       const { error } = await (supabase as any).from("finance_cogs").insert(payload);
       if (error) throw error;
     },
-    onSuccess: () => invalidateFinance(qc),
+    onSuccess: () => { invalidateFinance(qc); onOk("COGS entry saved")(); },
+    onError: onErr("Save COGS"),
   });
 }
 
@@ -470,7 +471,8 @@ export function useDeleteCogs() {
       const { error } = await (supabase as any).from("finance_cogs").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => invalidateFinance(qc),
+    onSuccess: () => { invalidateFinance(qc); onOk("COGS entry deleted")(); },
+    onError: onErr("Delete COGS"),
   });
 }
 
@@ -481,7 +483,8 @@ export function useAddPayroll() {
       const { error } = await (supabase as any).from("finance_payroll").insert(p);
       if (error) throw error;
     },
-    onSuccess: () => invalidateFinance(qc),
+    onSuccess: () => { invalidateFinance(qc); onOk("Payroll saved")(); },
+    onError: onErr("Save payroll"),
   });
 }
 
@@ -492,7 +495,8 @@ export function useDeletePayroll() {
       const { error } = await (supabase as any).from("finance_payroll").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => invalidateFinance(qc),
+    onSuccess: () => { invalidateFinance(qc); onOk("Payroll deleted")(); },
+    onError: onErr("Delete payroll"),
   });
 }
 
@@ -506,7 +510,8 @@ export function useUpdateTaxSettings() {
         .eq("id", s.id);
       if (error) throw error;
     },
-    onSuccess: () => invalidateFinance(qc),
+    onSuccess: () => { invalidateFinance(qc); onOk("Tax settings updated")(); },
+    onError: onErr("Update tax settings"),
   });
 }
 
@@ -527,7 +532,20 @@ export function useAddAsset() {
       const { error } = await (supabase as any).from("finance_assets").insert(payload);
       if (error) throw error;
     },
-    onSuccess: () => invalidateFinance(qc),
+    onSuccess: () => { invalidateFinance(qc); onOk("Asset saved")(); },
+    onError: onErr("Save asset"),
+  });
+}
+
+export function useDeleteAsset() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase as any).from("finance_assets").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { invalidateFinance(qc); onOk("Asset deleted")(); },
+    onError: onErr("Delete asset"),
   });
 }
 
