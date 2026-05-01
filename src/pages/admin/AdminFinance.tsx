@@ -621,34 +621,47 @@ function PLTab() {
           <div className="text-xs text-text-med">Period: {MONTHS[(cur?.month ?? p.resolved.month ?? 1) - 1]} {cur?.year ?? p.resolved.year}</div>
         </div>
 
-        <div className="grid" style={{ gridTemplateColumns: compare ? "1fr 140px 140px" : "1fr 160px" }}>
-          <PLHeader compare={compare} />
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <colgroup>
+              <col />
+              <col style={{ width: 160 }} />
+              {compare && <col style={{ width: 140 }} />}
+            </colgroup>
+            <thead>
+              <tr className="border-b border-border">
+                <th className="text-left py-2 text-[10px] uppercase tracking-widest text-text-light font-semibold">Account</th>
+                <th className="text-right py-2 text-[10px] uppercase tracking-widest text-text-light font-semibold">Current</th>
+                {compare && <th className="text-right py-2 text-[10px] uppercase tracking-widest text-text-light font-semibold">Previous</th>}
+              </tr>
+            </thead>
+            <tbody>
+              <PLSection title="Revenue" compare={compare} />
+              <PLLine label="Product Sales" source="auto" v={plRowKobo(cur, "product_revenue_ngn")} p={plRowKobo(prev, "product_revenue_ngn")} compare={compare} />
+              <PLLine label="Delivery Revenue" source="auto" v={plRowKobo(cur, "delivery_revenue_ngn")} p={plRowKobo(prev, "delivery_revenue_ngn")} compare={compare} />
+              <PLLine label="Service & Packaging Fees" source="auto" v={plRowKobo(cur, "service_fee_revenue_ngn")} p={plRowKobo(prev, "service_fee_revenue_ngn")} compare={compare} />
+              <PLTotal label="Total Revenue" v={plRowKobo(cur, "gross_revenue_ngn")} p={plRowKobo(prev, "gross_revenue_ngn")} compare={compare} variant="subtotal" />
 
-          <PLSection title="REVENUE" />
-          <PLLine label="Product Sales" source="auto" v={plRowKobo(cur, "product_revenue_ngn")} p={plRowKobo(prev, "product_revenue_ngn")} compare={compare} />
-          <PLLine label="Delivery Revenue" source="auto" v={plRowKobo(cur, "delivery_revenue_ngn")} p={plRowKobo(prev, "delivery_revenue_ngn")} compare={compare} />
-          <PLLine label="Service & Packaging Fees" source="auto" v={plRowKobo(cur, "service_fee_revenue_ngn")} p={plRowKobo(prev, "service_fee_revenue_ngn")} compare={compare} />
-          <PLTotal label="TOTAL REVENUE" v={plRowKobo(cur, "gross_revenue_ngn")} p={plRowKobo(prev, "gross_revenue_ngn")} compare={compare} />
+              <PLSection title="Cost of Goods Sold" compare={compare} />
+              <PLLine label="Product Procurement, Packaging & Inbound" source="mixed" v={plRowKobo(cur, "cogs_ngn")} p={plRowKobo(prev, "cogs_ngn")} compare={compare} />
+              <PLTotal label="Total COGS" v={plRowKobo(cur, "cogs_ngn")} p={plRowKobo(prev, "cogs_ngn")} compare={compare} variant="subtotal" />
+              <PLTotal label="Gross Profit" v={plRowKobo(cur, "gross_profit_ngn")} p={plRowKobo(prev, "gross_profit_ngn")} compare={compare} badge={fmtPct(Number(cur?.gross_margin_pct))} variant="result" />
 
-          <PLSection title="COST OF GOODS SOLD" />
-          <PLLine label="Product Procurement, Packaging & Inbound" source="mixed" v={plRowKobo(cur, "cogs_ngn")} p={plRowKobo(prev, "cogs_ngn")} compare={compare} />
-          <PLTotal label="TOTAL COGS" v={plRowKobo(cur, "cogs_ngn")} p={plRowKobo(prev, "cogs_ngn")} compare={compare} />
-          <PLTotal label="GROSS PROFIT" v={plRowKobo(cur, "gross_profit_ngn")} p={plRowKobo(prev, "gross_profit_ngn")} compare={compare} badge={fmtPct(Number(cur?.gross_margin_pct))} />
+              <PLSection title="Operating Expenses" compare={compare} />
+              <PLLine label="Salaries & Wages" source="manual" v={plRowKobo(cur, "payroll_cost_ngn")} p={plRowKobo(prev, "payroll_cost_ngn")} compare={compare} />
+              {opexByCat.map(c => (
+                <PLLine key={c.name} label={c.name} source="manual" v={c.amount} p={0} compare={compare} />
+              ))}
+              <PLTotal label="Total OPEX" v={plRowKobo(cur, "total_opex_ngn") + plRowKobo(cur, "payroll_cost_ngn")} p={plRowKobo(prev, "total_opex_ngn") + plRowKobo(prev, "payroll_cost_ngn")} compare={compare} variant="subtotal" />
+              <PLTotal label="EBITDA" v={plRowKobo(cur, "ebitda_ngn")} p={plRowKobo(prev, "ebitda_ngn")} compare={compare} badge={fmtPct(Number(cur?.ebitda_margin_pct))} variant="result" />
 
-          <PLSection title="OPERATING EXPENSES" />
-          <PLLine label="Salaries & Wages" source="manual" v={plRowKobo(cur, "payroll_cost_ngn")} p={plRowKobo(prev, "payroll_cost_ngn")} compare={compare} />
-          {opexByCat.map(c => (
-            <PLLine key={c.name} label={c.name} source="manual" v={c.amount} p={0} compare={compare} />
-          ))}
-          <PLTotal label="TOTAL OPEX" v={plRowKobo(cur, "total_opex_ngn") + plRowKobo(cur, "payroll_cost_ngn")} p={plRowKobo(prev, "total_opex_ngn") + plRowKobo(prev, "payroll_cost_ngn")} compare={compare} />
-
-          <PLTotal label="EBITDA" v={plRowKobo(cur, "ebitda_ngn")} p={plRowKobo(prev, "ebitda_ngn")} compare={compare} badge={fmtPct(Number(cur?.ebitda_margin_pct))} />
-
-          <PLLine label="Depreciation & Amortisation" source="manual" v={plRowKobo(cur, "depreciation_ngn")} p={plRowKobo(prev, "depreciation_ngn")} compare={compare} />
-          <PLTotal label="EBIT (Operating Profit)" v={plRowKobo(cur, "ebit_ngn")} p={plRowKobo(prev, "ebit_ngn")} compare={compare} />
-
-          <PLLine label="Tax Expenses" source="manual" v={plRowKobo(cur, "tax_expenses_ngn")} p={plRowKobo(prev, "tax_expenses_ngn")} compare={compare} />
-          <PLTotal label="NET PROFIT / (LOSS)" v={plRowKobo(cur, "net_profit_ngn")} p={plRowKobo(prev, "net_profit_ngn")} compare={compare} badge={fmtPct(Number(cur?.net_margin_pct))} highlight />
+              <PLSection title="Depreciation & Tax" compare={compare} />
+              <PLLine label="Depreciation & Amortisation" source="manual" v={plRowKobo(cur, "depreciation_ngn")} p={plRowKobo(prev, "depreciation_ngn")} compare={compare} />
+              <PLTotal label="EBIT (Operating Profit)" v={plRowKobo(cur, "ebit_ngn")} p={plRowKobo(prev, "ebit_ngn")} compare={compare} variant="subtotal" />
+              <PLLine label="Tax Expenses" source="manual" v={plRowKobo(cur, "tax_expenses_ngn")} p={plRowKobo(prev, "tax_expenses_ngn")} compare={compare} />
+              <PLTotal label="Net Profit / (Loss)" v={plRowKobo(cur, "net_profit_ngn")} p={plRowKobo(prev, "net_profit_ngn")} compare={compare} badge={fmtPct(Number(cur?.net_margin_pct))} variant="highlight" />
+            </tbody>
+          </table>
         </div>
 
         {!cur && (
@@ -661,44 +674,86 @@ function PLTab() {
   );
 }
 
-function PLHeader({ compare }: { compare: boolean }) {
+/**
+ * Section band — a single full-width row that introduces a P&L group
+ * (Revenue, COGS, OPEX, etc.). Adds vertical breathing room and a
+ * forest-tinted background so the eye can chunk the statement.
+ */
+function PLSection({ title, compare }: { title: string; compare: boolean }) {
+  const span = compare ? 3 : 2;
   return (
-    <>
-      <div className="text-[10px] uppercase tracking-widest text-text-light font-semibold border-b border-border pb-1"></div>
-      <div className="text-[10px] uppercase tracking-widest text-text-light font-semibold border-b border-border pb-1 text-right">Current</div>
-      {compare && <div className="text-[10px] uppercase tracking-widest text-text-light font-semibold border-b border-border pb-1 text-right">Previous</div>}
-    </>
+    <tr>
+      <td colSpan={span} className="pt-5 pb-1.5">
+        <div className="text-[10px] uppercase tracking-[0.18em] font-bold text-forest bg-forest/5 px-3 py-1.5 rounded-md">{title}</div>
+      </td>
+    </tr>
   );
 }
 
-function PLSection({ title }: { title: string }) {
-  return (
-    <div className="col-span-3 text-[10px] uppercase tracking-widest font-bold text-forest mt-3 mb-0.5">{title}</div>
-  );
-}
-
+/** Plain account line — indented label + tabular numbers right-aligned. */
 function PLLine({ label, v, p, compare, source }: { label: string; v: number; p: number; compare: boolean; source?: SourceKind }) {
+  const num = (x: number) => fmtNaira(x, { brackets: true });
   return (
-    <>
-      <div className="text-sm text-text-med py-1 pl-3 flex items-center gap-1.5">
-        <SourceDot source={source} />
-        <span>{label}</span>
-      </div>
-      <div className={`text-sm text-right py-1 tabular-nums ${v < 0 ? "text-red-600" : ""}`}>{fmtNaira(v, { brackets: true })}</div>
-      {compare && <div className={`text-sm text-right py-1 tabular-nums text-text-light ${p < 0 ? "text-red-600" : ""}`}>{fmtNaira(p, { brackets: true })}</div>}
-    </>
+    <tr className="border-b border-border/40 last:border-0 hover:bg-muted/20">
+      <td className="py-1.5 pl-6 pr-3">
+        <span className="inline-flex items-center gap-2 text-text-med">
+          <SourceDot source={source} />
+          {label}
+        </span>
+      </td>
+      <td className={`py-1.5 pr-3 text-right tabular-nums ${v < 0 ? "text-red-600" : "text-foreground"}`}>{num(v)}</td>
+      {compare && <td className={`py-1.5 pr-3 text-right tabular-nums ${p < 0 ? "text-red-600" : "text-text-light"}`}>{num(p)}</td>}
+    </tr>
   );
 }
 
-function PLTotal({ label, v, p, compare, badge, highlight }: { label: string; v: number; p: number; compare: boolean; badge?: string; highlight?: boolean }) {
+/**
+ * Total / subtotal / result / highlight rows.
+ *  - subtotal: thin top border, slightly bolder, neutral background
+ *  - result: thicker forest top border, forest text, soft forest tint
+ *  - highlight: full forest band reserved for NET PROFIT
+ */
+function PLTotal({ label, v, p, compare, badge, variant }: {
+  label: string; v: number; p: number; compare: boolean; badge?: string;
+  variant?: "subtotal" | "result" | "highlight";
+}) {
+  const num = (x: number) => fmtNaira(x, { brackets: true });
+  const isHighlight = variant === "highlight";
+  const isResult = variant === "result";
+
+  let rowCls = "border-t border-border/80 bg-muted/30";
+  let labelCls = "text-foreground";
+  let valueCls = "text-foreground";
+  if (isResult) {
+    rowCls = "border-t-2 border-forest/70 bg-forest/5";
+    labelCls = "text-forest";
+    valueCls = "text-forest";
+  }
+  if (isHighlight) {
+    rowCls = "border-t-2 border-forest";
+    labelCls = "text-forest";
+    valueCls = "text-forest";
+  }
+
   return (
-    <>
-      <div className={`text-sm font-bold py-1.5 border-t border-border ${highlight ? "text-forest" : ""}`}>
-        {label} {badge && <span className="ml-2 text-[10px] font-semibold text-forest bg-forest/10 px-1.5 py-0.5 rounded">{badge}</span>}
-      </div>
-      <div className={`text-sm font-bold text-right py-1.5 border-t border-border tabular-nums ${v < 0 ? "text-red-600" : ""} ${highlight ? "text-forest" : ""}`}>{fmtNaira(v, { brackets: true })}</div>
-      {compare && <div className={`text-sm font-bold text-right py-1.5 border-t border-border tabular-nums text-text-light ${p < 0 ? "text-red-600" : ""}`}>{fmtNaira(p, { brackets: true })}</div>}
-    </>
+    <tr className={rowCls}>
+      <td className={`py-2 pl-3 pr-3 font-bold ${labelCls} ${isHighlight ? "text-base bg-forest/10 rounded-l-md" : ""}`}>
+        {label}
+        {badge && (
+          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-pill text-[10px] font-semibold text-forest bg-forest/10 border border-forest/20">
+            {badge}
+          </span>
+        )}
+      </td>
+      <td className={`py-2 pr-3 text-right tabular-nums font-bold ${v < 0 ? "text-red-600" : valueCls} ${isHighlight ? "bg-forest/10" : ""}`}>
+        {num(v)}
+      </td>
+      {compare && (
+        <td className={`py-2 pr-3 text-right tabular-nums font-bold ${p < 0 ? "text-red-600" : "text-text-med"} ${isHighlight ? "bg-forest/10 rounded-r-md" : ""}`}>
+          {num(p)}
+        </td>
+      )}
+    </tr>
   );
 }
 
