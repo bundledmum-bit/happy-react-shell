@@ -193,7 +193,7 @@ function populate(data){
   document.getElementById('payRefLabel').textContent=data.paystack_reference||data.payment_reference||'N/A';
   if(data.payment_status!=='paid'){var b=document.getElementById('payBadge');b.className='pending-badge';b.textContent='⏳ Payment Pending';}
   if(data.gift_message){document.getElementById('giftBox').style.display='block';document.getElementById('giftMsg').textContent=data.gift_message;}
-  document.getElementById('invoice-contact-email').textContent=data.contact_email||'hello@bundledmum.com';
+  document.getElementById('invoice-contact-email').textContent=data.contact_email||'hello@bundledmum.ng';
 }
 if(window.invoiceData){populate(window.invoiceData);}
 </script>

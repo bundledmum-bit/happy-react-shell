@@ -1166,7 +1166,7 @@ export default function CheckoutPage() {
                   const visible = allMethods.filter(m => enabledPayments[m.id]);
                   if (visible.length === 0) return (
                     <div className="bg-[#FFF4D6] border border-[#F59E0B]/40 rounded-xl p-4 text-center text-sm text-[#78350F]">
-                      Payment is temporarily unavailable. Please contact us on <a href={`https://wa.me/${settings?.whatsapp_number || "2348001234567"}`} target="_blank" rel="noopener noreferrer" className="font-bold underline">WhatsApp</a>.
+                      Payment is temporarily unavailable. Please contact us on <a href={`https://wa.me/${settings?.whatsapp_number || "2347040667424"}`} target="_blank" rel="noopener noreferrer" className="font-bold underline">WhatsApp</a>.
                     </div>
                   );
                   return visible.map(m => (

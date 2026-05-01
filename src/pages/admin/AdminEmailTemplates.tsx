@@ -78,7 +78,7 @@ const SAMPLE_DATA: Record<string, string> = {
   "{{bank_name}}": "GTBank",
   "{{bank_account_name}}": "BundledMum Ltd",
   "{{bank_account_number}}": "0123456789",
-  "{{whatsapp_url}}": "https://wa.me/2348001234567",
+  "{{whatsapp_url}}": "https://wa.me/2347040667424",
   "{{referral_code}}": "AMARA-BM42",
   "{{referral_amount}}": "₦2,000",
   "{{referral_link}}": "https://bundledmum.com/?ref=AMARA-BM42",

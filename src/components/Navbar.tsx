@@ -105,7 +105,7 @@ export default function Navbar({ topOffset = 0 }: { topOffset?: number }) {
             ))}
             <div className="mt-7">
               <div className="text-text-light text-xs mb-2">Contact us</div>
-              <div className="text-text-med text-sm">{contactEmail || "hello@bundledmum.com"}</div>
+              <div className="text-text-med text-sm">{contactEmail || "hello@bundledmum.ng"}</div>
             </div>
           </div>
         </>

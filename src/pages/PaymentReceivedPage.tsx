@@ -27,7 +27,7 @@ export default function PaymentReceivedPage() {
 
   const { data: site } = useSiteSettings();
   const whatsapp: string = (site as any)?.whatsapp_number || "";
-  const supportEmail: string = (site as any)?.contact_email || "hr@bundledmum.com";
+  const supportEmail: string = (site as any)?.contact_email || "hello@bundledmum.ng";
 
   const waMessage = useMemo(() => {
     const lines = [
