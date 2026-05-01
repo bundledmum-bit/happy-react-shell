@@ -760,6 +760,46 @@ function PLTotal({ label, v, p, compare, badge, variant }: {
 // ================================================================
 // PAGE 3 — EXPENSES
 // ================================================================
+// Frequency pill options for the recurring expense form.
+const RECURRENCE_UNITS: Array<{ v: "daily" | "weekly" | "monthly" | "annually" | "custom"; label: string }> = [
+  { v: "daily",    label: "Daily" },
+  { v: "weekly",   label: "Weekly" },
+  { v: "monthly",  label: "Monthly" },
+  { v: "annually", label: "Annually" },
+  { v: "custom",   label: "Custom" },
+];
+
+/** Project the next auto-generation date from the current expense date. */
+function calculateNextDate(date: string, unit: string, interval: number): string {
+  const d = new Date(date);
+  const n = Math.max(1, Number(interval) || 1);
+  if (unit === "daily")    d.setDate(d.getDate() + n);
+  else if (unit === "weekly")   d.setDate(d.getDate() + n * 7);
+  else if (unit === "monthly")  d.setMonth(d.getMonth() + n);
+  else if (unit === "annually") d.setFullYear(d.getFullYear() + n);
+  else if (unit === "custom")   d.setDate(d.getDate() + n);
+  return d.toISOString().split("T")[0];
+}
+
+/** Human-readable cadence label, e.g. 'Every 2 weeks' / 'Monthly'. */
+function cadenceLabel(unit: string | null, interval: number | null): string {
+  const n = Math.max(1, Number(interval) || 1);
+  if (!unit) return "";
+  if (unit === "monthly")  return n === 1 ? "Monthly" : `Every ${n} months`;
+  if (unit === "annually") return n === 1 ? "Annually" : `Every ${n} years`;
+  if (unit === "weekly")   return n === 1 ? "Weekly"  : `Every ${n} weeks`;
+  if (unit === "daily")    return n === 1 ? "Daily"   : `Every ${n} days`;
+  if (unit === "custom")   return `Every ${n} days`;
+  return unit;
+}
+
+function fmtLongDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleDateString("en-NG", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+  } catch { return iso; }
+}
+
 function ExpensesTab() {
   const p = usePeriod("this_month");
   const [filterType, setFilterType] = useState<string>("");
@@ -774,8 +814,11 @@ function ExpensesTab() {
   const today = new Date().toISOString().slice(0, 10);
   const [form, setForm] = useState<any>({
     expense_date: today, category_id: "", description: "", amount: "",
-    vendor: "", is_recurring: false, recurrence: "monthly", notes: "",
+    vendor: "", is_recurring: false, recurrence_unit: "monthly", recurrence_interval: 1,
+    recurrence_end_date: "", notes: "",
   });
+
+  const [editing, setEditing] = useState<any | null>(null);
 
   const filtered = useMemo(() => {
     return (expenses || []).filter(e => {
@@ -797,16 +840,26 @@ function ExpensesTab() {
   const canSave = form.expense_date && form.category_id && form.description.trim() && Number(form.amount) > 0;
 
   const handleSave = () => {
+    const isRec = !!form.is_recurring;
+    const unit  = form.recurrence_unit || "monthly";
+    const interval = isRec ? Math.max(1, Number(form.recurrence_interval) || 1) : null;
+    const nextDate = isRec ? calculateNextDate(form.expense_date, unit, interval || 1) : null;
     addE.mutate({
       expense_date: form.expense_date,
       category_id: form.category_id,
       description: form.description.trim(),
       amount: toKobo(Number(form.amount)),
       vendor: form.vendor?.trim() || null,
-      is_recurring: !!form.is_recurring,
-      recurrence: form.is_recurring ? form.recurrence : null,
+      is_recurring: isRec,
+      // Mirror to the legacy `recurrence` column for any downstream
+      // readers that haven't migrated yet.
+      recurrence: isRec ? unit : null,
+      recurrence_unit: isRec ? unit : null,
+      recurrence_interval: interval,
+      recurrence_next_date: nextDate,
+      recurrence_end_date: isRec ? (form.recurrence_end_date || null) : null,
       notes: form.notes?.trim() || null,
-    }, {
+    } as any, {
       onSuccess: () => setForm({ ...form, description: "", amount: "", vendor: "", notes: "" }),
     });
   };
@@ -859,17 +912,63 @@ function ExpensesTab() {
             </div>
             <label className="flex items-center gap-2 text-xs">
               <input type="checkbox" checked={form.is_recurring} onChange={e => setForm({ ...form, is_recurring: e.target.checked })} />
-              Is Recurring
+              Recurring expense
             </label>
             {form.is_recurring && (
-              <div>
-                <label className={labelCls}>Recurrence</label>
-                <select value={form.recurrence} onChange={e => setForm({ ...form, recurrence: e.target.value })} className={inputCls}>
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                  <option value="quarterly">Quarterly</option>
-                  <option value="annually">Annually</option>
-                </select>
+              <div className="space-y-2 border border-border rounded-lg p-3 bg-muted/20">
+                <div>
+                  <label className={labelCls}>Frequency</label>
+                  <div className="flex flex-wrap gap-1">
+                    {RECURRENCE_UNITS.map(u => (
+                      <button
+                        key={u.v}
+                        type="button"
+                        onClick={() => setForm({ ...form, recurrence_unit: u.v, recurrence_interval: 1 })}
+                        className={`px-3 py-1.5 rounded-pill text-[11px] font-semibold border ${
+                          form.recurrence_unit === u.v
+                            ? "bg-forest text-primary-foreground border-forest"
+                            : "bg-background text-text-med border-input hover:border-forest/60"
+                        }`}
+                      >
+                        {u.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {form.recurrence_unit === "daily" && (
+                  <div>
+                    <label className={labelCls}>Every (days)</label>
+                    <input type="number" min={1} max={365} value={form.recurrence_interval}
+                      onChange={e => setForm({ ...form, recurrence_interval: Math.max(1, Number(e.target.value) || 1) })}
+                      className={inputCls} />
+                  </div>
+                )}
+                {form.recurrence_unit === "weekly" && (
+                  <div>
+                    <label className={labelCls}>Every (weeks)</label>
+                    <input type="number" min={1} max={52} value={form.recurrence_interval}
+                      onChange={e => setForm({ ...form, recurrence_interval: Math.max(1, Number(e.target.value) || 1) })}
+                      className={inputCls} />
+                  </div>
+                )}
+                {form.recurrence_unit === "custom" && (
+                  <div>
+                    <label className={labelCls}>Custom interval (days)</label>
+                    <input type="number" min={1} max={365} value={form.recurrence_interval}
+                      onChange={e => setForm({ ...form, recurrence_interval: Math.max(1, Number(e.target.value) || 1) })}
+                      className={inputCls} />
+                  </div>
+                )}
+                <div>
+                  <label className={labelCls}>Stop recurring after (optional)</label>
+                  <input type="date" value={form.recurrence_end_date}
+                    onChange={e => setForm({ ...form, recurrence_end_date: e.target.value })}
+                    className={inputCls} />
+                  <p className="text-[10px] text-text-light mt-1">Leave blank to recur indefinitely.</p>
+                </div>
+                <div className="text-[11px] text-text-light">
+                  Next auto-entry: <b className="text-foreground">{form.expense_date ? fmtLongDate(calculateNextDate(form.expense_date, form.recurrence_unit, Number(form.recurrence_interval) || 1)) : "—"}</b>
+                </div>
               </div>
             )}
             <div>
@@ -913,17 +1012,52 @@ function ExpensesTab() {
                 )}
                 {filtered.map(e => {
                   const t = e.category?.type || "";
+                  const isAuto = !!(e as any).is_auto_generated;
+                  const recUnit = (e as any).recurrence_unit ?? e.recurrence;
+                  const recInterval = (e as any).recurrence_interval ?? 1;
+                  const cadence = e.is_recurring && recUnit ? cadenceLabel(recUnit, recInterval) : "";
+                  const nextEntry = (e as any).recurrence_next_date as string | null;
                   return (
-                    <tr key={e.id} className={`border-b border-border hover:bg-muted/30 ${t ? TYPE_BG[t] || "" : ""}`}>
+                    <tr key={e.id} className={`border-b border-border hover:bg-muted/30 ${t ? TYPE_BG[t] || "" : ""} ${isAuto ? "bg-muted/20 text-text-med" : ""}`}>
                       <td className="py-1.5 pr-2">{fmtDate(e.expense_date)}</td>
                       <td className="py-1.5 pr-2">{e.category?.name || "—"}</td>
-                      <td className="py-1.5 pr-2">{e.description}</td>
+                      <td className="py-1.5 pr-2">
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <span>{e.description}</span>
+                          {isAuto && (
+                            <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wider text-text-light bg-background border border-border rounded-pill px-1.5 py-0.5">
+                              Auto
+                            </span>
+                          )}
+                        </div>
+                        {e.is_recurring && nextEntry && !isAuto && (
+                          <div className="text-[10px] text-text-light mt-0.5">Next entry: {fmtLongDate(nextEntry)}</div>
+                        )}
+                      </td>
                       <td className="py-1.5 pr-2">{e.vendor || "—"}</td>
                       <td className="py-1.5 pr-2 text-right tabular-nums font-semibold">{fmtNaira(e.amount)}</td>
-                      <td className="py-1.5 pr-2">{e.is_recurring ? e.recurrence : ""}</td>
-                      <td className="py-1.5 text-right">
-                        <button onClick={() => { if (confirm("Delete this expense?")) delE.mutate(e.id); }}
-                          className="text-red-600 hover:text-red-800"><Trash2 className="w-3.5 h-3.5" /></button>
+                      <td className="py-1.5 pr-2">
+                        {e.is_recurring && cadence && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-pill px-1.5 py-0.5">
+                            🔄 {cadence}
+                          </span>
+                        )}
+                        {isAuto && (
+                          <span className="ml-1 inline-flex items-center gap-0.5 text-[10px] font-semibold text-text-med bg-muted border border-border rounded-pill px-1.5 py-0.5" title="Auto-generated from a recurring expense — edit the original to make changes">
+                            Auto-generated
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-1.5 text-right whitespace-nowrap">
+                        {!isAuto ? (
+                          <>
+                            <button onClick={() => setEditing(e)} className="text-forest hover:underline text-[11px] font-semibold mr-2">Edit</button>
+                            <button onClick={() => { if (confirm("Delete this expense?")) delE.mutate(e.id); }}
+                              className="text-red-600 hover:text-red-800"><Trash2 className="w-3.5 h-3.5" /></button>
+                          </>
+                        ) : (
+                          <span className="text-[10px] text-text-light italic" title="This was auto-generated from a recurring expense. Edit the original to make changes.">read-only</span>
+                        )}
                       </td>
                     </tr>
                   );
@@ -937,6 +1071,211 @@ function ExpensesTab() {
                 </tr>
               </tfoot>
             </table>
+          </div>
+        </div>
+      </div>
+
+      {editing && (
+        <EditExpenseModal
+          expense={editing}
+          categories={categories || []}
+          onClose={() => setEditing(null)}
+          onSave={async patch => { await updE.mutateAsync({ id: editing.id, ...patch }); setEditing(null); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Edit modal — recurring template editor with Stop Recurring action.
+// ---------------------------------------------------------------------------
+
+function EditExpenseModal({
+  expense, categories, onClose, onSave,
+}: {
+  expense: any;
+  categories: Array<{ id: string; name: string; type: string }>;
+  onClose: () => void;
+  onSave: (patch: Record<string, unknown>) => Promise<void>;
+}) {
+  const isRecurring = !!expense.is_recurring;
+  const [form, setForm] = useState({
+    expense_date: expense.expense_date,
+    category_id: expense.category_id || "",
+    description: expense.description || "",
+    amount: String(Math.round((expense.amount || 0) / 100)),
+    vendor: expense.vendor || "",
+    notes: expense.notes || "",
+    is_recurring: isRecurring,
+    recurrence_unit: (expense.recurrence_unit ?? expense.recurrence ?? "monthly") as "daily" | "weekly" | "monthly" | "annually" | "custom",
+    recurrence_interval: Number(expense.recurrence_interval) || 1,
+    recurrence_end_date: expense.recurrence_end_date || "",
+  });
+  const [busy, setBusy] = useState(false);
+
+  const save = async () => {
+    setBusy(true);
+    const isRec = !!form.is_recurring;
+    const unit = form.recurrence_unit;
+    const interval = isRec ? Math.max(1, Number(form.recurrence_interval) || 1) : null;
+    const nextDate = isRec ? calculateNextDate(form.expense_date, unit, interval || 1) : null;
+    try {
+      await onSave({
+        expense_date: form.expense_date,
+        category_id: form.category_id || null,
+        description: form.description.trim(),
+        amount: toKobo(Number(form.amount)),
+        vendor: form.vendor?.trim() || null,
+        notes: form.notes?.trim() || null,
+        is_recurring: isRec,
+        recurrence: isRec ? unit : null,
+        recurrence_unit: isRec ? unit : null,
+        recurrence_interval: interval,
+        recurrence_next_date: nextDate,
+        recurrence_end_date: isRec ? (form.recurrence_end_date || null) : null,
+      });
+    } finally { setBusy(false); }
+  };
+
+  const stopRecurring = async () => {
+    if (!confirm("Are you sure? No more entries will be auto-generated. Existing entries are kept.")) return;
+    setBusy(true);
+    try {
+      await onSave({
+        is_recurring: false,
+        recurrence: null,
+        recurrence_unit: null,
+        recurrence_interval: null,
+        recurrence_next_date: null,
+        recurrence_end_date: null,
+      });
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-foreground/60 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-card border border-border rounded-xl w-full max-w-lg max-h-[92svh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="sticky top-0 bg-card border-b border-border px-5 py-3 flex items-center justify-between z-10">
+          <h3 className="font-bold text-sm">Edit expense</h3>
+          <button onClick={onClose} aria-label="Close" className="w-8 h-8 rounded-full hover:bg-muted inline-flex items-center justify-center"><span className="text-base leading-none">×</span></button>
+        </div>
+        <div className="p-5 space-y-3">
+          {isRecurring && (
+            <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-lg p-3 text-xs leading-relaxed">
+              This is a recurring expense. Editing the amount, category, or description will apply to future auto-generated entries only. Past entries are not affected.
+            </div>
+          )}
+
+          <div>
+            <label className={labelCls}>Date</label>
+            <input type="date" value={form.expense_date} onChange={e => setForm({ ...form, expense_date: e.target.value })} className={inputCls} />
+          </div>
+          <div>
+            <label className={labelCls}>Category</label>
+            <select value={form.category_id} onChange={e => setForm({ ...form, category_id: e.target.value })} className={inputCls}>
+              <option value="">Select category…</option>
+              {Object.entries(groupBy(categories, "type")).map(([type, cats]) => (
+                <optgroup key={type} label={type.toUpperCase()}>
+                  {(cats as any[]).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Description</label>
+            <input type="text" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className={inputCls} />
+          </div>
+          <div>
+            <label className={labelCls}>Amount (₦)</label>
+            <input type="number" min="0" step="0.01" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} className={inputCls} />
+          </div>
+          <div>
+            <label className={labelCls}>Vendor (optional)</label>
+            <input type="text" value={form.vendor} onChange={e => setForm({ ...form, vendor: e.target.value })} className={inputCls} />
+          </div>
+
+          <label className="flex items-center gap-2 text-xs">
+            <input type="checkbox" checked={form.is_recurring} onChange={e => setForm({ ...form, is_recurring: e.target.checked })} />
+            Recurring expense
+          </label>
+
+          {form.is_recurring && (
+            <div className="space-y-2 border border-border rounded-lg p-3 bg-muted/20">
+              <div>
+                <label className={labelCls}>Frequency</label>
+                <div className="flex flex-wrap gap-1">
+                  {RECURRENCE_UNITS.map(u => (
+                    <button
+                      key={u.v}
+                      type="button"
+                      onClick={() => setForm({ ...form, recurrence_unit: u.v, recurrence_interval: 1 })}
+                      className={`px-3 py-1.5 rounded-pill text-[11px] font-semibold border ${
+                        form.recurrence_unit === u.v
+                          ? "bg-forest text-primary-foreground border-forest"
+                          : "bg-background text-text-med border-input hover:border-forest/60"
+                      }`}
+                    >
+                      {u.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {form.recurrence_unit === "daily" && (
+                <div>
+                  <label className={labelCls}>Every (days)</label>
+                  <input type="number" min={1} max={365} value={form.recurrence_interval}
+                    onChange={e => setForm({ ...form, recurrence_interval: Math.max(1, Number(e.target.value) || 1) })}
+                    className={inputCls} />
+                </div>
+              )}
+              {form.recurrence_unit === "weekly" && (
+                <div>
+                  <label className={labelCls}>Every (weeks)</label>
+                  <input type="number" min={1} max={52} value={form.recurrence_interval}
+                    onChange={e => setForm({ ...form, recurrence_interval: Math.max(1, Number(e.target.value) || 1) })}
+                    className={inputCls} />
+                </div>
+              )}
+              {form.recurrence_unit === "custom" && (
+                <div>
+                  <label className={labelCls}>Custom interval (days)</label>
+                  <input type="number" min={1} max={365} value={form.recurrence_interval}
+                    onChange={e => setForm({ ...form, recurrence_interval: Math.max(1, Number(e.target.value) || 1) })}
+                    className={inputCls} />
+                </div>
+              )}
+              <div>
+                <label className={labelCls}>Stop recurring after (optional)</label>
+                <input type="date" value={form.recurrence_end_date}
+                  onChange={e => setForm({ ...form, recurrence_end_date: e.target.value })}
+                  className={inputCls} />
+              </div>
+              {expense.recurrence_next_date && (
+                <div className="text-[11px] text-text-light">
+                  Next auto-entry: <b className="text-foreground">{fmtLongDate(expense.recurrence_next_date)}</b>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div>
+            <label className={labelCls}>Notes (optional)</label>
+            <textarea rows={2} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} className={inputCls} />
+          </div>
+
+          <div className="flex items-center justify-between gap-2 pt-1">
+            {isRecurring ? (
+              <button onClick={stopRecurring} disabled={busy} className="inline-flex items-center gap-1.5 text-destructive border border-destructive/40 rounded-lg px-3 py-2 text-xs font-semibold hover:bg-destructive/10">
+                Stop recurring
+              </button>
+            ) : <span />}
+            <div className="flex items-center gap-2">
+              <button onClick={onClose} className="text-xs text-text-med hover:text-foreground px-3 py-2">Cancel</button>
+              <button onClick={save} disabled={busy} className="inline-flex items-center gap-1.5 bg-forest text-primary-foreground px-3 py-2 rounded-lg text-xs font-semibold hover:bg-forest-deep disabled:opacity-40">
+                <Save className="w-3.5 h-3.5" /> Save changes
+              </button>
+            </div>
           </div>
         </div>
       </div>

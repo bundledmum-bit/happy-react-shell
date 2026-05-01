@@ -48,6 +48,8 @@ export interface ExpenseCategory {
   display_order: number;
 }
 
+export type RecurrenceUnit = "daily" | "weekly" | "monthly" | "annually" | "custom";
+
 export interface Expense {
   id: string;
   category_id: string | null;
@@ -57,7 +59,14 @@ export interface Expense {
   period_month: number | null;
   period_year: number | null;
   is_recurring: boolean;
-  recurrence: string | null;
+  recurrence: string | null;                  // legacy column, still on rows
+  recurrence_unit: RecurrenceUnit | null;
+  recurrence_interval: number | null;
+  recurrence_next_date: string | null;
+  recurrence_end_date: string | null;
+  recurrence_parent_id: string | null;
+  is_auto_generated: boolean | null;
+  last_generated_at: string | null;
   vendor: string | null;
   receipt_url: string | null;
   notes: string | null;
