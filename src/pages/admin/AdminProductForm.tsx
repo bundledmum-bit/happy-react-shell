@@ -123,6 +123,11 @@ export default function AdminProductForm({ product, onClose, onSaved }: Props) {
             thumbnail_url: b.thumbnail_url || null, compare_at_price: b.compare_at_price || null,
             stock_quantity: b.stock_quantity, in_stock: b.in_stock ?? true,
             cost_price: b.cost_price || 0,
+            // Diaper / pack-based attributes (per-brand-variant).
+            weight_range_kg: b.weight_range_kg?.trim?.() || b.weight_range_kg || null,
+            pack_count: b.pack_count != null && b.pack_count !== "" ? Number(b.pack_count) : null,
+            diaper_type: b.diaper_type || null,
+            sku: b.sku?.trim?.() || b.sku || null,
           };
         });
         const { error } = await supabase.from("brands").insert(brandRows);
@@ -326,6 +331,34 @@ export default function AdminProductForm({ product, onClose, onSaved }: Props) {
                         onChange={e => setBrands(bs => bs.map((br, idx) => idx === i ? { ...br, stock_quantity: e.target.value === "" ? null : parseInt(e.target.value) } : br))}
                         className="w-full border border-input rounded-lg px-2 py-1.5 text-xs bg-background" /></div>
                   </div>
+                  {/* Diaper / pack-based attributes — only meaningful in
+                      diapers-nappies but always allowed (admins may want
+                      to surface pack count for any product). */}
+                  {form.subcategory === "diapers-nappies" && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      <div><label className="text-[10px] font-semibold text-text-med block mb-0.5">Diaper Type</label>
+                        <select value={b.diaper_type || ""}
+                          onChange={e => setBrands(bs => bs.map((br, idx) => idx === i ? { ...br, diaper_type: e.target.value || null } : br))}
+                          className="w-full border border-input rounded-lg px-2 py-1.5 text-xs bg-background">
+                          <option value="">— Select —</option>
+                          <option value="Tape">Tape</option>
+                          <option value="Pant">Pant</option>
+                          <option value="Underlay">Underlay</option>
+                        </select></div>
+                      <div><label className="text-[10px] font-semibold text-text-med block mb-0.5">Pack Count</label>
+                        <input type="number" min={1} value={b.pack_count ?? ""} placeholder="e.g. 106"
+                          onChange={e => setBrands(bs => bs.map((br, idx) => idx === i ? { ...br, pack_count: e.target.value === "" ? null : parseInt(e.target.value) || null } : br))}
+                          className="w-full border border-input rounded-lg px-2 py-1.5 text-xs bg-background" /></div>
+                      <div><label className="text-[10px] font-semibold text-text-med block mb-0.5">Weight Range (kg)</label>
+                        <input value={b.weight_range_kg || ""} placeholder="e.g. 2-5kg"
+                          onChange={e => setBrands(bs => bs.map((br, idx) => idx === i ? { ...br, weight_range_kg: e.target.value || null } : br))}
+                          className="w-full border border-input rounded-lg px-2 py-1.5 text-xs bg-background" /></div>
+                      <div><label className="text-[10px] font-semibold text-text-med block mb-0.5">SKU</label>
+                        <input value={b.sku || ""} placeholder="e.g. DIA-001"
+                          onChange={e => setBrands(bs => bs.map((br, idx) => idx === i ? { ...br, sku: e.target.value || null } : br))}
+                          className="w-full border border-input rounded-lg px-2 py-1.5 text-xs bg-background" /></div>
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-2">
                     <div><label className="text-[10px] font-semibold text-text-med block mb-0.5">Size Variant</label>
                       <input value={b.size_variant || ""} placeholder="e.g. ×10, 40ml"

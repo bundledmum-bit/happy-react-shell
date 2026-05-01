@@ -22,6 +22,11 @@ export interface Brand {
   stockQuantity?: number | null;
   inStock?: boolean;
   sizeVariant?: string | null;
+  /** Diaper-category attributes (also useful for any pack-based product). */
+  weightRangeKg?: string | null;
+  packCount?: number | null;
+  diaperType?: "Tape" | "Pant" | "Underlay" | string | null;
+  sku?: string | null;
 }
 
 export interface Product {
@@ -154,6 +159,10 @@ export function adaptProduct(row: any): Product {
         stockQuantity: b.stock_quantity,
         inStock: b.in_stock !== false,
         sizeVariant: b.size_variant || null,
+        weightRangeKg: b.weight_range_kg || null,
+        packCount: b.pack_count != null ? Number(b.pack_count) : null,
+        diaperType: b.diaper_type || null,
+        sku: b.sku || null,
       };
     });
 

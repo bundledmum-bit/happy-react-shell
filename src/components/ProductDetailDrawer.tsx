@@ -8,6 +8,7 @@ import { Link } from "react-router-dom";
 import type { Product } from "@/lib/supabaseAdapters";
 import ProductImage from "@/components/ProductImage";
 import { trackEvent } from "@/lib/analytics";
+import { diaperBadges, pricePerUnitLabel } from "@/lib/diaperBrand";
 import { useSiteSettings } from "@/hooks/useSupabaseData";
 import { addRecentlyViewed } from "@/hooks/useRecentlyViewed";
 
@@ -210,6 +211,16 @@ function DrawerInner({ product, defaultBudget, onClose }: { product: Product; de
         <div className="p-5">
           {/* Name & Description */}
           <h2 className="pf text-xl font-bold mb-1">{product.name}</h2>
+          {(() => {
+            const badges = diaperBadges(selectedBrand);
+            return badges.length > 0 ? (
+              <div className="flex flex-wrap gap-1 mb-2">
+                {badges.map(b => (
+                  <span key={b} className="text-[11px] font-medium rounded-full px-2 py-0.5" style={{ backgroundColor: "#F0F0F0", color: "#555" }}>{b}</span>
+                ))}
+              </div>
+            ) : null;
+          })()}
           <p className="text-muted-foreground text-sm leading-relaxed mb-3">{product.description}</p>
 
           {/* Rating */}
@@ -252,11 +263,15 @@ function DrawerInner({ product, defaultBudget, onClose }: { product: Product; de
             <div className="flex flex-wrap gap-2">
               {product.brands.map(b => {
                 const brandOos = !b.inStock;
+                const perUnit = pricePerUnitLabel(b);
                 return (
                   <button key={b.id} onClick={() => setSelectedBrand(b)}
                     className={`min-h-[44px] px-3 py-2 rounded-pill text-xs font-semibold border-[1.5px] transition-all font-body flex items-center gap-1.5 ${brandOos ? "opacity-50" : ""} ${selectedBrand.id === b.id ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-muted-foreground"}`}>
                     {b.logoUrl && <img src={b.logoUrl} alt="" className="w-4 h-4 object-contain" />}
-                    {b.label} — {fmt(b.price)}
+                    <span>{b.label} — {fmt(b.price)}</span>
+                    {b.packCount != null && (
+                      <span className="text-[10px] font-normal text-text-light">({b.packCount}pk{perUnit ? ` · ${perUnit}` : ""})</span>
+                    )}
                     {b.compareAtPrice && b.compareAtPrice > b.price && (
                       <span className="line-through text-muted-foreground text-[10px]">{fmt(b.compareAtPrice)}</span>
                     )}
@@ -311,6 +326,9 @@ function DrawerInner({ product, defaultBudget, onClose }: { product: Product; de
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="pf text-xl font-bold text-forest">{fmt(selectedBrand.price)}</p>
+            {pricePerUnitLabel(selectedBrand) && (
+              <p className="text-muted-foreground text-[11px]">{pricePerUnitLabel(selectedBrand)}</p>
+            )}
             {showSalePrice && (
               <p className="text-muted-foreground text-xs line-through">{fmt(selectedBrand.compareAtPrice!)}</p>
             )}

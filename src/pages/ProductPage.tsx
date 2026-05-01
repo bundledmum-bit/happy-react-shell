@@ -13,6 +13,7 @@ import { Star, ShoppingBag, ChevronLeft, ZoomIn, X, Share2, Truck, Shield, Packa
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSubscriptionSettings } from "@/hooks/useSubscription";
 import { track as pixelTrack, moneyPayload as pixelMoney } from "@/lib/metaPixel";
+import { diaperBadges, pricePerUnitLabel } from "@/lib/diaperBrand";
 
 function useProduct(slug: string) {
   return useQuery({
@@ -20,7 +21,7 @@ function useProduct(slug: string) {
     queryFn: async () => {
       let { data, error } = await supabase
         .from("products")
-        .select("*, brands(id, product_id, brand_name, price, tier, is_default_for_tier, size_variant, in_stock, stock_quantity, display_order, image_url, thumbnail_url, logo_url, compare_at_price), product_sizes(*), product_colors(*), product_tags(*), product_images(*)")
+        .select("*, brands(id, product_id, brand_name, price, tier, is_default_for_tier, size_variant, in_stock, stock_quantity, display_order, image_url, thumbnail_url, logo_url, compare_at_price, weight_range_kg, pack_count, diaper_type, sku), product_sizes(*), product_colors(*), product_tags(*), product_images(*)")
         .eq("slug", slug)
         .eq("is_active", true)
         .is("deleted_at", null)
@@ -29,7 +30,7 @@ function useProduct(slug: string) {
       if (!data) {
         const res = await supabase
           .from("products")
-          .select("*, brands(id, product_id, brand_name, price, tier, is_default_for_tier, size_variant, in_stock, stock_quantity, display_order, image_url, thumbnail_url, logo_url, compare_at_price), product_sizes(*), product_colors(*), product_tags(*), product_images(*)")
+          .select("*, brands(id, product_id, brand_name, price, tier, is_default_for_tier, size_variant, in_stock, stock_quantity, display_order, image_url, thumbnail_url, logo_url, compare_at_price, weight_range_kg, pack_count, diaper_type, sku), product_sizes(*), product_colors(*), product_tags(*), product_images(*)")
           .eq("id", slug)
           .eq("is_active", true)
           .is("deleted_at", null)
@@ -256,7 +257,7 @@ function ProductPageContent({ product, raw, settings }: { product: Product; raw:
             </div>
 
             {/* Price */}
-            <div className="flex items-baseline gap-3 mb-4">
+            <div className="flex items-baseline gap-3 mb-1">
               <span className="pf text-2xl md:text-3xl font-bold text-forest">{fmt(selectedBrand.price)}</span>
               {showSalePrice && (
                 <span className="text-muted-foreground text-lg line-through">{fmt(selectedBrand.compareAtPrice!)}</span>
@@ -265,8 +266,26 @@ function ProductPageContent({ product, raw, settings }: { product: Product; raw:
                 <span className="bg-destructive/10 text-destructive text-xs font-bold px-2 py-0.5 rounded-pill">-{savingsPercent}%</span>
               )}
             </div>
+            {pricePerUnitLabel(selectedBrand) && (
+              <div className="text-muted-foreground text-sm mb-4">{pricePerUnitLabel(selectedBrand)}</div>
+            )}
+            {!pricePerUnitLabel(selectedBrand) && <div className="mb-4" />}
 
             <p className="text-muted-foreground text-sm leading-relaxed mb-4">{product.description}</p>
+
+            {/* Diaper attribute pills */}
+            {(() => {
+              const badges = diaperBadges(selectedBrand);
+              return badges.length > 0 ? (
+                <div className="flex flex-wrap gap-1 mb-4">
+                  {badges.map(b => (
+                    <span key={b} className="text-[12px] font-medium rounded-full px-2.5 py-1" style={{ backgroundColor: "#F0F0F0", color: "#555" }}>
+                      {b}
+                    </span>
+                  ))}
+                </div>
+              ) : null;
+            })()}
 
             {/* Delivery */}
             <div className="flex items-center gap-2 bg-forest-light rounded-lg px-3 py-2 text-xs text-forest font-semibold mb-4">
@@ -279,11 +298,15 @@ function ProductPageContent({ product, raw, settings }: { product: Product; raw:
               <div className="flex flex-wrap gap-2">
                 {product.brands.map(b => {
                   const brandOos = !b.inStock;
+                  const perUnit = pricePerUnitLabel(b);
                   return (
                     <button key={b.id} onClick={() => { setSelectedBrand(b); setActiveImageIdx(0); }}
                       className={`min-h-[44px] px-3 py-2 rounded-pill text-xs font-semibold border-[1.5px] transition-all font-body flex items-center gap-1.5 ${brandOos ? "opacity-50" : ""} ${selectedBrand.id === b.id ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-muted-foreground"}`}>
                       {b.logoUrl && <img src={b.logoUrl} alt="" className="w-4 h-4 object-contain" />}
-                      {b.label} — {fmt(b.price)}
+                      <span>{b.label} — {fmt(b.price)}</span>
+                      {b.packCount != null && (
+                        <span className="text-[10px] font-normal text-text-light">({b.packCount}pk{perUnit ? ` · ${perUnit}` : ""})</span>
+                      )}
                       {b.compareAtPrice && b.compareAtPrice > b.price && (
                         <span className="line-through text-muted-foreground text-[10px]">{fmt(b.compareAtPrice)}</span>
                       )}
@@ -394,6 +417,35 @@ function ProductPageContent({ product, raw, settings }: { product: Product; raw:
               )}
             </div>
           </section>
+
+          {/* Product Details — diaper / pack attributes for the selected brand. */}
+          {(() => {
+            const detailRows: Array<[string, string]> = [];
+            if (selectedBrand.packCount && selectedBrand.packCount > 0) {
+              const unit = selectedBrand.diaperType === "Pant" ? "pants"
+                : selectedBrand.diaperType === "Underlay" ? "sheets"
+                : "nappies";
+              detailRows.push(["Pack Count", `${selectedBrand.packCount} ${unit}`]);
+            }
+            if (selectedBrand.diaperType) detailRows.push(["Type", String(selectedBrand.diaperType)]);
+            if (selectedBrand.weightRangeKg) detailRows.push(["Weight Range", String(selectedBrand.weightRangeKg)]);
+            if (selectedBrand.sizeVariant) detailRows.push(["Size", String(selectedBrand.sizeVariant)]);
+            if (selectedBrand.sku) detailRows.push(["SKU", String(selectedBrand.sku)]);
+            if (detailRows.length === 0) return null;
+            return (
+              <section>
+                <h2 className="pf text-lg font-bold mb-4 border-b border-border pb-2">Product Details</h2>
+                <dl className="text-sm divide-y divide-border/60">
+                  {detailRows.map(([k, v]) => (
+                    <div key={k} className="flex items-center justify-between py-2">
+                      <dt className="text-muted-foreground">{k}</dt>
+                      <dd className="font-semibold">{v}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+            );
+          })()}
 
           {/* Long Description */}
           {longDescription && (
