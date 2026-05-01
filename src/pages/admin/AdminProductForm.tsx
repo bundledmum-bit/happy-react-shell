@@ -6,6 +6,7 @@ import ProductImageManager from "@/components/admin/ProductImageManager";
 import SEOEditor from "@/components/admin/SEOEditor";
 import BrandImageUpload from "@/components/admin/BrandImageUpload";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useProductCategories } from "@/hooks/useProductCategories";
 
 interface Props {
   product: any | null;
@@ -27,9 +28,11 @@ const TAG_TYPES = [
 
 export default function AdminProductForm({ product, onClose, onSaved }: Props) {
   const isEdit = !!product;
+  const { data: allCategories = [] } = useProductCategories();
   const [form, setForm] = useState({
     name: product?.name || "", slug: product?.slug || "", emoji: product?.emoji || "",
     description: product?.description || "", category: product?.category || "baby",
+    subcategory: product?.subcategory || "",
     priority: product?.priority || "essential", badge: product?.badge || "",
     display_order: product?.display_order || 0, is_active: product?.is_active ?? true,
     pack_count: product?.pack_count || "", material: product?.material || "",
@@ -75,7 +78,8 @@ export default function AdminProductForm({ product, onClose, onSaved }: Props) {
       }
       const productData: Record<string, any> = {
         name: form.name, slug, emoji: form.emoji || null, description: form.description,
-        category: form.category, priority: form.priority, badge: form.badge || null,
+        category: form.category, subcategory: form.subcategory || null,
+        priority: form.priority, badge: form.badge || null,
         display_order: form.display_order, pack_count: form.pack_count || null,
         material: form.material || null, contents: form.contents || null,
         allergen_info: form.allergen_info || null, safety_info: form.safety_info || null,
@@ -193,10 +197,23 @@ export default function AdminProductForm({ product, onClose, onSaved }: Props) {
               </div>
               <div><label className={labelCls}>Description *</label>
                 <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} className={inputCls} /></div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div><label className={labelCls}>Category</label>
-                  <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} className={inputCls}>
+                  <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value, subcategory: "" }))} className={inputCls}>
                     {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select></div>
+                <div><label className={labelCls}>Subcategory</label>
+                  <select value={form.subcategory} onChange={e => setForm(f => ({ ...f, subcategory: e.target.value }))} className={inputCls}>
+                    <option value="">— Select —</option>
+                    {allCategories
+                      .filter(c => {
+                        if (form.category === "baby") return c.parent_category === "baby" || c.parent_category === "both";
+                        if (form.category === "mum")  return c.parent_category === "mum"  || c.parent_category === "both";
+                        return true; // 'both' / 'push-gift' / unknown — show all
+                      })
+                      .map(c => (
+                        <option key={c.slug} value={c.slug}>{c.icon ? `${c.icon} ` : ""}{c.name}</option>
+                      ))}
                   </select></div>
                 <div><label className={labelCls}>Priority</label>
                   <select value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))} className={inputCls}>

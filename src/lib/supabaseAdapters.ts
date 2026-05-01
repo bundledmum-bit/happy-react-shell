@@ -239,7 +239,7 @@ export function adaptBundle(row: any): Bundle {
     };
     const itemSection = bi.section;
     if (itemSection === "convenience") convenienceItems.push(item);
-    else if (itemSection === "hospital" || prod?.subcategory === "delivery-consumables") hospitalItems.push(item);
+    else if (itemSection === "hospital" || prod?.subcategory === "maternity-postpartum") hospitalItems.push(item);
     else if (item.forWhom === "mum") mumItems.push(item);
     else babyItems.push(item);
   });

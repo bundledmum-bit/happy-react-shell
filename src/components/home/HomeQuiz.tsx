@@ -332,7 +332,7 @@ function ResultsScreen({
             : "push-standard";
           const { data, error } = await supabase.rpc("run_push_gift_recommendation", {
             p_budget_tier: pushTier,
-            p_category: "pampering",
+            p_category: "mum-gifts-keepsakes",
             p_timing: "no-specific-time",
           });
           if (cancelled) return;
@@ -519,7 +519,7 @@ function ResultsScreen({
   // Convenience Extras = priority='nice-to-have' (not in hospital) — the
   //   ranked "extras" the RPC pulls in at higher budgets.
   // Baby/Mum Essentials = category buckets filtered to essential/recommended.
-  const HOSPITAL_SUBCATEGORIES = new Set(["delivery-consumables"]);
+  const HOSPITAL_SUBCATEGORIES = new Set(["maternity-postpartum"]);
   const isHospital = (r: RecommendedProduct) => HOSPITAL_SUBCATEGORIES.has(r.subcategory || "");
   const isNice = (r: RecommendedProduct) => r.priority === "nice-to-have";
   const hospitalItems = isGift ? [] : results.filter(r => isHospital(r));

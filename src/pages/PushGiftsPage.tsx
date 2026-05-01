@@ -30,12 +30,13 @@ function usePushGiftProducts() {
   });
 }
 
+// All four legacy push-gift sub-categories (jewellery / pampering /
+// keepsakes / experience) collapsed into a single new slug
+// 'mum-gifts-keepsakes', so keep one combined tab here. 'bundles' is
+// a separate filter (drives a different query path).
 const FILTER_TABS = [
   { key: "all", label: "All" },
-  { key: "jewellery", label: "💍 Jewellery" },
-  { key: "pampering", label: "🧖‍♀️ Pampering" },
-  { key: "keepsakes", label: "🎁 Keepsakes" },
-  { key: "experience", label: "🧖 Experiences" },
+  { key: "mum-gifts-keepsakes", label: "🎁 Gifts & Keepsakes" },
   { key: "bundles", label: "📦 Bundles" },
 ];
 

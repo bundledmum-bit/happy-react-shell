@@ -578,8 +578,18 @@ export default function ShopPage() {
         ) : filtered.length === 0 ? (
           <div className="text-center py-16">
             <div className="text-4xl mb-4">🔍</div>
-            <h2 className="pf text-xl mb-2">No products found</h2>
-            <p className="text-muted-foreground text-sm mb-4">Try adjusting your filters or search term.</p>
+            {/* Category-only empty state vs general 'no match' */}
+            {categoryF && !search && !brandF && priceMinF == null && priceMaxF == null ? (
+              <>
+                <h2 className="pf text-xl mb-2">No products in this category yet</h2>
+                <p className="text-muted-foreground text-sm mb-4">Check back soon — we're constantly adding new items.</p>
+              </>
+            ) : (
+              <>
+                <h2 className="pf text-xl mb-2">No products found</h2>
+                <p className="text-muted-foreground text-sm mb-4">Try adjusting your filters or search term.</p>
+              </>
+            )}
             <button
               onClick={() => {
                 // One-tap recovery — clear all URL params AND the local search box.

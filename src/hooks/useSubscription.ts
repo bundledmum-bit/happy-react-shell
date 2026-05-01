@@ -167,7 +167,7 @@ export function projectCycleEnd(firstDeliveryDate: Date, frequency: Frequency, c
   return d;
 }
 
-/** "nappies-wipes" → "Nappies & Wipes". */
+/** "diapers-nappies" → "Diapers & Nappies". */
 export function prettySubcategory(s: string | null | undefined): string {
   if (!s) return "Other";
   return s

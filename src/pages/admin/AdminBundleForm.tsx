@@ -17,13 +17,13 @@ const SECTIONS: Array<{ key: SectionKey; label: string; emoji: string }> = [
 
 // Mirror of BundleItemSwapPopup's convenience detection.
 const isConvenience = (p: { subcategory?: string | null; product_slot?: string | null }): boolean =>
-  (p.subcategory === "maternity-recovery" &&
+  (p.subcategory === "maternity-postpartum" &&
     ["vacuum_flask", "power_bank", "portable_fan", "straw_bottle"].includes(p.product_slot || "")) ||
-  (p.subcategory === "feeding" && (p.product_slot?.includes("warmer") ?? false)) ||
-  (p.subcategory === "nursing" && p.product_slot === "breast_pump") ||
-  p.subcategory === "travel-transport" ||
-  (p.subcategory === "health-safety" && p.product_slot === "diaper_bag_mummy_bag") ||
-  (p.subcategory === "health-safety" && p.product_slot === "portable_changing_pad");
+  (p.subcategory === "feeding-equipment" && (p.product_slot?.includes("warmer") ?? false)) ||
+  (p.subcategory === "breastfeeding-equipment" && p.product_slot === "breast_pump") ||
+  p.subcategory === "travel-gear" ||
+  (p.subcategory === "health-safety-baby" && p.product_slot === "diaper_bag_mummy_bag") ||
+  (p.subcategory === "health-safety-baby" && p.product_slot === "portable_changing_pad");
 
 interface Props {
   bundle: any | null;
@@ -71,7 +71,7 @@ export default function AdminBundleForm({ bundle, onClose, onSaved }: Props) {
   //   mum category                     → mum
   //   everything else                  → baby
   const detectSection = (prod: { category?: string | null; subcategory?: string | null; product_slot?: string | null }): SectionKey => {
-    if (prod.subcategory === "delivery-consumables") return "hospital";
+    if (prod.subcategory === "maternity-postpartum") return "hospital";
     if (isConvenience(prod)) return "convenience";
     if (prod.category === "mum") return "mum";
     return "baby";
@@ -220,9 +220,9 @@ export default function AdminBundleForm({ bundle, onClose, onSaved }: Props) {
       if (!p.name.toLowerCase().includes(q)) return false;
       switch (section) {
         case "mum":
-          return p.category === "mum" && p.subcategory !== "delivery-consumables";
+          return p.category === "mum" && p.subcategory !== "maternity-postpartum";
         case "hospital":
-          return p.subcategory === "delivery-consumables";
+          return p.subcategory === "maternity-postpartum";
         case "baby":
           return p.category === "baby" && !isConvenience(p);
         case "convenience":
