@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -9,18 +10,37 @@ import TrashTabs from "@/components/admin/TrashTabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ExportButton, ImportButton } from "@/components/admin/ExcelImportExport";
 import { usePermissions } from "@/hooks/useAdminPermissionsContext";
+import { useProductCategories } from "@/hooks/useProductCategories";
 
 export default function AdminProducts() {
   const queryClient = useQueryClient();
   const { can } = usePermissions();
-  const [search, setSearch] = useState("");
-  const [catFilter, setCatFilter] = useState("all");
+  const [urlParams, setUrlParams] = useSearchParams();
+
+  const [search, setSearch] = useState(urlParams.get("q") || "");
+  const [catFilter, setCatFilter] = useState(urlParams.get("shop") || "all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">((urlParams.get("status") as any) || "active");
+  const [subcategoryFilter, setSubcategoryFilter] = useState<string>(urlParams.get("category") || "");
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [showForm, setShowForm] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [trashTab, setTrashTab] = useState<"active" | "trash">("active");
   const [quickEditId, setQuickEditId] = useState<string | null>(null);
   const [quickEditData, setQuickEditData] = useState<any>({});
+  const [bulkCategoryOpen, setBulkCategoryOpen] = useState(false);
+
+  const { data: allCategories = [] } = useProductCategories();
+
+  // Mirror filters → URL so admins can bookmark filtered views.
+  useEffect(() => {
+    const next = new URLSearchParams();
+    if (search) next.set("q", search);
+    if (catFilter !== "all") next.set("shop", catFilter);
+    if (statusFilter !== "active") next.set("status", statusFilter);
+    if (subcategoryFilter) next.set("category", subcategoryFilter);
+    setUrlParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, catFilter, statusFilter, subcategoryFilter]);
 
   const { data: products, isLoading } = useQuery({
     queryKey: ["admin-products"],
@@ -35,14 +55,20 @@ export default function AdminProducts() {
   });
 
   const bulkMutation = useMutation({
-    mutationFn: async ({ ids, action }: { ids: string[]; action: string }) => {
+    mutationFn: async ({ ids, action, value }: { ids: string[]; action: string; value?: string }) => {
       if (action === "activate") await supabase.from("products").update({ is_active: true, deleted_at: null }).in("id", ids);
       else if (action === "deactivate") await supabase.from("products").update({ is_active: false }).in("id", ids);
       else if (action === "trash") await supabase.from("products").update({ is_active: false, deleted_at: new Date().toISOString() }).in("id", ids);
       else if (action === "restore") await supabase.from("products").update({ is_active: true, deleted_at: null }).in("id", ids);
       else if (action === "delete_permanent") await supabase.from("products").delete().in("id", ids);
+      else if (action === "change_category" && value) await supabase.from("products").update({ subcategory: value }).in("id", ids);
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["admin-products"] }); setSelected(new Set()); toast.success("Bulk action applied"); },
+    onSuccess: (_d, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-products"] });
+      const n = vars.ids.length;
+      setSelected(new Set());
+      toast.success(`Updated ${n} product${n === 1 ? "" : "s"} successfully`);
+    },
   });
 
   const quickSave = useMutation({
@@ -69,11 +95,24 @@ export default function AdminProducts() {
   const trashedProducts = allProducts.filter((p: any) => !!p.deleted_at);
   const displayList = trashTab === "active" ? activeProducts : trashedProducts;
 
-  const filtered = displayList.filter((p: any) => {
-    if (catFilter !== "all" && p.category !== catFilter) return false;
-    if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
+  // Combined search: matches product name, slug, and any brand_name / sku
+  // on the product's brand list. Case-insensitive substring match.
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return displayList.filter((p: any) => {
+      if (catFilter !== "all" && p.category !== catFilter) return false;
+      if (statusFilter === "active" && !p.is_active) return false;
+      if (statusFilter === "inactive" && p.is_active) return false;
+      if (subcategoryFilter && p.subcategory !== subcategoryFilter) return false;
+      if (!q) return true;
+      const haystack: string[] = [p.name, p.slug || ""];
+      for (const b of (p.brands || [])) {
+        if (b.brand_name) haystack.push(b.brand_name);
+        if (b.sku) haystack.push(b.sku);
+      }
+      return haystack.some(h => h.toLowerCase().includes(q));
+    });
+  }, [displayList, catFilter, statusFilter, subcategoryFilter, search]);
 
   const toggleSelect = (id: string) => { const next = new Set(selected); next.has(id) ? next.delete(id) : next.add(id); setSelected(next); };
   const allSelected = filtered.length > 0 && filtered.every((p: any) => selected.has(p.id));
@@ -81,14 +120,20 @@ export default function AdminProducts() {
   const handleBulkAction = (action: string) => {
     const ids = Array.from(selected);
     if (!ids.length) return;
+    if (action === "change_category") { setBulkCategoryOpen(true); return; }
+    if (action === "trash" && !confirm(`Are you sure? This will hide ${ids.length} product${ids.length === 1 ? "" : "s"} from the shop. Order history is preserved.`)) return;
     if (action === "delete_permanent" && !confirm("Permanently delete selected products?")) return;
     bulkMutation.mutate({ ids, action });
   };
 
   const bulkActions = trashTab === "active"
     ? [
-        ...(can("products", "edit") ? [{ label: "Activate", value: "activate" }, { label: "Deactivate", value: "deactivate" }] : []),
-        ...(can("products", "delete") ? [{ label: "Move to Trash", value: "trash", destructive: true }] : []),
+        ...(can("products", "edit") ? [
+          { label: "Activate", value: "activate" },
+          { label: "Deactivate", value: "deactivate" },
+          { label: "Change Category", value: "change_category" },
+        ] : []),
+        ...(can("products", "delete") ? [{ label: "Delete", value: "trash", destructive: true }] : []),
       ]
     : [
         ...(can("products", "edit") ? [{ label: "Restore", value: "restore" }] : []),
@@ -117,18 +162,55 @@ export default function AdminProducts() {
 
       <TrashTabs activeTab={trashTab} onTabChange={t => { setTrashTab(t); setSelected(new Set()); }} activeCount={activeProducts.length} trashCount={trashedProducts.length} />
 
-      <div className="flex gap-3 mb-4">
-        <div className="relative flex-1 max-w-xs">
+      <div className="flex gap-2 mb-4 flex-wrap items-center">
+        <div className="relative flex-1 min-w-[220px] max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-light" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search products..."
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name, slug, brand or SKU…"
             className="w-full pl-9 pr-3 py-2 border border-input rounded-lg text-sm bg-background outline-none focus:ring-2 focus:ring-forest" />
         </div>
-        {["all", "baby", "mum"].map(c => (
-          <button key={c} onClick={() => setCatFilter(c)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${catFilter === c ? "border-forest bg-forest-light text-forest" : "border-border text-text-med"}`}>
-            {c === "all" ? "All" : c === "baby" ? "👶 Baby" : "💛 Mum"}
+
+        {/* Status pill toggle */}
+        <div className="inline-flex rounded-lg bg-muted p-0.5 text-xs">
+          {(["all","active","inactive"] as const).map(s => (
+            <button key={s} onClick={() => setStatusFilter(s)}
+              className={`px-3 py-1.5 rounded-md font-semibold capitalize ${statusFilter === s ? "bg-card" : "text-text-med"}`}>
+              {s === "all" ? "All" : s}
+            </button>
+          ))}
+        </div>
+
+        {/* Shop pill toggle */}
+        <div className="inline-flex rounded-lg bg-muted p-0.5 text-xs">
+          {[
+            { v: "all",  label: "All Shops" },
+            { v: "baby", label: "👶 Baby" },
+            { v: "mum",  label: "💛 Mum" },
+            { v: "both", label: "Both" },
+          ].map(o => (
+            <button key={o.v} onClick={() => setCatFilter(o.v)}
+              className={`px-3 py-1.5 rounded-md font-semibold ${catFilter === o.v ? "bg-card" : "text-text-med"}`}>
+              {o.label}
+            </button>
+          ))}
+        </div>
+
+        {/* DB-driven category dropdown — 19 entries */}
+        <select value={subcategoryFilter} onChange={e => setSubcategoryFilter(e.target.value)}
+          className="border border-input rounded-lg px-2 py-2 text-xs bg-background min-w-[180px]">
+          <option value="">All Categories</option>
+          {allCategories.map(c => (
+            <option key={c.slug} value={c.slug}>{c.icon ? `${c.icon} ` : ""}{c.name}</option>
+          ))}
+        </select>
+
+        {(search || statusFilter !== "active" || catFilter !== "all" || subcategoryFilter) && (
+          <button
+            onClick={() => { setSearch(""); setStatusFilter("active"); setCatFilter("all"); setSubcategoryFilter(""); }}
+            className="text-xs text-text-light hover:text-foreground underline"
+          >
+            Clear filters
           </button>
-        ))}
+        )}
       </div>
 
       {bulkActions.length > 0 && (
@@ -151,6 +233,7 @@ export default function AdminProducts() {
                 <th className="px-4 py-3 text-left font-semibold text-text-med">Category</th>
                 <th className="px-4 py-3 text-left font-semibold text-text-med">Priority</th>
                 <th className="px-4 py-3 text-center font-semibold text-text-med">Brands</th>
+                <th className="px-4 py-3 text-left font-semibold text-text-med">Pack Info</th>
                 <th className="px-4 py-3 text-center font-semibold text-text-med">Active</th>
                 <th className="px-4 py-3 text-right font-semibold text-text-med">Actions</th>
               </tr>
@@ -180,6 +263,7 @@ export default function AdminProducts() {
                       className="w-16 border border-input rounded px-2 py-1 text-xs bg-background text-center" />
                   </td>
                   <td className="px-4 py-2" />
+                  <td className="px-4 py-2" />
                   <td className="px-4 py-2 text-right">
                     <div className="flex gap-1 justify-end">
                       <button onClick={() => quickSave.mutate({ name: quickEditData.name, category: quickEditData.category, priority: quickEditData.priority, display_order: quickEditData.display_order })}
@@ -203,6 +287,7 @@ export default function AdminProducts() {
                   <td className="px-4 py-3 capitalize">{p.category}</td>
                   <td className="px-4 py-3 capitalize">{p.priority}</td>
                   <td className="px-4 py-3 text-center">{p.brands?.length || 0}</td>
+                  <td className="px-4 py-3 text-xs"><PackInfoCell brands={p.brands || []} /></td>
                   <td className="px-4 py-3 text-center">
                     <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${p.is_active ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
                       {p.is_active ? "Active" : "Inactive"}
@@ -255,6 +340,71 @@ export default function AdminProducts() {
           onClose={() => { setShowForm(false); setEditingProduct(null); }}
           onSaved={() => { setShowForm(false); setEditingProduct(null); queryClient.invalidateQueries({ queryKey: ["admin-products"] }); }} />
       )}
+
+      {bulkCategoryOpen && (
+        <BulkChangeCategoryModal
+          count={selected.size}
+          categories={allCategories}
+          onClose={() => setBulkCategoryOpen(false)}
+          onConfirm={(slug) => {
+            bulkMutation.mutate({ ids: Array.from(selected), action: "change_category", value: slug });
+            setBulkCategoryOpen(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/** Compact pack-info cell for the product list — derived from the cheapest in-stock brand. */
+function PackInfoCell({ brands }: { brands: any[] }) {
+  if (!brands || brands.length === 0) return <span className="text-text-light">—</span>;
+  const inStock = brands.filter(b => b.in_stock !== false);
+  const pool = inStock.length > 0 ? inStock : brands;
+  const distinctPacks = new Set(pool.filter(b => b.pack_count != null).map(b => b.pack_count));
+  if (distinctPacks.size > 1) return <span className="italic text-text-light">Multiple</span>;
+  const cheapest = [...pool].sort((a, b) => (a.price || 0) - (b.price || 0))[0];
+  if (!cheapest) return <span className="text-text-light">—</span>;
+  const parts: string[] = [];
+  if (cheapest.pack_count) parts.push(String(cheapest.pack_count));
+  if (cheapest.diaper_type) parts.push(cheapest.diaper_type);
+  if (cheapest.weight_range_kg) parts.push(cheapest.weight_range_kg);
+  return parts.length > 0 ? <span className="text-text-med">{parts.join(" / ")}</span> : <span className="text-text-light">—</span>;
+}
+
+/** Modal that lets bulk-action update subcategory across selected products. */
+function BulkChangeCategoryModal({
+  count, categories, onClose, onConfirm,
+}: {
+  count: number;
+  categories: Array<{ slug: string; name: string; icon: string | null }>;
+  onClose: () => void;
+  onConfirm: (slug: string) => void;
+}) {
+  const [slug, setSlug] = useState<string>("");
+  return (
+    <div className="fixed inset-0 z-50 bg-foreground/60 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-card border border-border rounded-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+          <h3 className="font-bold text-sm">Change category for {count} product{count === 1 ? "" : "s"}</h3>
+          <button onClick={onClose} aria-label="Close" className="w-7 h-7 rounded-full hover:bg-muted inline-flex items-center justify-center"><X className="w-3.5 h-3.5" /></button>
+        </div>
+        <div className="p-5 space-y-3">
+          <p className="text-xs text-text-med">Pick the new subcategory. Existing brand variants and pricing stay the same.</p>
+          <select value={slug} onChange={e => setSlug(e.target.value)} className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background">
+            <option value="">— Select category —</option>
+            {categories.map(c => (
+              <option key={c.slug} value={c.slug}>{c.icon ? `${c.icon} ` : ""}{c.name}</option>
+            ))}
+          </select>
+          <div className="flex justify-end gap-2 pt-1">
+            <button onClick={onClose} className="text-xs text-text-med hover:text-foreground px-3 py-2">Cancel</button>
+            <button onClick={() => onConfirm(slug)} disabled={!slug} className="inline-flex items-center gap-1.5 bg-forest text-primary-foreground px-3 py-2 rounded-lg text-xs font-semibold hover:bg-forest-deep disabled:opacity-40">
+              Apply to {count} product{count === 1 ? "" : "s"}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

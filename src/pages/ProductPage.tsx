@@ -287,6 +287,46 @@ function ProductPageContent({ product, raw, settings }: { product: Product; raw:
               ) : null;
             })()}
 
+            {/* Brand Details — cream card, updates with the brand selector */}
+            {(() => {
+              const rows: Array<[string, string]> = [];
+              rows.push(["Brand", selectedBrand.label]);
+              if (selectedBrand.packCount && selectedBrand.packCount > 0) {
+                const unit = selectedBrand.diaperType === "Pant" ? "pants"
+                  : selectedBrand.diaperType === "Underlay" ? "sheets"
+                  : "nappies";
+                rows.push(["Pack Count", `${selectedBrand.packCount} ${unit}`]);
+              }
+              if (selectedBrand.diaperType) rows.push(["Type", String(selectedBrand.diaperType)]);
+              if (selectedBrand.weightRangeKg) rows.push(["Weight Range", String(selectedBrand.weightRangeKg)]);
+              if (selectedBrand.sizeVariant) rows.push(["Size", String(selectedBrand.sizeVariant)]);
+              if (selectedBrand.sku) rows.push(["SKU", String(selectedBrand.sku)]);
+              if (rows.length <= 1) return null; // only Brand row, nothing extra to surface
+              const perUnit = pricePerUnitLabel(selectedBrand);
+              return (
+                <section
+                  className="rounded-xl p-3 mb-4 space-y-1"
+                  style={{ backgroundColor: "#FFF8F4" }}
+                >
+                  <div className="text-[10px] uppercase tracking-widest font-bold" style={{ color: "#7A7A7A" }}>Brand Details</div>
+                  <dl className="text-sm">
+                    {rows.map(([k, v]) => (
+                      <div key={k} className="flex items-baseline justify-between py-0.5">
+                        <dt className="text-[12px]" style={{ color: "#7A7A7A" }}>{k}:</dt>
+                        <dd className="text-[14px] font-bold" style={{ color: "#1A1A1A" }}>{v}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                  {perUnit && selectedBrand.packCount && (
+                    <div className="pt-2 mt-1 border-t border-black/5 flex items-baseline justify-between">
+                      <span className="text-[12px]" style={{ color: "#7A7A7A" }}>Price per unit:</span>
+                      <span className="text-[14px] font-bold" style={{ color: "#1A1A1A" }}>{perUnit.replace("/", " / ")}</span>
+                    </div>
+                  )}
+                </section>
+              );
+            })()}
+
             {/* Delivery */}
             <div className="flex items-center gap-2 bg-forest-light rounded-lg px-3 py-2 text-xs text-forest font-semibold mb-4">
               <Truck className="h-4 w-4" /> {deliveryText}
@@ -417,35 +457,6 @@ function ProductPageContent({ product, raw, settings }: { product: Product; raw:
               )}
             </div>
           </section>
-
-          {/* Product Details — diaper / pack attributes for the selected brand. */}
-          {(() => {
-            const detailRows: Array<[string, string]> = [];
-            if (selectedBrand.packCount && selectedBrand.packCount > 0) {
-              const unit = selectedBrand.diaperType === "Pant" ? "pants"
-                : selectedBrand.diaperType === "Underlay" ? "sheets"
-                : "nappies";
-              detailRows.push(["Pack Count", `${selectedBrand.packCount} ${unit}`]);
-            }
-            if (selectedBrand.diaperType) detailRows.push(["Type", String(selectedBrand.diaperType)]);
-            if (selectedBrand.weightRangeKg) detailRows.push(["Weight Range", String(selectedBrand.weightRangeKg)]);
-            if (selectedBrand.sizeVariant) detailRows.push(["Size", String(selectedBrand.sizeVariant)]);
-            if (selectedBrand.sku) detailRows.push(["SKU", String(selectedBrand.sku)]);
-            if (detailRows.length === 0) return null;
-            return (
-              <section>
-                <h2 className="pf text-lg font-bold mb-4 border-b border-border pb-2">Product Details</h2>
-                <dl className="text-sm divide-y divide-border/60">
-                  {detailRows.map(([k, v]) => (
-                    <div key={k} className="flex items-center justify-between py-2">
-                      <dt className="text-muted-foreground">{k}</dt>
-                      <dd className="font-semibold">{v}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </section>
-            );
-          })()}
 
           {/* Long Description */}
           {longDescription && (
