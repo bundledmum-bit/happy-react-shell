@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import ProductDetailDrawer from "@/components/ProductDetailDrawer";
 import ProductImage from "@/components/ProductImage";
 import { useProductCategories } from "@/hooks/useProductCategories";
+import { useCategoryPagePins } from "@/hooks/useMerchandising";
 
 // Soft pastel rotation so adjacent product sections look distinct.
 const SECTION_BG_PALETTE = [
@@ -49,7 +50,8 @@ function useCategoryProducts(slug: string) {
 
 export default function CategoryPage() {
   const { slug = "" } = useParams<{ slug: string }>();
-  const { data: products, isLoading } = useCategoryProducts(slug);
+  const { data: allProducts, isLoading: loadingAll } = useCategoryProducts(slug);
+  const { data: pinnedProducts, isLoading: loadingPins } = useCategoryPagePins(slug);
   const { data: categories } = useProductCategories();
   const category = (categories || []).find(c => c.slug === slug);
   const [detail, setDetail] = useState<{ product: Product; brandId?: string } | null>(null);
@@ -58,7 +60,30 @@ export default function CategoryPage() {
     document.title = `${category?.name || "Category"} | BundledMum`;
   }, [category?.name]);
 
-  const totalProducts = products?.length || 0;
+  // Merge pins (already in order) with the rest of the category products,
+  // dedupe by product.id. Pins win the slot they occupy.
+  const products = useMemo(() => {
+    const pins = pinnedProducts || [];
+    const rest = allProducts || [];
+    const seen = new Set<string>();
+    const merged: Product[] = [];
+    for (const p of pins) {
+      if (!seen.has(p.id)) {
+        seen.add(p.id);
+        merged.push(p);
+      }
+    }
+    for (const p of rest) {
+      if (!seen.has(p.id)) {
+        seen.add(p.id);
+        merged.push(p);
+      }
+    }
+    return merged;
+  }, [pinnedProducts, allProducts]);
+
+  const isLoading = loadingAll || loadingPins;
+  const totalProducts = products.length;
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0 pt-[68px]">
@@ -89,7 +114,7 @@ export default function CategoryPage() {
               </div>
             ))}
           </div>
-        ) : !products || products.length === 0 ? (
+        ) : products.length === 0 ? (
           <div className="text-center py-16">
             <div className="text-4xl mb-4">🔍</div>
             <h2 className="pf text-xl mb-2">No products in this category yet</h2>

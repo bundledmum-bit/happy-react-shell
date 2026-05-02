@@ -12,8 +12,20 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { useShopSections, useAdminSectionProducts, type ShopVariant, type MerchSection } from "@/hooks/useMerchandising";
-import { useProductCategories } from "@/hooks/useProductCategories";
+import {
+  useShopSections,
+  useAdminSectionProducts,
+  useCategoryPagePinsAdmin,
+  useAddCategoryPagePin,
+  useRemoveCategoryPagePin,
+  useToggleCategoryPagePin,
+  useReorderCategoryPagePins,
+  type ShopVariant,
+  type MerchSection,
+} from "@/hooks/useMerchandising";
+import { useProductCategories, type ProductCategory } from "@/hooks/useProductCategories";
+
+type TopTab = ShopVariant | "categories";
 
 const SHOPS: { key: ShopVariant; label: string }[] = [
   { key: "all", label: "All Shop" },
@@ -22,7 +34,7 @@ const SHOPS: { key: ShopVariant; label: string }[] = [
 ];
 
 export default function AdminMerchandising() {
-  const [shop, setShop] = useState<ShopVariant>("all");
+  const [tab, setTab] = useState<TopTab>("all");
 
   return (
     <div>
@@ -33,17 +45,21 @@ export default function AdminMerchandising() {
         </p>
       </div>
 
-      <Tabs value={shop} onValueChange={v => setShop(v as ShopVariant)}>
+      <Tabs value={tab} onValueChange={v => setTab(v as TopTab)}>
         <TabsList>
           {SHOPS.map(s => (
             <TabsTrigger key={s.key} value={s.key}>{s.label}</TabsTrigger>
           ))}
+          <TabsTrigger value="categories">Categories</TabsTrigger>
         </TabsList>
         {SHOPS.map(s => (
           <TabsContent key={s.key} value={s.key} className="mt-4">
             <ShopMerchPanel shop={s.key} />
           </TabsContent>
         ))}
+        <TabsContent value="categories" className="mt-4">
+          <CategoriesPanel />
+        </TabsContent>
       </Tabs>
     </div>
   );
@@ -432,6 +448,193 @@ function AddCategoryDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// Categories tab — pins per category page (drives /shop/[slug])
+// ----------------------------------------------------------------------------
+
+function CategoriesPanel() {
+  const { data: categories = [], isLoading } = useProductCategories();
+  const [expandedSlug, setExpandedSlug] = useState<string | null>(null);
+
+  const sorted = useMemo(() => {
+    const parentRank = (p: string | null) => {
+      if (p === "baby") return 0;
+      if (p === "mum") return 1;
+      return 2;
+    };
+    return [...categories].sort((a, b) => {
+      const pa = parentRank(a.parent_category);
+      const pb = parentRank(b.parent_category);
+      if (pa !== pb) return pa - pb;
+      const sa = a.stage_order ?? Number.POSITIVE_INFINITY;
+      const sb = b.stage_order ?? Number.POSITIVE_INFINITY;
+      if (sa !== sb) return sa - sb;
+      return (a.name || "").localeCompare(b.name || "");
+    });
+  }, [categories]);
+
+  if (isLoading) {
+    return <div className="text-sm text-text-med">Loading…</div>;
+  }
+  if (sorted.length === 0) {
+    return (
+      <div className="bg-card border border-border rounded-xl p-8 text-center">
+        <p className="text-sm text-text-med">No categories.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-text-med">
+        Pin products to surface at the top of each <code>/shop/[category]</code> page. Pinned products appear first in the order set here; other products in the category appear below them, in their normal order.
+      </p>
+      {sorted.map(cat => (
+        <CategoryRow
+          key={cat.slug}
+          category={cat}
+          expanded={expandedSlug === cat.slug}
+          onToggle={() => setExpandedSlug(expandedSlug === cat.slug ? null : cat.slug)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function CategoryRow({
+  category, expanded, onToggle,
+}: {
+  category: ProductCategory;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const { data: pins = [] } = useCategoryPagePinsAdmin(category.slug, expanded);
+  const pinnedCount = pins.length;
+
+  return (
+    <div className="bg-card border border-border rounded-xl">
+      <div className="flex items-center gap-2 p-3">
+        <button onClick={onToggle} className="p-1 text-text-med hover:text-foreground">
+          {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+        </button>
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          {category.icon && <span className="text-lg">{category.icon}</span>}
+          <div className="min-w-0">
+            <div className="font-semibold text-sm truncate">{category.name}</div>
+            <div className="text-[11px] text-text-light">{category.slug}</div>
+          </div>
+        </div>
+        <span className="text-[11px] bg-muted px-2 py-0.5 rounded font-semibold text-text-med">
+          {expanded ? `${pinnedCount} pinned` : "—"}
+        </span>
+      </div>
+
+      {expanded && (
+        <div className="border-t border-border p-4 bg-muted/20">
+          <CategoryPinsEditor categorySlug={category.slug} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CategoryPinsEditor({ categorySlug }: { categorySlug: string }) {
+  const { data: rows = [], isLoading } = useCategoryPagePinsAdmin(categorySlug);
+  const sorted = useMemo(
+    () => [...rows].sort((a: any, b: any) => (a.product_order || 0) - (b.product_order || 0)),
+    [rows],
+  );
+  const [addOpen, setAddOpen] = useState(false);
+
+  const addPin = useAddCategoryPagePin();
+  const removePin = useRemoveCategoryPagePin();
+  const togglePin = useToggleCategoryPagePin();
+  const reorderPins = useReorderCategoryPagePins();
+
+  const move = (idx: number, dir: -1 | 1) => {
+    const me = sorted[idx] as any;
+    const target = sorted[idx + dir] as any;
+    if (!me || !target) return;
+    reorderPins.mutate({
+      a: { id: me.id, product_order: me.product_order },
+      b: { id: target.id, product_order: target.product_order },
+      categorySlug,
+    });
+  };
+
+  const pinnedIds = new Set(sorted.map((r: any) => r.product_id));
+
+  return (
+    <div className="space-y-2">
+      {isLoading ? (
+        <div className="text-xs text-text-med">Loading products…</div>
+      ) : sorted.length === 0 ? (
+        <div className="text-xs text-text-med">
+          No products pinned. The category page will show all products in normal order.
+        </div>
+      ) : (
+        <div className="space-y-1">
+          {sorted.map((row: any, i: number) => (
+            <div key={row.id} className="flex items-center gap-2 bg-card border border-border rounded-lg p-2">
+              <GripVertical className="w-4 h-4 text-text-light" />
+              <span className="text-xl">{row.products?.emoji || "📦"}</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold truncate">{row.products?.name || "Unknown product"}</div>
+                <div className="text-[10px] text-text-light">order #{row.product_order}</div>
+              </div>
+              <Switch
+                checked={!!row.is_active}
+                onCheckedChange={(v) => togglePin.mutate({ id: row.id, isActive: v, categorySlug })}
+              />
+              <button
+                onClick={() => move(i, -1)}
+                disabled={i === 0}
+                className="p-1 rounded hover:bg-muted disabled:opacity-30"
+                title="Move up"
+              >
+                <ArrowUp className="w-3 h-3" />
+              </button>
+              <button
+                onClick={() => move(i, 1)}
+                disabled={i === sorted.length - 1}
+                className="p-1 rounded hover:bg-muted disabled:opacity-30"
+                title="Move down"
+              >
+                <ArrowDown className="w-3 h-3" />
+              </button>
+              <button
+                onClick={() => removePin.mutate({ id: row.id, categorySlug })}
+                className="p-1 rounded hover:bg-destructive/10 text-destructive"
+                title="Remove"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="pt-1">
+        <Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>
+          <Plus className="w-3.5 h-3.5 mr-1.5" /> Add product
+        </Button>
+      </div>
+
+      <AddProductDialog
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        slug={categorySlug}
+        excludeIds={pinnedIds}
+        onPick={(productId) => {
+          const next = ((sorted[sorted.length - 1] as any)?.product_order || 0) + 1;
+          addPin.mutate({ categorySlug, productId, productOrder: next });
+          setAddOpen(false);
+        }}
+      />
+    </div>
   );
 }
 

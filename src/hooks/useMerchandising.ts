@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase as supabaseTyped } from "@/integrations/supabase/client";
 // The merchandising tables aren't in the generated types yet; cast the
 // client so TS doesn't reject the new table names. Behaviour is unchanged.
@@ -240,6 +240,135 @@ export function usePopularCategories(shop: ShopVariant) {
  * the joined product. Used by the merchandising admin to render the
  * editable list (so removing one product doesn't require optimistic UI).
  */
+// ----------------------------------------------------------------------------
+// Category-page pins — drives /shop/[category-slug]
+// ----------------------------------------------------------------------------
+
+const CATEGORY_PINS_KEY = (categorySlug: string) => ["merch_category_page_pins", categorySlug] as const;
+const CATEGORY_PINS_ADMIN_KEY = (categorySlug: string) => ["merch_category_page_pins_admin", categorySlug] as const;
+
+/**
+ * Storefront: pinned products for a category page, ordered. Mirrors the
+ * `useSectionProducts` join pattern with embedded filters on the products
+ * row plus a JS belt-and-braces filter so an inactive product can never
+ * leak through.
+ */
+export function useCategoryPagePins(categorySlug: string) {
+  return useQuery({
+    queryKey: CATEGORY_PINS_KEY(categorySlug),
+    queryFn: async () => {
+      const { data: rows, error } = await supabase
+        .from("merch_category_products")
+        .select(`id, product_id, product_order, is_active, products!inner(${PRODUCT_COLS})`)
+        .eq("category_slug", categorySlug)
+        .eq("is_active", true)
+        .eq("products.is_active", true)
+        .is("products.deleted_at", null)
+        .order("product_order");
+      if (error) throw error;
+      const productRows = (rows || [])
+        .map((r: any) => r.products)
+        .filter((p: any) => p && p.is_active !== false && !p.deleted_at);
+      return adaptProducts(productRows) as Product[];
+    },
+    staleTime: STALE_5MIN,
+    enabled: !!categorySlug,
+  });
+}
+
+/**
+ * Admin variant: every row regardless of `is_active` so admins see
+ * deactivated pins too. (Currently used by the merchandising admin tab.)
+ */
+export function useCategoryPagePinsAdmin(categorySlug: string, enabled = true) {
+  return useQuery({
+    queryKey: CATEGORY_PINS_ADMIN_KEY(categorySlug),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("merch_category_products")
+        .select(`id, product_id, product_order, is_active, products(id, name, emoji, image_url, subcategory, is_active, deleted_at)`)
+        .eq("category_slug", categorySlug)
+        .order("product_order");
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 30 * 1000,
+    enabled: enabled && !!categorySlug,
+  });
+}
+
+function invalidateCategoryPins(qc: ReturnType<typeof useQueryClient>, categorySlug: string) {
+  qc.invalidateQueries({ queryKey: CATEGORY_PINS_KEY(categorySlug) });
+  qc.invalidateQueries({ queryKey: CATEGORY_PINS_ADMIN_KEY(categorySlug) });
+}
+
+export function useAddCategoryPagePin() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      categorySlug, productId, productOrder,
+    }: { categorySlug: string; productId: string; productOrder: number }) => {
+      const { error } = await supabase.from("merch_category_products").insert({
+        category_slug: categorySlug,
+        product_id: productId,
+        product_order: productOrder,
+        is_active: true,
+      });
+      if (error) throw error;
+    },
+    onSuccess: (_d, vars) => invalidateCategoryPins(qc, vars.categorySlug),
+  });
+}
+
+export function useRemoveCategoryPagePin() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id }: { id: string; categorySlug: string }) => {
+      const { error } = await supabase.from("merch_category_products").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: (_d, vars) => invalidateCategoryPins(qc, vars.categorySlug),
+  });
+}
+
+export function useToggleCategoryPagePin() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean; categorySlug: string }) => {
+      const { error } = await supabase
+        .from("merch_category_products")
+        .update({ is_active: isActive })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: (_d, vars) => invalidateCategoryPins(qc, vars.categorySlug),
+  });
+}
+
+/**
+ * Reorder pins by swapping a pair. Two-step swap pattern (write -1 first)
+ * to avoid the (category_slug, product_order) — well, there isn't a unique
+ * on order, but we mirror the pattern used elsewhere for safety.
+ *
+ * Accepts `[a, b]` — the two rows to swap orders for.
+ */
+export function useReorderCategoryPagePins() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      a, b,
+    }: { a: { id: string; product_order: number }; b: { id: string; product_order: number }; categorySlug: string }) => {
+      const { error: e1 } = await supabase.from("merch_category_products").update({ product_order: -1 }).eq("id", a.id);
+      if (e1) throw e1;
+      const { error: e2 } = await supabase.from("merch_category_products").update({ product_order: a.product_order }).eq("id", b.id);
+      if (e2) throw e2;
+      const { error: e3 } = await supabase.from("merch_category_products").update({ product_order: b.product_order }).eq("id", a.id);
+      if (e3) throw e3;
+    },
+    onSuccess: (_d, vars) => invalidateCategoryPins(qc, vars.categorySlug),
+  });
+}
+
 export function useAdminSectionProducts(shop: ShopVariant, categorySlug: string, enabled = true) {
   return useQuery({
     queryKey: ["admin_merch_section_products", shop, categorySlug],
