@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { adaptProducts, type Brand, type Product } from "@/lib/supabaseAdapters";
+import { adaptProducts, isProductOOS, type Brand, type Product } from "@/lib/supabaseAdapters";
 import { useCart, fmt } from "@/lib/cart";
 import { toast } from "sonner";
 import ProductDetailDrawer from "@/components/ProductDetailDrawer";
@@ -136,15 +136,48 @@ function ProductSection({
   onOpenDetail: (brandId?: string) => void;
 }) {
   const brandCount = product.brands.length;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [hasOverflow, setHasOverflow] = useState(false);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const check = () => setHasOverflow(el.scrollWidth > el.clientWidth);
+    check();
+
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [product.brands]);
+
+  const brandCountBadge = (
+    <span className="text-xs text-muted-foreground whitespace-nowrap">
+      ({brandCount} brand{brandCount === 1 ? "" : "s"})
+    </span>
+  );
+
   return (
     <section className={`${bgClass} rounded-2xl shadow-sm p-4 md:p-6`}>
       <div className="flex items-baseline justify-between mb-3 px-0">
         <h2 className="pf text-base md:text-lg font-bold">{product.name}</h2>
-        <span className="text-xs text-muted-foreground whitespace-nowrap">
-          ({brandCount} brand{brandCount === 1 ? "" : "s"})
+        {/* Desktop: always show brand count */}
+        <span className="hidden md:inline">{brandCountBadge}</span>
+        {/* Mobile: swipe hint when overflow, brand count otherwise */}
+        <span className="md:hidden">
+          {hasOverflow ? (
+            <span className="text-xs text-coral animate-pulse whitespace-nowrap">
+              Swipe for more →
+            </span>
+          ) : (
+            brandCountBadge
+          )}
         </span>
       </div>
-      <div className="flex gap-3 snap-x snap-mandatory overflow-x-auto pb-2 -mx-4 md:-mx-6 px-4 md:px-6 scroll-pl-4 md:scroll-pl-6 scrollbar-hide">
+      <div
+        ref={scrollRef}
+        className="flex gap-3 snap-x snap-mandatory overflow-x-auto pb-2 -mx-4 md:-mx-6 px-4 md:px-6 scroll-pl-4 md:scroll-pl-6 scrollbar-hide"
+      >
         {product.brands.map(brand => (
           <BrandCard
             key={brand.id}
@@ -180,7 +213,8 @@ function BrandCard({
     return null;
   }, [brand.packCount, brand.weightRangeKg]);
 
-  const isOutOfStock = brand.inStock === false;
+  // A brand card is OOS if: product-level flag is set, OR this specific brand is OOS.
+  const isOutOfStock = isProductOOS(product) || brand.inStock === false;
 
   const handleAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -207,11 +241,15 @@ function BrandCard({
         aria-label={`View ${product.name} ${brand.label}`}
       >
         <div className="relative aspect-square w-full bg-[#f5f5f5] flex items-center justify-center overflow-hidden">
-          {showSale && (
+          {isOutOfStock ? (
+            <span className="absolute top-1.5 left-1.5 bg-[#E53935] text-primary-foreground text-[9px] font-bold px-1.5 py-0.5 rounded-pill z-10">
+              Out of Stock
+            </span>
+          ) : showSale ? (
             <span className="absolute top-1.5 right-1.5 bg-destructive text-primary-foreground text-[9px] font-bold px-1.5 py-0.5 rounded-pill z-10">
               Sale
             </span>
-          )}
+          ) : null}
           <ProductImage
             imageUrl={image}
             emoji={brand.img || product.baseImg}

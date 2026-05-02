@@ -3,6 +3,7 @@ import { useShopSections, useSectionProducts, useFallbackSectionProducts, type S
 import { fmt } from "@/lib/cart";
 import ProductImage from "@/components/ProductImage";
 import type { Product } from "@/lib/supabaseAdapters";
+import { isProductOOS } from "@/lib/supabaseAdapters";
 
 const TOP_LIMITS: Record<ShopVariant, number> = { all: 7, baby: 5, mum: 5 };
 
@@ -127,7 +128,8 @@ function CuratedCard({ product, onOpenDetail }: { product: Product; onOpenDetail
   const showFrom = brands.length > 1;
   const image = surfaceBrand?.imageUrl || product.imageUrl || null;
   const showSale = surfaceBrand?.compareAtPrice && surfaceBrand.compareAtPrice > surfaceBrand.price;
-  const isOutOfStock = brands.every(b => b.inStock === false);
+  const allBrandsOos = brands.every(b => b.inStock === false);
+  const isOutOfStock = isProductOOS(product);
 
   const handleChoose = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -136,10 +138,20 @@ function CuratedCard({ product, onOpenDetail }: { product: Product; onOpenDetail
   };
 
   return (
-    <div className={`snap-start shrink-0 w-[180px] md:w-[220px] bg-card rounded-card shadow-card overflow-hidden flex flex-col ${isOutOfStock ? "opacity-60" : ""}`}>
+    <div className={`snap-start shrink-0 w-[180px] md:w-[220px] bg-card rounded-card shadow-card overflow-hidden flex flex-col ${(isOutOfStock || allBrandsOos) ? "opacity-60" : ""}`}>
       <button type="button" onClick={onOpenDetail} className="block w-full text-left">
         <div className="relative aspect-square w-full bg-[#f5f5f5] flex items-center justify-center overflow-hidden">
-          {showSale && (
+          {/* Badge priority: OOS > product.badge > sale */}
+          {isOutOfStock ? (
+            <span className="absolute top-1.5 left-1.5 bg-[#E53935] text-primary-foreground text-[9px] font-bold px-1.5 py-0.5 rounded-pill z-10">
+              Out of Stock
+            </span>
+          ) : product.badge ? (
+            <span className="absolute top-1.5 left-1.5 bg-coral text-primary-foreground text-[9px] font-bold px-1.5 py-0.5 rounded-pill z-10">
+              {product.badge}
+            </span>
+          ) : null}
+          {showSale && !isOutOfStock && (
             <span className="absolute top-1.5 right-1.5 bg-destructive text-primary-foreground text-[9px] font-bold px-1.5 py-0.5 rounded-pill z-10">
               Sale
             </span>
@@ -164,11 +176,11 @@ function CuratedCard({ product, onOpenDetail }: { product: Product; onOpenDetail
         </div>
         <button
           onClick={handleChoose}
-          disabled={isOutOfStock}
+          disabled={isOutOfStock || allBrandsOos}
           className="mt-1.5 w-full rounded-pill text-primary-foreground text-xs font-semibold py-2 min-h-[36px] disabled:cursor-not-allowed"
-          style={{ backgroundColor: isOutOfStock ? "#bbb" : "#F4845F" }}
+          style={{ backgroundColor: (isOutOfStock || allBrandsOos) ? "#bbb" : "#F4845F" }}
         >
-          {isOutOfStock ? "Sold Out" : "Choose Brand"}
+          {(isOutOfStock || allBrandsOos) ? "Sold Out" : "Choose Brand"}
         </button>
       </div>
     </div>

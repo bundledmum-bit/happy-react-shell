@@ -62,6 +62,21 @@ export interface Product {
   stock?: number;
   slug?: string;
   safetyInfo?: string;
+  /** True when the product-level OOS flag is set, regardless of brand stock. */
+  isOutOfStock: boolean;
+}
+
+// ─── OOS helper ───────────────────────────────────────────────
+
+/**
+ * Returns true if:
+ *   - product.isOutOfStock is true, OR
+ *   - every brand on the product has inStock === false
+ */
+export function isProductOOS(product: Product): boolean {
+  if (product.isOutOfStock) return true;
+  if (product.brands.length > 0 && product.brands.every(b => b.inStock === false)) return true;
+  return false;
 }
 
 export interface BundleItem {
@@ -208,6 +223,7 @@ export function adaptProduct(row: any): Product {
     packInfo: row.pack_count || undefined,
     stock: undefined,
     slug: row.slug,
+    isOutOfStock: row.is_out_of_stock ?? false,
   };
 }
 

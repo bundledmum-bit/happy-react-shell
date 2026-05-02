@@ -8,6 +8,7 @@ import ProductDetailDrawer from "@/components/ProductDetailDrawer";
 import { useAllProducts, useSiteSettings } from "@/hooks/useSupabaseData";
 import { useProductCategories } from "@/hooks/useProductCategories";
 import type { Product, Brand } from "@/lib/supabaseAdapters";
+import { isProductOOS } from "@/lib/supabaseAdapters";
 import { track as pixelTrack } from "@/lib/metaPixel";
 import { diaperBadges, packCountLabel } from "@/lib/diaperBrand";
 import ProductImage from "@/components/ProductImage";
@@ -33,7 +34,8 @@ function ProductCard({ product, defaultBudget = "standard", forceBrand, selected
 
   const brandOos = !selectedBrand.inStock;
   const allBrandsOos = product.brands.every(b => !b.inStock);
-  const isOutOfStock = allBrandsOos || brandOos;
+  const isOutOfStock = isProductOOS(product) || brandOos;
+  const productLevelOos = isProductOOS(product);
   const isLowStock = selectedBrand.stockQuantity != null && selectedBrand.stockQuantity > 0 && selectedBrand.stockQuantity <= 5;
 
   const displayImage = selectedBrand.imageUrl || product.imageUrl;
@@ -75,23 +77,26 @@ function ProductCard({ product, defaultBudget = "standard", forceBrand, selected
   const hiddenCount = product.brands.length - visibleBrands.length;
 
   return (
-    <div className={`bg-card rounded-card shadow-card card-hover overflow-hidden ${allBrandsOos ? "opacity-60" : ""}`}>
+    <div className={`bg-card rounded-card shadow-card card-hover overflow-hidden ${(allBrandsOos || productLevelOos) ? "opacity-60" : ""}`}>
       <div className="h-[170px] flex items-center justify-center relative transition-all cursor-pointer overflow-hidden"
         style={{ background: displayImage ? '#f5f5f5' : `linear-gradient(135deg, ${selectedBrand.color}, #fff)` }}
         onClick={() => { trackView(); onViewDetail(); }}>
-        {product.badge && (
+        {/* Badge priority: OOS > badge > sale / low-stock */}
+        {productLevelOos ? (
+          <div className="absolute top-2.5 left-2.5 bg-[#E53935] text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill uppercase tracking-wide z-10">Out of Stock</div>
+        ) : product.badge ? (
           <div className="absolute top-2.5 left-2.5 bg-coral text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill uppercase tracking-wide z-10">{product.badge}</div>
-        )}
+        ) : null}
         {matchBadge && (
           <div className="absolute bottom-2.5 left-2.5 bg-emerald-100 text-emerald-700 text-[9px] font-bold px-2 py-0.5 rounded-pill uppercase tracking-wide z-10 border border-emerald-300">{matchBadge}</div>
         )}
-        {showSale && (
+        {showSale && !productLevelOos && (
           <div className="absolute top-2.5 right-2.5 bg-destructive text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill z-10">
             Save {Math.round(((selectedBrand.compareAtPrice! - selectedBrand.price) / selectedBrand.compareAtPrice!) * 100)}%
           </div>
         )}
-        {allBrandsOos && <div className="absolute top-2.5 right-2.5 bg-foreground/70 text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill z-10">Out of Stock</div>}
-        {isLowStock && !allBrandsOos && <div className="absolute top-2.5 right-2.5 bg-[#E65100] text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill z-10">Only {selectedBrand.stockQuantity} left!</div>}
+        {allBrandsOos && !productLevelOos && <div className="absolute top-2.5 right-2.5 bg-foreground/70 text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill z-10">Out of Stock</div>}
+        {isLowStock && !allBrandsOos && !productLevelOos && <div className="absolute top-2.5 right-2.5 bg-[#E65100] text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill z-10">Only {selectedBrand.stockQuantity} left!</div>}
         <ProductImage imageUrl={displayImage} emoji={selectedBrand.img || product.baseImg} alt={product.name} className="w-full h-full" emojiClassName="text-6xl" />
       </div>
       <div className="p-4">

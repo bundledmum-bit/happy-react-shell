@@ -62,6 +62,8 @@ export default function AdminProducts() {
       else if (action === "restore") await supabase.from("products").update({ is_active: true, deleted_at: null }).in("id", ids);
       else if (action === "delete_permanent") await supabase.from("products").delete().in("id", ids);
       else if (action === "change_category" && value) await supabase.from("products").update({ subcategory: value }).in("id", ids);
+      else if (action === "mark_oos") await supabase.from("products").update({ is_out_of_stock: true } as any).in("id", ids);
+      else if (action === "mark_in_stock") await supabase.from("products").update({ is_out_of_stock: false } as any).in("id", ids);
     },
     onSuccess: (_d, vars) => {
       queryClient.invalidateQueries({ queryKey: ["admin-products"] });
@@ -132,6 +134,8 @@ export default function AdminProducts() {
           { label: "Activate", value: "activate" },
           { label: "Deactivate", value: "deactivate" },
           { label: "Change Category", value: "change_category" },
+          { label: "Mark Out of Stock", value: "mark_oos" },
+          { label: "Mark In Stock", value: "mark_in_stock" },
         ] : []),
         ...(can("products", "delete") ? [{ label: "Delete", value: "trash", destructive: true }] : []),
       ]
@@ -235,6 +239,7 @@ export default function AdminProducts() {
                 <th className="px-4 py-3 text-center font-semibold text-text-med">Brands</th>
                 <th className="px-4 py-3 text-left font-semibold text-text-med">Pack Info</th>
                 <th className="px-4 py-3 text-center font-semibold text-text-med">Active</th>
+                <th className="px-4 py-3 text-center font-semibold text-text-med">Out of Stock</th>
                 <th className="px-4 py-3 text-right font-semibold text-text-med">Actions</th>
               </tr>
             </thead>
@@ -262,6 +267,7 @@ export default function AdminProducts() {
                     <input type="number" value={quickEditData.display_order} onChange={e => setQuickEditData((d: any) => ({ ...d, display_order: parseInt(e.target.value) || 0 }))}
                       className="w-16 border border-input rounded px-2 py-1 text-xs bg-background text-center" />
                   </td>
+                  <td className="px-4 py-2" />
                   <td className="px-4 py-2" />
                   <td className="px-4 py-2" />
                   <td className="px-4 py-2 text-right">
@@ -292,6 +298,9 @@ export default function AdminProducts() {
                     <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${p.is_active ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
                       {p.is_active ? "Active" : "Inactive"}
                     </span>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <OosToggle productId={p.id} isOos={p.is_out_of_stock ?? false} />
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex gap-1 justify-end">
@@ -406,6 +415,30 @@ function BulkChangeCategoryModal({
         </div>
       </div>
     </div>
+  );
+}
+
+/** Inline toggle for the products.is_out_of_stock column. */
+function OosToggle({ productId, isOos }: { productId: string; isOos: boolean }) {
+  const queryClient = useQueryClient();
+  const [pending, setPending] = useState(false);
+
+  const toggle = async () => {
+    setPending(true);
+    await (supabase as any).from("products").update({ is_out_of_stock: !isOos }).eq("id", productId);
+    queryClient.invalidateQueries({ queryKey: ["admin-products"] });
+    setPending(false);
+  };
+
+  return (
+    <button
+      onClick={toggle}
+      disabled={pending}
+      title={isOos ? "Mark In Stock" : "Mark Out of Stock"}
+      className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors ${isOos ? "bg-orange-100 text-orange-700 hover:bg-orange-200" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
+    >
+      {pending ? "…" : isOos ? "OOS" : "In Stock"}
+    </button>
   );
 }
 

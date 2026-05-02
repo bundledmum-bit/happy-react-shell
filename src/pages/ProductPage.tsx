@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { adaptProduct, type Product, type Brand } from "@/lib/supabaseAdapters";
+import { adaptProduct, isProductOOS, type Product, type Brand } from "@/lib/supabaseAdapters";
 import { useCart, fmt, getBrandForBudget } from "@/lib/cart";
 import { useSiteSettings } from "@/hooks/useSupabaseData";
 import { toast } from "sonner";
@@ -102,8 +102,8 @@ function ProductPageContent({ product, raw, settings }: { product: Product; raw:
   const isInCart = !!cartItem;
   const deliveryText = settings?.delivery_text || "Delivery: 1–3 business days";
 
-  const isOutOfStock = !selectedBrand?.inStock;
-  const isLowStock = selectedBrand?.stockQuantity != null && selectedBrand.stockQuantity > 0 && selectedBrand.stockQuantity <= 5;
+  const isOutOfStock = isProductOOS(product) || !selectedBrand?.inStock;
+  const isLowStock = !isOutOfStock && selectedBrand?.stockQuantity != null && selectedBrand.stockQuantity > 0 && selectedBrand.stockQuantity <= 5;
   const showSalePrice = selectedBrand?.compareAtPrice && selectedBrand.compareAtPrice > selectedBrand.price;
   const savings = showSalePrice ? selectedBrand.compareAtPrice! - selectedBrand.price : 0;
   const savingsPercent = showSalePrice ? Math.round((savings / selectedBrand.compareAtPrice!) * 100) : 0;
@@ -205,10 +205,12 @@ function ProductPageContent({ product, raw, settings }: { product: Product; raw:
               style={{ backgroundColor: displayImage ? '#f5f5f5' : (selectedBrand.color || "#F0F7F4") }}
               onClick={() => displayImage && setZoomImage(displayImage)}
             >
-              {product.badge && (
+              {isProductOOS(product) ? (
+                <span className="absolute top-3 left-3 bg-[#E53935] text-primary-foreground text-[10px] font-bold px-2.5 py-1 rounded-pill uppercase z-10">Out of Stock</span>
+              ) : product.badge ? (
                 <span className="absolute top-3 left-3 bg-coral text-primary-foreground text-[10px] font-bold px-2.5 py-1 rounded-pill uppercase z-10">{product.badge}</span>
-              )}
-              {showSalePrice && (
+              ) : null}
+              {showSalePrice && !isProductOOS(product) && (
                 <span className="absolute top-3 right-3 bg-destructive text-primary-foreground text-[10px] font-bold px-2 py-1 rounded-pill z-10">
                   Save {savingsPercent}%
                 </span>
@@ -332,17 +334,16 @@ function ProductPageContent({ product, raw, settings }: { product: Product; raw:
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Choose Brand</p>
               <div className="flex flex-wrap gap-2">
                 {product.brands.map(b => {
-                  const brandOos = !b.inStock;
+                  const brandOos = !b.inStock || product.isOutOfStock;
                   const pcLabel = packCountLabel(b);
                   return (
                     <button key={b.id} onClick={() => { setSelectedBrand(b); setActiveImageIdx(0); }}
                       className={`min-h-[44px] px-3 py-2 rounded-pill text-xs font-semibold border-[1.5px] transition-all font-body flex items-center gap-1.5 ${brandOos ? "opacity-50" : ""} ${selectedBrand.id === b.id ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-muted-foreground"}`}>
                       {b.logoUrl && <img src={b.logoUrl} alt="" className="w-4 h-4 object-contain" />}
-                      <span>{b.label}{pcLabel ? ` ${pcLabel}` : ""} — {fmt(b.price)}</span>
-                      {b.compareAtPrice && b.compareAtPrice > b.price && (
+                      <span>{b.label}{pcLabel ? ` ${pcLabel}` : ""} — {fmt(b.price)}{brandOos ? " (out of stock)" : ""}</span>
+                      {b.compareAtPrice && b.compareAtPrice > b.price && !brandOos && (
                         <span className="line-through text-muted-foreground text-[10px]">{fmt(b.compareAtPrice)}</span>
                       )}
-                      {brandOos && <span className="text-destructive text-[9px]">OOS</span>}
                     </button>
                   );
                 })}

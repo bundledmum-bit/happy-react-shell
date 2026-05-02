@@ -46,6 +46,7 @@ export default function AdminProductForm({ product, onClose, onSaved }: Props) {
     long_description: product?.long_description || "",
     how_to_use: product?.how_to_use || "",
     video_url: product?.video_url || "",
+    is_out_of_stock: product?.is_out_of_stock ?? false,
   });
 
   const [brands, setBrands] = useState<any[]>(product?.brands?.map((b: any) => ({ ...b })) || []);
@@ -92,6 +93,7 @@ export default function AdminProductForm({ product, onClose, onSaved }: Props) {
         video_url: form.video_url || null,
         is_active: publishMode === "active",
         scheduled_for: publishMode === "schedule" ? form.scheduled_for : null,
+        is_out_of_stock: form.is_out_of_stock,
       };
 
       let productId: string;
@@ -248,6 +250,17 @@ export default function AdminProductForm({ product, onClose, onSaved }: Props) {
                       onChange={e => setForm(f => ({ ...f, scheduled_for: e.target.value }))} className={`${inputCls} mt-2`} />
                   )}
                 </div>
+              </div>
+              {/* Out of Stock toggle — sits below Publishing */}
+              <div className="flex items-start gap-3 py-2 border border-border rounded-lg px-3">
+                <div className="flex-1">
+                  <label className="text-xs font-semibold text-foreground block">Out of Stock</label>
+                  <p className="text-[11px] text-text-med mt-0.5">Hides add-to-cart for all brands. Product remains visible.</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer mt-1 flex-shrink-0">
+                  <input type="checkbox" checked={form.is_out_of_stock} onChange={e => setForm(f => ({ ...f, is_out_of_stock: e.target.checked }))} className="sr-only peer" />
+                  <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-500"></div>
+                </label>
               </div>
             </TabsContent>
 
