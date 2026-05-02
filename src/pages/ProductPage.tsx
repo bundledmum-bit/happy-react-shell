@@ -294,10 +294,15 @@ function ProductPageContent({ product, raw, settings }: { product: Product; raw:
                   : "nappies";
                 rows.push(["Pack Count", `${selectedBrand.packCount} ${unit}`]);
               }
-              if (selectedBrand.diaperType) rows.push(["Type", String(selectedBrand.diaperType)]);
-              if (selectedBrand.weightRangeKg) rows.push(["Weight Range", String(selectedBrand.weightRangeKg)]);
-              if (selectedBrand.sizeVariant) rows.push(["Size", String(selectedBrand.sizeVariant)]);
-              if (selectedBrand.sku) rows.push(["SKU", String(selectedBrand.sku)]);
+              const trimmed = (v: unknown) => (v == null ? "" : String(v).trim());
+              const diaperType = trimmed(selectedBrand.diaperType);
+              const weightRange = trimmed(selectedBrand.weightRangeKg);
+              const sizeVariant = trimmed(selectedBrand.sizeVariant);
+              const sku = trimmed(selectedBrand.sku);
+              if (diaperType) rows.push(["Type", diaperType]);
+              if (weightRange) rows.push(["Weight Range", weightRange]);
+              if (sizeVariant) rows.push(["Size", sizeVariant]);
+              if (sku) rows.push(["SKU", sku]);
               if (rows.length <= 1) return null; // only Brand row, nothing extra to surface
               return (
                 <section

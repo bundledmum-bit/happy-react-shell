@@ -40,8 +40,8 @@ export default function Navbar({ topOffset = 0 }: { topOffset?: number }) {
   const navLinks = [
     { to: "/bundles", label: "Hospital Bags" },
     { to: "/shop", label: "All Shop" },
-    { to: "/shop?tab=baby", label: "Baby Shop" },
-    { to: "/shop?tab=mum", label: "Mum Shop" },
+    { to: "/shop/baby", label: "Baby Shop" },
+    { to: "/shop/mum", label: "Mum Shop" },
     ...(showSubscribe ? [{ to: "/subscribe", label: "Subscribe 🔄" }] : []),
     { to: "/push-gifts", label: "Push Gifts 💝" },
   ];

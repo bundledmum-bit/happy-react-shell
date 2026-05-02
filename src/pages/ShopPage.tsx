@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
-import { useSearchParams, Link } from "react-router-dom";
+import { useSearchParams, Link, useLocation } from "react-router-dom";
+import CuratedSections from "@/components/CuratedSections";
+import type { ShopVariant } from "@/hooks/useMerchandising";
 import { useCart, fmt, getBrandForBudget } from "@/lib/cart";
 import { toast } from "sonner";
 import ProductDetailDrawer from "@/components/ProductDetailDrawer";
@@ -179,7 +181,17 @@ const ITEMS_PER_PAGE = 20;
 
 export default function ShopPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const tab = searchParams.get("tab") || "all";
+  const location = useLocation();
+  // Derive the shop variant from the URL path. /shop/baby and /shop/mum
+  // pin the tab; /shop falls back to the `tab` URL param. The merchandising
+  // routes /shop/baby and /shop/mum are explicitly handled in App.tsx
+  // before /shop/:slug, so the CategoryPage doesn't intercept them.
+  const pathShop: ShopVariant | null =
+    location.pathname === "/shop/baby" ? "baby"
+    : location.pathname === "/shop/mum" ? "mum"
+    : location.pathname === "/shop" ? "all"
+    : null;
+  const tab = pathShop || searchParams.get("tab") || "all";
   const budgetF = searchParams.get("budget") || "all";
   const categoryF = searchParams.get("category") || "";
   const brandF = searchParams.get("brand") || "";
@@ -584,6 +596,15 @@ export default function ShopPage() {
       <div className="max-w-[1200px] mx-auto px-4 md:px-10 py-6 md:py-10">
         <SpendMoreBanner variant="shop" />
 
+        {/* Curated merchandising sections — only on top-level /shop, /shop/baby, /shop/mum
+            (i.e. when the shop variant comes from the path, not a `?tab=` filter pill). */}
+        {pathShop && (tab === "all" || tab === "baby" || tab === "mum") && (
+          <CuratedSections
+            shop={tab as ShopVariant}
+            onOpenDetail={p => setDetailProduct(p)}
+          />
+        )}
+
         {isLoading ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5 mt-4">
             {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
@@ -619,6 +640,16 @@ export default function ShopPage() {
           </div>
         ) : (
           <>
+            {/* "All Products" divider — shown whenever curated sections appear
+                above the grid (i.e. on /shop, /shop/baby, /shop/mum). */}
+            {pathShop && (tab === "all" || tab === "baby" || tab === "mum") && (
+              <div className="mt-8 mb-4 flex items-baseline justify-between gap-3 border-t border-border pt-6">
+                <h2 className="pf text-xl md:text-2xl font-bold">All Products</h2>
+                <span className="text-muted-foreground text-xs md:text-sm whitespace-nowrap">
+                  {filtered.length} item{filtered.length === 1 ? "" : "s"}
+                </span>
+              </div>
+            )}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5 mt-4">
               {visibleProducts.map(hit => (
                 <ProductCard

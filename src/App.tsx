@@ -31,6 +31,7 @@ import AccountSubscriptions from "@/pages/account/AccountSubscriptions";
 import BundlesPage from "@/pages/BundlesPage";
 import BundleDetailPage from "@/pages/BundleDetailPage";
 import ShopPage from "@/pages/ShopPage";
+import CategoryPage from "@/pages/CategoryPage";
 import QuizPage from "@/pages/QuizPage";
 import CartPage from "@/pages/CartPage";
 import CheckoutPage from "@/pages/CheckoutPage";
@@ -90,6 +91,7 @@ import AdminTrustSignals from "@/pages/admin/AdminTrustSignals";
 import AdminSpendThresholds from "@/pages/admin/AdminSpendThresholds";
 import AdminReturns from "@/pages/admin/AdminReturns";
 import AdminSubscriptions from "@/pages/admin/AdminSubscriptions";
+import AdminMerchandising from "@/pages/admin/AdminMerchandising";
 import AdminHRLayout from "@/pages/admin/hr/AdminHRLayout";
 import AdminHREmployees from "@/pages/admin/hr/AdminHREmployees";
 import AdminHRPayroll from "@/pages/admin/hr/AdminHRPayroll";
@@ -204,6 +206,9 @@ function StorefrontShell() {
           <Route path="/bundles" element={<BundlesPage />} />
           <Route path="/bundles/:bundleId" element={<BundleDetailPage />} />
           <Route path="/shop" element={<ShopPage />} />
+          <Route path="/shop/baby" element={<ShopPage />} />
+          <Route path="/shop/mum" element={<ShopPage />} />
+          <Route path="/shop/:slug" element={<CategoryPage />} />
           <Route path="/subscribe" element={<SubscribeLanding />} />
           <Route path="/subscriptions" element={<SubscriptionPage />} />
           <Route path="/subscriptions/checkout" element={<SubscriptionCheckout />} />
@@ -286,6 +291,7 @@ const App = () => (
                 <Route path="storefront/thresholds" element={<PermissionGate module="content" action="edit"><AdminSpendThresholds /></PermissionGate>} />
                 <Route path="returns" element={<PermissionGate module="orders" action="refund"><AdminReturns /></PermissionGate>} />
                 <Route path="subscriptions" element={<PermissionGate module="orders" action="view"><AdminSubscriptions /></PermissionGate>} />
+                <Route path="merchandising" element={<PermissionGate module="content" action="edit"><AdminMerchandising /></PermissionGate>} />
 
                 {/* HR section (nested tabs share AdminHRLayout) */}
                 <Route path="hr" element={<PermissionGate module="hr" action="view"><AdminHRLayout /></PermissionGate>}>

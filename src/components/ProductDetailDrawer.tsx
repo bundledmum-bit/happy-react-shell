@@ -15,16 +15,18 @@ import { addRecentlyViewed } from "@/hooks/useRecentlyViewed";
 interface Props {
   product: Product | null;
   defaultBudget?: string;
+  /** When set, the matching brand is pre-selected on mount. */
+  selectedBrandId?: string;
   onClose: () => void;
 }
 
-export default function ProductDetailDrawer({ product, defaultBudget = "standard", onClose }: Props) {
+export default function ProductDetailDrawer({ product, defaultBudget = "standard", selectedBrandId, onClose }: Props) {
   if (!product) return null;
 
   return (
     <Drawer open={!!product} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DrawerContent className="max-h-[92svh] flex flex-col outline-none">
-        <DrawerInner product={product} defaultBudget={defaultBudget} onClose={onClose} />
+        <DrawerInner product={product} defaultBudget={defaultBudget} selectedBrandId={selectedBrandId} onClose={onClose} />
       </DrawerContent>
     </Drawer>
   );
@@ -51,9 +53,20 @@ function ImageZoomModal({ src, alt, onClose }: { src: string; alt: string; onClo
   );
 }
 
-function DrawerInner({ product, defaultBudget, onClose }: { product: Product; defaultBudget: string; onClose: () => void }) {
+function DrawerInner({ product, defaultBudget, selectedBrandId, onClose }: { product: Product; defaultBudget: string; selectedBrandId?: string; onClose: () => void }) {
   const defaultBrand = getBrandForBudget(product, defaultBudget);
-  const [selectedBrand, setSelectedBrand] = useState(defaultBrand);
+  const seedBrand = selectedBrandId
+    ? (product.brands.find(b => b.id === selectedBrandId) || defaultBrand)
+    : defaultBrand;
+  const [selectedBrand, setSelectedBrand] = useState(seedBrand);
+  // If selectedBrandId changes after mount (e.g. drawer reopened with a
+  // different brand), update the selection to match.
+  useEffect(() => {
+    if (!selectedBrandId) return;
+    const match = product.brands.find(b => b.id === selectedBrandId);
+    if (match && match.id !== selectedBrand.id) setSelectedBrand(match);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBrandId, product.id]);
   const [selectedSize, setSelectedSize] = useState(product.sizes?.[0] || "");
   const { cart, addToCart, updateQty } = useCart();
   const { data: settings } = useSiteSettings();

@@ -9,6 +9,7 @@ export interface ProductCategory {
   display_order: number;
   icon: string | null;
   is_active: boolean;
+  stage_order?: number | null;
 }
 
 export function useProductCategories() {

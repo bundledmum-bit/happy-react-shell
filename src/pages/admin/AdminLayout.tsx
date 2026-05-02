@@ -11,7 +11,7 @@ import {
   Search, X, Menu, ChevronLeft, MessageCircleQuestion, Workflow, Mail, Rocket,
   type LucideIcon,
 } from "lucide-react";
-import { Tag, Boxes, MapPin, FileText as PageIcon, Layout, ShieldCheck, RotateCcw, Megaphone } from "lucide-react";
+import { Tag, Boxes, MapPin, FileText as PageIcon, Layout, ShieldCheck, RotateCcw, Megaphone, Sparkles } from "lucide-react";
 import logoWhite from "@/assets/logos/BM-LOGO-WHITE.svg";
 import BMLoadingAnimation from "@/components/BMLoadingAnimation";
 
@@ -97,6 +97,18 @@ function AdminLayoutInner() {
       const parentIdx = topLevel.findIndex(e => e.navKey === child.parent_key);
       const insertAt = parentIdx >= 0 ? parentIdx + 1 : topLevel.length;
       topLevel.splice(insertAt, 0, toEntry(child));
+    }
+
+    // Append the Merchandising entry if the DB nav hasn't been seeded
+    // with it yet — keeps the link reachable without a migration.
+    if (!topLevel.some(e => e.to === "/admin/merchandising")) {
+      topLevel.push({
+        to: "/admin/merchandising",
+        label: "Merchandising",
+        icon: Sparkles,
+        exact: false,
+        navKey: "merchandising",
+      });
     }
 
     return topLevel;
