@@ -1,26 +1,9 @@
 /**
- * Helpers for the diaper-style brand attributes (weight_range_kg,
- * pack_count, diaper_type, sku). Reusable across ShopPage,
- * ProductPage, ProductDetailDrawer, and the brand picker.
+ * Helpers for the pack-based brand attributes (weight_range_kg,
+ * pack_count, diaper_type, sku). Per-unit price calculations were
+ * removed by product direction — only context badges remain.
  */
 import type { Brand } from "@/lib/supabaseAdapters";
-
-/** "₦122/nappy" — chooses unit by diaper_type. Returns null when there's no pack count. */
-export function pricePerUnitLabel(brand: Pick<Brand, "price" | "packCount" | "diaperType">): string | null {
-  if (!brand.packCount || brand.packCount <= 0) return null;
-  const per = Math.round(Number(brand.price) / brand.packCount);
-  if (!isFinite(per)) return null;
-  const unit = brand.diaperType === "Pant" ? "pant"
-    : brand.diaperType === "Underlay" ? "sheet"
-    : "nappy";
-  return `₦${per.toLocaleString("en-NG")}/${unit}`;
-}
-
-/** Numeric price-per-unit, used for sort comparators. Falls back to brand.price. */
-export function pricePerUnit(brand: Pick<Brand, "price" | "packCount">): number {
-  if (!brand.packCount || brand.packCount <= 0) return Number(brand.price) || 0;
-  return Number(brand.price) / brand.packCount;
-}
 
 /** Pill badges to render under a product name on cards (Type / pack / weight). */
 export function diaperBadges(brand: Pick<Brand, "diaperType" | "packCount" | "weightRangeKg">): string[] {
@@ -29,4 +12,12 @@ export function diaperBadges(brand: Pick<Brand, "diaperType" | "packCount" | "we
   if (brand.packCount && brand.packCount > 0) out.push(`${brand.packCount} in pack`);
   if (brand.weightRangeKg) out.push(brand.weightRangeKg);
   return out;
+}
+
+/** "(106pcs)" microtext beside the brand label in the brand selector,
+ *  or null when the brand has no pack count. Always 'pcs' regardless
+ *  of diaper_type — keep it neutral and short. */
+export function packCountLabel(brand: Pick<Brand, "packCount">): string | null {
+  if (!brand.packCount || brand.packCount <= 0) return null;
+  return `(${brand.packCount}pcs)`;
 }

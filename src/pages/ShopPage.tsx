@@ -7,7 +7,7 @@ import { useAllProducts, useSiteSettings } from "@/hooks/useSupabaseData";
 import { useProductCategories } from "@/hooks/useProductCategories";
 import type { Product, Brand } from "@/lib/supabaseAdapters";
 import { track as pixelTrack } from "@/lib/metaPixel";
-import { diaperBadges, pricePerUnit, pricePerUnitLabel } from "@/lib/diaperBrand";
+import { diaperBadges, packCountLabel } from "@/lib/diaperBrand";
 import ProductImage from "@/components/ProductImage";
 import SpendMoreBanner from "@/components/SpendMoreBanner";
 import QtyControl from "@/components/QtyControl";
@@ -115,12 +115,11 @@ function ProductCard({ product, defaultBudget = "standard", forceBrand, selected
           <div className="flex flex-wrap gap-1">
             {visibleBrands.map(b => {
               const bOos = !b.inStock;
-              const perUnit = pricePerUnitLabel(b);
+              const pcLabel = packCountLabel(b);
               return (
                 <button key={b.id} onClick={() => setSelectedBrand(b)}
                   className={`px-2 py-1 rounded-pill text-[10px] font-semibold border-[1.5px] transition-all font-body min-h-[40px] inline-flex items-center gap-1 ${bOos ? "opacity-50" : ""} ${selectedBrand.id === b.id ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-muted-foreground"}`}>
-                  <span>{b.label} {fmt(b.price)}</span>
-                  {perUnit && <span className="text-[9px] font-normal text-text-light">· {perUnit}</span>}
+                  <span>{b.label}{pcLabel ? ` ${pcLabel}` : ""} {fmt(b.price)}</span>
                   {b.id === defaultBrand.id && !bOos && <span className="text-coral ml-0.5">★</span>}
                 </button>
               );
@@ -157,11 +156,8 @@ function ProductCard({ product, defaultBudget = "standard", forceBrand, selected
         <div className="flex justify-between items-center">
           <div>
             <div className="text-forest font-bold text-[17px] transition-all">{fmt(selectedBrand.price)}</div>
-            {pricePerUnitLabel(selectedBrand) && (
-              <div className="text-muted-foreground text-[10px] mt-0.5">{pricePerUnitLabel(selectedBrand)}</div>
-            )}
             {showSale && <div className="text-muted-foreground text-[10px] line-through">{fmt(selectedBrand.compareAtPrice!)}</div>}
-            {!showSale && product.brands.length > 1 && !pricePerUnitLabel(selectedBrand) && <div className="text-muted-foreground text-[10px] mt-0.5">from {fmt(Math.min(...product.brands.map(b => b.price)))}</div>}
+            {!showSale && product.brands.length > 1 && <div className="text-muted-foreground text-[10px] mt-0.5">from {fmt(Math.min(...product.brands.map(b => b.price)))}</div>}
           </div>
           {isOutOfStock ? (
             <div>
@@ -323,19 +319,6 @@ export default function ShopPage() {
     };
     if (sortBy === "price-low"  || sortBy === "price_asc")  hits.sort((a, b) => priceOf(a) - priceOf(b));
     if (sortBy === "price-high" || sortBy === "price_desc") hits.sort((a, b) => priceOf(b) - priceOf(a));
-    if (sortBy === "price_per_unit") {
-      // Best value sort — uses price/pack_count when present; brands without
-      // a pack count fall through to plain price (priceOf default), so they
-      // sort below diaper rows that DO have packCount, which is the right
-      // behaviour for the diapers category specifically.
-      const ppuOf = (h: Hit) => {
-        const b = h.brandId
-          ? h.product.brands.find(x => x.id === h.brandId)
-          : h.product.brands[0];
-        return b ? pricePerUnit(b) : Infinity;
-      };
-      hits.sort((a, b) => ppuOf(a) - ppuOf(b));
-    }
     if (sortBy === "rating")    hits.sort((a, b) => b.product.rating - a.product.rating);
     if (sortBy === "name_asc")  hits.sort((a, b) => a.product.name.localeCompare(b.product.name));
     if (sortBy === "newest")    hits.sort((a: any, b: any) => ((b.product as any).created_at || "").localeCompare((a.product as any).created_at || ""));
@@ -395,23 +378,19 @@ export default function ShopPage() {
 
   // Canonical sort-option metadata. Supports both DB keys and legacy
   // URL keys so existing links still work.
-  const ALL_SORT_OPTIONS: Array<{ key: string; label: string; aliases?: string[]; categoryOnly?: string }> = [
+  const ALL_SORT_OPTIONS: Array<{ key: string; label: string; aliases?: string[] }> = [
     { key: "rating",     label: "Top Rated" },
     { key: "price_asc",  label: "Price: Low to High", aliases: ["price-low"] },
     { key: "price_desc", label: "Price: High to Low", aliases: ["price-high"] },
-    { key: "price_per_unit", label: "Best value (price per nappy)", categoryOnly: "diapers-nappies" },
     { key: "name_asc",   label: "Name: A – Z" },
     { key: "newest",     label: "Newest First" },
   ];
-  const FALLBACK_ENABLED_SORTS = ["rating", "price_asc", "price_desc", "price_per_unit", "name_asc", "newest"];
+  const FALLBACK_ENABLED_SORTS = ["rating", "price_asc", "price_desc", "name_asc", "newest"];
   const enabledSortsRaw = (siteSettings as any)?.shop_enabled_sorts;
   const enabledSortKeys: string[] = Array.isArray(enabledSortsRaw)
     ? enabledSortsRaw
     : FALLBACK_ENABLED_SORTS;
-  // Filter out category-scoped sort options when not in their category.
-  const enabledSortOptions = ALL_SORT_OPTIONS
-    .filter(o => enabledSortKeys.includes(o.key))
-    .filter(o => !o.categoryOnly || o.categoryOnly === categoryF);
+  const enabledSortOptions = ALL_SORT_OPTIONS.filter(o => enabledSortKeys.includes(o.key));
   // Resolve the current sort (URL) back to a canonical key so the sheet
   // can highlight the correct row even when the URL uses a legacy alias.
   const canonicalSort = ALL_SORT_OPTIONS.find(o => o.key === sortBy || o.aliases?.includes(sortBy))?.key || sortBy;

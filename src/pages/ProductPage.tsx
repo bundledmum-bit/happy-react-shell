@@ -13,7 +13,7 @@ import { Star, ShoppingBag, ChevronLeft, ZoomIn, X, Share2, Truck, Shield, Packa
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSubscriptionSettings } from "@/hooks/useSubscription";
 import { track as pixelTrack, moneyPayload as pixelMoney } from "@/lib/metaPixel";
-import { diaperBadges, pricePerUnitLabel } from "@/lib/diaperBrand";
+import { diaperBadges, packCountLabel } from "@/lib/diaperBrand";
 
 function useProduct(slug: string) {
   return useQuery({
@@ -266,10 +266,7 @@ function ProductPageContent({ product, raw, settings }: { product: Product; raw:
                 <span className="bg-destructive/10 text-destructive text-xs font-bold px-2 py-0.5 rounded-pill">-{savingsPercent}%</span>
               )}
             </div>
-            {pricePerUnitLabel(selectedBrand) && (
-              <div className="text-muted-foreground text-sm mb-4">{pricePerUnitLabel(selectedBrand)}</div>
-            )}
-            {!pricePerUnitLabel(selectedBrand) && <div className="mb-4" />}
+            <div className="mb-4" />
 
             <p className="text-muted-foreground text-sm leading-relaxed mb-4">{product.description}</p>
 
@@ -302,7 +299,6 @@ function ProductPageContent({ product, raw, settings }: { product: Product; raw:
               if (selectedBrand.sizeVariant) rows.push(["Size", String(selectedBrand.sizeVariant)]);
               if (selectedBrand.sku) rows.push(["SKU", String(selectedBrand.sku)]);
               if (rows.length <= 1) return null; // only Brand row, nothing extra to surface
-              const perUnit = pricePerUnitLabel(selectedBrand);
               return (
                 <section
                   className="rounded-xl p-3 mb-4 space-y-1"
@@ -317,12 +313,6 @@ function ProductPageContent({ product, raw, settings }: { product: Product; raw:
                       </div>
                     ))}
                   </dl>
-                  {perUnit && selectedBrand.packCount && (
-                    <div className="pt-2 mt-1 border-t border-black/5 flex items-baseline justify-between">
-                      <span className="text-[12px]" style={{ color: "#7A7A7A" }}>Price per unit:</span>
-                      <span className="text-[14px] font-bold" style={{ color: "#1A1A1A" }}>{perUnit.replace("/", " / ")}</span>
-                    </div>
-                  )}
                 </section>
               );
             })()}
@@ -338,15 +328,12 @@ function ProductPageContent({ product, raw, settings }: { product: Product; raw:
               <div className="flex flex-wrap gap-2">
                 {product.brands.map(b => {
                   const brandOos = !b.inStock;
-                  const perUnit = pricePerUnitLabel(b);
+                  const pcLabel = packCountLabel(b);
                   return (
                     <button key={b.id} onClick={() => { setSelectedBrand(b); setActiveImageIdx(0); }}
                       className={`min-h-[44px] px-3 py-2 rounded-pill text-xs font-semibold border-[1.5px] transition-all font-body flex items-center gap-1.5 ${brandOos ? "opacity-50" : ""} ${selectedBrand.id === b.id ? "border-forest bg-forest-light text-forest" : "border-border bg-card text-muted-foreground"}`}>
                       {b.logoUrl && <img src={b.logoUrl} alt="" className="w-4 h-4 object-contain" />}
-                      <span>{b.label} — {fmt(b.price)}</span>
-                      {b.packCount != null && (
-                        <span className="text-[10px] font-normal text-text-light">({b.packCount}pk{perUnit ? ` · ${perUnit}` : ""})</span>
-                      )}
+                      <span>{b.label}{pcLabel ? ` ${pcLabel}` : ""} — {fmt(b.price)}</span>
                       {b.compareAtPrice && b.compareAtPrice > b.price && (
                         <span className="line-through text-muted-foreground text-[10px]">{fmt(b.compareAtPrice)}</span>
                       )}
