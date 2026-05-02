@@ -598,6 +598,7 @@ export type Database = {
           compare_at_price: number | null
           cost_price: number | null
           created_at: string | null
+          diaper_type: string | null
           display_order: number | null
           id: string
           image_url: string | null
@@ -606,13 +607,16 @@ export type Database = {
           is_default_for_tier: boolean | null
           logo_url: string | null
           low_stock_threshold: number | null
+          pack_count: number | null
           price: number
           product_id: string
           reserved_quantity: number | null
           size_variant: string | null
+          sku: string | null
           stock_quantity: number | null
           thumbnail_url: string | null
           tier: string
+          weight_range_kg: string | null
         }
         Insert: {
           brand_name: string
@@ -620,6 +624,7 @@ export type Database = {
           compare_at_price?: number | null
           cost_price?: number | null
           created_at?: string | null
+          diaper_type?: string | null
           display_order?: number | null
           id?: string
           image_url?: string | null
@@ -628,13 +633,16 @@ export type Database = {
           is_default_for_tier?: boolean | null
           logo_url?: string | null
           low_stock_threshold?: number | null
+          pack_count?: number | null
           price: number
           product_id: string
           reserved_quantity?: number | null
           size_variant?: string | null
+          sku?: string | null
           stock_quantity?: number | null
           thumbnail_url?: string | null
           tier: string
+          weight_range_kg?: string | null
         }
         Update: {
           brand_name?: string
@@ -642,6 +650,7 @@ export type Database = {
           compare_at_price?: number | null
           cost_price?: number | null
           created_at?: string | null
+          diaper_type?: string | null
           display_order?: number | null
           id?: string
           image_url?: string | null
@@ -650,13 +659,16 @@ export type Database = {
           is_default_for_tier?: boolean | null
           logo_url?: string | null
           low_stock_threshold?: number | null
+          pack_count?: number | null
           price?: number
           product_id?: string
           reserved_quantity?: number | null
           size_variant?: string | null
+          sku?: string | null
           stock_quantity?: number | null
           thumbnail_url?: string | null
           tier?: string
+          weight_range_kg?: string | null
         }
         Relationships: [
           {
@@ -1899,12 +1911,19 @@ export type Database = {
           description: string
           expense_date: string
           id: string
+          is_auto_generated: boolean
           is_recurring: boolean | null
+          last_generated_at: string | null
           notes: string | null
           period_month: number | null
           period_year: number | null
           receipt_url: string | null
           recurrence: string | null
+          recurrence_end_date: string | null
+          recurrence_interval: number | null
+          recurrence_next_date: string | null
+          recurrence_parent_id: string | null
+          recurrence_unit: string | null
           updated_at: string | null
           vendor: string | null
         }
@@ -1916,12 +1935,19 @@ export type Database = {
           description: string
           expense_date: string
           id?: string
+          is_auto_generated?: boolean
           is_recurring?: boolean | null
+          last_generated_at?: string | null
           notes?: string | null
           period_month?: number | null
           period_year?: number | null
           receipt_url?: string | null
           recurrence?: string | null
+          recurrence_end_date?: string | null
+          recurrence_interval?: number | null
+          recurrence_next_date?: string | null
+          recurrence_parent_id?: string | null
+          recurrence_unit?: string | null
           updated_at?: string | null
           vendor?: string | null
         }
@@ -1933,12 +1959,19 @@ export type Database = {
           description?: string
           expense_date?: string
           id?: string
+          is_auto_generated?: boolean
           is_recurring?: boolean | null
+          last_generated_at?: string | null
           notes?: string | null
           period_month?: number | null
           period_year?: number | null
           receipt_url?: string | null
           recurrence?: string | null
+          recurrence_end_date?: string | null
+          recurrence_interval?: number | null
+          recurrence_next_date?: string | null
+          recurrence_parent_id?: string | null
+          recurrence_unit?: string | null
           updated_at?: string | null
           vendor?: string | null
         }
@@ -1948,6 +1981,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "finance_expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_expenses_recurrence_parent_id_fkey"
+            columns: ["recurrence_parent_id"]
+            isOneToOne: false
+            referencedRelation: "finance_expenses"
             referencedColumns: ["id"]
           },
         ]
@@ -3340,6 +3380,95 @@ export type Database = {
           },
         ]
       }
+      merch_section_products: {
+        Row: {
+          category_slug: string
+          created_at: string | null
+          id: string
+          is_active: boolean
+          product_id: string
+          product_order: number
+          shop: string
+          updated_at: string | null
+        }
+        Insert: {
+          category_slug: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          product_id: string
+          product_order?: number
+          shop: string
+          updated_at?: string | null
+        }
+        Update: {
+          category_slug?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          product_id?: string
+          product_order?: number
+          shop?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "merch_section_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "merch_section_products_shop_category_slug_fkey"
+            columns: ["shop", "category_slug"]
+            isOneToOne: false
+            referencedRelation: "merch_shop_sections"
+            referencedColumns: ["shop", "category_slug"]
+          },
+        ]
+      }
+      merch_shop_sections: {
+        Row: {
+          category_slug: string
+          created_at: string | null
+          id: string
+          is_active: boolean
+          section_label: string | null
+          section_order: number
+          shop: string
+          updated_at: string | null
+        }
+        Insert: {
+          category_slug: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          section_label?: string | null
+          section_order?: number
+          shop: string
+          updated_at?: string | null
+        }
+        Update: {
+          category_slug?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          section_label?: string | null
+          section_order?: number
+          shop?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "merch_shop_sections_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "product_categories"
+            referencedColumns: ["slug"]
+          },
+        ]
+      }
       navigation_links: {
         Row: {
           created_at: string | null
@@ -4094,6 +4223,7 @@ export type Database = {
           name: string
           parent_category: string | null
           slug: string
+          stage_order: number | null
         }
         Insert: {
           created_at?: string | null
@@ -4104,6 +4234,7 @@ export type Database = {
           name: string
           parent_category?: string | null
           slug: string
+          stage_order?: number | null
         }
         Update: {
           created_at?: string | null
@@ -4114,6 +4245,7 @@ export type Database = {
           name?: string
           parent_category?: string | null
           slug?: string
+          stage_order?: number | null
         }
         Relationships: []
       }
@@ -4322,6 +4454,7 @@ export type Database = {
           is_consumable: boolean | null
           is_convenience: boolean | null
           is_featured: boolean | null
+          is_out_of_stock: boolean
           is_push_gift_eligible: boolean | null
           is_subscribable: boolean
           long_description: string | null
@@ -4345,6 +4478,7 @@ export type Database = {
           scopes: string[] | null
           sku: string | null
           slug: string
+          stage_order: number | null
           stages: string[] | null
           subcategory: string | null
           updated_at: string | null
@@ -4379,6 +4513,7 @@ export type Database = {
           is_consumable?: boolean | null
           is_convenience?: boolean | null
           is_featured?: boolean | null
+          is_out_of_stock?: boolean
           is_push_gift_eligible?: boolean | null
           is_subscribable?: boolean
           long_description?: string | null
@@ -4402,6 +4537,7 @@ export type Database = {
           scopes?: string[] | null
           sku?: string | null
           slug: string
+          stage_order?: number | null
           stages?: string[] | null
           subcategory?: string | null
           updated_at?: string | null
@@ -4436,6 +4572,7 @@ export type Database = {
           is_consumable?: boolean | null
           is_convenience?: boolean | null
           is_featured?: boolean | null
+          is_out_of_stock?: boolean
           is_push_gift_eligible?: boolean | null
           is_subscribable?: boolean
           long_description?: string | null
@@ -4459,6 +4596,7 @@ export type Database = {
           scopes?: string[] | null
           sku?: string | null
           slug?: string
+          stage_order?: number | null
           stages?: string[] | null
           subcategory?: string | null
           updated_at?: string | null
@@ -6730,6 +6868,7 @@ export type Database = {
         Args: { p_from_year?: number; p_max_carryover?: number }
         Returns: Json
       }
+      process_recurring_expenses: { Args: never; Returns: Json }
       run_push_gift_recommendation: {
         Args: { p_budget_tier: string; p_category: string; p_timing: string }
         Returns: Json
