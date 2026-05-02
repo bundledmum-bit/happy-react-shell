@@ -121,6 +121,112 @@ export function useFallbackSectionProducts(categorySlug: string, limit = 10) {
 }
 
 /**
+ * Popularity-ranked categories for a shop variant.
+ *
+ * Popularity = SUM(order_items.quantity) per products.subcategory over the
+ * last 180 days. Categories with zero active products are filtered out.
+ * Tie-break is `stage_order` ASC. Returned shape matches what the section
+ * renderer needs (slug, name, icon, parent_category, stage_order).
+ *
+ * The query is intentionally client-side aggregated — keeps us off RPCs
+ * that may not exist yet, and the dataset (orders × items) is small enough
+ * for that to be fine. Cached 5 min via TanStack Query.
+ */
+export interface PopularCategory {
+  slug: string;
+  name: string;
+  icon: string | null;
+  parent_category: string | null;
+  stage_order: number | null;
+  popularity: number;
+}
+
+export function usePopularCategories(shop: ShopVariant) {
+  return useQuery<PopularCategory[]>({
+    queryKey: ["popular_categories", shop],
+    queryFn: async () => {
+      const sinceIso = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString();
+
+      // Fetch order items in the window. Paginate defensively in 1000-row pages.
+      const orderItems: Array<{ product_id: string; quantity: number }> = [];
+      const PAGE = 1000;
+      let from = 0;
+      // Hard cap to avoid runaway loops on bad data.
+      for (let i = 0; i < 50; i++) {
+        const { data, error } = await supabase
+          .from("order_items")
+          .select("product_id, quantity, created_at")
+          .gte("created_at", sinceIso)
+          .range(from, from + PAGE - 1);
+        if (error) throw error;
+        const rows = data || [];
+        orderItems.push(...rows.map((r: any) => ({ product_id: r.product_id, quantity: Number(r.quantity) || 0 })));
+        if (rows.length < PAGE) break;
+        from += PAGE;
+      }
+
+      // All active products → product_id → subcategory map.
+      const { data: products, error: pErr } = await supabase
+        .from("products")
+        .select("id, subcategory, is_active, deleted_at")
+        .eq("is_active", true)
+        .is("deleted_at", null);
+      if (pErr) throw pErr;
+      const productSubcat = new Map<string, string>();
+      const subcatActiveCount = new Map<string, number>();
+      for (const p of (products || []) as any[]) {
+        if (!p.subcategory) continue;
+        productSubcat.set(p.id, p.subcategory);
+        subcatActiveCount.set(p.subcategory, (subcatActiveCount.get(p.subcategory) || 0) + 1);
+      }
+
+      // Aggregate popularity per subcategory.
+      const popularity = new Map<string, number>();
+      for (const oi of orderItems) {
+        const slug = productSubcat.get(oi.product_id);
+        if (!slug) continue;
+        popularity.set(slug, (popularity.get(slug) || 0) + oi.quantity);
+      }
+
+      // All active categories.
+      const { data: cats, error: cErr } = await supabase
+        .from("product_categories")
+        .select("slug, name, icon, parent_category, stage_order, is_active")
+        .eq("is_active", true);
+      if (cErr) throw cErr;
+
+      let filtered = (cats || []) as any[];
+      if (shop === "baby") {
+        filtered = filtered.filter(c => c.parent_category === "baby" || c.parent_category === "both");
+      } else if (shop === "mum") {
+        filtered = filtered.filter(c => c.parent_category === "mum" || c.parent_category === "both");
+      }
+      // Skip empty categories.
+      filtered = filtered.filter(c => (subcatActiveCount.get(c.slug) || 0) > 0);
+
+      const ranked: PopularCategory[] = filtered.map(c => ({
+        slug: c.slug,
+        name: c.name,
+        icon: c.icon ?? null,
+        parent_category: c.parent_category ?? null,
+        stage_order: c.stage_order ?? null,
+        popularity: popularity.get(c.slug) || 0,
+      }));
+
+      ranked.sort((a, b) => {
+        if (b.popularity !== a.popularity) return b.popularity - a.popularity;
+        const sa = a.stage_order ?? 9999;
+        const sb = b.stage_order ?? 9999;
+        return sa - sb;
+      });
+
+      return ranked;
+    },
+    staleTime: STALE_5MIN,
+  });
+}
+
+/**
  * Admin-only: every row in merch_section_products for a shop+slug, with
  * the joined product. Used by the merchandising admin to render the
  * editable list (so removing one product doesn't require optimistic UI).

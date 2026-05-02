@@ -161,7 +161,7 @@ function SectionRow({
 
           {/* Known settings per section_key — keeps the admin from editing raw JSON */}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            {"max_items" in settings || ["featured_products", "most_loved", "testimonials", "recently_viewed"].includes(draft.section_key) ? (
+            {"max_items" in settings || ["featured_products", "most_loved", "testimonials"].includes(draft.section_key) ? (
               <div>
                 <label className={labelCls}>Max items</label>
                 <input type="number" min={1} max={20} value={settings.max_items ?? ""} onChange={e => setSetting("max_items", e.target.value ? Number(e.target.value) : null)} className={inputCls} />

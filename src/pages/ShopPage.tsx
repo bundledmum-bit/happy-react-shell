@@ -63,15 +63,6 @@ function ProductCard({ product, defaultBudget = "standard", forceBrand, selected
     if (cartItem) updateQty(cartItem._key, newQty);
   };
 
-  const trackView = () => {
-    try {
-      const rv = JSON.parse(localStorage.getItem("bm-recently-viewed") || "[]");
-      const filtered = rv.filter((id: string) => id !== product.id);
-      filtered.unshift(product.id);
-      localStorage.setItem("bm-recently-viewed", JSON.stringify(filtered.slice(0, 8)));
-    } catch {}
-  };
-
   const showAllBrands = product.brands.length <= 3;
   const visibleBrands = showAllBrands ? product.brands : product.brands.slice(0, 2);
   const hiddenCount = product.brands.length - visibleBrands.length;
@@ -80,7 +71,7 @@ function ProductCard({ product, defaultBudget = "standard", forceBrand, selected
     <div className={`bg-card rounded-card shadow-card card-hover overflow-hidden ${(allBrandsOos || productLevelOos) ? "opacity-60" : ""}`}>
       <div className="h-[170px] flex items-center justify-center relative transition-all cursor-pointer overflow-hidden"
         style={{ background: displayImage ? '#f5f5f5' : `linear-gradient(135deg, ${selectedBrand.color}, #fff)` }}
-        onClick={() => { trackView(); onViewDetail(); }}>
+        onClick={() => { onViewDetail(); }}>
         {/* Badge priority: OOS > badge > sale / low-stock */}
         {productLevelOos ? (
           <div className="absolute top-2.5 left-2.5 bg-[#E53935] text-primary-foreground text-[9px] font-bold px-2 py-0.5 rounded-pill uppercase tracking-wide z-10">Out of Stock</div>
@@ -100,7 +91,7 @@ function ProductCard({ product, defaultBudget = "standard", forceBrand, selected
         <ProductImage imageUrl={displayImage} emoji={selectedBrand.img || product.baseImg} alt={product.name} className="w-full h-full" emojiClassName="text-6xl" />
       </div>
       <div className="p-4">
-        <h3 className="text-[13px] font-semibold mb-1 leading-tight min-h-[36px] cursor-pointer hover:text-forest transition-colors" onClick={() => { trackView(); onViewDetail(); }}>{product.name}</h3>
+        <h3 className="text-[13px] font-semibold mb-1 leading-tight min-h-[36px] cursor-pointer hover:text-forest transition-colors" onClick={() => { onViewDetail(); }}>{product.name}</h3>
         {/* Diaper-category attribute pills (Type / pack count / weight). */}
         {(() => {
           const badges = diaperBadges(selectedBrand);
@@ -132,7 +123,7 @@ function ProductCard({ product, defaultBudget = "standard", forceBrand, selected
               );
             })}
             {hiddenCount > 0 && (
-              <button onClick={() => { trackView(); onViewDetail(); }}
+              <button onClick={() => { onViewDetail(); }}
                 className="px-2 py-1 rounded-pill text-[10px] font-semibold border-[1.5px] border-border bg-card text-forest font-body hover:border-forest min-h-[40px]">
                 +{hiddenCount} more
               </button>
@@ -345,28 +336,15 @@ export default function ShopPage() {
   const visibleProducts = filtered.slice(0, visibleCount);
   const hasMore = visibleCount < filtered.length;
 
-  // Recently-viewed ids live in localStorage; re-read when the custom
-  // 'bm-recently-viewed-changed' event fires (see useRecentlyViewed).
-  const [recentlyViewedIds, setRecentlyViewedIds] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem("bm-recently-viewed") || "[]"); } catch { return []; }
-  });
-  useEffect(() => {
-    const handler = () => {
-      try {
-        setRecentlyViewedIds(JSON.parse(localStorage.getItem("bm-recently-viewed") || "[]"));
-      } catch { /* ignore */ }
-    };
-    window.addEventListener("bm-recently-viewed-changed", handler);
-    window.addEventListener("storage", handler);
-    return () => {
-      window.removeEventListener("bm-recently-viewed-changed", handler);
-      window.removeEventListener("storage", handler);
-    };
-  }, []);
-  const recentlyViewed = recentlyViewedIds.map(id => (allProducts || []).find(p => p.id === id)).filter(Boolean).slice(0, 5) as Product[];
-
   const isBaby = tab === "baby";
   const isMum = tab === "mum";
+
+  // Sections-only mode: storefront variants (/shop, /shop/baby, /shop/mum)
+  // with no search query. The page becomes a vertical list of category
+  // sections ordered by purchase popularity (see usePopularCategories).
+  // Search queries fall through to the legacy flat grid below so the user
+  // can still hunt across the full catalogue.
+  const sectionsOnlyMode = !!pathShop && (tab === "all" || tab === "baby" || tab === "mum") && !search;
 
   const activeFilterCount = [
     tab !== "all" ? 1 : 0,
@@ -447,6 +425,9 @@ export default function ShopPage() {
         </div>
       </div>
 
+      {/* Filter / sort bars hide entirely in sections-only mode. The new
+          shop layout has no flat grid to filter against. */}
+      {!sectionsOnlyMode && (<>
       {/* MOBILE: Filter + Sort buttons */}
       <div className="md:hidden bg-card border-b border-border py-2.5 px-4 sticky top-[68px] z-50">
         <div className="flex gap-2 items-center">
@@ -597,20 +578,20 @@ export default function ShopPage() {
           </div>
         </div>
       )}
+      </>)}
 
       <div className="max-w-[1200px] mx-auto px-4 md:px-10 py-6 md:py-10">
         <SpendMoreBanner variant="shop" />
 
-        {/* Curated merchandising sections — only on top-level /shop, /shop/baby, /shop/mum
-            (i.e. when the shop variant comes from the path, not a `?tab=` filter pill). */}
-        {pathShop && (tab === "all" || tab === "baby" || tab === "mum") && (
+        {/* Storefront variants render as a popularity-ranked list of category
+            sections (initial 10 + lazy-load more). The flat grid + filter UI
+            below only renders for search queries and non-storefront tabs. */}
+        {sectionsOnlyMode ? (
           <CuratedSections
             shop={tab as ShopVariant}
             onOpenDetail={p => setDetailProduct(p)}
           />
-        )}
-
-        {isLoading ? (
+        ) : isLoading ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5 mt-4">
             {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
               <div key={i} className="bg-card rounded-card shadow-card h-[380px] animate-pulse" />
@@ -645,16 +626,6 @@ export default function ShopPage() {
           </div>
         ) : (
           <>
-            {/* "All Products" divider — shown whenever curated sections appear
-                above the grid (i.e. on /shop, /shop/baby, /shop/mum). */}
-            {pathShop && (tab === "all" || tab === "baby" || tab === "mum") && (
-              <div className="mt-8 mb-4 flex items-baseline justify-between gap-3 border-t border-border pt-6">
-                <h2 className="pf text-xl md:text-2xl font-bold">All Products</h2>
-                <span className="text-muted-foreground text-xs md:text-sm whitespace-nowrap">
-                  {filtered.length} item{filtered.length === 1 ? "" : "s"}
-                </span>
-              </div>
-            )}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5 mt-4">
               {visibleProducts.map(hit => (
                 <ProductCard
@@ -686,20 +657,6 @@ export default function ShopPage() {
           </>
         )}
 
-        {recentlyViewed.length >= 2 && (
-          <div className="mt-12">
-            <h3 className="pf text-lg text-forest mb-4">👀 Recently Viewed</h3>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-              {recentlyViewed.map(p => (
-                <div key={p.id} className="bg-card rounded-card shadow-card p-3 cursor-pointer hover:shadow-card-hover transition-all" onClick={() => setDetailProduct(p)}>
-                  <ProductImage imageUrl={p.imageUrl} emoji={p.baseImg} alt={p.name} className="h-20 w-full rounded-lg" emojiClassName="text-3xl" bgColor={getBrandForBudget(p, "standard").color} />
-                  <p className="text-xs font-semibold truncate">{p.name}</p>
-                  <p className="text-forest text-xs font-bold">{fmt(getBrandForBudget(p, "standard").price)}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       <ProductDetailDrawer product={detailProduct} defaultBudget={!budgetF || budgetF === "all" ? "standard" : budgetF} onClose={() => setDetailProduct(null)} />

@@ -11,7 +11,6 @@ import ProductImage from "@/components/ProductImage";
 import { trackEvent } from "@/lib/analytics";
 import { diaperBadges, packCountLabel } from "@/lib/diaperBrand";
 import { useSiteSettings } from "@/hooks/useSupabaseData";
-import { addRecentlyViewed } from "@/hooks/useRecentlyViewed";
 
 interface Props {
   product: Product | null;
@@ -79,7 +78,6 @@ function DrawerInner({ product, defaultBudget, selectedBrandId, onClose }: { pro
 
   useEffect(() => {
     trackEvent("product_viewed", { product_id: product.id, product_name: product.name });
-    addRecentlyViewed(String(product.id));
   }, [product.id, product.name]);
 
   const displayImage = selectedBrand?.imageUrl || product.imageUrl;

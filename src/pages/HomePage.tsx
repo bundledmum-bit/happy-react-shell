@@ -12,7 +12,6 @@ import FeaturedProductsRail from "@/components/home/FeaturedProductsRail";
 import HowItWorksSection from "@/components/home/HowItWorksSection";
 import TestimonialsSection from "@/components/home/TestimonialsSection";
 import TrustBarDb from "@/components/home/TrustBar";
-import RecentlyViewedStrip from "@/components/home/RecentlyViewedStrip";
 import HeroVideoBackground from "@/components/home/HeroVideoBackground";
 import { useHomepageSections, type HomepageSection } from "@/hooks/useHomepage";
 import { Search } from "lucide-react";
@@ -409,7 +408,6 @@ function renderSection(s: HomepageSection) {
     case "most_loved":        return <FeaturedProductsRail key={s.id} title={s.title} subtitle={s.subtitle} maxItems={maxItems} />;
     case "how_it_works":      return <HowItWorksSection key={s.id} title={s.title} subtitle={s.subtitle} />;
     case "testimonials":      return <TestimonialsSection key={s.id} title={s.title} subtitle={s.subtitle} maxItems={maxItems} />;
-    case "recently_viewed":   return <RecentlyViewedStrip key={s.id} title={s.title} />;
     default:                  return null;
   }
 }

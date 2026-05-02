@@ -1,19 +1,26 @@
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { useShopSections, useSectionProducts, useFallbackSectionProducts, type ShopVariant } from "@/hooks/useMerchandising";
+import {
+  usePopularCategories,
+  useSectionProducts,
+  useFallbackSectionProducts,
+  type ShopVariant,
+} from "@/hooks/useMerchandising";
 import { fmt } from "@/lib/cart";
 import ProductImage from "@/components/ProductImage";
 import type { Product } from "@/lib/supabaseAdapters";
 import { isProductOOS } from "@/lib/supabaseAdapters";
 
-const TOP_LIMITS: Record<ShopVariant, number> = { all: 7, baby: 5, mum: 5 };
+const INITIAL_VISIBLE = 10;
+const PAGE_SIZE = 5;
 
-// Soft pastel rotation so adjacent sections look distinct without being stark.
-// Uses brand tints where available, with safe Tailwind fallbacks.
-const SECTION_BG_PALETTE = [
-  "bg-warm-cream",
-  "bg-coral-blush/70",
-  "bg-mint/60",
-  "bg-forest-light/70",
+// Solid coloured header bars — distinct adjacent sections. The body of each
+// section card sits on white so cards read clearly against the saturated bar.
+const HEADER_PALETTE: Array<{ bar: string; text: string; link: string }> = [
+  { bar: "bg-coral",       text: "text-white",  link: "text-white/90 underline" },
+  { bar: "bg-forest",      text: "text-white",  link: "text-white/90 underline" },
+  { bar: "bg-mint",        text: "text-forest", link: "text-forest underline" },
+  { bar: "bg-warm-cream",  text: "text-forest", link: "text-forest underline" },
 ];
 
 export default function CuratedSections({
@@ -23,19 +30,46 @@ export default function CuratedSections({
   shop: ShopVariant;
   onOpenDetail: (product: Product) => void;
 }) {
-  const { data: sections, isLoading } = useShopSections(shop);
-  const limit = TOP_LIMITS[shop] ?? 7;
-  const visible = (sections || []).slice(0, limit);
+  const { data: categories, isLoading } = usePopularCategories(shop);
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  // Reset when the shop variant changes.
+  useEffect(() => {
+    setVisibleCount(INITIAL_VISIBLE);
+  }, [shop]);
+
+  const total = categories?.length || 0;
+  const hasMore = visibleCount < total;
+
+  // IntersectionObserver lazy-load: bump by PAGE_SIZE when sentinel enters view.
+  // We include `visibleCount` in deps so the observer is rebuilt after each
+  // batch — otherwise the sentinel node stays "isIntersecting" and the
+  // callback never re-fires for subsequent pages.
+  useEffect(() => {
+    if (!hasMore) return;
+    const node = sentinelRef.current;
+    if (!node) return;
+    const io = new IntersectionObserver(entries => {
+      for (const e of entries) {
+        if (e.isIntersecting) {
+          setVisibleCount(c => Math.min(total, c + PAGE_SIZE));
+        }
+      }
+    }, { rootMargin: "400px 0px" });
+    io.observe(node);
+    return () => io.disconnect();
+  }, [hasMore, total, visibleCount]);
 
   if (isLoading) {
     return (
-      <div className="space-y-8 mb-8">
+      <div className="space-y-5 md:space-y-6 mb-10">
         {[1, 2, 3].map(i => (
-          <div key={i}>
-            <div className="h-5 w-48 bg-muted rounded mb-3 animate-pulse" />
-            <div className="flex gap-3 overflow-hidden">
+          <div key={i} className="rounded-2xl shadow-sm overflow-hidden bg-card">
+            <div className="h-10 bg-muted animate-pulse" />
+            <div className="p-4 md:p-6 flex gap-3 overflow-hidden">
               {[1, 2, 3, 4].map(j => (
-                <div key={j} className="w-[180px] md:w-[220px] h-[260px] bg-card rounded-card animate-pulse" />
+                <div key={j} className="w-[180px] md:w-[220px] h-[260px] bg-muted/60 rounded-card animate-pulse" />
               ))}
             </div>
           </div>
@@ -44,21 +78,29 @@ export default function CuratedSections({
     );
   }
 
-  if (!visible.length) return null;
+  if (!categories || categories.length === 0) return null;
+
+  const visible = categories.slice(0, visibleCount);
 
   return (
     <div className="space-y-5 md:space-y-6 mb-10">
-      {visible.map((section, idx) => (
+      {visible.map((cat, idx) => (
         <CuratedSection
-          key={section.id}
+          key={cat.slug}
           shop={shop}
-          slug={section.category_slug}
-          label={section.section_label || section.category?.name || section.category_slug}
-          icon={section.category?.icon || null}
-          bgClass={SECTION_BG_PALETTE[idx % SECTION_BG_PALETTE.length]}
+          slug={cat.slug}
+          label={cat.name}
+          icon={cat.icon}
+          palette={HEADER_PALETTE[idx % HEADER_PALETTE.length]}
           onOpenDetail={onOpenDetail}
+          enablePeek={idx === 0}
         />
       ))}
+      {hasMore && (
+        <div ref={sentinelRef} className="h-12 flex items-center justify-center">
+          <div className="text-xs text-muted-foreground">Loading more sections…</div>
+        </div>
+      )}
     </div>
   );
 }
@@ -68,15 +110,17 @@ function CuratedSection({
   slug,
   label,
   icon,
-  bgClass,
+  palette,
   onOpenDetail,
+  enablePeek = false,
 }: {
   shop: ShopVariant;
   slug: string;
   label: string;
   icon: string | null;
-  bgClass: string;
+  palette: { bar: string; text: string; link: string };
   onOpenDetail: (product: Product) => void;
+  enablePeek?: boolean;
 }) {
   const { data: curated, isLoading: curatedLoading } = useSectionProducts(shop, slug);
   const needsFallback = !curatedLoading && (!curated || curated.length === 0);
@@ -84,13 +128,63 @@ function CuratedSection({
   const products = (curated && curated.length > 0 ? curated : fallback) || [];
   const loading = curatedLoading || (needsFallback && fallbackLoading);
 
+  // Mobile-only: show pulsing "Swipe for more →" hint when the swiper has
+  // horizontal overflow. Mirrors the CategoryPage per-product brand swiper.
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [hasOverflow, setHasOverflow] = useState(false);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const check = () => setHasOverflow(el.scrollWidth > el.clientWidth);
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [products.length]);
+
+  // Mobile-only "peek" prompt: when the section first scrolls into view, nudge
+  // the swiper right (revealing the 3rd card) then snap back, hinting that
+  // there's more to see. Fires once per section per page load. Only the first
+  // section on a page receives the prompt — sufficient to teach the gesture.
+  const peekedRef = useRef(false);
+  useEffect(() => {
+    if (!enablePeek) return;
+    const el = scrollRef.current;
+    if (!el || peekedRef.current) return;
+    if (typeof window === "undefined" || window.matchMedia("(min-width: 768px)").matches) return;
+    if (!hasOverflow) return;
+
+    const io = new IntersectionObserver(entries => {
+      for (const e of entries) {
+        if (e.isIntersecting && !peekedRef.current) {
+          peekedRef.current = true;
+          // Card width 180 + gap 12 → reveal 3rd card by scrolling ~140px in.
+          const peekDistance = 140;
+          const t1 = window.setTimeout(() => {
+            el.scrollTo({ left: peekDistance, behavior: "smooth" });
+          }, 350);
+          const t2 = window.setTimeout(() => {
+            el.scrollTo({ left: 0, behavior: "smooth" });
+          }, 1250);
+          // Cleanup if unmounted mid-animation.
+          return () => {
+            window.clearTimeout(t1);
+            window.clearTimeout(t2);
+          };
+        }
+      }
+    }, { threshold: 0.5 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasOverflow, products.length, enablePeek]);
+
   if (loading) {
     return (
-      <section className={`${bgClass} rounded-2xl shadow-sm p-4 md:p-6`}>
-        <div className="h-5 w-48 bg-muted rounded mb-3 animate-pulse" />
-        <div className="flex gap-3 overflow-hidden">
+      <section className="rounded-2xl shadow-sm overflow-hidden bg-card">
+        <div className={`${palette.bar} h-10 animate-pulse`} />
+        <div className="p-4 md:p-6 flex gap-3 overflow-hidden">
           {[1, 2, 3, 4].map(j => (
-            <div key={j} className="w-[180px] md:w-[220px] h-[260px] bg-card rounded-card animate-pulse" />
+            <div key={j} className="w-[180px] md:w-[220px] h-[260px] bg-muted/60 rounded-card animate-pulse" />
           ))}
         </div>
       </section>
@@ -100,17 +194,31 @@ function CuratedSection({
   if (!products.length) return null;
 
   return (
-    <section className={`${bgClass} rounded-2xl shadow-sm p-4 md:p-6`}>
-      <div className="flex items-baseline justify-between mb-3">
-        <h2 className="pf text-base md:text-lg font-bold flex items-center gap-2">
-          {icon && <span>{icon}</span>}
-          <span>{label}</span>
-        </h2>
-        <Link to={`/shop/${slug}`} className="text-xs md:text-sm text-forest font-semibold hover:underline whitespace-nowrap">
-          See all →
-        </Link>
+    <section className="rounded-2xl shadow-sm overflow-hidden bg-card">
+      <div className={`${palette.bar} ${palette.text} px-4 md:px-6 py-2.5 md:py-3 flex items-center justify-between gap-3`}>
+        <div className="flex items-baseline gap-2 min-w-0">
+          <h2 className="pf text-base md:text-lg font-bold flex items-center gap-2 truncate">
+            {icon && <span>{icon}</span>}
+            <span className="truncate">{label}</span>
+          </h2>
+          <Link
+            to={`/shop/${slug}`}
+            className={`${palette.link} text-[11px] md:text-xs font-semibold whitespace-nowrap hover:opacity-80`}
+          >
+            (see all)
+          </Link>
+        </div>
+        {/* Mobile swipe hint, only when overflow */}
+        {hasOverflow && (
+          <span className={`md:hidden text-[11px] font-semibold animate-pulse whitespace-nowrap ${palette.text}`}>
+            Swipe for more →
+          </span>
+        )}
       </div>
-      <div className="flex gap-3 snap-x snap-mandatory overflow-x-auto pb-2 -mx-4 md:-mx-6 px-4 md:px-6 scroll-pl-4 md:scroll-pl-6 scrollbar-hide">
+      <div
+        ref={scrollRef}
+        className="flex gap-3 snap-x snap-mandatory overflow-x-auto p-4 md:p-6 scrollbar-hide"
+      >
         {products.map(p => (
           <CuratedCard key={p.id} product={p} onOpenDetail={() => onOpenDetail(p)} />
         ))}
@@ -120,7 +228,6 @@ function CuratedSection({
 }
 
 function CuratedCard({ product, onOpenDetail }: { product: Product; onOpenDetail: () => void }) {
-  // Use cheapest in-stock brand as the surface price, then default brand.
   const brands = product.brands.slice().sort((a, b) => a.tier - b.tier);
   const inStock = brands.filter(b => b.inStock !== false);
   const surfaceBrand = inStock[0] || brands[0];
@@ -138,10 +245,9 @@ function CuratedCard({ product, onOpenDetail }: { product: Product; onOpenDetail
   };
 
   return (
-    <div className={`snap-start shrink-0 w-[180px] md:w-[220px] bg-card rounded-card shadow-card overflow-hidden flex flex-col ${(isOutOfStock || allBrandsOos) ? "opacity-60" : ""}`}>
+    <div className={`snap-start shrink-0 w-[180px] md:w-[220px] bg-card rounded-card shadow-card overflow-hidden flex flex-col border border-border/40 ${(isOutOfStock || allBrandsOos) ? "opacity-60" : ""}`}>
       <button type="button" onClick={onOpenDetail} className="block w-full text-left">
         <div className="relative aspect-square w-full bg-[#f5f5f5] flex items-center justify-center overflow-hidden">
-          {/* Badge priority: OOS > product.badge > sale */}
           {isOutOfStock ? (
             <span className="absolute top-1.5 left-1.5 bg-[#E53935] text-primary-foreground text-[9px] font-bold px-1.5 py-0.5 rounded-pill z-10">
               Out of Stock
