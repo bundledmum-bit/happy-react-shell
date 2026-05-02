@@ -83,7 +83,7 @@ export default function CategoryPage() {
                 <div className="h-5 w-40 bg-muted rounded mb-3 animate-pulse" />
                 <div className="flex gap-3 overflow-hidden">
                   {[1, 2, 3].map(j => (
-                    <div key={j} className="w-[160px] md:w-[180px] h-[260px] bg-card rounded-card animate-pulse" />
+                    <div key={j} className="w-[35vw] md:w-[180px] h-[260px] bg-card rounded-card animate-pulse" />
                   ))}
                 </div>
               </div>
@@ -111,7 +111,6 @@ export default function CategoryPage() {
                 product={product}
                 bgClass={SECTION_BG_PALETTE[idx % SECTION_BG_PALETTE.length]}
                 onOpenDetail={(brandId) => setDetail({ product, brandId })}
-                enablePeek={idx === 0}
               />
             ))}
           </div>
@@ -131,12 +130,10 @@ function ProductSection({
   product,
   bgClass,
   onOpenDetail,
-  enablePeek = false,
 }: {
   product: Product;
   bgClass: string;
   onOpenDetail: (brandId?: string) => void;
-  enablePeek?: boolean;
 }) {
   const brandCount = product.brands.length;
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -153,37 +150,6 @@ function ProductSection({
     ro.observe(el);
     return () => ro.disconnect();
   }, [product.brands]);
-
-  // Mobile-only "peek" prompt: when this section first scrolls into view,
-  // nudge the swiper right to reveal the 3rd card, then snap back. Only the
-  // first product section on the page receives the prompt — once is enough
-  // to teach the gesture; doing it on every section is noisy.
-  const peekedRef = useRef(false);
-  useEffect(() => {
-    if (!enablePeek) return;
-    const el = scrollRef.current;
-    if (!el || peekedRef.current) return;
-    if (typeof window === "undefined" || window.matchMedia("(min-width: 768px)").matches) return;
-    if (!hasOverflow) return;
-
-    const io = new IntersectionObserver(entries => {
-      for (const e of entries) {
-        if (e.isIntersecting && !peekedRef.current) {
-          peekedRef.current = true;
-          // Brand card width 160 + gap 12 → reveal 3rd card by scrolling ~120px.
-          const peekDistance = 120;
-          window.setTimeout(() => {
-            el.scrollTo({ left: peekDistance, behavior: "smooth" });
-          }, 350);
-          window.setTimeout(() => {
-            el.scrollTo({ left: 0, behavior: "smooth" });
-          }, 1250);
-        }
-      }
-    }, { threshold: 0.5 });
-    io.observe(el);
-    return () => io.disconnect();
-  }, [hasOverflow, product.brands, enablePeek]);
 
   const brandCountBadge = (
     <span className="text-xs text-muted-foreground whitespace-nowrap">
@@ -266,7 +232,7 @@ function BrandCard({
 
   return (
     <div
-      className={`snap-start shrink-0 w-[160px] md:w-[180px] bg-card rounded-card shadow-card overflow-hidden flex flex-col ${isOutOfStock ? "opacity-60" : ""}`}
+      className={`snap-start shrink-0 w-[35vw] md:w-[180px] bg-card rounded-card shadow-card overflow-hidden flex flex-col ${isOutOfStock ? "opacity-60" : ""}`}
     >
       <button
         type="button"

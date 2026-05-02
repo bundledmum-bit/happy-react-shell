@@ -69,7 +69,7 @@ export default function CuratedSections({
             <div className="h-10 bg-muted animate-pulse" />
             <div className="p-4 md:p-6 flex gap-3 overflow-hidden">
               {[1, 2, 3, 4].map(j => (
-                <div key={j} className="w-[180px] md:w-[220px] h-[260px] bg-muted/60 rounded-card animate-pulse" />
+                <div key={j} className="w-[35vw] md:w-[220px] h-[260px] bg-muted/60 rounded-card animate-pulse" />
               ))}
             </div>
           </div>
@@ -93,7 +93,6 @@ export default function CuratedSections({
           icon={cat.icon}
           palette={HEADER_PALETTE[idx % HEADER_PALETTE.length]}
           onOpenDetail={onOpenDetail}
-          enablePeek={idx === 0}
         />
       ))}
       {hasMore && (
@@ -112,7 +111,6 @@ function CuratedSection({
   icon,
   palette,
   onOpenDetail,
-  enablePeek = false,
 }: {
   shop: ShopVariant;
   slug: string;
@@ -120,7 +118,6 @@ function CuratedSection({
   icon: string | null;
   palette: { bar: string; text: string; link: string };
   onOpenDetail: (product: Product) => void;
-  enablePeek?: boolean;
 }) {
   const { data: curated, isLoading: curatedLoading } = useSectionProducts(shop, slug);
   const needsFallback = !curatedLoading && (!curated || curated.length === 0);
@@ -142,49 +139,13 @@ function CuratedSection({
     return () => ro.disconnect();
   }, [products.length]);
 
-  // Mobile-only "peek" prompt: when the section first scrolls into view, nudge
-  // the swiper right (revealing the 3rd card) then snap back, hinting that
-  // there's more to see. Fires once per section per page load. Only the first
-  // section on a page receives the prompt — sufficient to teach the gesture.
-  const peekedRef = useRef(false);
-  useEffect(() => {
-    if (!enablePeek) return;
-    const el = scrollRef.current;
-    if (!el || peekedRef.current) return;
-    if (typeof window === "undefined" || window.matchMedia("(min-width: 768px)").matches) return;
-    if (!hasOverflow) return;
-
-    const io = new IntersectionObserver(entries => {
-      for (const e of entries) {
-        if (e.isIntersecting && !peekedRef.current) {
-          peekedRef.current = true;
-          // Card width 180 + gap 12 → reveal 3rd card by scrolling ~140px in.
-          const peekDistance = 140;
-          const t1 = window.setTimeout(() => {
-            el.scrollTo({ left: peekDistance, behavior: "smooth" });
-          }, 350);
-          const t2 = window.setTimeout(() => {
-            el.scrollTo({ left: 0, behavior: "smooth" });
-          }, 1250);
-          // Cleanup if unmounted mid-animation.
-          return () => {
-            window.clearTimeout(t1);
-            window.clearTimeout(t2);
-          };
-        }
-      }
-    }, { threshold: 0.5 });
-    io.observe(el);
-    return () => io.disconnect();
-  }, [hasOverflow, products.length, enablePeek]);
-
   if (loading) {
     return (
       <section className="rounded-2xl shadow-sm overflow-hidden bg-card">
         <div className={`${palette.bar} h-10 animate-pulse`} />
         <div className="p-4 md:p-6 flex gap-3 overflow-hidden">
           {[1, 2, 3, 4].map(j => (
-            <div key={j} className="w-[180px] md:w-[220px] h-[260px] bg-muted/60 rounded-card animate-pulse" />
+            <div key={j} className="w-[35vw] md:w-[220px] h-[260px] bg-muted/60 rounded-card animate-pulse" />
           ))}
         </div>
       </section>
@@ -245,7 +206,7 @@ function CuratedCard({ product, onOpenDetail }: { product: Product; onOpenDetail
   };
 
   return (
-    <div className={`snap-start shrink-0 w-[180px] md:w-[220px] bg-card rounded-card shadow-card overflow-hidden flex flex-col border border-border/40 ${(isOutOfStock || allBrandsOos) ? "opacity-60" : ""}`}>
+    <div className={`snap-start shrink-0 w-[35vw] md:w-[220px] bg-card rounded-card shadow-card overflow-hidden flex flex-col border border-border/40 ${(isOutOfStock || allBrandsOos) ? "opacity-60" : ""}`}>
       <button type="button" onClick={onOpenDetail} className="block w-full text-left">
         <div className="relative aspect-square w-full bg-[#f5f5f5] flex items-center justify-center overflow-hidden">
           {isOutOfStock ? (
