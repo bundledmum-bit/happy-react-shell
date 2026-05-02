@@ -50,8 +50,10 @@ export function useBundles() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("bundles")
-        .select("*, bundle_items(*, products(*), brands(id, product_id, brand_name, price, tier, is_default_for_tier, size_variant, in_stock, stock_quantity, display_order, image_url, thumbnail_url, logo_url, compare_at_price, images, cost_price, weight_range_kg, pack_count, diaper_type, sku))")
+        .select("*, bundle_items(*, products!inner(*), brands(id, product_id, brand_name, price, tier, is_default_for_tier, size_variant, in_stock, stock_quantity, display_order, image_url, thumbnail_url, logo_url, compare_at_price, images, cost_price, weight_range_kg, pack_count, diaper_type, sku))")
         .eq("is_active", true)
+        .eq("bundle_items.products.is_active", true)
+        .is("bundle_items.products.deleted_at", null)
         .order("display_order");
       if (error) throw error;
       return adaptBundles(data);
@@ -67,17 +69,21 @@ export function useBundle(slug: string) {
       // Try slug first, then id
       let { data, error } = await supabase
         .from("bundles")
-        .select("*, bundle_items(*, products(*, brands(id, product_id, brand_name, price, tier, is_default_for_tier, size_variant, in_stock, stock_quantity, display_order, image_url, thumbnail_url, logo_url, compare_at_price, images, cost_price, weight_range_kg, pack_count, diaper_type, sku), product_sizes(*), product_colors(*)), brands(id, product_id, brand_name, price, tier, is_default_for_tier, size_variant, in_stock, stock_quantity, display_order, image_url, thumbnail_url, logo_url, compare_at_price, images, cost_price, weight_range_kg, pack_count, diaper_type, sku))")
+        .select("*, bundle_items(*, products!inner(*, brands(id, product_id, brand_name, price, tier, is_default_for_tier, size_variant, in_stock, stock_quantity, display_order, image_url, thumbnail_url, logo_url, compare_at_price, images, cost_price, weight_range_kg, pack_count, diaper_type, sku), product_sizes(*), product_colors(*)), brands(id, product_id, brand_name, price, tier, is_default_for_tier, size_variant, in_stock, stock_quantity, display_order, image_url, thumbnail_url, logo_url, compare_at_price, images, cost_price, weight_range_kg, pack_count, diaper_type, sku))")
         .eq("slug", slug)
         .eq("is_active", true)
+        .eq("bundle_items.products.is_active", true)
+        .is("bundle_items.products.deleted_at", null)
         .maybeSingle();
 
       if (!data) {
         const res = await supabase
           .from("bundles")
-          .select("*, bundle_items(*, products(*, brands(id, product_id, brand_name, price, tier, is_default_for_tier, size_variant, in_stock, stock_quantity, display_order, image_url, thumbnail_url, logo_url, compare_at_price, images, cost_price, weight_range_kg, pack_count, diaper_type, sku), product_sizes(*), product_colors(*)), brands(id, product_id, brand_name, price, tier, is_default_for_tier, size_variant, in_stock, stock_quantity, display_order, image_url, thumbnail_url, logo_url, compare_at_price, images, cost_price, weight_range_kg, pack_count, diaper_type, sku))")
+          .select("*, bundle_items(*, products!inner(*, brands(id, product_id, brand_name, price, tier, is_default_for_tier, size_variant, in_stock, stock_quantity, display_order, image_url, thumbnail_url, logo_url, compare_at_price, images, cost_price, weight_range_kg, pack_count, diaper_type, sku), product_sizes(*), product_colors(*)), brands(id, product_id, brand_name, price, tier, is_default_for_tier, size_variant, in_stock, stock_quantity, display_order, image_url, thumbnail_url, logo_url, compare_at_price, images, cost_price, weight_range_kg, pack_count, diaper_type, sku))")
           .eq("id", slug)
           .eq("is_active", true)
+          .eq("bundle_items.products.is_active", true)
+          .is("bundle_items.products.deleted_at", null)
           .maybeSingle();
         data = res.data;
         error = res.error;

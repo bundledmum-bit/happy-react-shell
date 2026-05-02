@@ -77,18 +77,27 @@ export function useSectionProducts(shop: ShopVariant, categorySlug: string, limi
   return useQuery({
     queryKey: ["merch_section_products", shop, categorySlug, limit],
     queryFn: async () => {
+      // products!inner forces PostgREST to drop curated rows whose joined
+      // product is missing/filtered, and the embedded `.eq/.is` filters push
+      // is_active/deleted_at down to the joined table BEFORE limit applies.
+      // Without this, an inactive product would still consume one of the
+      // `limit` slots and we'd silently render fewer cards.
       const { data: rows, error } = await supabase
         .from("merch_section_products")
-        .select(`id, product_id, product_order, is_active, products(${PRODUCT_COLS})`)
+        .select(`id, product_id, product_order, is_active, products!inner(${PRODUCT_COLS})`)
         .eq("shop", shop)
         .eq("category_slug", categorySlug)
         .eq("is_active", true)
+        .eq("products.is_active", true)
+        .is("products.deleted_at", null)
         .order("product_order")
         .limit(limit);
       if (error) throw error;
+      // JS-side belt-and-braces: even if the embedded filter were ever
+      // bypassed, never let an inactive product through.
       const productRows = (rows || [])
         .map((r: any) => r.products)
-        .filter((p: any) => p && p.is_active && !p.deleted_at);
+        .filter((p: any) => p && p.is_active !== false && !p.deleted_at);
       return adaptProducts(productRows) as Product[];
     },
     staleTime: STALE_5MIN,

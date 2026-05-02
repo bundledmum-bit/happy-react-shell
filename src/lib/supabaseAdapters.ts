@@ -227,8 +227,24 @@ export function adaptProduct(row: any): Product {
   };
 }
 
-export function adaptProducts(rows: any[]): Product[] {
-  return (rows || []).map(adaptProduct);
+/**
+ * Adapt a list of product rows. Defaults to filtering OUT inactive/soft-deleted
+ * rows — this is the storefront safety net so a forgotten `.eq('is_active', true)`
+ * upstream can never leak an inactive product onto a customer-facing surface.
+ *
+ * Admin call sites that legitimately need to see inactive/trashed products MUST
+ * pass `{ includeInactive: true }`. As of writing, no admin path goes through
+ * adaptProducts — admin pages render raw rows directly from supabase queries —
+ * but the option is here for future-proofing.
+ */
+export function adaptProducts(
+  rows: any[],
+  opts: { includeInactive?: boolean } = {}
+): Product[] {
+  const safe = opts.includeInactive
+    ? rows || []
+    : (rows || []).filter((r: any) => r && r.is_active !== false && !r.deleted_at);
+  return safe.map(adaptProduct);
 }
 
 // ─── Bundle adapter ────────────────────────────────────────────
@@ -240,7 +256,18 @@ const HOSPITAL_COLORS: Record<string, { color: string; light: string }> = {
 };
 
 export function adaptBundle(row: any): Bundle {
+  // Belt-and-braces: drop any bundle_item whose joined product is inactive
+  // or soft-deleted. The query layer already pushes this filter down via
+  // PostgREST (`bundle_items.products.is_active = true`), but if a future
+  // refactor accidentally drops that filter, this guard ensures inactive
+  // products never render on the storefront.
   const items = ((row.bundle_items || []) as any[])
+    .filter((bi: any) => {
+      // If there's no joined product (e.g. brand-only line), keep the item.
+      if (!bi || bi.products == null) return true;
+      const p = bi.products;
+      return p.is_active !== false && !p.deleted_at;
+    })
     .sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0));
 
   const babyItems: BundleItem[] = [];
