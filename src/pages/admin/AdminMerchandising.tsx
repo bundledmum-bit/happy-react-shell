@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase as supabaseTyped } from "@/integrations/supabase/client";
 // merch_* tables aren't in the generated supabase types yet; cast to any.
@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   useShopSections,
   useAdminSectionProducts,
@@ -20,10 +21,120 @@ import {
   useRemoveCategoryPagePin,
   useToggleCategoryPagePin,
   useReorderCategoryPagePins,
+  useUpdateSectionPinLabel,
+  useUpdateSectionPinBrand,
+  useUpdateCategoryPinLabel,
+  useUpdateCategoryPinBrand,
+  useUpdateCategoryPageLabel,
   type ShopVariant,
   type MerchSection,
 } from "@/hooks/useMerchandising";
 import { useProductCategories, type ProductCategory } from "@/hooks/useProductCategories";
+import { packCountLabel } from "@/lib/diaperBrand";
+
+const BRAND_NONE = "__none__";
+
+/** Resolve a brand row's display image. Falls back through the same
+ *  candidates the storefront uses. */
+function brandImage(brand: any): string | null {
+  return brand?.image_url || brand?.thumbnail_url || null;
+}
+
+/** Pick the row's thumbnail: brand override → product image → null. */
+function pinRowThumbnail(row: any): string | null {
+  const brands: any[] = row?.products?.brands || [];
+  if (row?.default_brand_id) {
+    const b = brands.find(b => b.id === row.default_brand_id);
+    const img = brandImage(b);
+    if (img) return img;
+  }
+  return row?.products?.image_url || null;
+}
+
+/** Reusable thumbnail box with onError → grey placeholder fallback. */
+function PinThumbnail({ src, alt }: { src: string | null; alt: string }) {
+  const [errored, setErrored] = useState(false);
+  if (!src || errored) {
+    return <div className="w-10 h-10 rounded-md bg-muted border border-border shrink-0" aria-label={alt} />;
+  }
+  return (
+    <img
+      src={src}
+      alt={alt}
+      onError={() => setErrored(true)}
+      className="w-10 h-10 rounded-md object-cover border border-border bg-muted shrink-0"
+    />
+  );
+}
+
+/** Inline editor block: 40×40 thumb, label-override input, brand picker.
+ *  Shared by both the shop tab pin rows and the category-page pin rows. */
+function PinOverridesFields({
+  row,
+  onSaveLabel,
+  onSaveBrand,
+}: {
+  row: any;
+  onSaveLabel: (label: string | null) => void;
+  onSaveBrand: (brandId: string | null) => void;
+}) {
+  const product = row?.products;
+  const productName: string = product?.name || "Unknown product";
+  const brands: any[] = (product?.brands || []).filter((b: any) => b?.in_stock !== false);
+  const showBrandPicker = brands.length > 1;
+
+  // Local mirror for the label input — reset when the server value changes.
+  const serverLabel: string = row?.display_label ?? "";
+  const [labelDraft, setLabelDraft] = useState(serverLabel);
+  useEffect(() => { setLabelDraft(serverLabel); }, [serverLabel]);
+
+  const serverBrandId: string = row?.default_brand_id ?? "";
+
+  return (
+    <>
+      <PinThumbnail src={pinRowThumbnail(row)} alt={productName} />
+      <div className="flex flex-col gap-0.5 min-w-[160px]">
+        <span className="text-[11px] text-muted-foreground">Label override</span>
+        <Input
+          value={labelDraft}
+          onChange={e => setLabelDraft(e.target.value)}
+          onBlur={() => {
+            const trimmed = labelDraft.trim();
+            const next = trimmed === "" ? null : trimmed;
+            const cur = serverLabel.trim() === "" ? null : serverLabel;
+            if (next !== cur) onSaveLabel(next);
+          }}
+          placeholder={productName}
+          className="h-8 text-sm"
+        />
+      </div>
+      {showBrandPicker && (
+        <div className="flex flex-col gap-0.5 min-w-[180px]">
+          <span className="text-[11px] text-muted-foreground">Default brand</span>
+          <Select
+            value={serverBrandId || BRAND_NONE}
+            onValueChange={(v) => onSaveBrand(v === BRAND_NONE ? null : v)}
+          >
+            <SelectTrigger className="h-8 text-sm">
+              <SelectValue placeholder="No override" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={BRAND_NONE}>No override</SelectItem>
+              {brands.map((b: any) => {
+                const pack = packCountLabel({ packCount: b.pack_count != null ? Number(b.pack_count) : null });
+                return (
+                  <SelectItem key={b.id} value={b.id}>
+                    {b.brand_name}{pack ? ` ${pack}` : ""}
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+    </>
+  );
+}
 
 type TopTab = ShopVariant | "categories";
 
@@ -291,6 +402,8 @@ function SectionProductsEditor({ shop, section }: { shop: ShopVariant; section: 
     [rows],
   );
   const [addOpen, setAddOpen] = useState(false);
+  const updatePinLabel = useUpdateSectionPinLabel();
+  const updatePinBrand = useUpdateSectionPinBrand();
 
   const removeRow = useMutation({
     mutationFn: async (id: string) => {
@@ -351,9 +464,13 @@ function SectionProductsEditor({ shop, section }: { shop: ShopVariant; section: 
       ) : (
         <div className="space-y-1">
           {sorted.map((row: any, i: number) => (
-            <div key={row.id} className="flex items-center gap-2 bg-card border border-border rounded-lg p-2">
+            <div key={row.id} className="flex flex-wrap md:flex-nowrap items-center gap-2 bg-card border border-border rounded-lg p-2">
+              <PinOverridesFields
+                row={row}
+                onSaveLabel={(label) => updatePinLabel.mutate({ pinId: row.id, label, shop, categorySlug: slug })}
+                onSaveBrand={(brandId) => updatePinBrand.mutate({ pinId: row.id, brandId, shop, categorySlug: slug })}
+              />
               <GripVertical className="w-4 h-4 text-text-light" />
-              <span className="text-xl">{row.products?.emoji || "📦"}</span>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold truncate">{row.products?.name || "Unknown product"}</div>
                 <div className="text-[10px] text-text-light">order #{row.product_order}</div>
@@ -513,10 +630,17 @@ function CategoryRow({
 }) {
   const { data: pins = [] } = useCategoryPagePinsAdmin(category.slug, expanded);
   const pinnedCount = pins.length;
+  const updatePageLabel = useUpdateCategoryPageLabel();
+
+  // Local mirror for the page-heading override input. Reset when the
+  // server-side merch_page_label changes (re-fetch).
+  const serverLabel = category.merch_page_label ?? "";
+  const [headingDraft, setHeadingDraft] = useState(serverLabel);
+  useEffect(() => { setHeadingDraft(serverLabel); }, [serverLabel]);
 
   return (
     <div className="bg-card border border-border rounded-xl">
-      <div className="flex items-center gap-2 p-3">
+      <div className="flex flex-wrap items-center gap-2 p-3">
         <button onClick={onToggle} className="p-1 text-text-med hover:text-foreground">
           {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
         </button>
@@ -527,6 +651,24 @@ function CategoryRow({
             <div className="text-[11px] text-text-light">{category.slug}</div>
           </div>
         </div>
+        {expanded && (
+          <div className="flex flex-col gap-0.5 min-w-[16rem]">
+            <span className="text-[11px] text-muted-foreground">Page heading override</span>
+            <Input
+              value={headingDraft}
+              onChange={e => setHeadingDraft(e.target.value)}
+              onBlur={() => {
+                const trimmed = headingDraft.trim();
+                const next = trimmed === "" ? null : trimmed;
+                const cur = serverLabel.trim() === "" ? null : serverLabel;
+                if (next !== cur) updatePageLabel.mutate({ categorySlug: category.slug, label: next });
+              }}
+              placeholder={category.name}
+              className="h-8 text-sm w-64"
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">Overrides the heading on the category browse page</p>
+          </div>
+        )}
         <span className="text-[11px] bg-muted px-2 py-0.5 rounded font-semibold text-text-med">
           {expanded ? `${pinnedCount} pinned` : "—"}
         </span>
@@ -553,6 +695,8 @@ function CategoryPinsEditor({ categorySlug }: { categorySlug: string }) {
   const removePin = useRemoveCategoryPagePin();
   const togglePin = useToggleCategoryPagePin();
   const reorderPins = useReorderCategoryPagePins();
+  const updatePinLabel = useUpdateCategoryPinLabel();
+  const updatePinBrand = useUpdateCategoryPinBrand();
 
   const move = (idx: number, dir: -1 | 1) => {
     const me = sorted[idx] as any;
@@ -578,9 +722,13 @@ function CategoryPinsEditor({ categorySlug }: { categorySlug: string }) {
       ) : (
         <div className="space-y-1">
           {sorted.map((row: any, i: number) => (
-            <div key={row.id} className="flex items-center gap-2 bg-card border border-border rounded-lg p-2">
+            <div key={row.id} className="flex flex-wrap md:flex-nowrap items-center gap-2 bg-card border border-border rounded-lg p-2">
+              <PinOverridesFields
+                row={row}
+                onSaveLabel={(label) => updatePinLabel.mutate({ pinId: row.id, label, categorySlug })}
+                onSaveBrand={(brandId) => updatePinBrand.mutate({ pinId: row.id, brandId, categorySlug })}
+              />
               <GripVertical className="w-4 h-4 text-text-light" />
-              <span className="text-xl">{row.products?.emoji || "📦"}</span>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold truncate">{row.products?.name || "Unknown product"}</div>
                 <div className="text-[10px] text-text-light">order #{row.product_order}</div>

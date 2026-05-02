@@ -7,6 +7,20 @@ import { adaptProducts, type Product } from "@/lib/supabaseAdapters";
 
 const STALE_5MIN = 5 * 60 * 1000;
 
+/** Product with overrides surfaced from the merchandising pin row. */
+export type MerchPinnedProduct = Product & {
+  _pinDisplayLabel?: string | null;
+  _pinDefaultBrandId?: string | null;
+};
+
+/** Shape returned by section/category pinned-product hooks (and the
+ *  fallback variants), so consumers can treat both arrays uniformly. */
+export interface SectionPinnedProduct {
+  product: Product;
+  displayLabel: string | null;
+  defaultBrandId: string | null;
+}
+
 const BRAND_COLS =
   "id, product_id, brand_name, price, tier, is_default_for_tier, size_variant, in_stock, stock_quantity, display_order, image_url, thumbnail_url, logo_url, compare_at_price, images, cost_price, weight_range_kg, pack_count, diaper_type, sku";
 
@@ -84,7 +98,7 @@ export function useSectionProducts(shop: ShopVariant, categorySlug: string, limi
       // `limit` slots and we'd silently render fewer cards.
       const { data: rows, error } = await supabase
         .from("merch_section_products")
-        .select(`id, product_id, product_order, is_active, products!inner(${PRODUCT_COLS})`)
+        .select(`id, product_id, product_order, is_active, display_label, default_brand_id, products!inner(${PRODUCT_COLS})`)
         .eq("shop", shop)
         .eq("category_slug", categorySlug)
         .eq("is_active", true)
@@ -94,11 +108,19 @@ export function useSectionProducts(shop: ShopVariant, categorySlug: string, limi
         .limit(limit);
       if (error) throw error;
       // JS-side belt-and-braces: even if the embedded filter were ever
-      // bypassed, never let an inactive product through.
-      const productRows = (rows || [])
-        .map((r: any) => r.products)
-        .filter((p: any) => p && p.is_active !== false && !p.deleted_at);
-      return adaptProducts(productRows) as Product[];
+      // bypassed, never let an inactive product through. Pair each adapted
+      // Product with the pin's display_label / default_brand_id so the
+      // storefront can apply overrides without the legacy `_pin*` fields.
+      const safeRows = (rows || [])
+        .filter((r: any) => r.products && r.products.is_active !== false && !r.products.deleted_at);
+      const productRows = safeRows.map((r: any) => r.products);
+      const adapted = adaptProducts(productRows) as Product[];
+      const out: SectionPinnedProduct[] = adapted.map((product, i) => ({
+        product,
+        displayLabel: safeRows[i]?.display_label ?? null,
+        defaultBrandId: safeRows[i]?.default_brand_id ?? null,
+      }));
+      return out;
     },
     staleTime: STALE_5MIN,
     enabled: !!shop && !!categorySlug,
@@ -107,7 +129,9 @@ export function useSectionProducts(shop: ShopVariant, categorySlug: string, limi
 
 /**
  * Fallback when the curated list is empty — most-recent products in the
- * subcategory, capped at 10. Adapted Product[].
+ * subcategory, capped at 10. Returns the SectionPinnedProduct shape with
+ * displayLabel/defaultBrandId always null so callers can treat curated +
+ * fallback uniformly.
  */
 export function useFallbackSectionProducts(categorySlug: string, limit = 10) {
   return useQuery({
@@ -122,7 +146,13 @@ export function useFallbackSectionProducts(categorySlug: string, limit = 10) {
         .order("created_at", { ascending: false })
         .limit(limit);
       if (error) throw error;
-      return adaptProducts(data || []) as Product[];
+      const adapted = adaptProducts(data || []) as Product[];
+      const out: SectionPinnedProduct[] = adapted.map(product => ({
+        product,
+        displayLabel: null,
+        defaultBrandId: null,
+      }));
+      return out;
     },
     staleTime: STALE_5MIN,
     enabled: !!categorySlug,
@@ -259,17 +289,23 @@ export function useCategoryPagePins(categorySlug: string) {
     queryFn: async () => {
       const { data: rows, error } = await supabase
         .from("merch_category_products")
-        .select(`id, product_id, product_order, is_active, products!inner(${PRODUCT_COLS})`)
+        .select(`id, product_id, product_order, is_active, display_label, default_brand_id, products!inner(${PRODUCT_COLS})`)
         .eq("category_slug", categorySlug)
         .eq("is_active", true)
         .eq("products.is_active", true)
         .is("products.deleted_at", null)
         .order("product_order");
       if (error) throw error;
-      const productRows = (rows || [])
-        .map((r: any) => r.products)
-        .filter((p: any) => p && p.is_active !== false && !p.deleted_at);
-      return adaptProducts(productRows) as Product[];
+      const safeRows = (rows || [])
+        .filter((r: any) => r.products && r.products.is_active !== false && !r.products.deleted_at);
+      const productRows = safeRows.map((r: any) => r.products);
+      const adapted = adaptProducts(productRows) as Product[];
+      const out: SectionPinnedProduct[] = adapted.map((product, i) => ({
+        product,
+        displayLabel: safeRows[i]?.display_label ?? null,
+        defaultBrandId: safeRows[i]?.default_brand_id ?? null,
+      }));
+      return out;
     },
     staleTime: STALE_5MIN,
     enabled: !!categorySlug,
@@ -286,7 +322,7 @@ export function useCategoryPagePinsAdmin(categorySlug: string, enabled = true) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("merch_category_products")
-        .select(`id, product_id, product_order, is_active, products(id, name, emoji, image_url, subcategory, is_active, deleted_at)`)
+        .select(`id, product_id, product_order, is_active, display_label, default_brand_id, products(id, name, emoji, image_url, subcategory, is_active, deleted_at, brands(${BRAND_COLS}))`)
         .eq("category_slug", categorySlug)
         .order("product_order");
       if (error) throw error;
@@ -295,6 +331,24 @@ export function useCategoryPagePinsAdmin(categorySlug: string, enabled = true) {
     staleTime: 30 * 1000,
     enabled: enabled && !!categorySlug,
   });
+}
+
+// ---- Helper: surfaced brand picker (single source of truth) ----------------
+
+/**
+ * Pick which brand to surface on a product card. If `defaultBrandId` is set
+ * and matches one of the product's brands, that brand wins. Otherwise we
+ * fall back to the cheapest in-stock brand (sorted by tier ASC), which is
+ * the legacy behaviour used across the storefront.
+ */
+export function pickSurfacedBrand(product: Product, defaultBrandId: string | null) {
+  if (defaultBrandId) {
+    const match = product.brands.find(b => b.id === defaultBrandId);
+    if (match) return match;
+  }
+  const sorted = product.brands.slice().sort((a, b) => a.tier - b.tier);
+  const inStock = sorted.filter(b => b.inStock !== false);
+  return inStock[0] || sorted[0] || null;
 }
 
 function invalidateCategoryPins(qc: ReturnType<typeof useQueryClient>, categorySlug: string) {
@@ -375,7 +429,7 @@ export function useAdminSectionProducts(shop: ShopVariant, categorySlug: string,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("merch_section_products")
-        .select(`id, product_id, product_order, is_active, products(id, name, emoji, image_url, subcategory, is_active, deleted_at)`)
+        .select(`id, product_id, product_order, is_active, display_label, default_brand_id, products(id, name, emoji, image_url, subcategory, is_active, deleted_at, brands(${BRAND_COLS}))`)
         .eq("shop", shop)
         .eq("category_slug", categorySlug)
         .order("product_order");
@@ -384,5 +438,100 @@ export function useAdminSectionProducts(shop: ShopVariant, categorySlug: string,
     },
     staleTime: 30 * 1000,
     enabled,
+  });
+}
+
+// ----------------------------------------------------------------------------
+// Pin override mutations — display_label + default_brand_id + page heading
+// ----------------------------------------------------------------------------
+
+function invalidateSectionPins(
+  qc: ReturnType<typeof useQueryClient>,
+  shop: ShopVariant,
+  categorySlug: string,
+) {
+  qc.invalidateQueries({ queryKey: ["admin_merch_section_products", shop, categorySlug] });
+  qc.invalidateQueries({ queryKey: ["merch_section_products", shop, categorySlug] });
+}
+
+export function useUpdateSectionPinLabel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      pinId, label,
+    }: { pinId: string; label: string | null; shop: ShopVariant; categorySlug: string }) => {
+      const { error } = await supabase
+        .from("merch_section_products")
+        .update({ display_label: label })
+        .eq("id", pinId);
+      if (error) throw error;
+    },
+    onSuccess: (_d, vars) => invalidateSectionPins(qc, vars.shop, vars.categorySlug),
+  });
+}
+
+export function useUpdateSectionPinBrand() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      pinId, brandId,
+    }: { pinId: string; brandId: string | null; shop: ShopVariant; categorySlug: string }) => {
+      const { error } = await supabase
+        .from("merch_section_products")
+        .update({ default_brand_id: brandId })
+        .eq("id", pinId);
+      if (error) throw error;
+    },
+    onSuccess: (_d, vars) => invalidateSectionPins(qc, vars.shop, vars.categorySlug),
+  });
+}
+
+export function useUpdateCategoryPinLabel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      pinId, label,
+    }: { pinId: string; label: string | null; categorySlug: string }) => {
+      const { error } = await supabase
+        .from("merch_category_products")
+        .update({ display_label: label })
+        .eq("id", pinId);
+      if (error) throw error;
+    },
+    onSuccess: (_d, vars) => invalidateCategoryPins(qc, vars.categorySlug),
+  });
+}
+
+export function useUpdateCategoryPinBrand() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      pinId, brandId,
+    }: { pinId: string; brandId: string | null; categorySlug: string }) => {
+      const { error } = await supabase
+        .from("merch_category_products")
+        .update({ default_brand_id: brandId })
+        .eq("id", pinId);
+      if (error) throw error;
+    },
+    onSuccess: (_d, vars) => invalidateCategoryPins(qc, vars.categorySlug),
+  });
+}
+
+export function useUpdateCategoryPageLabel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      categorySlug, label,
+    }: { categorySlug: string; label: string | null }) => {
+      const { error } = await supabase
+        .from("product_categories")
+        .update({ merch_page_label: label })
+        .eq("slug", categorySlug);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["product-categories"] });
+    },
   });
 }

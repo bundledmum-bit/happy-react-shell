@@ -4,7 +4,9 @@ import {
   usePopularCategories,
   useSectionProducts,
   useFallbackSectionProducts,
+  pickSurfacedBrand,
   type ShopVariant,
+  type SectionPinnedProduct,
 } from "@/hooks/useMerchandising";
 import { fmt } from "@/lib/cart";
 import ProductImage from "@/components/ProductImage";
@@ -122,7 +124,7 @@ function CuratedSection({
   const { data: curated, isLoading: curatedLoading } = useSectionProducts(shop, slug);
   const needsFallback = !curatedLoading && (!curated || curated.length === 0);
   const { data: fallback, isLoading: fallbackLoading } = useFallbackSectionProducts(needsFallback ? slug : "");
-  const products = (curated && curated.length > 0 ? curated : fallback) || [];
+  const products: SectionPinnedProduct[] = (curated && curated.length > 0 ? curated : fallback) || [];
   const loading = curatedLoading || (needsFallback && fallbackLoading);
 
   // Mobile-only: show pulsing "Swipe for more →" hint when the swiper has
@@ -180,18 +182,19 @@ function CuratedSection({
         ref={scrollRef}
         className="flex gap-3 snap-x snap-mandatory overflow-x-auto p-4 md:p-6 scrollbar-hide"
       >
-        {products.map(p => (
-          <CuratedCard key={p.id} product={p} onOpenDetail={() => onOpenDetail(p)} />
+        {products.map(pin => (
+          <CuratedCard key={pin.product.id} pin={pin} onOpenDetail={() => onOpenDetail(pin.product)} />
         ))}
       </div>
     </section>
   );
 }
 
-function CuratedCard({ product, onOpenDetail }: { product: Product; onOpenDetail: () => void }) {
+function CuratedCard({ pin, onOpenDetail }: { pin: SectionPinnedProduct; onOpenDetail: () => void }) {
+  const product = pin.product;
   const brands = product.brands.slice().sort((a, b) => a.tier - b.tier);
-  const inStock = brands.filter(b => b.inStock !== false);
-  const surfaceBrand = inStock[0] || brands[0];
+  const surfaceBrand = pickSurfacedBrand(product, pin.defaultBrandId);
+  const displayName = pin.displayLabel?.trim() || product.name;
   const minPrice = brands.length > 0 ? Math.min(...brands.map(b => b.price)) : surfaceBrand?.price || 0;
   const showFrom = brands.length > 1;
   const image = surfaceBrand?.imageUrl || product.imageUrl || null;
@@ -226,7 +229,7 @@ function CuratedCard({ product, onOpenDetail }: { product: Product; onOpenDetail
           <ProductImage
             imageUrl={image}
             emoji={surfaceBrand?.img || product.baseImg}
-            alt={product.name}
+            alt={displayName}
             className="w-full h-full"
             emojiClassName="text-5xl"
           />
@@ -234,7 +237,7 @@ function CuratedCard({ product, onOpenDetail }: { product: Product; onOpenDetail
       </button>
       <div className="p-3 flex flex-col gap-1 flex-1">
         <div className="text-[13px] font-semibold leading-tight line-clamp-2 cursor-pointer min-h-[34px]" onClick={onOpenDetail}>
-          {product.name}
+          {displayName}
         </div>
         <div className="flex items-baseline gap-1.5 mt-auto">
           <span className="text-[15px] font-bold text-forest">

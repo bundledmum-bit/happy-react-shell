@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import ProductDetailDrawer from "@/components/ProductDetailDrawer";
 import ProductImage from "@/components/ProductImage";
 import { useProductCategories } from "@/hooks/useProductCategories";
-import { useCategoryPagePins } from "@/hooks/useMerchandising";
+import { useCategoryPagePins, type SectionPinnedProduct } from "@/hooks/useMerchandising";
 
 // Soft pastel rotation so adjacent product sections look distinct.
 const SECTION_BG_PALETTE = [
@@ -56,27 +56,31 @@ export default function CategoryPage() {
   const category = (categories || []).find(c => c.slug === slug);
   const [detail, setDetail] = useState<{ product: Product; brandId?: string } | null>(null);
 
-  useEffect(() => {
-    document.title = `${category?.name || "Category"} | BundledMum`;
-  }, [category?.name]);
+  const heading = category?.merch_page_label?.trim() || category?.name || slug;
 
-  // Merge pins (already in order) with the rest of the category products,
-  // dedupe by product.id. Pins win the slot they occupy.
-  const products = useMemo(() => {
+  useEffect(() => {
+    document.title = `${heading || "Category"} | BundledMum`;
+  }, [heading]);
+
+  // Merge pins (already in order, carrying display_label/default_brand_id)
+  // with the rest of the category products, dedupe by product.id. Pins
+  // win the slot they occupy. Non-pinned products get null overrides so
+  // the downstream renderer can treat the array uniformly.
+  const products = useMemo<SectionPinnedProduct[]>(() => {
     const pins = pinnedProducts || [];
     const rest = allProducts || [];
     const seen = new Set<string>();
-    const merged: Product[] = [];
-    for (const p of pins) {
-      if (!seen.has(p.id)) {
-        seen.add(p.id);
-        merged.push(p);
+    const merged: SectionPinnedProduct[] = [];
+    for (const pin of pins) {
+      if (!seen.has(pin.product.id)) {
+        seen.add(pin.product.id);
+        merged.push(pin);
       }
     }
     for (const p of rest) {
       if (!seen.has(p.id)) {
         seen.add(p.id);
-        merged.push(p);
+        merged.push({ product: p, displayLabel: null, defaultBrandId: null });
       }
     }
     return merged;
@@ -91,11 +95,11 @@ export default function CategoryPage() {
         <nav className="text-xs text-muted-foreground mb-3">
           <Link to="/shop" className="hover:text-foreground">Shop</Link>
           <span className="mx-1.5">/</span>
-          <span className="text-foreground font-medium">{category?.name || slug}</span>
+          <span className="text-foreground font-medium">{heading}</span>
         </nav>
         <div className="flex items-center gap-3 mb-2">
           {category?.icon && <span className="text-3xl">{category.icon}</span>}
-          <h1 className="pf text-2xl md:text-3xl font-bold">{category?.name || slug}</h1>
+          <h1 className="pf text-2xl md:text-3xl font-bold">{heading}</h1>
         </div>
         <p className="text-muted-foreground text-sm mb-6">
           {totalProducts} product{totalProducts === 1 ? "" : "s"}
@@ -130,12 +134,12 @@ export default function CategoryPage() {
           </div>
         ) : (
           <div className="space-y-5 md:space-y-6">
-            {products.map((product, idx) => (
+            {products.map((pin, idx) => (
               <ProductSection
-                key={product.id}
-                product={product}
+                key={pin.product.id}
+                pin={pin}
                 bgClass={SECTION_BG_PALETTE[idx % SECTION_BG_PALETTE.length]}
-                onOpenDetail={(brandId) => setDetail({ product, brandId })}
+                onOpenDetail={(brandId) => setDetail({ product: pin.product, brandId })}
               />
             ))}
           </div>
@@ -152,17 +156,33 @@ export default function CategoryPage() {
 }
 
 function ProductSection({
-  product,
+  pin,
   bgClass,
   onOpenDetail,
 }: {
-  product: Product;
+  pin: SectionPinnedProduct;
   bgClass: string;
   onOpenDetail: (brandId?: string) => void;
 }) {
+  const product = pin.product;
+  const sectionHeading = pin.displayLabel?.trim() || product.name;
   const brandCount = product.brands.length;
   const scrollRef = useRef<HTMLDivElement>(null);
   const [hasOverflow, setHasOverflow] = useState(false);
+
+  // Reorder brands for the swiper so the pin's default brand sits at slot 0.
+  // Don't filter — every brand still renders, just in a new order.
+  const orderedBrands = useMemo(() => {
+    const list = product.brands.slice();
+    if (pin.defaultBrandId) {
+      const idx = list.findIndex(b => b.id === pin.defaultBrandId);
+      if (idx > 0) {
+        const [b] = list.splice(idx, 1);
+        list.unshift(b);
+      }
+    }
+    return list;
+  }, [product.brands, pin.defaultBrandId]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -174,7 +194,7 @@ function ProductSection({
     const ro = new ResizeObserver(check);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [product.brands]);
+  }, [orderedBrands]);
 
   const brandCountBadge = (
     <span className="text-xs text-muted-foreground whitespace-nowrap">
@@ -185,7 +205,7 @@ function ProductSection({
   return (
     <section className={`${bgClass} rounded-2xl shadow-sm p-4 md:p-6`}>
       <div className="flex items-baseline justify-between mb-3 px-0">
-        <h2 className="pf text-base md:text-lg font-bold">{product.name}</h2>
+        <h2 className="pf text-base md:text-lg font-bold">{sectionHeading}</h2>
         {/* Desktop: always show brand count */}
         <span className="hidden md:inline">{brandCountBadge}</span>
         {/* Mobile: swipe hint when overflow, brand count otherwise */}
@@ -203,7 +223,7 @@ function ProductSection({
         ref={scrollRef}
         className="flex gap-3 snap-x snap-mandatory overflow-x-auto pb-2 -mx-4 md:-mx-6 px-4 md:px-6 scroll-pl-4 md:scroll-pl-6 scrollbar-hide"
       >
-        {product.brands.map(brand => (
+        {orderedBrands.map(brand => (
           <BrandCard
             key={brand.id}
             product={product}
