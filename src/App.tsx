@@ -92,6 +92,7 @@ import AdminSpendThresholds from "@/pages/admin/AdminSpendThresholds";
 import AdminReturns from "@/pages/admin/AdminReturns";
 import AdminSubscriptions from "@/pages/admin/AdminSubscriptions";
 import AdminMerchandising from "@/pages/admin/AdminMerchandising";
+import MarginsPage from "@/pages/admin/products/MarginsPage";
 import AdminHRLayout from "@/pages/admin/hr/AdminHRLayout";
 import AdminHREmployees from "@/pages/admin/hr/AdminHREmployees";
 import AdminHRPayroll from "@/pages/admin/hr/AdminHRPayroll";
@@ -261,6 +262,7 @@ const App = () => (
               <Route path="/admin" element={<AdminLayout />}>
                 <Route index element={<PermissionGate module="dashboard" action="view"><AdminDashboard /></PermissionGate>} />
                 <Route path="products" element={<PermissionGate module="products" action="view"><AdminProducts /></PermissionGate>} />
+                <Route path="products/margins" element={<PermissionGate module="products" action="view"><MarginsPage /></PermissionGate>} />
                 <Route path="bundles" element={<PermissionGate module="products" action="view"><AdminBundles /></PermissionGate>} />
                 <Route path="orders" element={<PermissionGate module="orders" action="view"><AdminOrders /></PermissionGate>} />
                 <Route path="delivery" element={<PermissionGate module="delivery" action="view"><AdminDelivery /></PermissionGate>} />
