@@ -10,12 +10,14 @@ import ProductImage from "@/components/ProductImage";
 import { useProductCategories } from "@/hooks/useProductCategories";
 import { useCategoryPagePins, type SectionPinnedProduct } from "@/hooks/useMerchandising";
 
-// Soft pastel rotation so adjacent product sections look distinct.
-const SECTION_BG_PALETTE = [
-  "bg-warm-cream",
-  "bg-coral-blush/70",
-  "bg-mint/60",
-  "bg-forest-light/70",
+// Solid coloured header bars — mirrors CuratedSections so category pages
+// have the same look and feel as shop pages. The body of each section card
+// sits on white so brand cards read clearly against the saturated bar.
+const HEADER_PALETTE: Array<{ bar: string; text: string }> = [
+  { bar: "bg-coral",       text: "text-white" },
+  { bar: "bg-forest",      text: "text-white" },
+  { bar: "bg-mint",        text: "text-forest" },
+  { bar: "bg-warm-cream",  text: "text-forest" },
 ];
 
 const BRAND_COLS =
@@ -138,7 +140,7 @@ export default function CategoryPage() {
               <ProductSection
                 key={pin.product.id}
                 pin={pin}
-                bgClass={SECTION_BG_PALETTE[idx % SECTION_BG_PALETTE.length]}
+                palette={HEADER_PALETTE[idx % HEADER_PALETTE.length]}
                 onOpenDetail={(brandId) => setDetail({ product: pin.product, brandId })}
               />
             ))}
@@ -157,11 +159,11 @@ export default function CategoryPage() {
 
 function ProductSection({
   pin,
-  bgClass,
+  palette,
   onOpenDetail,
 }: {
   pin: SectionPinnedProduct;
-  bgClass: string;
+  palette: { bar: string; text: string };
   onOpenDetail: (brandId?: string) => void;
 }) {
   const product = pin.product;
@@ -197,21 +199,21 @@ function ProductSection({
   }, [orderedBrands]);
 
   const brandCountBadge = (
-    <span className="text-xs text-muted-foreground whitespace-nowrap">
+    <span className={`text-[11px] md:text-xs font-semibold whitespace-nowrap ${palette.text} opacity-80`}>
       ({brandCount} brand{brandCount === 1 ? "" : "s"})
     </span>
   );
 
   return (
-    <section className={`${bgClass} rounded-2xl shadow-sm p-4 md:p-6`}>
-      <div className="flex items-baseline justify-between mb-3 px-0">
-        <h2 className="pf text-base md:text-lg font-bold">{sectionHeading}</h2>
+    <section className="rounded-2xl shadow-sm overflow-hidden bg-card">
+      <div className={`${palette.bar} ${palette.text} px-4 md:px-6 py-2.5 md:py-3 flex items-center justify-between gap-3`}>
+        <h2 className="pf text-base md:text-lg font-bold truncate">{sectionHeading}</h2>
         {/* Desktop: always show brand count */}
         <span className="hidden md:inline">{brandCountBadge}</span>
         {/* Mobile: swipe hint when overflow, brand count otherwise */}
         <span className="md:hidden">
           {hasOverflow ? (
-            <span className="text-xs text-coral animate-pulse whitespace-nowrap">
+            <span className={`text-[11px] font-semibold animate-pulse whitespace-nowrap ${palette.text}`}>
               Swipe for more →
             </span>
           ) : (
@@ -221,7 +223,7 @@ function ProductSection({
       </div>
       <div
         ref={scrollRef}
-        className="flex gap-3 snap-x snap-mandatory overflow-x-auto pb-2 -mx-4 md:-mx-6 px-4 md:px-6 scroll-pl-4 md:scroll-pl-6 scrollbar-hide"
+        className="flex gap-3 snap-x snap-mandatory overflow-x-auto p-4 md:p-6 scrollbar-hide"
       >
         {orderedBrands.map(brand => (
           <BrandCard
