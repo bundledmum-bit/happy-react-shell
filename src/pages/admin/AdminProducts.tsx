@@ -1,20 +1,25 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Search, Copy, RotateCcw, Check, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Copy, RotateCcw, Check, X, TrendingUp } from "lucide-react";
 import AdminProductForm from "./AdminProductForm";
 import BulkActionsBar from "@/components/admin/BulkActionsBar";
 import TrashTabs from "@/components/admin/TrashTabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ExportButton, ImportButton } from "@/components/admin/ExcelImportExport";
 import { usePermissions } from "@/hooks/useAdminPermissionsContext";
+import { useAdminUser } from "@/hooks/useAdminPermissions";
 import { useProductCategories } from "@/hooks/useProductCategories";
 
 export default function AdminProducts() {
   const queryClient = useQueryClient();
   const { can } = usePermissions();
+  const { data: adminUser } = useAdminUser();
+  // Margins dashboard is a privileged view — only super_admin / admin see the
+  // entry point. Fail closed if the role lookup is loading or errored.
+  const canSeeMargins = adminUser?.role === "super_admin" || adminUser?.role === "admin";
   const [urlParams, setUrlParams] = useSearchParams();
 
   const [search, setSearch] = useState(urlParams.get("q") || "");
@@ -151,6 +156,14 @@ export default function AdminProducts() {
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <h1 className="pf text-2xl font-bold">Products ({filtered.length})</h1>
         <div className="flex items-center gap-2">
+          {canSeeMargins && (
+            <Link
+              to="/admin/products/margins"
+              className="flex items-center gap-1.5 border border-border bg-card text-foreground px-4 py-2 rounded-lg text-sm font-semibold hover:bg-muted"
+            >
+              <TrendingUp className="w-4 h-4" /> View Margins
+            </Link>
+          )}
           {can("products", "export") && <ExportButton products={allProducts} />}
           {can("products", "import") && <ImportButton />}
           {can("products", "create") && (
